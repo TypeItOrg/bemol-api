@@ -21,9 +21,9 @@ class DatabaseMigrationIntegrationTest extends DatabaseMigrationTestSupport {
     assertThat(flyway.validateWithResult().validationSuccessful).isTrue();
     assertThat(nonUtcEventTimestampColumnCount()).isZero();
     assertThat(utcEventTimestampColumnCount()).isPositive();
-    assertThat(tableCount()).isEqualTo(68);
+    assertThat(tableCount()).isEqualTo(67);
     assertThat(institutionCount()).isPositive();
-    assertThat(tenantRelationshipConstraintCount()).isEqualTo(8);
+    assertThat(tenantRelationshipConstraintCount()).isEqualTo(7);
     assertThat(activePersonDocumentIndexCount()).isEqualTo(1);
     assertThat(passwordResetTokenUserUniqueIndexCount()).isEqualTo(1);
     assertThat(pgTrgmExtensionCount()).isEqualTo(1);
@@ -112,9 +112,8 @@ class DatabaseMigrationIntegrationTest extends DatabaseMigrationTestSupport {
           'people_address_institution_fk',
           'users_person_institution_fk',
           'students_person_institution_fk',
-          'guardian_profiles_person_institution_fk',
-          'student_guardians_student_institution_fk',
-          'student_guardians_guardian_institution_fk',
+          'person_guardians_tutor_institution_fk',
+          'person_guardians_dependent_institution_fk',
           'person_role_assignments_person_institution_fk',
           'course_class_teachers_person_institution_fk'
         )

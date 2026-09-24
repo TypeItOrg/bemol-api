@@ -116,10 +116,11 @@ public class Person extends Auditable {
   @Column(name = "phone_number", length = 30)
   private @Nullable String phoneNumber;
 
-  @NotBlank(message = ValidationMessages.PERSON_EMAIL_REQUIRED)
+  // Null for dependents (e.g. minors) who have no email of their own. Accounts still require one
+  // at registration (RegisterRequest).
   @Email(message = ValidationMessages.PERSON_EMAIL_FORMAT)
   @Size(max = 150, message = ValidationMessages.PERSON_EMAIL_MAX_LENGTH)
-  @Column(nullable = false, length = 150)
+  @Column(length = 150)
   private String email;
 
   @Column(name = "deleted", nullable = false)

@@ -18,25 +18,24 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import lombok.Setter;
 
+/** Legal guardianship of a person (usually a minor) by another person, within an institution. */
 @Entity
 @Table(
-    name = "student_guardians",
+    name = "person_guardians",
     uniqueConstraints =
         @UniqueConstraint(
-            name = "student_guardians_unique",
-            columnNames = {"institution_id", "student_id", "guardian_profile_id"}))
+            name = "person_guardians_unique",
+            columnNames = {"institution_id", "tutor_person_id", "dependent_person_id"}))
 @Getter
-@Setter
 @NoArgsConstructor
 @AllArgsConstructor(access = AccessLevel.PRIVATE)
 @Builder
-public class StudentGuardian extends Auditable {
+public class PersonGuardian extends Auditable {
 
   @Id
   @GeneratedUUIDv7
-  @Column(name = "student_guardian_id")
+  @Column(name = "person_guardian_id")
   private UUID id;
 
   @ManyToOne(fetch = FetchType.LAZY, optional = false)
@@ -44,14 +43,17 @@ public class StudentGuardian extends Auditable {
   private Institution institution;
 
   @ManyToOne(fetch = FetchType.LAZY, optional = false)
-  @JoinColumn(name = "student_id", nullable = false)
-  private Student student;
+  @JoinColumn(name = "tutor_person_id", nullable = false)
+  private Person tutorPerson;
 
   @ManyToOne(fetch = FetchType.LAZY, optional = false)
-  @JoinColumn(name = "guardian_profile_id", nullable = false)
-  private GuardianProfile guardianProfile;
+  @JoinColumn(name = "dependent_person_id", nullable = false)
+  private Person dependentPerson;
 
   @Enumerated(EnumType.STRING)
   @Column(nullable = false, length = 30)
   private GuardianRelationship relationship;
+
+  @Column(name = "is_primary_contact", nullable = false)
+  private boolean primaryContact;
 }

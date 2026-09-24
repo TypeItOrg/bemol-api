@@ -4,10 +4,13 @@ import static ar.edu.utn.frvm.typeit.boero_api.support.InstitutionalTestData.cre
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import ar.edu.utn.frvm.typeit.boero_api.institutional.entities.Institution;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.entities.Person;
 import ar.edu.utn.frvm.typeit.boero_api.support.JpaAuditingTestConfig;
 import jakarta.persistence.EntityManager;
 import jakarta.validation.ConstraintViolationException;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -24,7 +27,7 @@ class PersonConstraintsPersistenceTest {
       value = {
         "firstName|AB|12345678|ana@example.com",
         "documentNumber|Ana|abcdefgh|ana@example.com",
-        "email|Ana|12345678|NULL"
+        "email|Ana|12345678|'   '"
       },
       delimiter = '|',
       nullValues = "NULL")
@@ -51,5 +54,23 @@ class PersonConstraintsPersistenceTest {
                 assertThat(((ConstraintViolationException) error).getConstraintViolations())
                     .extracting(violation -> violation.getPropertyPath().toString())
                     .containsExactly(field));
+  }
+
+  @Test
+  @DisplayName("Should accept persist without email so dependents do not need their own")
+  void shouldAcceptPersistWhenEmailIsMissing() {
+    Institution institution = createInstitution(entityManager, "person-bv-email");
+    Person person =
+        Person.builder()
+            .institution(institution)
+            .firstName("Ana")
+            .lastName("Garcia")
+            .documentNumber("12345678")
+            .build();
+
+    entityManager.persist(person);
+    entityManager.flush();
+
+    assertThat(person.getId()).isNotNull();
   }
 }
