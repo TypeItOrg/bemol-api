@@ -415,7 +415,12 @@ public enum PermissionCode {
       "institution:course-waitlist:read",
       PermissionScope.INSTITUTION,
       PermissionGroup.ENROLLMENT,
-      "Ver listas de espera");
+      "Ver listas de espera"),
+  GUARDIAN_DEPENDENT_MANAGE(
+      "institution:guardian-dependent:manage",
+      PermissionScope.INSTITUTION,
+      PermissionGroup.ENROLLMENT,
+      "Gestionar personas a cargo");
 
   private final String code;
   private final PermissionScope scope;

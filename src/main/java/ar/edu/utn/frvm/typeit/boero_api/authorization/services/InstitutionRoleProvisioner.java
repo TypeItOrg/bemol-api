@@ -30,6 +30,12 @@ public class InstitutionRoleProvisioner {
           EnumSet.of(PermissionCode.ACADEMIC_OFFER_READ),
           SystemRoleCode.STUDENT,
           EnumSet.of(PermissionCode.STUDY_PLAN_READ, PermissionCode.ACADEMIC_YEAR_READ),
+          SystemRoleCode.GUARDIAN,
+          EnumSet.of(
+              PermissionCode.ACADEMIC_OFFER_READ,
+              PermissionCode.STUDY_PLAN_READ,
+              PermissionCode.ACADEMIC_YEAR_READ,
+              PermissionCode.GUARDIAN_DEPENDENT_MANAGE),
           SystemRoleCode.TEACHER,
           Set.of(),
           SystemRoleCode.INSTITUTIONAL_AUTHORITY,
@@ -45,6 +51,7 @@ public class InstitutionRoleProvisioner {
         Set.of(
             SystemRoleCode.APPLICANT,
             SystemRoleCode.STUDENT,
+            SystemRoleCode.GUARDIAN,
             SystemRoleCode.TEACHER,
             SystemRoleCode.INSTITUTIONAL_AUTHORITY)) {
       var existingRole =

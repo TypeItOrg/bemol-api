@@ -13,6 +13,9 @@ public final class DefaultRolePermissions {
           SystemRoleCode.APPLICANT, Set.of(PermissionCode.ACADEMIC_OFFER_READ),
           SystemRoleCode.STUDENT,
               Set.of(PermissionCode.STUDY_PLAN_READ, PermissionCode.ACADEMIC_YEAR_READ),
+          SystemRoleCode.GUARDIAN,
+              Set.of(PermissionCode.ACADEMIC_OFFER_READ, PermissionCode.STUDY_PLAN_READ,
+                  PermissionCode.ACADEMIC_YEAR_READ, PermissionCode.GUARDIAN_DEPENDENT_MANAGE),
           SystemRoleCode.ADMINISTRATIVE,
               Set.of(
                   PermissionCode.DOCUMENT_CATALOG_READ,
