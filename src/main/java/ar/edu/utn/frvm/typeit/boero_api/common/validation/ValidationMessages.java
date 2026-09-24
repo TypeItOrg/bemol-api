@@ -6,6 +6,8 @@ public final class ValidationMessages {
   public static final String APARTMENT_MAX_LENGTH =
       "El departamento debe tener menos de 50 caracteres.";
   public static final String BIRTH_DATE_REQUIRED = "La fecha de nacimiento es requerida.";
+  public static final String BIRTH_DATE_PAST = "La fecha de nacimiento debe ser anterior a hoy.";
+  public static final String GUARDIAN_RELATIONSHIP_REQUIRED = "El vínculo es requerido.";
   public static final String CEREMONY_REQUIRED = "La ceremonia es requerida.";
   public static final String CITY_REQUIRED = "La ciudad es requerida.";
   public static final String CONFIRMATION_PASSWORD_RANGE =

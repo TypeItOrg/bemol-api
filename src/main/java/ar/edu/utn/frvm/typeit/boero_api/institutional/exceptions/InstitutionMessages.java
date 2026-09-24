@@ -15,6 +15,18 @@ public final class InstitutionMessages {
       "No podés modificar el estado de tu propio acceso.";
   public static final String PERSON_ADDRESS_INSTITUTION_MISMATCH =
       "La persona y el domicilio deben pertenecer a la misma institución.";
+  public static final String CANNOT_GUARDIAN_SELF =
+      "No podés registrarte a vos mismo como persona a cargo.";
+  public static final String DEPENDENT_ALREADY_LINKED =
+      "Esa persona ya está registrada como persona a cargo tuya.";
+  public static final String DEPENDENT_LINK_NOT_ALLOWED =
+      "No es posible vincular a esa persona. Verificá los datos ingresados o contactá a la institución.";
+  public static final String DEPENDENT_MUST_BE_MINOR =
+      "La persona a cargo debe ser menor de 18 años.";
+  public static final String DEPENDENT_NOT_FOUND =
+      "No se encontró la persona a cargo especificada.";
+  public static final String GUARDIANSHIP_UNAUTHORIZED =
+      "No tenés la tutela de la persona indicada.";
 
   public static final String PUBLIC_SUBDOMAIN_INVALID =
       "Usá entre 1 y 63 letras minúsculas, números o guiones, sin guiones en los extremos.";
