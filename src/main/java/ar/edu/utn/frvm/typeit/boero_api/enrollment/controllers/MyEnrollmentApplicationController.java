@@ -42,13 +42,19 @@ public class MyEnrollmentApplicationController {
   @GetMapping(value = "/my-enrollment-applications", version = Version.V1)
   public PaginatedResponse<EnrollmentApplicationResponse> list(
       @PathVariable final UUID institutionId,
+      @RequestParam(required = false) final UUID dependentPersonId,
       @RequestParam(required = false) final EnrollmentApplicationStatus status,
       @RequestParam(required = false) final Boolean pendingCourses,
       @PageableDefault(sort = "createdAt", direction = Sort.Direction.DESC) final Pageable pageable,
       final Authentication authentication) {
     return PaginatedResponse.from(
         listMyEnrollmentApplicationsUseCase.execute(
-            institutionId, currentPersonId(authentication), status, pendingCourses, pageable));
+            institutionId,
+            currentPersonId(authentication),
+            dependentPersonId,
+            status,
+            pendingCourses,
+            pageable));
   }
 
   @GetMapping(value = "/my-enrollment-applications/{applicationId}", version = Version.V1)

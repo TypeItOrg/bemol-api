@@ -25,10 +25,8 @@ public class ListEnrollmentApplicationTrainingPathsUseCase {
     applicantEnrollmentGuard.requireApplicant(principal);
     final var application =
         enrollmentApplicationRepository
-            .findById(applicationId)
-            .filter(app -> app.getDeletedAt() == null)
-            .filter(app -> app.getApplicantPerson().getId().equals(principal.personId()))
-            .filter(app -> app.getInstitution().getId().equals(principal.institutionId()))
+            .findAccessibleByIdAndInstitutionId(
+                principal.institutionId(), principal.personId(), applicationId)
             .orElseThrow(EnrollmentApplicationNotFoundException::new);
 
     if (application.getEnrollmentPeriod() == null) {

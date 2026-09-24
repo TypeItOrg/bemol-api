@@ -1,6 +1,7 @@
 package ar.edu.utn.frvm.typeit.boero_api.enrollment.services;
 
 import ar.edu.utn.frvm.typeit.boero_api.common.time.BusinessDateProvider;
+import ar.edu.utn.frvm.typeit.boero_api.common.validation.PersonFieldConstraints;
 import ar.edu.utn.frvm.typeit.boero_api.enrollment.entities.ApplicantEducationBackground;
 import ar.edu.utn.frvm.typeit.boero_api.enrollment.entities.ApplicantPreference;
 import ar.edu.utn.frvm.typeit.boero_api.enrollment.entities.ApplicantResponsible;
@@ -12,6 +13,7 @@ import ar.edu.utn.frvm.typeit.boero_api.institutional.entities.Person;
 import java.time.Period;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.jspecify.annotations.Nullable;
 import org.springframework.stereotype.Component;
@@ -21,9 +23,10 @@ import org.springframework.stereotype.Component;
 public class EnrollmentSubmissionValidator {
   private final BusinessDateProvider dates;
 
-  public void validate(final EnrollmentApplication application) {
+  public void validate(final EnrollmentApplication application, final UUID actorPersonId) {
     final Map<String, String> errors = new HashMap<>();
-    validateApplicant(application.getApplicantPerson(), application.getResponsible(), errors);
+    validateApplicant(
+        application.getApplicantPerson(), application.getResponsible(), actorPersonId, errors);
     validateEducation(application.getEducationBackground(), errors);
     if (application.getCourseSelections() == null || application.getCourseSelections().isEmpty()) {
       errors.put("courses", EnrollmentMessages.ENROLLMENT_APPLICATION_SPACES_REQUIRED);
@@ -38,6 +41,7 @@ public class EnrollmentSubmissionValidator {
   private void validateApplicant(
       final @Nullable Person applicant,
       final @Nullable ApplicantResponsible responsible,
+      final UUID actorPersonId,
       final Map<String, String> errors) {
     if (applicant == null) {
       errors.put("applicant", EnrollmentMessages.APPLICANT_REQUIRED);
@@ -59,11 +63,23 @@ public class EnrollmentSubmissionValidator {
         "personalData.documentNumber",
         EnrollmentMessages.DOCUMENT_REQUIRED,
         errors);
-    requireText(
-        applicant.getEmail(), "personalData.email", EnrollmentMessages.EMAIL_REQUIRED, errors);
-
-    if (applicant.getBirthDate() != null
-        && Period.between(applicant.getBirthDate(), dates.today()).getYears() < 18) {
+    final boolean selfService = actorPersonId.equals(applicant.getId());
+    if (applicant.getBirthDate() == null) {
+      errors.put("personalData.birthDate", EnrollmentMessages.BIRTH_DATE_REQUIRED);
+    } else {
+      final boolean minor =
+          Period.between(applicant.getBirthDate(), dates.today()).getYears()
+              < PersonFieldConstraints.ADULT_AGE;
+      if (selfService && minor) {
+        errors.put("personalData.birthDate", EnrollmentMessages.APPLICANT_MUST_BE_ADULT);
+      } else if (!selfService && !minor) {
+        errors.put("personalData.birthDate", EnrollmentMessages.DEPENDENT_MUST_BE_MINOR);
+      }
+    }
+    if (selfService) {
+      requireText(
+          applicant.getEmail(), "personalData.email", EnrollmentMessages.EMAIL_REQUIRED, errors);
+    } else {
       validateResponsible(responsible, errors);
     }
   }

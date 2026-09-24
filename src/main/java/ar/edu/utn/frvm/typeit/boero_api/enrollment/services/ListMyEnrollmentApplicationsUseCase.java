@@ -22,11 +22,13 @@ public class ListMyEnrollmentApplicationsUseCase {
   public Page<EnrollmentApplicationResponse> execute(
       final UUID institutionId,
       final UUID personId,
+      final @Nullable UUID dependentPersonId,
       final @Nullable EnrollmentApplicationStatus status,
       final @Nullable Boolean pendingCourses,
       final Pageable pageable) {
     return enrollmentApplicationRepository
-        .findMyApplications(institutionId, personId, status, pendingCourses, pageable)
+        .findMyApplications(
+            institutionId, personId, dependentPersonId, status, pendingCourses, pageable)
         .map(application -> responses.summary(application));
   }
 }

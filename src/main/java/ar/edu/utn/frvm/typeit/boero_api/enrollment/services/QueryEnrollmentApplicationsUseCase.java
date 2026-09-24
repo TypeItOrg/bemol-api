@@ -49,11 +49,17 @@ public class QueryEnrollmentApplicationsUseCase {
             .filter(value -> value.getDeletedAt() == null)
             .filter(
                 value ->
-                    personId != null && value.getApplicantPerson().getId().equals(personId)
+                    personId != null
+                            && (value.getApplicantPerson().getId().equals(personId)
+                                || applications.isAccessibleByPerson(value.getId(), personId))
                         || institutionId != null
                             && value.getInstitution().getId().equals(institutionId))
             .orElseThrow(() -> new EnrollmentApplicationNotFoundException(applicationId));
-    if (personId == null || !application.getApplicantPerson().getId().equals(personId)) {
+    final boolean ownOrDependent =
+        personId != null
+            && (application.getApplicantPerson().getId().equals(personId)
+                || applications.isAccessibleByPerson(application.getId(), personId));
+    if (!ownOrDependent) {
       authorization.require(
           PermissionCode.ENROLLMENT_APPLICATION_READ,
           application.getInstitution().getId(),

@@ -42,7 +42,9 @@ class ListEnrollmentApplicationTrainingPathsUseCaseTest {
     final var principal = principal(application);
     final var useCase = useCase();
     givenApplicant(principal, application.getApplicantPerson());
-    given(enrollmentApplicationRepository.findById(application.getId()))
+    given(
+            enrollmentApplicationRepository.findAccessibleByIdAndInstitutionId(
+                principal.institutionId(), principal.personId(), application.getId()))
         .willReturn(Optional.of(application));
 
     final var response = useCase.execute(principal, application.getId());
@@ -54,23 +56,16 @@ class ListEnrollmentApplicationTrainingPathsUseCaseTest {
   }
 
   @Test
-  @DisplayName("Should reject an application that does not belong to the applicant")
+  @DisplayName("Should reject an application the caller neither owns nor guards")
   void throwsWhenApplicationBelongsToAnotherApplicant() {
     final var application = application();
     final var principal = principal(application);
-    final var foreignApplication =
-        EnrollmentApplication.builder()
-            .id(application.getId())
-            .institution(application.getInstitution())
-            .applicantPerson(Person.builder().id(UUID.randomUUID()).build())
-            .studyPlan(application.getStudyPlan())
-            .academicYear(application.getAcademicYear())
-            .status(EnrollmentApplicationStatus.DRAFT)
-            .build();
     final var useCase = useCase();
     givenApplicant(principal, application.getApplicantPerson());
-    given(enrollmentApplicationRepository.findById(application.getId()))
-        .willReturn(Optional.of(foreignApplication));
+    given(
+            enrollmentApplicationRepository.findAccessibleByIdAndInstitutionId(
+                principal.institutionId(), principal.personId(), application.getId()))
+        .willReturn(Optional.empty());
 
     assertThatThrownBy(() -> useCase.execute(principal, application.getId()))
         .isInstanceOf(EnrollmentApplicationNotFoundException.class);

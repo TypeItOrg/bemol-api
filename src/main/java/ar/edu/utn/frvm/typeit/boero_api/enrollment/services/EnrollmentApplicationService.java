@@ -6,6 +6,7 @@ import ar.edu.utn.frvm.typeit.boero_api.academic.enums.AcademicYearStatus;
 import ar.edu.utn.frvm.typeit.boero_api.academic.interfaces.AcademicYearRepository;
 import ar.edu.utn.frvm.typeit.boero_api.academic.interfaces.TrainingPathRepository;
 import ar.edu.utn.frvm.typeit.boero_api.common.web.PaginatedResponse;
+import ar.edu.utn.frvm.typeit.boero_api.enrollment.entities.ApplicantResponsible;
 import ar.edu.utn.frvm.typeit.boero_api.enrollment.entities.EnrollmentApplication;
 import ar.edu.utn.frvm.typeit.boero_api.enrollment.enums.EnrollmentApplicationStatus;
 import ar.edu.utn.frvm.typeit.boero_api.enrollment.exceptions.ApplicationNotEditableException;
@@ -19,6 +20,9 @@ import ar.edu.utn.frvm.typeit.boero_api.enrollment.payloads.CourseSelectionDto;
 import ar.edu.utn.frvm.typeit.boero_api.enrollment.payloads.EnrollmentApplicationResponse;
 import ar.edu.utn.frvm.typeit.boero_api.enrollment.payloads.StartEnrollmentApplicationRequest;
 import ar.edu.utn.frvm.typeit.boero_api.enrollment.payloads.UpdateEnrollmentDraftRequest;
+import ar.edu.utn.frvm.typeit.boero_api.institutional.entities.Person;
+import ar.edu.utn.frvm.typeit.boero_api.institutional.exceptions.UnauthorizedGuardianshipException;
+import ar.edu.utn.frvm.typeit.boero_api.institutional.interfaces.PersonGuardianRepository;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.interfaces.PersonRepository;
 import java.time.Clock;
 import java.util.UUID;
@@ -47,16 +51,31 @@ public class EnrollmentApplicationService {
   private final EnrollmentAdmissionHistory history;
   private final QueryEnrollmentApplicationsUseCase queries;
   private final AcademicYearRepository academicYears;
+  private final PersonGuardianRepository personGuardianRepository;
 
   @Transactional
   public EnrollmentApplicationResponse startOrGetApplication(
       final UUID institutionId,
       final UUID personId,
       final StartEnrollmentApplicationRequest request) {
+    // Without applicantPersonId the caller applies for themself. Otherwise they act as a tutor of
+    // that person, which must be backed by an existing guardianship link. No application exists
+    // yet here, so the link is checked per person pair; afterwards the same person_guardians rows
+    // back EnrollmentApplicationRepository.ACCESSIBLE_BY_PERSON.
+    final UUID applicantPersonId =
+        request.getApplicantPersonId() != null ? request.getApplicantPersonId() : personId;
+    final boolean actingForDependent = !applicantPersonId.equals(personId);
+
+    if (actingForDependent
+        && !personGuardianRepository.existsByInstitution_IdAndTutorPerson_IdAndDependentPerson_Id(
+            institutionId, personId, applicantPersonId)) {
+      throw new UnauthorizedGuardianshipException();
+    }
+
     institutionLock.lock(institutionId);
     final var person =
         people
-            .findByIdAndInstitution_Id(personId, institutionId)
+            .findByIdAndInstitution_Id(applicantPersonId, institutionId)
             .orElseThrow(
                 () ->
                     new EnrollmentValidationException(
@@ -90,7 +109,7 @@ public class EnrollmentApplicationService {
 
     final var existing =
         applications.findDraftsForTrainingPathAndAcademicYear(
-            institutionId, personId, path.getId(), academicYear.getId(), Pageable.ofSize(1));
+            institutionId, person.getId(), path.getId(), academicYear.getId(), Pageable.ofSize(1));
     if (!existing.isEmpty()) {
       return responses.from(existing.getFirst());
     }
@@ -98,11 +117,33 @@ public class EnrollmentApplicationService {
     final var application =
         EnrollmentApplication.createForTrainingPath(
             path.getInstitution(), person, path, academicYear);
+    if (personId.equals(person.getId())) {
+      application.assignSubmitter(person);
+    } else {
+      final var submitter =
+          people
+              .findByIdAndInstitution_Id(personId, institutionId)
+              .orElseThrow(
+                  () ->
+                      new EnrollmentValidationException(
+                          EnrollmentMessages.ENROLLMENT_APPLICATION_APPLICANT_REQUIRED));
+      application.assignSubmitter(submitter);
+      application.setResponsible(responsibleFrom(submitter));
+    }
     documents.snapshot(application);
     saveDraft(application);
     history.record(application);
 
     return responses.from(application);
+  }
+
+  private ApplicantResponsible responsibleFrom(final Person tutor) {
+    return ApplicantResponsible.builder()
+        .fullName(tutor.getFirstName() + " " + tutor.getLastName())
+        .documentNumber(tutor.getDocumentNumber())
+        .phoneNumber(tutor.getPhoneNumber())
+        .email(tutor.getEmail())
+        .build();
   }
 
   @Transactional
@@ -140,7 +181,7 @@ public class EnrollmentApplicationService {
       final UUID personId, final UUID applicationId) {
     final var application = lockOwnedApplication(personId, applicationId);
     requireOpenDraft(application);
-    submissionValidator.validate(application);
+    submissionValidator.validate(application, personId);
 
     if (application.getCourseSelections() != null && !application.getCourseSelections().isEmpty()) {
       courses.update(
@@ -202,7 +243,7 @@ public class EnrollmentApplicationService {
     institutionLock.lock(institutionId);
 
     return applications
-        .findOwnedForUpdate(applicationId, personId)
+        .findAccessibleForUpdate(applicationId, personId)
         .orElseThrow(() -> new EnrollmentApplicationNotFoundException(applicationId));
   }
 

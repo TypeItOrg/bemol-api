@@ -90,7 +90,7 @@ class MyEnrollmentApplicationControllerWebMvcTest {
   void list_returnsApplicationsForApplicant() throws Exception {
     final var auth = authentication();
     when(listMyEnrollmentApplicationsUseCase.execute(
-            eq(INSTITUTION_ID), eq(PERSON_ID), isNull(), isNull(), any(Pageable.class)))
+            eq(INSTITUTION_ID), eq(PERSON_ID), isNull(), isNull(), isNull(), any(Pageable.class)))
         .thenReturn(
             new PageImpl<>(
                 List.of(response(EnrollmentApplicationStatus.SUBMITTED)), Pageable.ofSize(20), 1));
@@ -104,7 +104,42 @@ class MyEnrollmentApplicationControllerWebMvcTest {
         .andExpect(jsonPath("$.items[0].status").value("SUBMITTED"));
 
     verify(listMyEnrollmentApplicationsUseCase)
-        .execute(eq(INSTITUTION_ID), eq(PERSON_ID), isNull(), isNull(), any(Pageable.class));
+        .execute(
+            eq(INSTITUTION_ID), eq(PERSON_ID), isNull(), isNull(), isNull(), any(Pageable.class));
+  }
+
+  @Test
+  @DisplayName("Should filter my enrollment applications by dependent")
+  void list_filtersByDependent() throws Exception {
+    final var auth = authentication();
+    final UUID dependentId = UUID.randomUUID();
+    when(listMyEnrollmentApplicationsUseCase.execute(
+            eq(INSTITUTION_ID),
+            eq(PERSON_ID),
+            eq(dependentId),
+            isNull(),
+            isNull(),
+            any(Pageable.class)))
+        .thenReturn(
+            new PageImpl<>(
+                List.of(response(EnrollmentApplicationStatus.DRAFT)), Pageable.ofSize(20), 1));
+
+    mockMvc
+        .perform(
+            get("/api/v1/institutions/{institutionId}/my-enrollment-applications", INSTITUTION_ID)
+                .param("dependentPersonId", dependentId.toString())
+                .principal(auth))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.items[0].applicationId").value(APPLICATION_ID.toString()));
+
+    verify(listMyEnrollmentApplicationsUseCase)
+        .execute(
+            eq(INSTITUTION_ID),
+            eq(PERSON_ID),
+            eq(dependentId),
+            isNull(),
+            isNull(),
+            any(Pageable.class));
   }
 
   @Test

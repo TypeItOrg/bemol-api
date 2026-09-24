@@ -24,7 +24,7 @@ public class ListEnrollmentApplicationShiftsUseCase {
       final JwtAuthenticatedUser principal, final UUID applicationId) {
     applicantEnrollmentGuard.requireApplicant(principal);
     enrollmentApplicationRepository
-        .findByIdAndApplicantPersonIdAndInstitutionId(
+        .findAccessibleByIdAndInstitutionId(
             principal.institutionId(), principal.personId(), applicationId)
         .orElseThrow(EnrollmentApplicationNotFoundException::new);
 

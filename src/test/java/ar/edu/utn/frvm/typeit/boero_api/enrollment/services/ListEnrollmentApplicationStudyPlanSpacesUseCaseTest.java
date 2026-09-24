@@ -85,7 +85,9 @@ class ListEnrollmentApplicationStudyPlanSpacesUseCaseTest {
             studyPlanSpaceRepository,
             studyPlanSpaceInstrumentRepository);
     givenApplicant(principal, application.getApplicantPerson());
-    given(enrollmentApplicationRepository.findById(application.getId()))
+    given(
+            enrollmentApplicationRepository.findAccessibleByIdAndInstitutionId(
+                principal.institutionId(), principal.personId(), application.getId()))
         .willReturn(Optional.of(application));
     given(
             studyPlanSpaceRepository.findEligibleByStudyPlanId(

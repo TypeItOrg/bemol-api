@@ -53,6 +53,10 @@ final class EnrollmentApplicationMapper {
     return EnrollmentApplicationResponse.builder()
         .applicationId(application.getId())
         .institutionId(institution == null ? null : institution.getId())
+        .submittedByPersonId(
+            application.getSubmittedByPerson() == null
+                ? null
+                : application.getSubmittedByPerson().getId())
         .personId(applicant == null ? null : applicant.getId())
         .applicantFirstName(applicant == null ? null : applicant.getFirstName())
         .applicantLastName(applicant == null ? null : applicant.getLastName())

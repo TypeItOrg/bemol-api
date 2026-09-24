@@ -23,6 +23,20 @@ public interface EnrollmentApplicationRepository
       "select count(app) from EnrollmentApplication app where app.status=ar.edu.utn.frvm.typeit.boero_api.enrollment.enums.EnrollmentApplicationStatus.DRAFT and app.deletedAt is null and exists (select assignment.id from TrainingPathDocumentRequirement assignment where assignment.trainingPath.id=app.trainingPathId and assignment.document.id=:documentId)")
   long countDraftsUsingDocument(@Param("documentId") UUID documentId);
 
+  /**
+   * Applications a person may act on: their own, or the ones of a dependent they have an active
+   * guardianship link with. Any tutor of the applicant qualifies, not only whoever submitted it,
+   * and the access ends as soon as the link is no longer active. Expects the {@code application}
+   * alias and a {@code :personId} parameter.
+   */
+  String ACCESSIBLE_BY_PERSON =
+      "(application.applicantPerson.id = :personId "
+          + "OR EXISTS (SELECT 1 FROM PersonGuardian guardianship "
+          + "WHERE guardianship.institution.id = application.institution.id "
+          + "AND guardianship.tutorPerson.id = :personId "
+          + "ar.edu.utn.frvm.typeit.boero_api.institutional.entities.GuardianLinkStatus.ACTIVE "
+          + "AND guardianship.dependentPerson.id = application.applicantPerson.id))";
+
   @Lock(LockModeType.PESSIMISTIC_WRITE)
   Optional<EnrollmentApplication>
       findByInstitution_IdAndApplicantPerson_IdAndTrainingPathIdAndEnrollmentPeriod_IdAndStatusAndDeletedAtIsNull(
@@ -60,9 +74,18 @@ public interface EnrollmentApplicationRepository
       Pageable pageable);
 
   @Query(
-      "SELECT app FROM EnrollmentApplication app WHERE app.id = :id AND app.applicantPerson.id = :personId AND app.deletedAt IS NULL")
-  Optional<EnrollmentApplication> findOwnedForUpdate(
+      "SELECT application FROM EnrollmentApplication application "
+          + "WHERE application.id = :id AND application.deletedAt IS NULL AND "
+          + ACCESSIBLE_BY_PERSON)
+  Optional<EnrollmentApplication> findAccessibleForUpdate(
       @Param("id") UUID id, @Param("personId") UUID personId);
+
+  @Query(
+      "SELECT COUNT(application) > 0 FROM EnrollmentApplication application "
+          + "WHERE application.id = :applicationId AND application.deletedAt IS NULL AND "
+          + ACCESSIBLE_BY_PERSON)
+  boolean isAccessibleByPerson(
+      @Param("applicationId") UUID applicationId, @Param("personId") UUID personId);
 
   @Lock(LockModeType.PESSIMISTIC_WRITE)
   @Query(
@@ -211,13 +234,17 @@ public interface EnrollmentApplicationRepository
   @Query(
       "SELECT application FROM EnrollmentApplication application "
           + "WHERE application.institution.id = :institutionId "
-          + "AND application.applicantPerson.id = :personId "
+          + "AND "
+          + ACCESSIBLE_BY_PERSON
+          + " "
           + "AND application.deletedAt IS NULL "
           + "AND (:status IS NULL OR application.status = :status) "
+          + "AND (:dependentPersonId IS NULL OR application.applicantPerson.id = :dependentPersonId) "
           + EnrollmentApplicationFilters.PENDING_COURSES_FILTER)
   Page<EnrollmentApplication> findMyApplications(
       @Param("institutionId") UUID institutionId,
       @Param("personId") UUID personId,
+      @Param("dependentPersonId") @Nullable UUID dependentPersonId,
       @Param("status") @Nullable EnrollmentApplicationStatus status,
       @Param("pendingCourses") @Nullable Boolean pendingCourses,
       Pageable pageable);
@@ -232,16 +259,20 @@ public interface EnrollmentApplicationRepository
   @Query(
       "SELECT application FROM EnrollmentApplication application "
           + "WHERE application.institution.id = :institutionId "
-          + "AND application.applicantPerson.id = :personId "
+          + "AND "
+          + ACCESSIBLE_BY_PERSON
+          + " "
           + "AND application.id = :applicationId "
           + "AND application.deletedAt IS NULL")
-  Optional<EnrollmentApplication> findByIdAndApplicantPersonIdAndInstitutionId(
+  Optional<EnrollmentApplication> findAccessibleByIdAndInstitutionId(
       @Param("institutionId") UUID institutionId,
       @Param("personId") UUID personId,
       @Param("applicationId") UUID applicationId);
 
   @Query(
-      "SELECT application.institution.id FROM EnrollmentApplication application WHERE application.id = :applicationId AND application.applicantPerson.id = :personId AND application.deletedAt IS NULL")
+      "SELECT application.institution.id FROM EnrollmentApplication application "
+          + "WHERE application.id = :applicationId AND application.deletedAt IS NULL AND "
+          + ACCESSIBLE_BY_PERSON)
   Optional<UUID> findOwnedInstitutionId(
       @Param("applicationId") UUID applicationId, @Param("personId") UUID personId);
 }

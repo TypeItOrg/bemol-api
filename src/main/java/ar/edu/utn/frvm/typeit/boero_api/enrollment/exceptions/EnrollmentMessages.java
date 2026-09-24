@@ -85,6 +85,11 @@ public final class EnrollmentMessages {
   public static final String LAST_NAME_REQUIRED = "El apellido es obligatorio";
   public static final String DOCUMENT_REQUIRED = "El número de documento es obligatorio";
   public static final String EMAIL_REQUIRED = "El correo electrónico es obligatorio";
+  public static final String BIRTH_DATE_REQUIRED = "La fecha de nacimiento es obligatoria";
+  public static final String APPLICANT_MUST_BE_ADULT =
+      "Quien se inscribe por sí mismo debe ser mayor de 18 años";
+  public static final String DEPENDENT_MUST_BE_MINOR =
+      "La persona inscripta por un tutor debe ser menor de 18 años";
   public static final String RESPONSIBLE_REQUIRED =
       "Los postulantes menores de 18 años deben incluir los datos del tutor o responsable legal";
   public static final String RESPONSIBLE_NAME_REQUIRED = "El nombre del responsable es obligatorio";
