@@ -30,6 +30,8 @@ public final class AuthMessages {
   public static final String PASSWORD_RECOVERY_TOKEN_INVALID =
       "El enlace de recuperación es inválido o ha expirado.";
   public static final String PASSWORD_CONFIRMATION_MISMATCH = "Las contraseñas no coinciden.";
+  public static final String GUARDIAN_MUST_BE_ADULT =
+      "Para registrarte como tutor debés ser mayor de edad.";
   public static final String INSTITUTIONAL_USERNAME_REQUIRED = "El nombre de usuario es requerido.";
   public static final String INSTITUTIONAL_USERNAME_INVALID =
       "El nombre de usuario institucional no es válido.";

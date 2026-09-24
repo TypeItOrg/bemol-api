@@ -17,6 +17,7 @@ import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import java.time.LocalDate;
 import java.util.UUID;
+import org.jspecify.annotations.Nullable;
 
 public record RegisterRequest(
     @NotBlank(message = ValidationMessages.FIRST_NAME_REQUIRED)
@@ -48,4 +49,10 @@ public record RegisterRequest(
           @Size(max = PASSWORD_MAX, message = ValidationMessages.PASSWORD_MAX_LENGTH)
         })
         String password,
-    @NotNull(message = ValidationMessages.INSTITUTION_REQUIRED) UUID institutionId) {}
+    @NotNull(message = ValidationMessages.INSTITUTION_REQUIRED) UUID institutionId,
+    @Nullable Boolean isGuardian) {
+
+  public boolean registersAsGuardian() {
+    return Boolean.TRUE.equals(isGuardian);
+  }
+}

@@ -7,6 +7,7 @@ public final class PersonFieldConstraints {
   public static final int NAME_MIN = 3;
   public static final int NAME_MAX = 255;
   public static final int MINIMUM_AGE = 3;
+  public static final int ADULT_AGE = 18;
 
   public static final int DOCUMENT_LENGTH = 8;
   public static final String DOCUMENT_PATTERN = "^[0-9]{" + DOCUMENT_LENGTH + "}$";
