@@ -58,6 +58,7 @@ import ar.edu.utn.frvm.typeit.boero_api.institutional.interfaces.PersonGuardianR
 import ar.edu.utn.frvm.typeit.boero_api.institutional.interfaces.PersonRepository;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.interfaces.StudentRepository;
 import java.time.Clock;
+import ar.edu.utn.frvm.typeit.boero_api.authorization.interfaces.PersonRoleAssignmentRepository;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
@@ -87,6 +88,7 @@ class EnrollmentApplicationServiceTest {
   @Mock private EnrollmentApplicationRepository applicationRepository;
   @Mock private PersonRepository personRepository;
   @Mock private PersonGuardianRepository personGuardianRepository;
+  @Mock private PersonRoleAssignmentRepository personRoleAssignmentRepository;
   @Mock private StudyPlanSpaceRepository studyPlanSpaceRepository;
 
   @Mock private InstrumentRepository instrumentRepository;
@@ -174,7 +176,22 @@ class EnrollmentApplicationServiceTest {
             admissionHistory,
             new QueryEnrollmentApplicationsUseCase(applicationRepository, responses, authorization),
             academicYearRepository,
-            personGuardianRepository);
+            personGuardianRepository,
+            personRoleAssignmentRepository);
+  }
+
+  @Test
+  @DisplayName("Should reject a guardian applying for themself")
+  void startOrGetApplication_guardianCannotApplyForSelf() {
+    when(personRoleAssignmentRepository.existsByPerson_IdAndInstitution_IdAndRole_Code(
+            personId, institutionId, "GUARDIAN"))
+        .thenReturn(true);
+    StartEnrollmentApplicationRequest request =
+        new StartEnrollmentApplicationRequest(studyPlanId, academicYearId);
+
+    assertThatThrownBy(() -> service.startOrGetApplication(institutionId, personId, request))
+        .isInstanceOf(EnrollmentValidationException.class)
+        .hasMessage(EnrollmentMessages.ENROLLMENT_APPLICATION_GUARDIAN_MUST_USE_DEPENDENT);
   }
 
   @Test

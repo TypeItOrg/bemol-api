@@ -24,6 +24,8 @@ import ar.edu.utn.frvm.typeit.boero_api.institutional.entities.Person;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.exceptions.UnauthorizedGuardianshipException;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.interfaces.PersonGuardianRepository;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.interfaces.PersonRepository;
+import ar.edu.utn.frvm.typeit.boero_api.authorization.enums.SystemRoleCode;
+import ar.edu.utn.frvm.typeit.boero_api.authorization.interfaces.PersonRoleAssignmentRepository;
 import java.time.Clock;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -52,6 +54,7 @@ public class EnrollmentApplicationService {
   private final QueryEnrollmentApplicationsUseCase queries;
   private final AcademicYearRepository academicYears;
   private final PersonGuardianRepository personGuardianRepository;
+  private final PersonRoleAssignmentRepository personRoleAssignmentRepository;
 
   @Transactional
   public EnrollmentApplicationResponse startOrGetApplication(
@@ -65,6 +68,13 @@ public class EnrollmentApplicationService {
     final UUID applicantPersonId =
         request.getApplicantPersonId() != null ? request.getApplicantPersonId() : personId;
     final boolean actingForDependent = !applicantPersonId.equals(personId);
+
+    if (!actingForDependent
+        && personRoleAssignmentRepository.existsByPerson_IdAndInstitution_IdAndRole_Code(
+            personId, institutionId, SystemRoleCode.GUARDIAN.name())) {
+      throw new EnrollmentValidationException(
+          EnrollmentMessages.ENROLLMENT_APPLICATION_GUARDIAN_MUST_USE_DEPENDENT);
+    }
 
     if (actingForDependent
         && !personGuardianRepository.existsByInstitution_IdAndTutorPerson_IdAndDependentPerson_Id(
