@@ -16,7 +16,8 @@ public enum SearchEntityType {
   ACADEMIC_SPACE("academic-space"),
   INSTRUMENT("instrument"),
   SHIFT("shift"),
-  COURSE("course");
+  COURSE("course"),
+  GUARDIAN_DEPENDENT("guardian-dependent");
 
   private final String code;
 

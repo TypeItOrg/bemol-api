@@ -1,5 +1,7 @@
 package ar.edu.utn.frvm.typeit.boero_api.search;
 
+import static ar.edu.utn.frvm.typeit.boero_api.search.SearchMessages.INVALID_ENTITY_TYPE;
+
 import ar.edu.utn.frvm.typeit.boero_api.authorization.enums.PermissionCode;
 import java.util.Arrays;
 import java.util.List;
@@ -126,7 +128,12 @@ SELECT c.course_id AS id, c.institution_id, i.name AS institution_name,
    AND e.deleted_at IS NULL
    AND p.deleted_at IS NULL
    AND boero_search_vector(e.name || ' ' || p.name) @@ to_tsquery('simple', :query)
-""");
+"""),
+  // Scoped to the caller's own dependents through :personId, so it is institutional-only.
+  GUARDIAN_DEPENDENT(
+      SearchEntityType.GUARDIAN_DEPENDENT,
+      PermissionCode.GUARDIAN_DEPENDENT_MANAGE,
+      guardianDependents());
 
   private final SearchEntityType type;
   private final @Nullable PermissionCode permission;
@@ -153,12 +160,16 @@ SELECT c.course_id AS id, c.institution_id, i.name AS institution_name,
     return permission;
   }
 
+  private boolean requiresPerson() {
+    return type == SearchEntityType.GUARDIAN_DEPENDENT;
+  }
+
   String selectSql() {
     return selectSql;
   }
 
   static List<SearchDefinition> all() {
-    return List.of(values());
+    return Arrays.stream(values()).filter(definition -> !definition.requiresPerson()).toList();
   }
 
   static List<SearchDefinition> institutionalFor(final Set<PermissionCode> permissions) {
@@ -168,10 +179,29 @@ SELECT c.course_id AS id, c.institution_id, i.name AS institution_name,
   }
 
   static SearchDefinition fromType(final SearchEntityType entityType) {
-    return Arrays.stream(values())
+    return all().stream()
         .filter(definition -> definition.type == entityType)
         .findFirst()
-        .orElseThrow();
+        .orElseThrow(() -> new IllegalArgumentException(INVALID_ENTITY_TYPE));
+  }
+
+  private static String guardianDependents() {
+    final String searchText =
+        "p.first_name || ' ' || p.last_name || ' ' || p.last_name || ' ' || p.first_name"
+            + " || ' ' || p.document_number || ' ' || coalesce(p.email, '')";
+    return """
+        SELECT p.person_id AS id, p.institution_id, i.name AS institution_name,
+               i.active AS institution_active, p.first_name || ' ' || p.last_name AS title,
+               p.document_number AS subtitle, NULL::text AS status, NULL::text AS category,
+               boero_search_rank(%1$s, :query, :normalized) AS score
+          FROM person_guardians g
+          JOIN people p ON p.institution_id = g.institution_id AND p.person_id = g.dependent_person_id
+          JOIN institutions i ON i.institution_id = p.institution_id
+         WHERE g.tutor_person_id = :personId
+           AND NOT p.deleted
+           AND boero_search_vector(%1$s) @@ to_tsquery('simple', :query)
+        """
+        .formatted(searchText);
   }
 
   private static String namedEntity(final String table, final String idColumn) {

@@ -9,6 +9,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
+import org.jspecify.annotations.Nullable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -29,13 +30,14 @@ public class SearchService {
   @Transactional(readOnly = true)
   public SearchSummaryResponse institutionalSummary(
       final UUID institutionId,
+      final @Nullable UUID personId,
       final String search,
       final int limit,
       final Set<PermissionCode> permissions) {
     final List<SearchDefinition> definitions = SearchDefinition.institutionalFor(permissions);
     final var grouped =
         repository.institutionalSummary(
-            definitions, SearchQuery.from(search), institutionId, limit + 1);
+            definitions, SearchQuery.from(search), institutionId, personId, limit + 1);
     return summary(definitions, grouped, limit);
   }
 

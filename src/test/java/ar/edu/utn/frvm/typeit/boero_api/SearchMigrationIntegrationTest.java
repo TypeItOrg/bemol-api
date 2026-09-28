@@ -11,6 +11,7 @@ import ar.edu.utn.frvm.typeit.boero_api.search.SearchEntityType;
 import ar.edu.utn.frvm.typeit.boero_api.search.SearchService;
 import ar.edu.utn.frvm.typeit.boero_api.search.SearchSummaryResponse;
 import ar.edu.utn.frvm.typeit.boero_api.support.IntegrationTest;
+import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
@@ -140,28 +141,28 @@ class SearchMigrationIntegrationTest extends DatabaseMigrationTestSupport {
               PermissionCode.INSTRUMENT_READ,
               PermissionCode.SHIFT_READ);
       assertSearchContainsOnly(
-          searchService.institutionalSummary(institutionId, searchTerm, 5, permissions),
+          searchService.institutionalSummary(institutionId, null, searchTerm, 5, permissions),
           SearchEntityType.TRAINING_PATH,
           currentPathId);
       assertSearchContainsOnly(
-          searchService.institutionalSummary(institutionId, searchTerm, 5, permissions),
+          searchService.institutionalSummary(institutionId, null, searchTerm, 5, permissions),
           SearchEntityType.STUDY_PLAN,
           currentPlanId);
       assertSearchContainsOnly(
           searchService.institutionalSummary(
-              institutionId, String.valueOf(academicYear), 5, permissions),
+              institutionId, null, String.valueOf(academicYear), 5, permissions),
           SearchEntityType.ACADEMIC_YEAR,
           currentYearId);
       assertSearchContainsOnly(
-          searchService.institutionalSummary(institutionId, searchTerm, 5, permissions),
+          searchService.institutionalSummary(institutionId, null, searchTerm, 5, permissions),
           SearchEntityType.ACADEMIC_SPACE,
           currentSpaceId);
       assertSearchContainsOnly(
-          searchService.institutionalSummary(institutionId, searchTerm, 5, permissions),
+          searchService.institutionalSummary(institutionId, null, searchTerm, 5, permissions),
           SearchEntityType.INSTRUMENT,
           currentInstrumentId);
       assertSearchContainsOnly(
-          searchService.institutionalSummary(institutionId, searchTerm, 5, permissions),
+          searchService.institutionalSummary(institutionId, null, searchTerm, 5, permissions),
           SearchEntityType.SHIFT,
           currentShiftId);
 
@@ -214,6 +215,96 @@ class SearchMigrationIntegrationTest extends DatabaseMigrationTestSupport {
       jdbcTemplate.update(
           "DELETE FROM shifts WHERE shift_id IN (?, ?)", deletedShiftId, currentShiftId);
     }
+  }
+
+  @Test
+  @DisplayName("Should search only the caller's guardian dependents")
+  void shouldSearchOnlyTheCallersGuardianDependents() {
+    final UUID institutionId = fixtures.firstInstitutionId();
+    final UUID tutorAId = UUID.randomUUID();
+    final UUID tutorBId = UUID.randomUUID();
+    final UUID dependentAId = UUID.randomUUID();
+    final UUID dependentBId = UUID.randomUUID();
+    final UUID deletedDependentId = UUID.randomUUID();
+    final String dependentADocument = fixtures.randomDocumentNumber();
+    final String surname = "Zzdependiente" + System.nanoTime();
+    final Set<PermissionCode> permissions = Set.of(PermissionCode.GUARDIAN_DEPENDENT_MANAGE);
+    try {
+      for (final UUID tutorId : List.of(tutorAId, tutorBId)) {
+        fixtures.insertPerson(tutorId, institutionId, fixtures.randomDocumentNumber(), false);
+      }
+      insertDependent(dependentAId, institutionId, dependentADocument, surname, false);
+      insertDependent(dependentBId, institutionId, fixtures.randomDocumentNumber(), surname, false);
+      insertDependent(
+          deletedDependentId, institutionId, fixtures.randomDocumentNumber(), surname, true);
+      insertGuardianLink(institutionId, tutorAId, dependentAId);
+      insertGuardianLink(institutionId, tutorAId, deletedDependentId);
+      insertGuardianLink(institutionId, tutorBId, dependentBId);
+
+      assertSearchContainsOnly(
+          searchService.institutionalSummary(institutionId, tutorAId, surname, 5, permissions),
+          SearchEntityType.GUARDIAN_DEPENDENT,
+          dependentAId);
+      assertSearchContainsOnly(
+          searchService.institutionalSummary(
+              institutionId, tutorAId, dependentADocument, 5, permissions),
+          SearchEntityType.GUARDIAN_DEPENDENT,
+          dependentAId);
+      assertSearchContainsOnly(
+          searchService.institutionalSummary(institutionId, tutorBId, surname, 5, permissions),
+          SearchEntityType.GUARDIAN_DEPENDENT,
+          dependentBId);
+      assertThat(
+              searchService
+                  .institutionalSummary(institutionId, null, surname, 5, permissions)
+                  .groups())
+          .isEmpty();
+    } finally {
+      final List<UUID> personIds =
+          List.of(tutorAId, tutorBId, dependentAId, dependentBId, deletedDependentId);
+      for (final UUID personId : personIds) {
+        jdbcTemplate.update(
+            "DELETE FROM person_guardians WHERE tutor_person_id = ? OR dependent_person_id = ?",
+            personId,
+            personId);
+        jdbcTemplate.update("DELETE FROM people WHERE person_id = ?", personId);
+      }
+    }
+  }
+
+  private void insertDependent(
+      final UUID personId,
+      final UUID institutionId,
+      final String documentNumber,
+      final String lastName,
+      final boolean deleted) {
+    jdbcTemplate.update(
+        """
+        INSERT INTO people (
+          person_id, institution_id, document_number, first_name, last_name,
+          email, created_at, updated_at, deleted
+        ) VALUES (?, ?, ?, 'Mateo', ?, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, ?)
+        """,
+        personId,
+        institutionId,
+        documentNumber,
+        lastName,
+        deleted);
+  }
+
+  private void insertGuardianLink(
+      final UUID institutionId, final UUID tutorId, final UUID dependentId) {
+    jdbcTemplate.update(
+        """
+        INSERT INTO person_guardians (
+          person_guardian_id, institution_id, tutor_person_id, dependent_person_id,
+          relationship, is_primary_contact, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, 'MOTHER', false, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+        """,
+        UUID.randomUUID(),
+        institutionId,
+        tutorId,
+        dependentId);
   }
 
   private void assertSearchContainsOnly(

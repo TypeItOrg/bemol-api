@@ -5,6 +5,7 @@ import static java.util.Objects.requireNonNull;
 import ar.edu.utn.frvm.typeit.boero_api.authorization.services.ScopedAuthorizationService;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Types;
 import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.List;
@@ -31,21 +32,23 @@ class SearchRepository {
       final List<SearchDefinition> definitions,
       final SearchQuery searchQuery,
       final int fetchLimit) {
-    return summary(definitions, searchQuery, null, fetchLimit);
+    return summary(definitions, searchQuery, null, null, fetchLimit);
   }
 
   Map<SearchEntityType, List<SearchResultResponse>> institutionalSummary(
       final List<SearchDefinition> definitions,
       final SearchQuery searchQuery,
       final UUID institutionId,
+      final @Nullable UUID personId,
       final int fetchLimit) {
-    return summary(definitions, searchQuery, institutionId, fetchLimit);
+    return summary(definitions, searchQuery, institutionId, personId, fetchLimit);
   }
 
   private Map<SearchEntityType, List<SearchResultResponse>> summary(
       final List<SearchDefinition> definitions,
       final SearchQuery searchQuery,
       final @Nullable UUID institutionId,
+      final @Nullable UUID personId,
       final int fetchLimit) {
     if (definitions.isEmpty()) {
       return Map.of();
@@ -82,7 +85,7 @@ class SearchRepository {
             + " :offset";
     return jdbcTemplate.query(
         sql,
-        parameters(searchQuery, null)
+        parameters(searchQuery, null, null)
             .addValue("size", size)
             .addValue("offset", Math.multiplyExact(page, size)),
         (resultSet, rowNumber) -> mapResult(resultSet));
@@ -90,7 +93,8 @@ class SearchRepository {
 
   long count(final SearchDefinition definition, final SearchQuery searchQuery) {
     final String sql = "SELECT count(*) FROM (" + definition.selectSql() + ") entity";
-    final Long count = jdbcTemplate.queryForObject(sql, parameters(searchQuery, null), Long.class);
+    final Long count =
+        jdbcTemplate.queryForObject(sql, parameters(searchQuery, null, null), Long.class);
     return count == null ? 0 : count;
   }
 
@@ -137,7 +141,7 @@ class SearchRepository {
   }
 
   private static MapSqlParameterSource parameters(
-      final SearchQuery query, final @Nullable UUID institutionId) {
+      final SearchQuery query, final @Nullable UUID institutionId, final @Nullable UUID personId) {
     final MapSqlParameterSource parameters =
         new MapSqlParameterSource()
             .addValue("query", query.tsQuery())
@@ -145,6 +149,8 @@ class SearchRepository {
     if (institutionId != null) {
       parameters.addValue("institutionId", institutionId);
     }
+    // Always bound: a null personId matches no dependents instead of failing the query.
+    parameters.addValue("personId", personId, Types.OTHER);
     return parameters;
   }
 
