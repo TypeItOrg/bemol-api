@@ -19,8 +19,10 @@ public final class InstitutionMessages {
       "No podés registrarte a vos mismo como persona a cargo.";
   public static final String DEPENDENT_ALREADY_LINKED =
       "Esa persona ya está registrada como persona a cargo tuya.";
-  public static final String DEPENDENT_LINK_NOT_ALLOWED =
-      "No es posible vincular a esa persona. Verificá los datos ingresados o contactá a la institución.";
+  public static final String DEPENDENT_BIRTH_DATE_MISMATCH =
+      "La fecha de nacimiento no coincide con la registrada para ese documento.";
+  public static final String DEPENDENT_HAS_ACCOUNT =
+      "Ese documento ya tiene una cuenta institucional y no puede registrarse como persona a cargo.";
   public static final String DEPENDENT_MUST_BE_MINOR =
       "La persona a cargo debe ser menor de 18 años.";
   public static final String DEPENDENT_NOT_FOUND =

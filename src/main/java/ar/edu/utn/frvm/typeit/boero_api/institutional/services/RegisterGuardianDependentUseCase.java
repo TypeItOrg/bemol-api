@@ -8,7 +8,8 @@ import ar.edu.utn.frvm.typeit.boero_api.institutional.entities.Person;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.entities.PersonGuardian;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.exceptions.CannotGuardianSelfException;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.exceptions.DependentAlreadyLinkedException;
-import ar.edu.utn.frvm.typeit.boero_api.institutional.exceptions.DependentLinkNotAllowedException;
+import ar.edu.utn.frvm.typeit.boero_api.institutional.exceptions.DependentBirthDateMismatchException;
+import ar.edu.utn.frvm.typeit.boero_api.institutional.exceptions.DependentHasAccountException;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.exceptions.DependentMustBeMinorException;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.exceptions.InstitutionNotFoundException;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.exceptions.PersonAlreadyExistsException;
@@ -101,8 +102,12 @@ public class RegisterGuardianDependentUseCase {
             .isPresent();
     final boolean sameBirthDate = request.birthDate().equals(existing.getBirthDate());
 
-    if (hasAccount || !sameBirthDate) {
-      throw new DependentLinkNotAllowedException();
+    if (hasAccount) {
+      throw new DependentHasAccountException();
+    }
+
+    if (!sameBirthDate) {
+      throw new DependentBirthDateMismatchException();
     }
 
     return existing;

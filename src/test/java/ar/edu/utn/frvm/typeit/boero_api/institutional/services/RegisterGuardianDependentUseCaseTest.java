@@ -19,7 +19,8 @@ import ar.edu.utn.frvm.typeit.boero_api.institutional.entities.Person;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.entities.PersonGuardian;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.exceptions.CannotGuardianSelfException;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.exceptions.DependentAlreadyLinkedException;
-import ar.edu.utn.frvm.typeit.boero_api.institutional.exceptions.DependentLinkNotAllowedException;
+import ar.edu.utn.frvm.typeit.boero_api.institutional.exceptions.DependentBirthDateMismatchException;
+import ar.edu.utn.frvm.typeit.boero_api.institutional.exceptions.DependentHasAccountException;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.exceptions.DependentMustBeMinorException;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.interfaces.InstitutionRepository;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.interfaces.PersonGuardianRepository;
@@ -161,10 +162,10 @@ class RegisterGuardianDependentUseCaseTest {
     assertThatThrownBy(
             () -> useCase.execute(institution.getId(), tutor.getId(), request("54123456")))
         .isInstanceOfSatisfying(
-            DependentLinkNotAllowedException.class,
+            DependentHasAccountException.class,
             exception -> {
               assertThat(exception.category()).isEqualTo(ErrorCategory.CONFLICT);
-              assertThat(exception.code()).isEqualTo("DEPENDENT_LINK_NOT_ALLOWED");
+              assertThat(exception.code()).isEqualTo("DEPENDENT_HAS_ACCOUNT");
             });
     verify(personGuardianRepository, never()).save(any(PersonGuardian.class));
   }
@@ -180,7 +181,12 @@ class RegisterGuardianDependentUseCaseTest {
 
     assertThatThrownBy(
             () -> useCase.execute(institution.getId(), tutor.getId(), request("54123456")))
-        .isInstanceOf(DependentLinkNotAllowedException.class);
+        .isInstanceOfSatisfying(
+            DependentBirthDateMismatchException.class,
+            exception -> {
+              assertThat(exception.category()).isEqualTo(ErrorCategory.INVALID_INPUT);
+              assertThat(exception.code()).isEqualTo("DEPENDENT_BIRTH_DATE_MISMATCH");
+            });
     verify(personGuardianRepository, never()).save(any(PersonGuardian.class));
   }
 
