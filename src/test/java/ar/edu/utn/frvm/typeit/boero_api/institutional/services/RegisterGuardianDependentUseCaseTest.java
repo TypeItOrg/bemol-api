@@ -9,8 +9,12 @@ import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+import ar.edu.utn.frvm.typeit.boero_api.audit.enums.AuditAction;
+import ar.edu.utn.frvm.typeit.boero_api.audit.enums.AuditEntityType;
+import ar.edu.utn.frvm.typeit.boero_api.audit.services.AuditEventRecorder;
 import ar.edu.utn.frvm.typeit.boero_api.auth.entities.User;
 import ar.edu.utn.frvm.typeit.boero_api.auth.interfaces.UserRepository;
 import ar.edu.utn.frvm.typeit.boero_api.authorization.entities.PersonRoleAssignment;
@@ -61,6 +65,7 @@ class RegisterGuardianDependentUseCaseTest {
   @Mock private Validator validator;
   @Mock private AssignPersonSystemRoleUseCase assignPersonSystemRoleUseCase;
   @Mock private PersonRoleAssignmentRepository personRoleAssignmentRepository;
+  @Mock private AuditEventRecorder auditEventRecorder;
 
   private RegisterGuardianDependentUseCase useCase;
   private Institution institution;
@@ -77,7 +82,8 @@ class RegisterGuardianDependentUseCaseTest {
             validator,
             new BusinessDateProvider(Clock.systemUTC()),
             assignPersonSystemRoleUseCase,
-            personRoleAssignmentRepository);
+            personRoleAssignmentRepository,
+            auditEventRecorder);
     institution = Institution.builder().id(UUID.randomUUID()).build();
     tutor =
         Person.builder()
@@ -121,6 +127,14 @@ class RegisterGuardianDependentUseCaseTest {
     assertThat(linkCaptor.getValue().isPrimaryContact()).isTrue();
     assertThat(response.documentNumber()).isEqualTo("54123456");
     assertThat(response.relationship()).isEqualTo(GuardianRelationship.FATHER);
+    verify(auditEventRecorder)
+        .record(
+            institution,
+            tutor.getId(),
+            response.dependentPersonId(),
+            AuditAction.GUARDIAN_DEPENDENT_LINKED,
+            AuditEntityType.PERSON_GUARDIAN,
+            response.personGuardianId());
     final var assignedCaptor = ArgumentCaptor.forClass(Person.class);
     verify(assignPersonSystemRoleUseCase)
         .execute(assignedCaptor.capture(), eq(SystemRoleCode.APPLICANT), eq(false));
@@ -147,6 +161,7 @@ class RegisterGuardianDependentUseCaseTest {
     verify(personGuardianRepository, never()).save(any(PersonGuardian.class));
     verify(assignPersonSystemRoleUseCase, never())
         .execute(any(Person.class), any(SystemRoleCode.class), anyBoolean());
+    verifyNoInteractions(auditEventRecorder);
   }
 
   @Test

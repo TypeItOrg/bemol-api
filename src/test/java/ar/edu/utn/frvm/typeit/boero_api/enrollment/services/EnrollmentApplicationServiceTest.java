@@ -23,6 +23,10 @@ import ar.edu.utn.frvm.typeit.boero_api.academic.interfaces.CourseRepository;
 import ar.edu.utn.frvm.typeit.boero_api.academic.interfaces.InstrumentRepository;
 import ar.edu.utn.frvm.typeit.boero_api.academic.interfaces.StudyPlanSpaceRepository;
 import ar.edu.utn.frvm.typeit.boero_api.academic.interfaces.TrainingPathRepository;
+import ar.edu.utn.frvm.typeit.boero_api.audit.enums.AuditAction;
+import ar.edu.utn.frvm.typeit.boero_api.audit.enums.AuditEntityType;
+import ar.edu.utn.frvm.typeit.boero_api.audit.services.AuditEventRecorder;
+import ar.edu.utn.frvm.typeit.boero_api.authorization.interfaces.PersonRoleAssignmentRepository;
 import ar.edu.utn.frvm.typeit.boero_api.authorization.services.ScopedAuthorizationService;
 import ar.edu.utn.frvm.typeit.boero_api.common.time.BusinessDateProvider;
 import ar.edu.utn.frvm.typeit.boero_api.common.web.PaginatedResponse;
@@ -58,7 +62,6 @@ import ar.edu.utn.frvm.typeit.boero_api.institutional.interfaces.PersonGuardianR
 import ar.edu.utn.frvm.typeit.boero_api.institutional.interfaces.PersonRepository;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.interfaces.StudentRepository;
 import java.time.Clock;
-import ar.edu.utn.frvm.typeit.boero_api.authorization.interfaces.PersonRoleAssignmentRepository;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
@@ -105,6 +108,7 @@ class EnrollmentApplicationServiceTest {
   @Mock private EnrollmentApplicationCourseApprovalService applicationCourseApprovalService;
 
   @Mock private EnrollmentDraftDataValidator enrollmentDraftDataValidator;
+  @Mock private AuditEventRecorder auditEventRecorder;
 
   @Mock private EnrollmentApplicationPeriodService applicationPeriods;
   @Mock private EnrollmentDocumentRequirementsService documentRequirements;
@@ -177,7 +181,8 @@ class EnrollmentApplicationServiceTest {
             new QueryEnrollmentApplicationsUseCase(applicationRepository, responses, authorization),
             academicYearRepository,
             personGuardianRepository,
-            personRoleAssignmentRepository);
+            personRoleAssignmentRepository,
+            auditEventRecorder);
   }
 
   @Test

@@ -6,6 +6,9 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import ar.edu.utn.frvm.typeit.boero_api.academic.entities.AcademicYear;
 import ar.edu.utn.frvm.typeit.boero_api.academic.entities.StudyPlan;
 import ar.edu.utn.frvm.typeit.boero_api.academic.entities.TrainingPath;
+import ar.edu.utn.frvm.typeit.boero_api.audit.entities.AuditEvent;
+import ar.edu.utn.frvm.typeit.boero_api.audit.enums.AuditAction;
+import ar.edu.utn.frvm.typeit.boero_api.audit.interfaces.AuditEventRepository;
 import ar.edu.utn.frvm.typeit.boero_api.auth.filters.JwtAuthenticatedUser;
 import ar.edu.utn.frvm.typeit.boero_api.authorization.services.InstitutionRoleProvisioner;
 import ar.edu.utn.frvm.typeit.boero_api.enrollment.entities.EnrollmentPeriod;
@@ -85,6 +88,7 @@ class EnrollmentApplicationGuardianshipPostgresIntegrationTest {
   @Autowired private PersonGuardianRepository personGuardianRepository;
   @Autowired private EnrollmentAttachmentService attachmentService;
   @Autowired private EntityManager entityManager;
+  @Autowired private AuditEventRepository auditEventRepository;
   @Autowired private InstitutionRoleProvisioner institutionRoleProvisioner;
 
   private static final Path STORAGE_DIR = createStorageDir();
@@ -110,6 +114,96 @@ class EnrollmentApplicationGuardianshipPostgresIntegrationTest {
     registry.add("spring.flyway.locations", () -> "classpath:db/migration,classpath:db/dev");
     registry.add("spring.flyway.sql-migration-prefix", () -> "");
     registry.add("spring.jpa.hibernate.ddl-auto", () -> "validate");
+  }
+
+  @Test
+  @Transactional
+  @DisplayName("Should audit the tutor acting for the dependent")
+  void auditsActionsOnBehalf() {
+    final Scenario scenario = scenario();
+    final GuardianDependentResponse dependent = registerDependent(scenario);
+
+    service.startOrGetApplication(
+        scenario.institution().getId(),
+        scenario.tutor().getId(),
+        startRequest(scenario, dependent.dependentPersonId()));
+    entityManager.flush();
+
+    final List<AuditEvent> events =
+        auditEventRepository
+            .search(
+                scenario.institution().getId(),
+                dependent.dependentPersonId(),
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                PageRequest.of(0, 10))
+            .getContent();
+
+    assertThat(events)
+        .extracting(AuditEvent::getAction)
+        .containsExactlyInAnyOrder(
+            AuditAction.GUARDIAN_DEPENDENT_LINKED, AuditAction.ENROLLMENT_APPLICATION_STARTED);
+    assertThat(events)
+        .allSatisfy(
+            event -> {
+              assertThat(event.getActorPersonId()).isEqualTo(scenario.tutor().getId());
+              assertThat(event.isActedOnBehalf()).isTrue();
+            });
+  }
+
+  @Test
+  @Transactional
+  @DisplayName("Should reject updating an audit event")
+  void rejectsUpdatingAuditEvents() {
+    final Scenario scenario = scenario();
+    registerDependent(scenario);
+    entityManager.flush();
+    assertThat(countAuditEvents(scenario)).isPositive();
+
+    assertThatThrownBy(
+            () ->
+                entityManager
+                    .createNativeQuery(
+                        "UPDATE audit_events SET action = 'ENROLLMENT_APPLICATION_SUBMITTED' "
+                            + "WHERE institution_id = :institutionId")
+                    .setParameter("institutionId", scenario.institution().getId())
+                    .executeUpdate())
+        .rootCause()
+        .hasMessageContaining("append-only");
+  }
+
+  @Test
+  @Transactional
+  @DisplayName("Should reject deleting an audit event")
+  void rejectsDeletingAuditEvents() {
+    final Scenario scenario = scenario();
+    registerDependent(scenario);
+    entityManager.flush();
+    assertThat(countAuditEvents(scenario)).isPositive();
+
+    assertThatThrownBy(
+            () ->
+                entityManager
+                    .createNativeQuery(
+                        "DELETE FROM audit_events WHERE institution_id = :institutionId")
+                    .setParameter("institutionId", scenario.institution().getId())
+                    .executeUpdate())
+        .rootCause()
+        .hasMessageContaining("append-only");
+  }
+
+  private long countAuditEvents(final Scenario scenario) {
+    return ((Number)
+            entityManager
+                .createNativeQuery(
+                    "SELECT COUNT(*) FROM audit_events WHERE institution_id = :institutionId")
+                .setParameter("institutionId", scenario.institution().getId())
+                .getSingleResult())
+        .longValue();
   }
 
   @Test

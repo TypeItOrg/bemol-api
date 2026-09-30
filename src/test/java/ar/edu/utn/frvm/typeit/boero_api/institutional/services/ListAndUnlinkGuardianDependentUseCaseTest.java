@@ -6,6 +6,9 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import ar.edu.utn.frvm.typeit.boero_api.audit.enums.AuditAction;
+import ar.edu.utn.frvm.typeit.boero_api.audit.enums.AuditEntityType;
+import ar.edu.utn.frvm.typeit.boero_api.audit.services.AuditEventRecorder;
 import ar.edu.utn.frvm.typeit.boero_api.authorization.entities.PersonRoleAssignment;
 import ar.edu.utn.frvm.typeit.boero_api.authorization.entities.Role;
 import ar.edu.utn.frvm.typeit.boero_api.authorization.interfaces.PersonRoleAssignmentRepository;
@@ -35,6 +38,7 @@ class ListAndUnlinkGuardianDependentUseCaseTest {
 
   @Mock private PersonGuardianRepository personGuardianRepository;
   @Mock private PersonRoleAssignmentRepository personRoleAssignmentRepository;
+  @Mock private AuditEventRecorder auditEventRecorder;
 
   @Test
   @DisplayName("Should list dependents with their active applications count")
@@ -102,10 +106,18 @@ class ListAndUnlinkGuardianDependentUseCaseTest {
             INSTITUTION_ID, TUTOR_ID, dependentId))
         .thenReturn(Optional.of(link));
 
-    new UnlinkGuardianDependentUseCase(personGuardianRepository)
+    new UnlinkGuardianDependentUseCase(personGuardianRepository, auditEventRecorder)
         .execute(INSTITUTION_ID, TUTOR_ID, dependentId);
 
     verify(personGuardianRepository).delete(link);
+    verify(auditEventRecorder)
+        .record(
+            link.getInstitution(),
+            TUTOR_ID,
+            dependentId,
+            AuditAction.GUARDIAN_DEPENDENT_UNLINKED,
+            AuditEntityType.PERSON_GUARDIAN,
+            link.getId());
   }
 
   @Test
@@ -118,7 +130,7 @@ class ListAndUnlinkGuardianDependentUseCaseTest {
 
     assertThatThrownBy(
             () ->
-                new UnlinkGuardianDependentUseCase(personGuardianRepository)
+                new UnlinkGuardianDependentUseCase(personGuardianRepository, auditEventRecorder)
                     .execute(INSTITUTION_ID, TUTOR_ID, dependentId))
         .isInstanceOfSatisfying(
             DependentNotFoundException.class,

@@ -5,6 +5,11 @@ import static java.util.Objects.requireNonNull;
 import ar.edu.utn.frvm.typeit.boero_api.academic.enums.AcademicYearStatus;
 import ar.edu.utn.frvm.typeit.boero_api.academic.interfaces.AcademicYearRepository;
 import ar.edu.utn.frvm.typeit.boero_api.academic.interfaces.TrainingPathRepository;
+import ar.edu.utn.frvm.typeit.boero_api.audit.enums.AuditAction;
+import ar.edu.utn.frvm.typeit.boero_api.audit.enums.AuditEntityType;
+import ar.edu.utn.frvm.typeit.boero_api.audit.services.AuditEventRecorder;
+import ar.edu.utn.frvm.typeit.boero_api.authorization.enums.SystemRoleCode;
+import ar.edu.utn.frvm.typeit.boero_api.authorization.interfaces.PersonRoleAssignmentRepository;
 import ar.edu.utn.frvm.typeit.boero_api.common.web.PaginatedResponse;
 import ar.edu.utn.frvm.typeit.boero_api.enrollment.entities.ApplicantResponsible;
 import ar.edu.utn.frvm.typeit.boero_api.enrollment.entities.EnrollmentApplication;
@@ -24,8 +29,6 @@ import ar.edu.utn.frvm.typeit.boero_api.institutional.entities.Person;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.exceptions.UnauthorizedGuardianshipException;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.interfaces.PersonGuardianRepository;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.interfaces.PersonRepository;
-import ar.edu.utn.frvm.typeit.boero_api.authorization.enums.SystemRoleCode;
-import ar.edu.utn.frvm.typeit.boero_api.authorization.interfaces.PersonRoleAssignmentRepository;
 import java.time.Clock;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -55,6 +58,7 @@ public class EnrollmentApplicationService {
   private final AcademicYearRepository academicYears;
   private final PersonGuardianRepository personGuardianRepository;
   private final PersonRoleAssignmentRepository personRoleAssignmentRepository;
+  private final AuditEventRecorder auditEventRecorder;
 
   @Transactional
   public EnrollmentApplicationResponse startOrGetApplication(
@@ -143,6 +147,7 @@ public class EnrollmentApplicationService {
     documents.snapshot(application);
     saveDraft(application);
     history.record(application);
+    audit(personId, application, AuditAction.ENROLLMENT_APPLICATION_STARTED);
 
     return responses.from(application);
   }
@@ -166,6 +171,7 @@ public class EnrollmentApplicationService {
       drafts.update(application, request.getData());
     }
     final var saved = saveDraft(application);
+    audit(personId, saved, AuditAction.ENROLLMENT_APPLICATION_DRAFT_UPDATED);
 
     return responses.from(saved);
   }
@@ -182,6 +188,7 @@ public class EnrollmentApplicationService {
       }
     }
     final var saved = applications.save(application);
+    audit(personId, saved, AuditAction.ENROLLMENT_APPLICATION_CANCELLED);
 
     return responses.from(saved);
   }
@@ -218,6 +225,7 @@ public class EnrollmentApplicationService {
     } catch (DataIntegrityViolationException exception) {
       throw EnrollmentIntegrityViolationTranslator.submission(exception);
     }
+    audit(personId, saved, AuditAction.ENROLLMENT_APPLICATION_SUBMITTED);
 
     return responses.from(saved);
   }
@@ -262,6 +270,18 @@ public class EnrollmentApplicationService {
     if (application.getStatus() != EnrollmentApplicationStatus.DRAFT) {
       throw new ApplicationNotEditableException(application.getId());
     }
+  }
+
+  /** The subject is always the applicant; the actor may be the applicant or their tutor. */
+  private void audit(
+      final UUID actorPersonId, final EnrollmentApplication application, final AuditAction action) {
+    auditEventRecorder.record(
+        application.getInstitution(),
+        actorPersonId,
+        application.getApplicantPerson().getId(),
+        action,
+        AuditEntityType.ENROLLMENT_APPLICATION,
+        application.getId());
   }
 
   private EnrollmentApplication saveDraft(final EnrollmentApplication application) {

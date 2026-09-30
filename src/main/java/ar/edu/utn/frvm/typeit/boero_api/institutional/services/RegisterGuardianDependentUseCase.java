@@ -1,5 +1,8 @@
 package ar.edu.utn.frvm.typeit.boero_api.institutional.services;
 
+import ar.edu.utn.frvm.typeit.boero_api.audit.enums.AuditAction;
+import ar.edu.utn.frvm.typeit.boero_api.audit.enums.AuditEntityType;
+import ar.edu.utn.frvm.typeit.boero_api.audit.services.AuditEventRecorder;
 import ar.edu.utn.frvm.typeit.boero_api.auth.interfaces.UserRepository;
 import ar.edu.utn.frvm.typeit.boero_api.authorization.enums.SystemRoleCode;
 import ar.edu.utn.frvm.typeit.boero_api.authorization.interfaces.PersonRoleAssignmentRepository;
@@ -45,6 +48,7 @@ public class RegisterGuardianDependentUseCase {
   private final BusinessDateProvider businessDateProvider;
   private final AssignPersonSystemRoleUseCase assignPersonSystemRoleUseCase;
   private final PersonRoleAssignmentRepository personRoleAssignmentRepository;
+  private final AuditEventRecorder auditEventRecorder;
 
   @Transactional
   public GuardianDependentResponse execute(
@@ -73,6 +77,13 @@ public class RegisterGuardianDependentUseCase {
 
     final PersonGuardian link = link(institution, tutor, dependent, request);
     assignApplicantRoleIfUnassigned(institutionId, dependent);
+    auditEventRecorder.record(
+        institution,
+        tutor.getId(),
+        dependent.getId(),
+        AuditAction.GUARDIAN_DEPENDENT_LINKED,
+        AuditEntityType.PERSON_GUARDIAN,
+        link.getId());
     final long activeApplications =
         personGuardianRepository
             .countActiveApplicationsByApplicant(institutionId, List.of(dependent.getId()))

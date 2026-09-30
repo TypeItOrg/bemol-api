@@ -420,7 +420,12 @@ public enum PermissionCode {
       "institution:guardian-dependent:manage",
       PermissionScope.INSTITUTION,
       PermissionGroup.ENROLLMENT,
-      "Gestionar personas a cargo");
+      "Gestionar personas a cargo"),
+  INSTITUTION_AUDIT_READ(
+      "institution:audit:read",
+      PermissionScope.INSTITUTION,
+      PermissionGroup.INSTITUTION,
+      "Ver registro de auditoría");
 
   private final String code;
   private final PermissionScope scope;
