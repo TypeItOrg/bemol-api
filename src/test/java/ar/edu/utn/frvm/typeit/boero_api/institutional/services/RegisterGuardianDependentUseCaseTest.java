@@ -3,6 +3,8 @@ package ar.edu.utn.frvm.typeit.boero_api.institutional.services;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
@@ -11,6 +13,11 @@ import static org.mockito.Mockito.when;
 
 import ar.edu.utn.frvm.typeit.boero_api.auth.entities.User;
 import ar.edu.utn.frvm.typeit.boero_api.auth.interfaces.UserRepository;
+import ar.edu.utn.frvm.typeit.boero_api.authorization.entities.PersonRoleAssignment;
+import ar.edu.utn.frvm.typeit.boero_api.authorization.entities.Role;
+import ar.edu.utn.frvm.typeit.boero_api.authorization.enums.SystemRoleCode;
+import ar.edu.utn.frvm.typeit.boero_api.authorization.interfaces.PersonRoleAssignmentRepository;
+import ar.edu.utn.frvm.typeit.boero_api.authorization.services.AssignPersonSystemRoleUseCase;
 import ar.edu.utn.frvm.typeit.boero_api.common.exceptions.ErrorCategory;
 import ar.edu.utn.frvm.typeit.boero_api.common.time.BusinessDateProvider;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.entities.GuardianRelationship;
@@ -30,6 +37,7 @@ import ar.edu.utn.frvm.typeit.boero_api.institutional.payloads.guardian.Guardian
 import jakarta.validation.Validator;
 import java.time.Clock;
 import java.time.LocalDate;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
@@ -51,6 +59,8 @@ class RegisterGuardianDependentUseCaseTest {
   @Mock private UserRepository userRepository;
   @Mock private PersonGuardianRepository personGuardianRepository;
   @Mock private Validator validator;
+  @Mock private AssignPersonSystemRoleUseCase assignPersonSystemRoleUseCase;
+  @Mock private PersonRoleAssignmentRepository personRoleAssignmentRepository;
 
   private RegisterGuardianDependentUseCase useCase;
   private Institution institution;
@@ -65,7 +75,9 @@ class RegisterGuardianDependentUseCaseTest {
             userRepository,
             personGuardianRepository,
             validator,
-            new BusinessDateProvider(Clock.systemUTC()));
+            new BusinessDateProvider(Clock.systemUTC()),
+            assignPersonSystemRoleUseCase,
+            personRoleAssignmentRepository);
     institution = Institution.builder().id(UUID.randomUUID()).build();
     tutor =
         Person.builder()
@@ -109,6 +121,10 @@ class RegisterGuardianDependentUseCaseTest {
     assertThat(linkCaptor.getValue().isPrimaryContact()).isTrue();
     assertThat(response.documentNumber()).isEqualTo("54123456");
     assertThat(response.relationship()).isEqualTo(GuardianRelationship.FATHER);
+    final var assignedCaptor = ArgumentCaptor.forClass(Person.class);
+    verify(assignPersonSystemRoleUseCase)
+        .execute(assignedCaptor.capture(), eq(SystemRoleCode.APPLICANT), eq(false));
+    assertThat(assignedCaptor.getValue().getId()).isEqualTo(response.dependentPersonId());
   }
 
   @Test
@@ -129,6 +145,8 @@ class RegisterGuardianDependentUseCaseTest {
             exception -> assertThat(exception.category()).isEqualTo(ErrorCategory.INVALID_INPUT));
     verify(personRepository, never()).save(any(Person.class));
     verify(personGuardianRepository, never()).save(any(PersonGuardian.class));
+    verify(assignPersonSystemRoleUseCase, never())
+        .execute(any(Person.class), any(SystemRoleCode.class), anyBoolean());
   }
 
   @Test
@@ -148,6 +166,31 @@ class RegisterGuardianDependentUseCaseTest {
 
     verify(personRepository, never()).save(any(Person.class));
     assertThat(response.dependentPersonId()).isEqualTo(existing.getId());
+    verify(assignPersonSystemRoleUseCase).execute(existing, SystemRoleCode.APPLICANT, false);
+  }
+
+  @Test
+  @DisplayName("Should keep the roles of an existing person that already has one")
+  void execute_doesNotReplaceExistingRoles() {
+    final Person existing = existingPerson("54123456", BIRTH_DATE);
+    when(personRepository.findByDocumentNumberAndInstitution_Id("54123456", institution.getId()))
+        .thenReturn(Optional.of(existing));
+    when(userRepository.findByPerson_IdAndInstitution_Id(existing.getId(), institution.getId()))
+        .thenReturn(Optional.empty());
+    when(personRoleAssignmentRepository.findByPerson_IdAndInstitution_Id(
+            existing.getId(), institution.getId()))
+        .thenReturn(
+            List.of(
+                PersonRoleAssignment.builder()
+                    .role(Role.builder().name("Estudiante").build())
+                    .build()));
+
+    final GuardianDependentResponse response =
+        useCase.execute(institution.getId(), tutor.getId(), request("54123456"));
+
+    assertThat(response.roles()).containsExactly("Estudiante");
+    verify(assignPersonSystemRoleUseCase, never())
+        .execute(any(Person.class), any(SystemRoleCode.class), anyBoolean());
   }
 
   @Test

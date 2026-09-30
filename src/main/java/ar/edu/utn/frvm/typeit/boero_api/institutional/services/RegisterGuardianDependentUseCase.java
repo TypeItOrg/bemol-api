@@ -1,6 +1,9 @@
 package ar.edu.utn.frvm.typeit.boero_api.institutional.services;
 
 import ar.edu.utn.frvm.typeit.boero_api.auth.interfaces.UserRepository;
+import ar.edu.utn.frvm.typeit.boero_api.authorization.enums.SystemRoleCode;
+import ar.edu.utn.frvm.typeit.boero_api.authorization.interfaces.PersonRoleAssignmentRepository;
+import ar.edu.utn.frvm.typeit.boero_api.authorization.services.AssignPersonSystemRoleUseCase;
 import ar.edu.utn.frvm.typeit.boero_api.common.time.BusinessDateProvider;
 import ar.edu.utn.frvm.typeit.boero_api.common.validation.PersonFieldConstraints;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.entities.Institution;
@@ -40,6 +43,8 @@ public class RegisterGuardianDependentUseCase {
   private final PersonGuardianRepository personGuardianRepository;
   private final Validator validator;
   private final BusinessDateProvider businessDateProvider;
+  private final AssignPersonSystemRoleUseCase assignPersonSystemRoleUseCase;
+  private final PersonRoleAssignmentRepository personRoleAssignmentRepository;
 
   @Transactional
   public GuardianDependentResponse execute(
@@ -67,6 +72,7 @@ public class RegisterGuardianDependentUseCase {
             .orElseGet(() -> createDependent(institution, request));
 
     final PersonGuardian link = link(institution, tutor, dependent, request);
+    assignApplicantRoleIfUnassigned(institutionId, dependent);
     final long activeApplications =
         personGuardianRepository
             .countActiveApplicationsByApplicant(institutionId, List.of(dependent.getId()))
@@ -74,7 +80,14 @@ public class RegisterGuardianDependentUseCase {
             .mapToLong(DependentApplicationCount::total)
             .sum();
 
-    return GuardianDependentResponse.from(link, activeApplications);
+    final List<String> roles =
+        personRoleAssignmentRepository
+            .findByPerson_IdAndInstitution_Id(dependent.getId(), institutionId)
+            .stream()
+            .map(assignment -> assignment.getRole().getName())
+            .toList();
+
+    return GuardianDependentResponse.from(link, activeApplications, roles);
   }
 
   /**
@@ -111,6 +124,20 @@ public class RegisterGuardianDependentUseCase {
     }
 
     return existing;
+  }
+
+  /**
+   * Dependents apply like any other person, so they carry the applicant role. Assigning it replaces
+   * every other role, hence it is only granted to people that have none yet.
+   */
+  private void assignApplicantRoleIfUnassigned(final UUID institutionId, final Person dependent) {
+    if (!personRoleAssignmentRepository
+        .findByPerson_IdAndInstitution_Id(dependent.getId(), institutionId)
+        .isEmpty()) {
+      return;
+    }
+
+    assignPersonSystemRoleUseCase.execute(dependent, SystemRoleCode.APPLICANT, false);
   }
 
   private Person createDependent(

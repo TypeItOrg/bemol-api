@@ -7,6 +7,7 @@ import ar.edu.utn.frvm.typeit.boero_api.academic.entities.AcademicYear;
 import ar.edu.utn.frvm.typeit.boero_api.academic.entities.StudyPlan;
 import ar.edu.utn.frvm.typeit.boero_api.academic.entities.TrainingPath;
 import ar.edu.utn.frvm.typeit.boero_api.auth.filters.JwtAuthenticatedUser;
+import ar.edu.utn.frvm.typeit.boero_api.authorization.services.InstitutionRoleProvisioner;
 import ar.edu.utn.frvm.typeit.boero_api.enrollment.entities.EnrollmentPeriod;
 import ar.edu.utn.frvm.typeit.boero_api.enrollment.enums.EnrollmentPeriodStatus;
 import ar.edu.utn.frvm.typeit.boero_api.enrollment.exceptions.EnrollmentApplicationNotFoundException;
@@ -84,6 +85,7 @@ class EnrollmentApplicationGuardianshipPostgresIntegrationTest {
   @Autowired private PersonGuardianRepository personGuardianRepository;
   @Autowired private EnrollmentAttachmentService attachmentService;
   @Autowired private EntityManager entityManager;
+  @Autowired private InstitutionRoleProvisioner institutionRoleProvisioner;
 
   private static final Path STORAGE_DIR = createStorageDir();
 
@@ -407,6 +409,8 @@ class EnrollmentApplicationGuardianshipPostgresIntegrationTest {
     final String suffix = UUID.randomUUID().toString().substring(0, 8);
     final Institution institution =
         InstitutionalTestData.createInstitution(entityManager, "guardian-" + suffix);
+    // Dependents are granted the applicant role, which must exist for the institution.
+    institutionRoleProvisioner.provision(institution);
     final Person tutor = person(institution);
     final TrainingPath trainingPath =
         InstitutionalTestData.persist(

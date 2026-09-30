@@ -108,7 +108,8 @@ class GuardianDependentControllerWebMvcTest {
         .andExpect(jsonPath("$[0].dependentPersonId").value(DEPENDENT_ID.toString()))
         .andExpect(jsonPath("$[0].relationship").value("FATHER"))
         .andExpect(jsonPath("$[0].isPrimaryContact").value(true))
-        .andExpect(jsonPath("$[0].activeApplicationsCount").value(1));
+        .andExpect(jsonPath("$[0].activeApplicationsCount").value(1))
+        .andExpect(jsonPath("$[0].roles[0]").value("Postulante"));
   }
 
   @Test
@@ -232,6 +233,7 @@ class GuardianDependentControllerWebMvcTest {
         GuardianRelationship.FATHER,
         true,
         1,
+        List.of("Postulante"),
         Instant.parse("2026-09-24T12:00:00Z"));
   }
 

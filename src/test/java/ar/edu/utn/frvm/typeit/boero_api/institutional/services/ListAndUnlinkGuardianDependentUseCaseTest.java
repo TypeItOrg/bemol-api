@@ -6,6 +6,9 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import ar.edu.utn.frvm.typeit.boero_api.authorization.entities.PersonRoleAssignment;
+import ar.edu.utn.frvm.typeit.boero_api.authorization.entities.Role;
+import ar.edu.utn.frvm.typeit.boero_api.authorization.interfaces.PersonRoleAssignmentRepository;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.entities.GuardianRelationship;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.entities.Institution;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.entities.Person;
@@ -31,6 +34,7 @@ class ListAndUnlinkGuardianDependentUseCaseTest {
   private static final UUID TUTOR_ID = UUID.randomUUID();
 
   @Mock private PersonGuardianRepository personGuardianRepository;
+  @Mock private PersonRoleAssignmentRepository personRoleAssignmentRepository;
 
   @Test
   @DisplayName("Should list dependents with their active applications count")
@@ -48,18 +52,28 @@ class ListAndUnlinkGuardianDependentUseCaseTest {
         .thenReturn(
             List.of(
                 new DependentApplicationCount(withApplication.getDependentPerson().getId(), 2)));
+    when(personRoleAssignmentRepository.findByPerson_IdInAndInstitution_Id(
+            List.of(
+                withApplication.getDependentPerson().getId(),
+                withoutApplication.getDependentPerson().getId()),
+            INSTITUTION_ID))
+        .thenReturn(
+            List.of(
+                assignment(withApplication.getDependentPerson(), "Estudiante"),
+                assignment(withoutApplication.getDependentPerson(), "Postulante")));
 
     final List<GuardianDependentResponse> result =
-        new ListGuardianDependentsUseCase(personGuardianRepository)
+        new ListGuardianDependentsUseCase(personGuardianRepository, personRoleAssignmentRepository)
             .execute(INSTITUTION_ID, TUTOR_ID);
 
     assertThat(result)
         .extracting(
             GuardianDependentResponse::firstName,
-            GuardianDependentResponse::activeApplicationsCount)
+            GuardianDependentResponse::activeApplicationsCount,
+            GuardianDependentResponse::roles)
         .containsExactly(
-            org.assertj.core.groups.Tuple.tuple("Mateo", 2L),
-            org.assertj.core.groups.Tuple.tuple("Lucia", 0L));
+            org.assertj.core.groups.Tuple.tuple("Mateo", 2L, List.of("Estudiante")),
+            org.assertj.core.groups.Tuple.tuple("Lucia", 0L, List.of("Postulante")));
   }
 
   @Test
@@ -70,7 +84,8 @@ class ListAndUnlinkGuardianDependentUseCaseTest {
         .thenReturn(List.of());
 
     assertThat(
-            new ListGuardianDependentsUseCase(personGuardianRepository)
+            new ListGuardianDependentsUseCase(
+                    personGuardianRepository, personRoleAssignmentRepository)
                 .execute(INSTITUTION_ID, TUTOR_ID))
         .isEmpty();
     verify(personGuardianRepository, never())
@@ -108,6 +123,13 @@ class ListAndUnlinkGuardianDependentUseCaseTest {
         .isInstanceOfSatisfying(
             DependentNotFoundException.class,
             exception -> assertThat(exception.code()).isEqualTo("DEPENDENT_NOT_FOUND"));
+  }
+
+  private PersonRoleAssignment assignment(final Person person, final String roleName) {
+    return PersonRoleAssignment.builder()
+        .person(person)
+        .role(Role.builder().name(roleName).build())
+        .build();
   }
 
   private PersonGuardian link(final String firstName, final String documentNumber) {

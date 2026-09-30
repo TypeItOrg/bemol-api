@@ -1,5 +1,6 @@
 package ar.edu.utn.frvm.typeit.boero_api.institutional.services;
 
+import ar.edu.utn.frvm.typeit.boero_api.authorization.interfaces.PersonRoleAssignmentRepository;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.entities.PersonGuardian;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.interfaces.DependentApplicationCount;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.interfaces.PersonGuardianRepository;
@@ -17,6 +18,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class ListGuardianDependentsUseCase {
 
   private final PersonGuardianRepository personGuardianRepository;
+  private final PersonRoleAssignmentRepository personRoleAssignmentRepository;
 
   @Transactional(readOnly = true)
   public List<GuardianDependentResponse> execute(
@@ -39,11 +41,26 @@ public class ListGuardianDependentsUseCase {
                 Collectors.toMap(
                     DependentApplicationCount::personId, DependentApplicationCount::total));
 
+    final Map<UUID, List<String>> roles =
+        personRoleAssignmentRepository
+            .findByPerson_IdInAndInstitution_Id(dependentIds, institutionId)
+            .stream()
+            .collect(
+                Collectors.groupingBy(
+                    assignment -> assignment.getPerson().getId(),
+                    Collectors.mapping(
+                        assignment -> assignment.getRole().getName(), Collectors.toList())));
+
     return links.stream()
         .map(
-            link ->
-                GuardianDependentResponse.from(
-                    link, counts.getOrDefault(link.getDependentPerson().getId(), 0L)))
+            link -> {
+              final UUID dependentId = link.getDependentPerson().getId();
+
+              return GuardianDependentResponse.from(
+                  link,
+                  counts.getOrDefault(dependentId, 0L),
+                  roles.getOrDefault(dependentId, List.of()));
+            })
         .toList();
   }
 }

@@ -6,6 +6,7 @@ import ar.edu.utn.frvm.typeit.boero_api.institutional.entities.PersonGuardian;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.List;
 import java.util.UUID;
 
 public record GuardianDependentResponse(
@@ -18,10 +19,11 @@ public record GuardianDependentResponse(
     GuardianRelationship relationship,
     boolean isPrimaryContact,
     long activeApplicationsCount,
+    List<String> roles,
     Instant createdAt) {
 
   public static GuardianDependentResponse from(
-      final PersonGuardian link, final long activeApplicationsCount) {
+      final PersonGuardian link, final long activeApplicationsCount, final List<String> roles) {
     final Person dependent = link.getDependentPerson();
 
     return new GuardianDependentResponse(
@@ -34,6 +36,7 @@ public record GuardianDependentResponse(
         link.getRelationship(),
         link.isPrimaryContact(),
         activeApplicationsCount,
+        roles,
         link.getCreatedAt());
   }
 }
