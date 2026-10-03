@@ -25,11 +25,13 @@ import ar.edu.utn.frvm.typeit.boero_api.enrollment.payloads.CourseSelectionDto;
 import ar.edu.utn.frvm.typeit.boero_api.enrollment.payloads.EnrollmentApplicationResponse;
 import ar.edu.utn.frvm.typeit.boero_api.enrollment.payloads.StartEnrollmentApplicationRequest;
 import ar.edu.utn.frvm.typeit.boero_api.enrollment.payloads.UpdateEnrollmentDraftRequest;
+import ar.edu.utn.frvm.typeit.boero_api.institutional.entities.GuardianLinkStatus;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.entities.Person;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.exceptions.UnauthorizedGuardianshipException;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.interfaces.PersonGuardianRepository;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.interfaces.PersonRepository;
 import java.time.Clock;
+import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.jspecify.annotations.Nullable;
@@ -81,8 +83,9 @@ public class EnrollmentApplicationService {
     }
 
     if (actingForDependent
-        && !personGuardianRepository.existsByInstitution_IdAndTutorPerson_IdAndDependentPerson_Id(
-            institutionId, personId, applicantPersonId)) {
+        && !personGuardianRepository
+            .existsByInstitution_IdAndTutorPerson_IdAndDependentPerson_IdAndStatusIn(
+                institutionId, personId, applicantPersonId, List.of(GuardianLinkStatus.ACTIVE))) {
       throw new UnauthorizedGuardianshipException();
     }
 

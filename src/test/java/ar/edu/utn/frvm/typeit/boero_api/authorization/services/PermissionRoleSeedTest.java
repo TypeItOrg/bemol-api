@@ -14,6 +14,7 @@ import ar.edu.utn.frvm.typeit.boero_api.institutional.entities.Institution;
 import ar.edu.utn.frvm.typeit.boero_api.support.InstitutionalTestData;
 import ar.edu.utn.frvm.typeit.boero_api.support.JpaAuditingTestConfig;
 import jakarta.persistence.EntityManager;
+import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.junit.jupiter.api.DisplayName;
@@ -148,6 +149,24 @@ class PermissionRoleSeedTest {
             PermissionCode.ENROLLMENT_APPLICATION_READ.getCode(),
             PermissionCode.ENROLLMENT_APPLICATION_APPROVE.getCode(),
             PermissionCode.ENROLLMENT_APPLICATION_REJECT.getCode());
+  }
+
+  @Test
+  @DisplayName("Should let administrative staff and authorities review guardian links")
+  void run_assignsGuardianLinkReviewToInstitutionalReviewers() {
+    permissionRoleSeed.run(null);
+
+    for (final SystemRoleCode code :
+        List.of(SystemRoleCode.ADMINISTRATIVE, SystemRoleCode.INSTITUTIONAL_AUTHORITY)) {
+      final var role =
+          roleRepository
+              .findByScopeAndCodeAndInstitutionIsNull(RoleScope.INSTITUTION, code.name())
+              .orElseThrow();
+
+      assertThat(rolePermissionRepository.findByRole_Id(role.getId()))
+          .extracting(rolePermission -> rolePermission.getPermission().getCode())
+          .contains(PermissionCode.GUARDIAN_LINK_REVIEW.getCode());
+    }
   }
 
   @Test

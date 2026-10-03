@@ -421,6 +421,11 @@ public enum PermissionCode {
       PermissionScope.INSTITUTION,
       PermissionGroup.ENROLLMENT,
       "Gestionar personas a cargo"),
+  GUARDIAN_LINK_REVIEW(
+      "institution:guardian-link:review",
+      PermissionScope.INSTITUTION,
+      PermissionGroup.ENROLLMENT,
+      "Validar vinculaciones entre tutores y estudiantes"),
   INSTITUTION_AUDIT_READ(
       "institution:audit:read",
       PermissionScope.INSTITUTION,

@@ -34,6 +34,7 @@ public interface EnrollmentApplicationRepository
           + "OR EXISTS (SELECT 1 FROM PersonGuardian guardianship "
           + "WHERE guardianship.institution.id = application.institution.id "
           + "AND guardianship.tutorPerson.id = :personId "
+          + "AND guardianship.status = "
           + "ar.edu.utn.frvm.typeit.boero_api.institutional.entities.GuardianLinkStatus.ACTIVE "
           + "AND guardianship.dependentPerson.id = application.applicantPerson.id))";
 
