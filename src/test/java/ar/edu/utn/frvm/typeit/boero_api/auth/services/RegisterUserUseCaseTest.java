@@ -20,6 +20,7 @@ import ar.edu.utn.frvm.typeit.boero_api.common.time.BusinessDateProvider;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.entities.City;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.entities.Institution;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.entities.Person;
+import ar.edu.utn.frvm.typeit.boero_api.institutional.exceptions.DependentBirthDateMismatchException;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.exceptions.InstitutionInactiveException;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.exceptions.InstitutionNotFoundException;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.interfaces.InstitutionRepository;
@@ -297,8 +298,20 @@ class RegisterUserUseCaseTest {
     Institution institution = institutionWith(institutionId);
 
     when(institutionRepository.findById(institutionId)).thenReturn(Optional.of(institution));
-    when(personRepository.existsByDocumentNumberAndInstitution_Id("12345678", institutionId))
-        .thenReturn(true);
+    Person existingPerson =
+        Person.builder()
+            .id(UUID.randomUUID())
+            .institution(institution)
+            .firstName("Ana")
+            .lastName("Garcia")
+            .birthDate(LocalDate.of(2010, 1, 1))
+            .documentNumber("12345678")
+            .email("old@example.com")
+            .build();
+    when(personRepository.findByDocumentNumberAndInstitutionIdForUpdate("12345678", institutionId))
+        .thenReturn(Optional.of(existingPerson));
+    when(userRepository.findByPerson_IdAndInstitution_Id(existingPerson.getId(), institutionId))
+        .thenReturn(Optional.of(org.mockito.Mockito.mock(User.class)));
 
     assertThatThrownBy(() -> registerUserUseCase.execute(request))
         .isInstanceOf(UserAlreadyExistsException.class);
@@ -306,6 +319,99 @@ class RegisterUserUseCaseTest {
     verify(personRepository, never()).save(any());
     verify(userRepository, never()).save(any());
     verify(assignPersonSystemRoleUseCase, never()).execute(any(), any());
+  }
+
+  @Test
+  @DisplayName("Should complete registration for an existing person without an account")
+  void execute_registersExistingPersonAndPreservesRoles() {
+    UUID institutionId = UUID.randomUUID();
+    RegisterRequest request =
+        new RegisterRequest(
+            "Ana",
+            "Garcia",
+            LocalDate.of(2010, 1, 1),
+            "12345678",
+            "new@example.com",
+            "password123",
+            institutionId,
+            null);
+    Institution institution = institutionWith(institutionId);
+    Person existingPerson =
+        Person.builder()
+            .id(UUID.randomUUID())
+            .institution(institution)
+            .firstName("Ana")
+            .lastName("Garcia")
+            .birthDate(request.birthDate())
+            .documentNumber(request.documentNumber())
+            .email("old@example.com")
+            .build();
+    User user =
+        User.builder()
+            .id(UUID.randomUUID())
+            .institution(institution)
+            .person(existingPerson)
+            .build();
+
+    when(institutionRepository.findById(institutionId)).thenReturn(Optional.of(institution));
+    when(personRepository.findByDocumentNumberAndInstitutionIdForUpdate(
+            request.documentNumber(), institutionId))
+        .thenReturn(Optional.of(existingPerson));
+    when(userRepository.findByPerson_IdAndInstitution_Id(existingPerson.getId(), institutionId))
+        .thenReturn(Optional.empty());
+    when(passwordEncoder.encode(request.password())).thenReturn("encoded-hash");
+    when(userRepository.save(any(User.class))).thenReturn(user);
+    when(validator.validate(any(Person.class))).thenReturn(Set.of());
+
+    UserRegisteredResponse response = registerUserUseCase.execute(request);
+
+    assertThat(response.userId()).isEqualTo(user.getId());
+    assertThat(existingPerson.getEmail()).isEqualTo(request.email());
+    verify(assignPersonSystemRoleUseCase)
+        .executePreservingRoles(existingPerson, SystemRoleCode.APPLICANT);
+    verify(emailVerification).sendInitial(user);
+    verify(personRepository).flush();
+  }
+
+  @Test
+  @DisplayName("Should reject existing person registration when birth date differs")
+  void execute_rejectsExistingPersonWithDifferentBirthDate() {
+    UUID institutionId = UUID.randomUUID();
+    RegisterRequest request =
+        new RegisterRequest(
+            "Ana",
+            "Garcia",
+            LocalDate.of(2011, 1, 1),
+            "12345678",
+            "new@example.com",
+            "password123",
+            institutionId,
+            null);
+    Institution institution = institutionWith(institutionId);
+    Person existingPerson =
+        Person.builder()
+            .id(UUID.randomUUID())
+            .institution(institution)
+            .firstName("Ana")
+            .lastName("Garcia")
+            .birthDate(LocalDate.of(2010, 1, 1))
+            .documentNumber(request.documentNumber())
+            .email("old@example.com")
+            .build();
+
+    when(institutionRepository.findById(institutionId)).thenReturn(Optional.of(institution));
+    when(personRepository.findByDocumentNumberAndInstitutionIdForUpdate(
+            request.documentNumber(), institutionId))
+        .thenReturn(Optional.of(existingPerson));
+    when(userRepository.findByPerson_IdAndInstitution_Id(existingPerson.getId(), institutionId))
+        .thenReturn(Optional.empty());
+
+    assertThatThrownBy(() -> registerUserUseCase.execute(request))
+        .isInstanceOf(DependentBirthDateMismatchException.class);
+
+    assertThat(existingPerson.getEmail()).isEqualTo("old@example.com");
+    verify(userRepository, never()).save(any());
+    verify(assignPersonSystemRoleUseCase, never()).executePreservingRoles(any(), any());
   }
 
   @Test
@@ -328,8 +434,8 @@ class RegisterUserUseCaseTest {
         (ConstraintViolation<Person>) org.mockito.Mockito.mock(ConstraintViolation.class);
 
     when(institutionRepository.findById(institutionId)).thenReturn(Optional.of(institution));
-    when(personRepository.existsByDocumentNumberAndInstitution_Id("12345678", institutionId))
-        .thenReturn(false);
+    when(personRepository.findByDocumentNumberAndInstitutionIdForUpdate("12345678", institutionId))
+        .thenReturn(Optional.empty());
     when(validator.validate(any(Person.class))).thenReturn(Set.of(violation));
 
     assertThatThrownBy(() -> registerUserUseCase.execute(request))
@@ -344,8 +450,8 @@ class RegisterUserUseCaseTest {
       UUID institutionId, String password, String encodedPassword) {
     Institution institution = institutionWith(institutionId);
     when(institutionRepository.findById(institutionId)).thenReturn(Optional.of(institution));
-    when(personRepository.existsByDocumentNumberAndInstitution_Id("12345678", institutionId))
-        .thenReturn(false);
+    when(personRepository.findByDocumentNumberAndInstitutionIdForUpdate("12345678", institutionId))
+        .thenReturn(Optional.empty());
     when(validator.validate(any(Person.class))).thenReturn(Set.of());
     when(passwordEncoder.encode(password)).thenReturn(encodedPassword);
     when(personRepository.save(any(Person.class)))

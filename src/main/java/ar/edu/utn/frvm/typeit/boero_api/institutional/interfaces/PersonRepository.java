@@ -36,6 +36,17 @@ public interface PersonRepository extends JpaRepository<Person, UUID> {
   Optional<Person> findByDocumentNumberAndInstitution_Id(
       @Param("documentNumber") String documentNumber, @Param("institutionId") UUID institutionId);
 
+  @Lock(LockModeType.PESSIMISTIC_WRITE)
+  @Query(
+      """
+      SELECT person FROM Person person
+      WHERE person.documentNumber = :documentNumber
+        AND person.institution.id = :institutionId
+        AND person.deleted = false
+      """)
+  Optional<Person> findByDocumentNumberAndInstitutionIdForUpdate(
+      @Param("documentNumber") String documentNumber, @Param("institutionId") UUID institutionId);
+
   @Query(
       """
       SELECT COUNT(person) > 0 FROM Person person

@@ -15,6 +15,7 @@ import ar.edu.utn.frvm.typeit.boero_api.common.time.BusinessDateProvider;
 import ar.edu.utn.frvm.typeit.boero_api.common.validation.PersonFieldConstraints;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.entities.Institution;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.entities.Person;
+import ar.edu.utn.frvm.typeit.boero_api.institutional.exceptions.DependentBirthDateMismatchException;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.exceptions.InstitutionInactiveException;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.exceptions.InstitutionNotFoundException;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.interfaces.InstitutionRepository;
@@ -61,26 +62,47 @@ public class RegisterUserUseCase {
       throw new InstitutionInactiveException();
     }
 
-    if (personRepository.existsByDocumentNumberAndInstitution_Id(
-        request.documentNumber(), request.institutionId())) {
-      throw new UserAlreadyExistsException();
-    }
-
     Person person =
-        Person.builder()
-            .institution(institution)
-            .firstName(request.name())
-            .lastName(request.lastName())
-            .birthDate(request.birthDate())
-            .documentNumber(request.documentNumber())
-            .email(request.email())
-            .build();
-    assertPersonValid(person);
-    try {
-      person = personRepository.save(person);
+        personRepository
+            .findByDocumentNumberAndInstitutionIdForUpdate(
+                request.documentNumber(), request.institutionId())
+            .orElse(null);
+    final boolean preserveExistingRoles = person != null;
+    final SystemRoleCode roleCode;
+
+    if (preserveExistingRoles) {
+      if (userRepository
+          .findByPerson_IdAndInstitution_Id(person.getId(), request.institutionId())
+          .isPresent()) {
+        throw new UserAlreadyExistsException();
+      }
+      if (!request.birthDate().equals(person.getBirthDate())) {
+        throw new DependentBirthDateMismatchException();
+      }
+
+      person.updateContact(request.email(), person.getPhoneNumber());
+      assertPersonValid(person);
+      personRepository.save(person);
       personRepository.flush();
-    } catch (DataIntegrityViolationException exception) {
-      throw new UserAlreadyExistsException();
+      roleCode = SystemRoleCode.APPLICANT;
+    } else {
+      person =
+          Person.builder()
+              .institution(institution)
+              .firstName(request.name())
+              .lastName(request.lastName())
+              .birthDate(request.birthDate())
+              .documentNumber(request.documentNumber())
+              .email(request.email())
+              .build();
+      assertPersonValid(person);
+      try {
+        person = personRepository.save(person);
+        personRepository.flush();
+      } catch (DataIntegrityViolationException exception) {
+        throw new UserAlreadyExistsException();
+      }
+      roleCode = request.registersAsGuardian() ? SystemRoleCode.GUARDIAN : SystemRoleCode.APPLICANT;
     }
 
     User user =
@@ -91,10 +113,11 @@ public class RegisterUserUseCase {
             .password(requireNonNull(passwordEncoder.encode(request.password())))
             .build();
     user = userRepository.save(user);
-    assignPersonSystemRoleUseCase.execute(
-        person,
-        request.registersAsGuardian() ? SystemRoleCode.GUARDIAN : SystemRoleCode.APPLICANT,
-        false);
+    if (preserveExistingRoles) {
+      assignPersonSystemRoleUseCase.executePreservingRoles(person, roleCode);
+    } else {
+      assignPersonSystemRoleUseCase.execute(person, roleCode, false);
+    }
     emailVerification.sendInitial(user);
     return UserRegisteredResponse.builder()
         .emailVerificationRequired(true)

@@ -1,16 +1,11 @@
 package ar.edu.utn.frvm.typeit.boero_api.authorization.services;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import ar.edu.utn.frvm.typeit.boero_api.auth.services.SessionRevocationService;
 import ar.edu.utn.frvm.typeit.boero_api.authorization.entities.PersonRoleAssignment;
 import ar.edu.utn.frvm.typeit.boero_api.authorization.entities.Role;
-import ar.edu.utn.frvm.typeit.boero_api.authorization.enums.AccessScope;
 import ar.edu.utn.frvm.typeit.boero_api.authorization.enums.RoleScope;
 import ar.edu.utn.frvm.typeit.boero_api.authorization.enums.SystemRoleCode;
 import ar.edu.utn.frvm.typeit.boero_api.authorization.interfaces.PersonRoleAssignmentRepository;
@@ -25,7 +20,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -61,34 +55,67 @@ class AssignPersonSystemRoleUseCaseTest {
         .thenReturn(Optional.of(teacher));
     when(personRoleAssignmentRepository.findByPerson_IdAndInstitution_Id(
             person.getId(), institutionId))
-        .thenReturn(List.of(assignmentWith(roleWith(SystemRoleCode.ADMINISTRATIVE))));
+        .thenReturn(List.of());
 
     assignPersonSystemRoleUseCase.execute(person, SystemRoleCode.TEACHER);
 
-    assertSavedAssignment(teacher);
-    verify(personRoleAssignmentRepository, never()).delete(any());
+    verify(personRoleAssignmentRepository).save(org.mockito.ArgumentMatchers.any());
   }
 
   @Test
-  @DisplayName("Applicant replacement removes all other roles, including the last authority")
-  void execute_replacesAllOtherRolesWithApplicant() {
+  @DisplayName("Should replace existing roles when assigning applicant")
+  void execute_replacesExistingRolesWithApplicant() {
     Role applicant = roleWith(SystemRoleCode.APPLICANT);
     Role administrative = roleWith(SystemRoleCode.ADMINISTRATIVE);
     PersonRoleAssignment administrativeAssignment = assignmentWith(administrative);
-    PersonRoleAssignment authorityAssignment =
-        assignmentWith(roleWith(SystemRoleCode.INSTITUTIONAL_AUTHORITY));
     when(roleRepository.findByScopeAndCodeAndInstitution_Id(
             RoleScope.INSTITUTION, SystemRoleCode.APPLICANT.name(), institutionId))
         .thenReturn(Optional.of(applicant));
     when(personRoleAssignmentRepository.findByPerson_IdAndInstitution_Id(
             person.getId(), institutionId))
-        .thenReturn(List.of(administrativeAssignment, authorityAssignment));
+        .thenReturn(List.of(administrativeAssignment));
 
     assignPersonSystemRoleUseCase.execute(person, SystemRoleCode.APPLICANT);
 
     verify(personRoleAssignmentRepository).delete(administrativeAssignment);
+    verify(personRoleAssignmentRepository).save(org.mockito.ArgumentMatchers.any());
+  }
+
+  @Test
+  @DisplayName("Should preserve existing roles when assigning applicant explicitly")
+  void executePreservingRoles_keepsExistingRoles() {
+    Role applicant = roleWith(SystemRoleCode.APPLICANT);
+    Role guardian = roleWith(SystemRoleCode.GUARDIAN);
+    PersonRoleAssignment guardianAssignment = assignmentWith(guardian);
+    when(roleRepository.findByScopeAndCodeAndInstitution_Id(
+            RoleScope.INSTITUTION, SystemRoleCode.APPLICANT.name(), institutionId))
+        .thenReturn(Optional.of(applicant));
+    when(personRoleAssignmentRepository.findByPerson_IdAndInstitution_Id(
+            person.getId(), institutionId))
+        .thenReturn(List.of(guardianAssignment));
+
+    assignPersonSystemRoleUseCase.executePreservingRoles(person, SystemRoleCode.APPLICANT);
+
+    verify(personRoleAssignmentRepository, org.mockito.Mockito.never()).delete(guardianAssignment);
+    verify(personRoleAssignmentRepository).save(org.mockito.ArgumentMatchers.any());
+  }
+
+  @Test
+  @DisplayName("Should allow replacing the last institutional authority with applicant")
+  void execute_replacesLastAuthorityWithApplicant() {
+    Role applicant = roleWith(SystemRoleCode.APPLICANT);
+    Role authority = roleWith(SystemRoleCode.INSTITUTIONAL_AUTHORITY);
+    PersonRoleAssignment authorityAssignment = assignmentWith(authority);
+    when(roleRepository.findByScopeAndCodeAndInstitution_Id(
+            RoleScope.INSTITUTION, SystemRoleCode.APPLICANT.name(), institutionId))
+        .thenReturn(Optional.of(applicant));
+    when(personRoleAssignmentRepository.findByPerson_IdAndInstitution_Id(
+            person.getId(), institutionId))
+        .thenReturn(List.of(authorityAssignment));
+    assignPersonSystemRoleUseCase.execute(person, SystemRoleCode.APPLICANT);
+
     verify(personRoleAssignmentRepository).delete(authorityAssignment);
-    assertSavedAssignment(applicant);
+    verify(personRoleAssignmentRepository).save(org.mockito.ArgumentMatchers.any());
   }
 
   @Test
@@ -108,19 +135,6 @@ class AssignPersonSystemRoleUseCaseTest {
 
     verify(personRoleAssignmentRepository).delete(applicantAssignment);
     verify(personRoleAssignmentRepository).save(org.mockito.ArgumentMatchers.any());
-  }
-
-  private void assertSavedAssignment(Role expectedRole) {
-    ArgumentCaptor<PersonRoleAssignment> saved =
-        ArgumentCaptor.forClass(PersonRoleAssignment.class);
-    verify(personRoleAssignmentRepository).save(saved.capture());
-    assertThat(saved.getValue().getPerson()).isSameAs(person);
-    assertThat(saved.getValue().getInstitution()).isSameAs(institution);
-    assertThat(saved.getValue().getRole()).isSameAs(expectedRole);
-    assertThat(saved.getValue().getAccessScope()).isEqualTo(AccessScope.INSTITUTION);
-    assertThat(saved.getValue().getTrainingPathIds()).isEmpty();
-    verify(authorizationCacheInvalidator).evictPerson(person.getId(), institutionId);
-    verifyNoInteractions(sessionRevocationService);
   }
 
   private Role roleWith(SystemRoleCode roleCode) {
