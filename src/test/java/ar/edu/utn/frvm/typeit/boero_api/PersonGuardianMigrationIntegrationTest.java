@@ -69,6 +69,64 @@ class PersonGuardianMigrationIntegrationTest extends DatabaseMigrationTestSuppor
   }
 
   @Test
+  @DisplayName("Should allow requesting a link again once the previous one was resolved")
+  void shouldAllowNewRequestAfterRejectionOrEnd() {
+    final UUID institutionId = fixtures.firstInstitutionId();
+    final UUID tutorId = UUID.randomUUID();
+    final UUID dependentId = UUID.randomUUID();
+
+    try {
+      fixtures.insertPerson(tutorId, institutionId, fixtures.randomDocumentNumber(), false);
+      insertMinorWithoutEmail(dependentId, institutionId);
+      insertLink(institutionId, tutorId, dependentId, "FATHER");
+
+      for (final String closedStatus : new String[] {"REJECTED", "ENDED"}) {
+        jdbcTemplate.update(
+            "UPDATE person_guardians SET status = ? WHERE status IN ('PENDING', 'ACTIVE')"
+                + " AND tutor_person_id = ?",
+            closedStatus,
+            tutorId);
+
+        assertThatCode(() -> insertLink(institutionId, tutorId, dependentId, "FATHER"))
+            .doesNotThrowAnyException();
+      }
+      assertThatThrownBy(() -> insertLink(institutionId, tutorId, dependentId, "MOTHER"))
+          .isInstanceOf(DataIntegrityViolationException.class);
+    } finally {
+      cleanUp(tutorId, dependentId);
+    }
+  }
+
+  @Test
+  @DisplayName("Should start links as pending and reject an unknown status")
+  void shouldDefaultToPendingAndRejectUnknownStatus() {
+    final UUID institutionId = fixtures.firstInstitutionId();
+    final UUID tutorId = UUID.randomUUID();
+    final UUID dependentId = UUID.randomUUID();
+
+    try {
+      fixtures.insertPerson(tutorId, institutionId, fixtures.randomDocumentNumber(), false);
+      insertMinorWithoutEmail(dependentId, institutionId);
+      insertLink(institutionId, tutorId, dependentId, "FATHER");
+
+      assertThat(
+              jdbcTemplate.queryForObject(
+                  "SELECT status FROM person_guardians WHERE tutor_person_id = ?",
+                  String.class,
+                  tutorId))
+          .isEqualTo("PENDING");
+      assertThatThrownBy(
+              () ->
+                  jdbcTemplate.update(
+                      "UPDATE person_guardians SET status = 'APPROVED' WHERE tutor_person_id = ?",
+                      tutorId))
+          .isInstanceOf(DataIntegrityViolationException.class);
+    } finally {
+      cleanUp(tutorId, dependentId);
+    }
+  }
+
+  @Test
   @DisplayName("Should reject a person being its own guardian")
   void shouldRejectSelfGuardianship() {
     final UUID institutionId = fixtures.firstInstitutionId();

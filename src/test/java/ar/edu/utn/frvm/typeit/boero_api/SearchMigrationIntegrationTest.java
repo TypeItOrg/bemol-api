@@ -218,7 +218,7 @@ class SearchMigrationIntegrationTest extends DatabaseMigrationTestSupport {
   }
 
   @Test
-  @DisplayName("Should search only the caller's guardian dependents")
+  @DisplayName("Should search only the caller's active guardian dependents")
   void shouldSearchOnlyTheCallersGuardianDependents() {
     final UUID institutionId = fixtures.firstInstitutionId();
     final UUID tutorAId = UUID.randomUUID();
@@ -226,6 +226,7 @@ class SearchMigrationIntegrationTest extends DatabaseMigrationTestSupport {
     final UUID dependentAId = UUID.randomUUID();
     final UUID dependentBId = UUID.randomUUID();
     final UUID deletedDependentId = UUID.randomUUID();
+    final UUID pendingDependentId = UUID.randomUUID();
     final String dependentADocument = fixtures.randomDocumentNumber();
     final String surname = "Zzdependiente" + System.nanoTime();
     final Set<PermissionCode> permissions = Set.of(PermissionCode.GUARDIAN_DEPENDENT_MANAGE);
@@ -237,9 +238,12 @@ class SearchMigrationIntegrationTest extends DatabaseMigrationTestSupport {
       insertDependent(dependentBId, institutionId, fixtures.randomDocumentNumber(), surname, false);
       insertDependent(
           deletedDependentId, institutionId, fixtures.randomDocumentNumber(), surname, true);
-      insertGuardianLink(institutionId, tutorAId, dependentAId);
-      insertGuardianLink(institutionId, tutorAId, deletedDependentId);
-      insertGuardianLink(institutionId, tutorBId, dependentBId);
+      insertDependent(
+          pendingDependentId, institutionId, fixtures.randomDocumentNumber(), surname, false);
+      insertGuardianLink(institutionId, tutorAId, dependentAId, "ACTIVE");
+      insertGuardianLink(institutionId, tutorAId, deletedDependentId, "ACTIVE");
+      insertGuardianLink(institutionId, tutorAId, pendingDependentId, "PENDING");
+      insertGuardianLink(institutionId, tutorBId, dependentBId, "ACTIVE");
 
       assertSearchContainsOnly(
           searchService.institutionalSummary(institutionId, tutorAId, surname, 5, permissions),
@@ -261,7 +265,13 @@ class SearchMigrationIntegrationTest extends DatabaseMigrationTestSupport {
           .isEmpty();
     } finally {
       final List<UUID> personIds =
-          List.of(tutorAId, tutorBId, dependentAId, dependentBId, deletedDependentId);
+          List.of(
+              tutorAId,
+              tutorBId,
+              dependentAId,
+              dependentBId,
+              deletedDependentId,
+              pendingDependentId);
       for (final UUID personId : personIds) {
         jdbcTemplate.update(
             "DELETE FROM person_guardians WHERE tutor_person_id = ? OR dependent_person_id = ?",
@@ -293,18 +303,19 @@ class SearchMigrationIntegrationTest extends DatabaseMigrationTestSupport {
   }
 
   private void insertGuardianLink(
-      final UUID institutionId, final UUID tutorId, final UUID dependentId) {
+      final UUID institutionId, final UUID tutorId, final UUID dependentId, final String status) {
     jdbcTemplate.update(
         """
         INSERT INTO person_guardians (
           person_guardian_id, institution_id, tutor_person_id, dependent_person_id,
-          relationship, is_primary_contact, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, 'MOTHER', false, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+          relationship, is_primary_contact, status, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, 'MOTHER', false, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
         """,
         UUID.randomUUID(),
         institutionId,
         tutorId,
-        dependentId);
+        dependentId,
+        status);
   }
 
   private void assertSearchContainsOnly(
