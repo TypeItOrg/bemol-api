@@ -21,14 +21,18 @@ public final class InstitutionMessages {
       "Esa persona ya está registrada como persona a cargo tuya.";
   public static final String DEPENDENT_BIRTH_DATE_MISMATCH =
       "La fecha de nacimiento no coincide con la registrada para ese documento.";
-  public static final String DEPENDENT_HAS_ACCOUNT =
-      "Ese documento ya tiene una cuenta institucional y no puede registrarse como persona a cargo.";
-  public static final String DEPENDENT_MUST_BE_MINOR =
-      "La persona a cargo debe ser menor de 18 años.";
   public static final String DEPENDENT_NOT_FOUND =
       "No se encontró la persona a cargo especificada.";
   public static final String GUARDIANSHIP_UNAUTHORIZED =
       "No tenés la tutela de la persona indicada.";
+  public static final String GUARDIAN_LINK_NOT_FOUND =
+      "No se encontró la solicitud de vinculación especificada.";
+  public static final String GUARDIAN_LINK_ATTACHMENT_NOT_FOUND =
+      "No se encontró el documento especificado.";
+  public static final String GUARDIAN_LINK_ATTACHMENT_LIMIT =
+      "La solicitud ya tiene el máximo de documentos adjuntos.";
+  public static final String GUARDIAN_LINK_ALREADY_RESOLVED =
+      "La solicitud de vinculación ya fue resuelta.";
 
   public static final String PUBLIC_SUBDOMAIN_INVALID =
       "Usá entre 1 y 63 letras minúsculas, números o guiones, sin guiones en los extremos.";

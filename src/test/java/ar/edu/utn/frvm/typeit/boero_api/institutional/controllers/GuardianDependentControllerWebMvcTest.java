@@ -6,7 +6,10 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -24,10 +27,14 @@ import ar.edu.utn.frvm.typeit.boero_api.authorization.services.InitialRoleAssign
 import ar.edu.utn.frvm.typeit.boero_api.authorization.services.InstitutionalCallerGuard;
 import ar.edu.utn.frvm.typeit.boero_api.common.exceptions.GlobalExceptionHandler;
 import ar.edu.utn.frvm.typeit.boero_api.config.WebConfig;
+import ar.edu.utn.frvm.typeit.boero_api.institutional.entities.GuardianLinkStatus;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.entities.GuardianRelationship;
+import ar.edu.utn.frvm.typeit.boero_api.institutional.entities.PersonGuardianAttachment;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.exceptions.DependentAlreadyLinkedException;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.payloads.guardian.CreateGuardianDependentRequest;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.payloads.guardian.GuardianDependentResponse;
+import ar.edu.utn.frvm.typeit.boero_api.institutional.payloads.guardian.GuardianLinkAttachmentResponse;
+import ar.edu.utn.frvm.typeit.boero_api.institutional.services.GuardianLinkAttachmentService;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.services.ListGuardianDependentsUseCase;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.services.RegisterGuardianDependentUseCase;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.services.UnlinkGuardianDependentUseCase;
@@ -45,13 +52,16 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.EnableAspectJAutoProxy;
 import org.springframework.context.annotation.Import;
+import org.springframework.core.io.ByteArrayResource;
 import org.springframework.http.MediaType;
+import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.security.authentication.TestingAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.util.PathMatcher;
+import org.springframework.web.multipart.MultipartFile;
 
 @WebMvcTest(GuardianDependentController.class)
 @Import({
@@ -68,6 +78,8 @@ class GuardianDependentControllerWebMvcTest {
   private static final UUID INSTITUTION_ID = UUID.randomUUID();
   private static final UUID TUTOR_ID = UUID.randomUUID();
   private static final UUID DEPENDENT_ID = UUID.randomUUID();
+  private static final UUID LINK_ID = UUID.randomUUID();
+  private static final UUID ATTACHMENT_ID = UUID.randomUUID();
   private static final String BASE_PATH =
       "/api/v1/institutions/{institutionId}/guardian/dependents";
 
@@ -77,6 +89,7 @@ class GuardianDependentControllerWebMvcTest {
   @MockitoBean private ListGuardianDependentsUseCase listGuardianDependentsUseCase;
   @MockitoBean private RegisterGuardianDependentUseCase registerGuardianDependentUseCase;
   @MockitoBean private UnlinkGuardianDependentUseCase unlinkGuardianDependentUseCase;
+  @MockitoBean private GuardianLinkAttachmentService guardianLinkAttachmentService;
 
   @MockitoBean private PathMatcher pathMatcher;
   @MockitoBean private AuthenticationEntryPoint authenticationEntryPoint;
@@ -207,6 +220,81 @@ class GuardianDependentControllerWebMvcTest {
     verify(unlinkGuardianDependentUseCase).execute(INSTITUTION_ID, TUTOR_ID, DEPENDENT_ID);
   }
 
+  @Test
+  @DisplayName("Should attach a supporting document to the tutor's request")
+  void uploadAttachment_returnsCreated() throws Exception {
+    final var auth = authentication();
+    allowManagingDependents();
+    final var file =
+        new MockMultipartFile("file", "partida.pdf", "application/pdf", "%PDF-1.4".getBytes());
+    when(guardianLinkAttachmentService.upload(
+            eq(INSTITUTION_ID), eq(TUTOR_ID), eq(LINK_ID), any(MultipartFile.class)))
+        .thenReturn(attachmentResponse());
+
+    mockMvc
+        .perform(
+            multipart(BASE_PATH + "/{linkId}/attachments", INSTITUTION_ID, LINK_ID)
+                .file(file)
+                .principal(auth))
+        .andExpect(status().isCreated())
+        .andExpect(jsonPath("$.id").value(ATTACHMENT_ID.toString()))
+        .andExpect(jsonPath("$.originalFileName").value("partida.pdf"));
+  }
+
+  @Test
+  @DisplayName("Should list, download and delete the documents of the tutor's request")
+  void attachments_listDownloadAndDelete() throws Exception {
+    final var auth = authentication();
+    allowManagingDependents();
+    when(guardianLinkAttachmentService.list(INSTITUTION_ID, TUTOR_ID, LINK_ID))
+        .thenReturn(List.of(attachmentResponse()));
+    when(guardianLinkAttachmentService.content(INSTITUTION_ID, TUTOR_ID, LINK_ID, ATTACHMENT_ID))
+        .thenReturn(attachmentContent());
+
+    mockMvc
+        .perform(get(BASE_PATH + "/{linkId}/attachments", INSTITUTION_ID, LINK_ID).principal(auth))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$[0].id").value(ATTACHMENT_ID.toString()));
+    mockMvc
+        .perform(
+            get(
+                    BASE_PATH + "/{linkId}/attachments/{attachmentId}/content",
+                    INSTITUTION_ID,
+                    LINK_ID,
+                    ATTACHMENT_ID)
+                .principal(auth))
+        .andExpect(status().isOk())
+        .andExpect(content().contentType(MediaType.APPLICATION_PDF))
+        .andExpect(
+            header().string("Content-Disposition", org.hamcrest.Matchers.startsWith("inline")));
+    mockMvc
+        .perform(
+            delete(
+                    BASE_PATH + "/{linkId}/attachments/{attachmentId}",
+                    INSTITUTION_ID,
+                    LINK_ID,
+                    ATTACHMENT_ID)
+                .principal(auth))
+        .andExpect(status().isNoContent());
+
+    verify(guardianLinkAttachmentService).delete(INSTITUTION_ID, TUTOR_ID, LINK_ID, ATTACHMENT_ID);
+  }
+
+  private GuardianLinkAttachmentResponse attachmentResponse() {
+    return new GuardianLinkAttachmentResponse(
+        ATTACHMENT_ID, "partida.pdf", "application/pdf", 8, Instant.parse("2026-09-24T12:00:00Z"));
+  }
+
+  private GuardianLinkAttachmentService.Content attachmentContent() {
+    return new GuardianLinkAttachmentService.Content(
+        new ByteArrayResource("%PDF-1.4".getBytes()),
+        PersonGuardianAttachment.builder()
+            .originalFileName("partida.pdf")
+            .contentType("application/pdf")
+            .fileSize(8)
+            .build());
+  }
+
   private void allowManagingDependents() {
     when(authorizationService.hasPermission(any(), eq(PermissionCode.GUARDIAN_DEPENDENT_MANAGE)))
         .thenReturn(true);
@@ -226,6 +314,7 @@ class GuardianDependentControllerWebMvcTest {
     return new GuardianDependentResponse(
         UUID.randomUUID(),
         DEPENDENT_ID,
+        GuardianLinkStatus.ACTIVE,
         "54123456",
         "Mateo",
         "Gonzalez",

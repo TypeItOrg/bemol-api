@@ -3,24 +3,16 @@ package ar.edu.utn.frvm.typeit.boero_api.institutional.services;
 import ar.edu.utn.frvm.typeit.boero_api.audit.enums.AuditAction;
 import ar.edu.utn.frvm.typeit.boero_api.audit.enums.AuditEntityType;
 import ar.edu.utn.frvm.typeit.boero_api.audit.services.AuditEventRecorder;
-import ar.edu.utn.frvm.typeit.boero_api.auth.interfaces.UserRepository;
-import ar.edu.utn.frvm.typeit.boero_api.authorization.enums.SystemRoleCode;
-import ar.edu.utn.frvm.typeit.boero_api.authorization.interfaces.PersonRoleAssignmentRepository;
-import ar.edu.utn.frvm.typeit.boero_api.authorization.services.AssignPersonSystemRoleUseCase;
-import ar.edu.utn.frvm.typeit.boero_api.common.time.BusinessDateProvider;
-import ar.edu.utn.frvm.typeit.boero_api.common.validation.PersonFieldConstraints;
+import ar.edu.utn.frvm.typeit.boero_api.institutional.entities.GuardianLinkStatus;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.entities.Institution;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.entities.Person;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.entities.PersonGuardian;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.exceptions.CannotGuardianSelfException;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.exceptions.DependentAlreadyLinkedException;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.exceptions.DependentBirthDateMismatchException;
-import ar.edu.utn.frvm.typeit.boero_api.institutional.exceptions.DependentHasAccountException;
-import ar.edu.utn.frvm.typeit.boero_api.institutional.exceptions.DependentMustBeMinorException;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.exceptions.InstitutionNotFoundException;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.exceptions.PersonAlreadyExistsException;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.exceptions.PersonNotFoundException;
-import ar.edu.utn.frvm.typeit.boero_api.institutional.interfaces.DependentApplicationCount;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.interfaces.InstitutionRepository;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.interfaces.PersonGuardianRepository;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.interfaces.PersonRepository;
@@ -28,7 +20,6 @@ import ar.edu.utn.frvm.typeit.boero_api.institutional.payloads.guardian.CreateGu
 import ar.edu.utn.frvm.typeit.boero_api.institutional.payloads.guardian.GuardianDependentResponse;
 import jakarta.validation.ConstraintViolationException;
 import jakarta.validation.Validator;
-import java.time.Period;
 import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -42,24 +33,20 @@ public class RegisterGuardianDependentUseCase {
 
   private final InstitutionRepository institutionRepository;
   private final PersonRepository personRepository;
-  private final UserRepository userRepository;
   private final PersonGuardianRepository personGuardianRepository;
   private final Validator validator;
-  private final BusinessDateProvider businessDateProvider;
-  private final AssignPersonSystemRoleUseCase assignPersonSystemRoleUseCase;
-  private final PersonRoleAssignmentRepository personRoleAssignmentRepository;
   private final AuditEventRecorder auditEventRecorder;
 
+  /**
+   * Requests the link between the tutor and a person, creating the person when the document is not
+   * registered yet. The link stays pending until the institution validates it, so knowing a
+   * document number and birth date is not enough to represent someone.
+   */
   @Transactional
   public GuardianDependentResponse execute(
       final UUID institutionId,
       final UUID tutorPersonId,
       final CreateGuardianDependentRequest request) {
-    if (Period.between(request.birthDate(), businessDateProvider.today()).getYears()
-        >= PersonFieldConstraints.ADULT_AGE) {
-      throw new DependentMustBeMinorException();
-    }
-
     final Institution institution =
         institutionRepository
             .findById(institutionId)
@@ -75,36 +62,21 @@ public class RegisterGuardianDependentUseCase {
             .map(existing -> requireLinkable(institutionId, tutor, existing, request))
             .orElseGet(() -> createDependent(institution, request));
 
-    final PersonGuardian link = link(institution, tutor, dependent, request);
-    assignApplicantRoleIfUnassigned(institutionId, dependent);
+    final PersonGuardian link = requestLink(institution, tutor, dependent, request);
     auditEventRecorder.record(
         institution,
         tutor.getId(),
         dependent.getId(),
-        AuditAction.GUARDIAN_DEPENDENT_LINKED,
+        AuditAction.GUARDIAN_LINK_REQUESTED,
         AuditEntityType.PERSON_GUARDIAN,
         link.getId());
-    final long activeApplications =
-        personGuardianRepository
-            .countActiveApplicationsByApplicant(institutionId, List.of(dependent.getId()))
-            .stream()
-            .mapToLong(DependentApplicationCount::total)
-            .sum();
 
-    final List<String> roles =
-        personRoleAssignmentRepository
-            .findByPerson_IdAndInstitution_Id(dependent.getId(), institutionId)
-            .stream()
-            .map(assignment -> assignment.getRole().getName())
-            .toList();
-
-    return GuardianDependentResponse.from(link, activeApplications, roles);
+    return GuardianDependentResponse.from(link, 0, List.of());
   }
 
   /**
-   * An existing person can only be claimed as a dependent while it has no account of its own and
-   * the tutor knows its birth date. Otherwise anyone who guesses a document number could gain
-   * access to another person's enrollment applications.
+   * An existing person can only be requested when the tutor knows its birth date and no request is
+   * already open. Approval is the institution's call, not this check's.
    */
   private Person requireLinkable(
       final UUID institutionId,
@@ -115,40 +87,20 @@ public class RegisterGuardianDependentUseCase {
       throw new CannotGuardianSelfException();
     }
 
-    if (personGuardianRepository.existsByInstitution_IdAndTutorPerson_IdAndDependentPerson_Id(
-        institutionId, tutor.getId(), existing.getId())) {
+    if (personGuardianRepository
+        .existsByInstitution_IdAndTutorPerson_IdAndDependentPerson_IdAndStatusIn(
+            institutionId,
+            tutor.getId(),
+            existing.getId(),
+            List.of(GuardianLinkStatus.PENDING, GuardianLinkStatus.ACTIVE))) {
       throw new DependentAlreadyLinkedException();
     }
 
-    final boolean hasAccount =
-        userRepository
-            .findByPerson_IdAndInstitution_Id(existing.getId(), institutionId)
-            .isPresent();
-    final boolean sameBirthDate = request.birthDate().equals(existing.getBirthDate());
-
-    if (hasAccount) {
-      throw new DependentHasAccountException();
-    }
-
-    if (!sameBirthDate) {
+    if (!request.birthDate().equals(existing.getBirthDate())) {
       throw new DependentBirthDateMismatchException();
     }
 
     return existing;
-  }
-
-  /**
-   * Dependents apply like any other person, so they carry the applicant role. Assigning it replaces
-   * every other role, hence it is only granted to people that have none yet.
-   */
-  private void assignApplicantRoleIfUnassigned(final UUID institutionId, final Person dependent) {
-    if (!personRoleAssignmentRepository
-        .findByPerson_IdAndInstitution_Id(dependent.getId(), institutionId)
-        .isEmpty()) {
-      return;
-    }
-
-    assignPersonSystemRoleUseCase.execute(dependent, SystemRoleCode.APPLICANT, false);
   }
 
   private Person createDependent(
@@ -177,7 +129,7 @@ public class RegisterGuardianDependentUseCase {
     }
   }
 
-  private PersonGuardian link(
+  private PersonGuardian requestLink(
       final Institution institution,
       final Person tutor,
       final Person dependent,
@@ -185,13 +137,12 @@ public class RegisterGuardianDependentUseCase {
     try {
       final PersonGuardian link =
           personGuardianRepository.save(
-              PersonGuardian.builder()
-                  .institution(institution)
-                  .tutorPerson(tutor)
-                  .dependentPerson(dependent)
-                  .relationship(request.relationship())
-                  .primaryContact(request.isPrimaryContact())
-                  .build());
+              PersonGuardian.request(
+                  institution,
+                  tutor,
+                  dependent,
+                  request.relationship(),
+                  request.isPrimaryContact()));
       personGuardianRepository.flush();
 
       return link;

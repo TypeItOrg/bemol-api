@@ -12,6 +12,7 @@ import ar.edu.utn.frvm.typeit.boero_api.audit.services.AuditEventRecorder;
 import ar.edu.utn.frvm.typeit.boero_api.authorization.entities.PersonRoleAssignment;
 import ar.edu.utn.frvm.typeit.boero_api.authorization.entities.Role;
 import ar.edu.utn.frvm.typeit.boero_api.authorization.interfaces.PersonRoleAssignmentRepository;
+import ar.edu.utn.frvm.typeit.boero_api.institutional.entities.GuardianLinkStatus;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.entities.GuardianRelationship;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.entities.Institution;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.entities.Person;
@@ -40,13 +41,17 @@ class ListAndUnlinkGuardianDependentUseCaseTest {
   @Mock private PersonRoleAssignmentRepository personRoleAssignmentRepository;
   @Mock private AuditEventRecorder auditEventRecorder;
 
+  private static final List<GuardianLinkStatus> VISIBLE_STATUSES =
+      List.of(GuardianLinkStatus.PENDING, GuardianLinkStatus.ACTIVE, GuardianLinkStatus.REJECTED);
+
   @Test
   @DisplayName("Should list dependents with their active applications count")
   void list_returnsDependentsWithCounts() {
-    final PersonGuardian withApplication = link("Mateo", "54123456");
-    final PersonGuardian withoutApplication = link("Lucia", "54123457");
-    when(personGuardianRepository.findByInstitution_IdAndTutorPerson_IdOrderByCreatedAtAsc(
-            INSTITUTION_ID, TUTOR_ID))
+    final PersonGuardian withApplication = link("Mateo", "54123456", GuardianLinkStatus.ACTIVE);
+    final PersonGuardian withoutApplication = link("Lucia", "54123457", GuardianLinkStatus.ACTIVE);
+    when(personGuardianRepository
+            .findByInstitution_IdAndTutorPerson_IdAndStatusInOrderByCreatedAtAsc(
+                INSTITUTION_ID, TUTOR_ID, VISIBLE_STATUSES))
         .thenReturn(List.of(withApplication, withoutApplication));
     when(personGuardianRepository.countActiveApplicationsByApplicant(
             INSTITUTION_ID,
@@ -81,10 +86,35 @@ class ListAndUnlinkGuardianDependentUseCaseTest {
   }
 
   @Test
+  @DisplayName("Should show the status and hide the person's data while a link is not active")
+  void list_hidesDataOfNonActiveLinks() {
+    final PersonGuardian pending = link("Mateo", "54123456", GuardianLinkStatus.PENDING);
+    final PersonGuardian rejected = link("Lucia", "54123457", GuardianLinkStatus.REJECTED);
+    when(personGuardianRepository
+            .findByInstitution_IdAndTutorPerson_IdAndStatusInOrderByCreatedAtAsc(
+                INSTITUTION_ID, TUTOR_ID, VISIBLE_STATUSES))
+        .thenReturn(List.of(pending, rejected));
+
+    final List<GuardianDependentResponse> result =
+        new ListGuardianDependentsUseCase(personGuardianRepository, personRoleAssignmentRepository)
+            .execute(INSTITUTION_ID, TUTOR_ID);
+
+    assertThat(result)
+        .extracting(
+            GuardianDependentResponse::status,
+            GuardianDependentResponse::firstName,
+            GuardianDependentResponse::documentNumber)
+        .containsExactly(
+            org.assertj.core.groups.Tuple.tuple(GuardianLinkStatus.PENDING, null, "54123456"),
+            org.assertj.core.groups.Tuple.tuple(GuardianLinkStatus.REJECTED, null, "54123457"));
+  }
+
+  @Test
   @DisplayName("Should return an empty list without counting when there are no dependents")
   void list_returnsEmptyWithoutCounting() {
-    when(personGuardianRepository.findByInstitution_IdAndTutorPerson_IdOrderByCreatedAtAsc(
-            INSTITUTION_ID, TUTOR_ID))
+    when(personGuardianRepository
+            .findByInstitution_IdAndTutorPerson_IdAndStatusInOrderByCreatedAtAsc(
+                INSTITUTION_ID, TUTOR_ID, VISIBLE_STATUSES))
         .thenReturn(List.of());
 
     assertThat(
@@ -98,18 +128,24 @@ class ListAndUnlinkGuardianDependentUseCaseTest {
   }
 
   @Test
-  @DisplayName("Should remove only the guardianship link")
-  void unlink_deletesTheLink() {
-    final PersonGuardian link = link("Mateo", "54123456");
+  @DisplayName("Should end the link without deleting it")
+  void unlink_endsTheLink() {
+    final PersonGuardian link = link("Mateo", "54123456", GuardianLinkStatus.ACTIVE);
     final UUID dependentId = link.getDependentPerson().getId();
-    when(personGuardianRepository.findByInstitution_IdAndTutorPerson_IdAndDependentPerson_Id(
-            INSTITUTION_ID, TUTOR_ID, dependentId))
+    when(personGuardianRepository
+            .findByInstitution_IdAndTutorPerson_IdAndDependentPerson_IdAndStatus(
+                INSTITUTION_ID, TUTOR_ID, dependentId, GuardianLinkStatus.PENDING))
+        .thenReturn(Optional.empty());
+    when(personGuardianRepository
+            .findByInstitution_IdAndTutorPerson_IdAndDependentPerson_IdAndStatus(
+                INSTITUTION_ID, TUTOR_ID, dependentId, GuardianLinkStatus.ACTIVE))
         .thenReturn(Optional.of(link));
 
     new UnlinkGuardianDependentUseCase(personGuardianRepository, auditEventRecorder)
         .execute(INSTITUTION_ID, TUTOR_ID, dependentId);
 
-    verify(personGuardianRepository).delete(link);
+    assertThat(link.getStatus()).isEqualTo(GuardianLinkStatus.ENDED);
+    verify(personGuardianRepository, never()).delete(link);
     verify(auditEventRecorder)
         .record(
             link.getInstitution(),
@@ -121,11 +157,41 @@ class ListAndUnlinkGuardianDependentUseCaseTest {
   }
 
   @Test
-  @DisplayName("Should fail when the tutor is not linked to that dependent")
+  @DisplayName("Should cancel a pending link without deleting it")
+  void unlink_endsPendingLink() {
+    final PersonGuardian link = link("Mateo", "54123456", GuardianLinkStatus.PENDING);
+    final UUID dependentId = link.getDependentPerson().getId();
+    when(personGuardianRepository
+            .findByInstitution_IdAndTutorPerson_IdAndDependentPerson_IdAndStatus(
+                INSTITUTION_ID, TUTOR_ID, dependentId, GuardianLinkStatus.PENDING))
+        .thenReturn(Optional.of(link));
+
+    new UnlinkGuardianDependentUseCase(personGuardianRepository, auditEventRecorder)
+        .execute(INSTITUTION_ID, TUTOR_ID, dependentId);
+
+    assertThat(link.getStatus()).isEqualTo(GuardianLinkStatus.ENDED);
+    verify(personGuardianRepository, never()).delete(link);
+    verify(auditEventRecorder)
+        .record(
+            link.getInstitution(),
+            TUTOR_ID,
+            dependentId,
+            AuditAction.GUARDIAN_DEPENDENT_UNLINKED,
+            AuditEntityType.PERSON_GUARDIAN,
+            link.getId());
+  }
+
+  @Test
+  @DisplayName("Should fail when the tutor has no active link to that dependent")
   void unlink_failsWhenNotLinked() {
     final UUID dependentId = UUID.randomUUID();
-    when(personGuardianRepository.findByInstitution_IdAndTutorPerson_IdAndDependentPerson_Id(
-            INSTITUTION_ID, TUTOR_ID, dependentId))
+    when(personGuardianRepository
+            .findByInstitution_IdAndTutorPerson_IdAndDependentPerson_IdAndStatus(
+                INSTITUTION_ID, TUTOR_ID, dependentId, GuardianLinkStatus.PENDING))
+        .thenReturn(Optional.empty());
+    when(personGuardianRepository
+            .findByInstitution_IdAndTutorPerson_IdAndDependentPerson_IdAndStatus(
+                INSTITUTION_ID, TUTOR_ID, dependentId, GuardianLinkStatus.ACTIVE))
         .thenReturn(Optional.empty());
 
     assertThatThrownBy(
@@ -144,7 +210,8 @@ class ListAndUnlinkGuardianDependentUseCaseTest {
         .build();
   }
 
-  private PersonGuardian link(final String firstName, final String documentNumber) {
+  private PersonGuardian link(
+      final String firstName, final String documentNumber, final GuardianLinkStatus status) {
     final Institution institution = Institution.builder().id(INSTITUTION_ID).build();
     final Person dependent =
         Person.builder()
@@ -163,6 +230,7 @@ class ListAndUnlinkGuardianDependentUseCaseTest {
         .dependentPerson(dependent)
         .relationship(GuardianRelationship.FATHER)
         .primaryContact(true)
+        .status(status)
         .build();
   }
 }

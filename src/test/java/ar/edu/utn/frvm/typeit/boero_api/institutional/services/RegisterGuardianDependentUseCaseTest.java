@@ -3,27 +3,17 @@ package ar.edu.utn.frvm.typeit.boero_api.institutional.services;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyBoolean;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import ar.edu.utn.frvm.typeit.boero_api.audit.enums.AuditAction;
 import ar.edu.utn.frvm.typeit.boero_api.audit.enums.AuditEntityType;
 import ar.edu.utn.frvm.typeit.boero_api.audit.services.AuditEventRecorder;
-import ar.edu.utn.frvm.typeit.boero_api.auth.entities.User;
-import ar.edu.utn.frvm.typeit.boero_api.auth.interfaces.UserRepository;
-import ar.edu.utn.frvm.typeit.boero_api.authorization.entities.PersonRoleAssignment;
-import ar.edu.utn.frvm.typeit.boero_api.authorization.entities.Role;
-import ar.edu.utn.frvm.typeit.boero_api.authorization.enums.SystemRoleCode;
-import ar.edu.utn.frvm.typeit.boero_api.authorization.interfaces.PersonRoleAssignmentRepository;
-import ar.edu.utn.frvm.typeit.boero_api.authorization.services.AssignPersonSystemRoleUseCase;
 import ar.edu.utn.frvm.typeit.boero_api.common.exceptions.ErrorCategory;
-import ar.edu.utn.frvm.typeit.boero_api.common.time.BusinessDateProvider;
+import ar.edu.utn.frvm.typeit.boero_api.institutional.entities.GuardianLinkStatus;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.entities.GuardianRelationship;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.entities.Institution;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.entities.Person;
@@ -31,15 +21,12 @@ import ar.edu.utn.frvm.typeit.boero_api.institutional.entities.PersonGuardian;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.exceptions.CannotGuardianSelfException;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.exceptions.DependentAlreadyLinkedException;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.exceptions.DependentBirthDateMismatchException;
-import ar.edu.utn.frvm.typeit.boero_api.institutional.exceptions.DependentHasAccountException;
-import ar.edu.utn.frvm.typeit.boero_api.institutional.exceptions.DependentMustBeMinorException;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.interfaces.InstitutionRepository;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.interfaces.PersonGuardianRepository;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.interfaces.PersonRepository;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.payloads.guardian.CreateGuardianDependentRequest;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.payloads.guardian.GuardianDependentResponse;
 import jakarta.validation.Validator;
-import java.time.Clock;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
@@ -60,11 +47,8 @@ class RegisterGuardianDependentUseCaseTest {
 
   @Mock private InstitutionRepository institutionRepository;
   @Mock private PersonRepository personRepository;
-  @Mock private UserRepository userRepository;
   @Mock private PersonGuardianRepository personGuardianRepository;
   @Mock private Validator validator;
-  @Mock private AssignPersonSystemRoleUseCase assignPersonSystemRoleUseCase;
-  @Mock private PersonRoleAssignmentRepository personRoleAssignmentRepository;
   @Mock private AuditEventRecorder auditEventRecorder;
 
   private RegisterGuardianDependentUseCase useCase;
@@ -77,12 +61,8 @@ class RegisterGuardianDependentUseCaseTest {
         new RegisterGuardianDependentUseCase(
             institutionRepository,
             personRepository,
-            userRepository,
             personGuardianRepository,
             validator,
-            new BusinessDateProvider(Clock.systemUTC()),
-            assignPersonSystemRoleUseCase,
-            personRoleAssignmentRepository,
             auditEventRecorder);
     institution = Institution.builder().id(UUID.randomUUID()).build();
     tutor =
@@ -104,15 +84,15 @@ class RegisterGuardianDependentUseCaseTest {
   }
 
   @Test
-  @DisplayName("Should create the minor without email and link it to the tutor")
-  void execute_createsNewPersonAndLink() {
+  @DisplayName("Should create the person without email and request a pending link to the tutor")
+  void execute_createsNewPersonAndPendingLink() {
     when(personRepository.findByDocumentNumberAndInstitution_Id("54123456", institution.getId()))
         .thenReturn(Optional.empty());
     when(personRepository.save(any(Person.class)))
         .thenAnswer(invocation -> withGeneratedId(invocation.getArgument(0)));
 
     final GuardianDependentResponse response =
-        useCase.execute(institution.getId(), tutor.getId(), request("54123456"));
+        useCase.execute(institution.getId(), tutor.getId(), request("54123456", BIRTH_DATE));
 
     final var personCaptor = ArgumentCaptor.forClass(Person.class);
     verify(personRepository).save(personCaptor.capture());
@@ -125,6 +105,8 @@ class RegisterGuardianDependentUseCaseTest {
     assertThat(linkCaptor.getValue().getTutorPerson()).isSameAs(tutor);
     assertThat(linkCaptor.getValue().getRelationship()).isEqualTo(GuardianRelationship.FATHER);
     assertThat(linkCaptor.getValue().isPrimaryContact()).isTrue();
+    assertThat(linkCaptor.getValue().getStatus()).isEqualTo(GuardianLinkStatus.PENDING);
+    assertThat(response.status()).isEqualTo(GuardianLinkStatus.PENDING);
     assertThat(response.documentNumber()).isEqualTo("54123456");
     assertThat(response.relationship()).isEqualTo(GuardianRelationship.FATHER);
     verify(auditEventRecorder)
@@ -132,100 +114,64 @@ class RegisterGuardianDependentUseCaseTest {
             institution,
             tutor.getId(),
             response.dependentPersonId(),
-            AuditAction.GUARDIAN_DEPENDENT_LINKED,
+            AuditAction.GUARDIAN_LINK_REQUESTED,
             AuditEntityType.PERSON_GUARDIAN,
             response.personGuardianId());
-    final var assignedCaptor = ArgumentCaptor.forClass(Person.class);
-    verify(assignPersonSystemRoleUseCase)
-        .execute(assignedCaptor.capture(), eq(SystemRoleCode.APPLICANT), eq(false));
-    assertThat(assignedCaptor.getValue().getId()).isEqualTo(response.dependentPersonId());
   }
 
   @Test
-  @DisplayName("Should reject a dependent who is already an adult")
-  void execute_rejectsAdultDependent() {
-    final var adult =
-        new CreateGuardianDependentRequest(
-            "54123456",
-            "Mateo",
-            "Gonzalez",
-            LocalDate.now().minusYears(18),
-            GuardianRelationship.FATHER,
-            true);
+  @DisplayName("Should accept an adult as the person in charge")
+  void execute_acceptsAdultPerson() {
+    when(personRepository.findByDocumentNumberAndInstitution_Id("54123456", institution.getId()))
+        .thenReturn(Optional.empty());
+    when(personRepository.save(any(Person.class)))
+        .thenAnswer(invocation -> withGeneratedId(invocation.getArgument(0)));
 
-    assertThatThrownBy(() -> useCase.execute(institution.getId(), tutor.getId(), adult))
-        .isInstanceOfSatisfying(
-            DependentMustBeMinorException.class,
-            exception -> assertThat(exception.category()).isEqualTo(ErrorCategory.INVALID_INPUT));
-    verify(personRepository, never()).save(any(Person.class));
-    verify(personGuardianRepository, never()).save(any(PersonGuardian.class));
-    verify(assignPersonSystemRoleUseCase, never())
-        .execute(any(Person.class), any(SystemRoleCode.class), anyBoolean());
-    verifyNoInteractions(auditEventRecorder);
+    final GuardianDependentResponse response =
+        useCase.execute(
+            institution.getId(),
+            tutor.getId(),
+            request("54123456", LocalDate.now().minusYears(40)));
+
+    assertThat(response.status()).isEqualTo(GuardianLinkStatus.PENDING);
   }
 
   @Test
-  @DisplayName("Should link an existing person that has no account and the same birth date")
-  void execute_linksExistingPersonWithoutAccount() {
+  @DisplayName("Should request a link to an existing person, even one with an account")
+  void execute_requestsLinkToExistingPerson() {
     final Person existing = existingPerson("54123456", BIRTH_DATE);
     when(personRepository.findByDocumentNumberAndInstitution_Id("54123456", institution.getId()))
         .thenReturn(Optional.of(existing));
-    when(userRepository.findByPerson_IdAndInstitution_Id(existing.getId(), institution.getId()))
-        .thenReturn(Optional.empty());
-    when(personGuardianRepository.existsByInstitution_IdAndTutorPerson_IdAndDependentPerson_Id(
-            institution.getId(), tutor.getId(), existing.getId()))
+    when(personGuardianRepository
+            .existsByInstitution_IdAndTutorPerson_IdAndDependentPerson_IdAndStatusIn(
+                institution.getId(),
+                tutor.getId(),
+                existing.getId(),
+                List.of(GuardianLinkStatus.PENDING, GuardianLinkStatus.ACTIVE)))
         .thenReturn(false);
 
     final GuardianDependentResponse response =
-        useCase.execute(institution.getId(), tutor.getId(), request("54123456"));
+        useCase.execute(institution.getId(), tutor.getId(), request("54123456", BIRTH_DATE));
 
     verify(personRepository, never()).save(any(Person.class));
     assertThat(response.dependentPersonId()).isEqualTo(existing.getId());
-    verify(assignPersonSystemRoleUseCase).execute(existing, SystemRoleCode.APPLICANT, false);
+    assertThat(response.status()).isEqualTo(GuardianLinkStatus.PENDING);
   }
 
   @Test
-  @DisplayName("Should keep the roles of an existing person that already has one")
-  void execute_doesNotReplaceExistingRoles() {
+  @DisplayName("Should not expose the stored data of the person while the link is pending")
+  void execute_hidesPersonDataWhilePending() {
     final Person existing = existingPerson("54123456", BIRTH_DATE);
     when(personRepository.findByDocumentNumberAndInstitution_Id("54123456", institution.getId()))
         .thenReturn(Optional.of(existing));
-    when(userRepository.findByPerson_IdAndInstitution_Id(existing.getId(), institution.getId()))
-        .thenReturn(Optional.empty());
-    when(personRoleAssignmentRepository.findByPerson_IdAndInstitution_Id(
-            existing.getId(), institution.getId()))
-        .thenReturn(
-            List.of(
-                PersonRoleAssignment.builder()
-                    .role(Role.builder().name("Estudiante").build())
-                    .build()));
 
     final GuardianDependentResponse response =
-        useCase.execute(institution.getId(), tutor.getId(), request("54123456"));
+        useCase.execute(institution.getId(), tutor.getId(), request("54123456", BIRTH_DATE));
 
-    assertThat(response.roles()).containsExactly("Estudiante");
-    verify(assignPersonSystemRoleUseCase, never())
-        .execute(any(Person.class), any(SystemRoleCode.class), anyBoolean());
-  }
-
-  @Test
-  @DisplayName("Should not link an existing person that owns an account")
-  void execute_rejectsExistingPersonWithAccount() {
-    final Person existing = existingPerson("54123456", BIRTH_DATE);
-    when(personRepository.findByDocumentNumberAndInstitution_Id("54123456", institution.getId()))
-        .thenReturn(Optional.of(existing));
-    when(userRepository.findByPerson_IdAndInstitution_Id(existing.getId(), institution.getId()))
-        .thenReturn(Optional.of(User.builder().build()));
-
-    assertThatThrownBy(
-            () -> useCase.execute(institution.getId(), tutor.getId(), request("54123456")))
-        .isInstanceOfSatisfying(
-            DependentHasAccountException.class,
-            exception -> {
-              assertThat(exception.category()).isEqualTo(ErrorCategory.CONFLICT);
-              assertThat(exception.code()).isEqualTo("DEPENDENT_HAS_ACCOUNT");
-            });
-    verify(personGuardianRepository, never()).save(any(PersonGuardian.class));
+    assertThat(response.firstName()).isNull();
+    assertThat(response.lastName()).isNull();
+    assertThat(response.roles()).isEmpty();
+    assertThat(response.activeApplicationsCount()).isZero();
   }
 
   @Test
@@ -234,11 +180,11 @@ class RegisterGuardianDependentUseCaseTest {
     final Person existing = existingPerson("54123456", LocalDate.of(2015, 1, 1));
     when(personRepository.findByDocumentNumberAndInstitution_Id("54123456", institution.getId()))
         .thenReturn(Optional.of(existing));
-    when(userRepository.findByPerson_IdAndInstitution_Id(existing.getId(), institution.getId()))
-        .thenReturn(Optional.empty());
 
     assertThatThrownBy(
-            () -> useCase.execute(institution.getId(), tutor.getId(), request("54123456")))
+            () ->
+                useCase.execute(
+                    institution.getId(), tutor.getId(), request("54123456", BIRTH_DATE)))
         .isInstanceOfSatisfying(
             DependentBirthDateMismatchException.class,
             exception -> {
@@ -255,7 +201,9 @@ class RegisterGuardianDependentUseCaseTest {
         .thenReturn(Optional.of(tutor));
 
     assertThatThrownBy(
-            () -> useCase.execute(institution.getId(), tutor.getId(), request("35123456")))
+            () ->
+                useCase.execute(
+                    institution.getId(), tutor.getId(), request("35123456", BIRTH_DATE)))
         .isInstanceOfSatisfying(
             CannotGuardianSelfException.class,
             exception -> {
@@ -265,36 +213,42 @@ class RegisterGuardianDependentUseCaseTest {
   }
 
   @Test
-  @DisplayName("Should reject linking the same dependent twice")
-  void execute_rejectsAlreadyLinkedDependent() {
+  @DisplayName("Should reject a request when one is already pending or active")
+  void execute_rejectsAlreadyOpenLink() {
     final Person existing = existingPerson("54123456", BIRTH_DATE);
     when(personRepository.findByDocumentNumberAndInstitution_Id("54123456", institution.getId()))
         .thenReturn(Optional.of(existing));
-    when(personGuardianRepository.existsByInstitution_IdAndTutorPerson_IdAndDependentPerson_Id(
-            institution.getId(), tutor.getId(), existing.getId()))
+    when(personGuardianRepository
+            .existsByInstitution_IdAndTutorPerson_IdAndDependentPerson_IdAndStatusIn(
+                institution.getId(),
+                tutor.getId(),
+                existing.getId(),
+                List.of(GuardianLinkStatus.PENDING, GuardianLinkStatus.ACTIVE)))
         .thenReturn(true);
 
     assertThatThrownBy(
-            () -> useCase.execute(institution.getId(), tutor.getId(), request("54123456")))
+            () ->
+                useCase.execute(
+                    institution.getId(), tutor.getId(), request("54123456", BIRTH_DATE)))
         .isInstanceOfSatisfying(
             DependentAlreadyLinkedException.class,
             exception -> assertThat(exception.code()).isEqualTo("DEPENDENT_ALREADY_LINKED"));
   }
 
   @Test
-  @DisplayName("Should translate a concurrent duplicated link into a conflict")
+  @DisplayName("Should translate a concurrent duplicated request into a conflict")
   void execute_translatesConcurrentDuplicate() {
     final Person existing = existingPerson("54123456", BIRTH_DATE);
     when(personRepository.findByDocumentNumberAndInstitution_Id("54123456", institution.getId()))
         .thenReturn(Optional.of(existing));
-    when(userRepository.findByPerson_IdAndInstitution_Id(existing.getId(), institution.getId()))
-        .thenReturn(Optional.empty());
-    doThrow(new DataIntegrityViolationException("person_guardians_unique"))
+    doThrow(new DataIntegrityViolationException("person_guardians_open_unique"))
         .when(personGuardianRepository)
         .flush();
 
     assertThatThrownBy(
-            () -> useCase.execute(institution.getId(), tutor.getId(), request("54123456")))
+            () ->
+                useCase.execute(
+                    institution.getId(), tutor.getId(), request("54123456", BIRTH_DATE)))
         .isInstanceOf(DependentAlreadyLinkedException.class);
   }
 
@@ -321,8 +275,9 @@ class RegisterGuardianDependentUseCaseTest {
         .build();
   }
 
-  private CreateGuardianDependentRequest request(final String documentNumber) {
+  private CreateGuardianDependentRequest request(
+      final String documentNumber, final LocalDate birthDate) {
     return new CreateGuardianDependentRequest(
-        documentNumber, "Mateo", "Gonzalez", BIRTH_DATE, GuardianRelationship.FATHER, true);
+        documentNumber, "Mateo", "Gonzalez", birthDate, GuardianRelationship.FATHER, true);
   }
 }

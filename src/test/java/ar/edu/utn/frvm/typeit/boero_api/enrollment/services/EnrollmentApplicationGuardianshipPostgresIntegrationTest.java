@@ -21,16 +21,21 @@ import ar.edu.utn.frvm.typeit.boero_api.enrollment.payloads.EnrollmentDraftData;
 import ar.edu.utn.frvm.typeit.boero_api.enrollment.payloads.ResponsibleDto;
 import ar.edu.utn.frvm.typeit.boero_api.enrollment.payloads.StartEnrollmentApplicationRequest;
 import ar.edu.utn.frvm.typeit.boero_api.enrollment.payloads.UpdateEnrollmentDraftRequest;
+import ar.edu.utn.frvm.typeit.boero_api.institutional.entities.GuardianLinkStatus;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.entities.GuardianRelationship;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.entities.Institution;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.entities.Person;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.entities.PersonGuardian;
+import ar.edu.utn.frvm.typeit.boero_api.institutional.exceptions.DependentAlreadyLinkedException;
+import ar.edu.utn.frvm.typeit.boero_api.institutional.exceptions.GuardianLinkAlreadyResolvedException;
+import ar.edu.utn.frvm.typeit.boero_api.institutional.exceptions.GuardianLinkNotFoundException;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.exceptions.UnauthorizedGuardianshipException;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.interfaces.PersonGuardianRepository;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.payloads.guardian.CreateGuardianDependentRequest;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.payloads.guardian.GuardianDependentResponse;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.services.ListGuardianDependentsUseCase;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.services.RegisterGuardianDependentUseCase;
+import ar.edu.utn.frvm.typeit.boero_api.institutional.services.ResolveGuardianLinkUseCase;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.services.UnlinkGuardianDependentUseCase;
 import ar.edu.utn.frvm.typeit.boero_api.support.InstitutionalTestData;
 import ar.edu.utn.frvm.typeit.boero_api.support.IntegrationTest;
@@ -83,6 +88,7 @@ class EnrollmentApplicationGuardianshipPostgresIntegrationTest {
   @Autowired private RegisterGuardianDependentUseCase registerDependent;
   @Autowired private ListGuardianDependentsUseCase listDependents;
   @Autowired private UnlinkGuardianDependentUseCase unlinkDependent;
+  @Autowired private ResolveGuardianLinkUseCase resolveLink;
   @Autowired private ListMyEnrollmentApplicationsUseCase listMine;
   @Autowired private GetMyEnrollmentApplicationUseCase getMine;
   @Autowired private PersonGuardianRepository personGuardianRepository;
@@ -146,13 +152,21 @@ class EnrollmentApplicationGuardianshipPostgresIntegrationTest {
     assertThat(events)
         .extracting(AuditEvent::getAction)
         .containsExactlyInAnyOrder(
-            AuditAction.GUARDIAN_DEPENDENT_LINKED, AuditAction.ENROLLMENT_APPLICATION_STARTED);
+            AuditAction.GUARDIAN_LINK_REQUESTED,
+            AuditAction.GUARDIAN_LINK_APPROVED,
+            AuditAction.ENROLLMENT_APPLICATION_STARTED);
     assertThat(events)
+        .filteredOn(event -> event.getAction() != AuditAction.GUARDIAN_LINK_APPROVED)
         .allSatisfy(
             event -> {
               assertThat(event.getActorPersonId()).isEqualTo(scenario.tutor().getId());
               assertThat(event.isActedOnBehalf()).isTrue();
             });
+    // The institution, not the tutor, is the actor of the approval.
+    assertThat(events)
+        .filteredOn(event -> event.getAction() == AuditAction.GUARDIAN_LINK_APPROVED)
+        .allSatisfy(
+            event -> assertThat(event.getActorPersonId()).isNotEqualTo(scenario.tutor().getId()));
   }
 
   @Test
@@ -331,6 +345,7 @@ class EnrollmentApplicationGuardianshipPostgresIntegrationTest {
             .dependentPerson(
                 entityManager.getReference(Person.class, dependent.dependentPersonId()))
             .relationship(GuardianRelationship.MOTHER)
+            .status(GuardianLinkStatus.ACTIVE)
             .build());
 
     assertThat(
@@ -448,6 +463,90 @@ class EnrollmentApplicationGuardianshipPostgresIntegrationTest {
 
   @Test
   @Transactional
+  @DisplayName("Should keep a tutor from representing a person while the link is pending")
+  void pendingLinkCannotRepresent() {
+    final Scenario scenario = scenario();
+    final GuardianDependentResponse pending = requestDependent(scenario, docNumber());
+
+    assertThat(pending.status()).isEqualTo(GuardianLinkStatus.PENDING);
+    assertThatThrownBy(
+            () ->
+                service.startOrGetApplication(
+                    scenario.institution().getId(),
+                    scenario.tutor().getId(),
+                    startRequest(scenario, pending.dependentPersonId())))
+        .isInstanceOf(UnauthorizedGuardianshipException.class);
+  }
+
+  @Test
+  @Transactional
+  @DisplayName("Should keep a rejected tutor out, allow asking again and block duplicate requests")
+  void rejectedLinkCannotRepresentButCanBeRequestedAgain() {
+    final Scenario scenario = scenario();
+    final String document = docNumber();
+    final GuardianDependentResponse first = requestDependent(scenario, document);
+
+    assertThatThrownBy(() -> requestDependent(scenario, document))
+        .isInstanceOf(DependentAlreadyLinkedException.class);
+
+    resolveLink.reject(
+        scenario.institution().getId(),
+        person(scenario.institution()).getId(),
+        first.personGuardianId());
+    entityManager.flush();
+
+    assertThatThrownBy(
+            () ->
+                service.startOrGetApplication(
+                    scenario.institution().getId(),
+                    scenario.tutor().getId(),
+                    startRequest(scenario, first.dependentPersonId())))
+        .isInstanceOf(UnauthorizedGuardianshipException.class);
+
+    final GuardianDependentResponse second = requestDependent(scenario, document);
+    entityManager.flush();
+
+    assertThat(second.status()).isEqualTo(GuardianLinkStatus.PENDING);
+    assertThat(second.personGuardianId()).isNotEqualTo(first.personGuardianId());
+  }
+
+  @Test
+  @Transactional
+  @DisplayName("Should not let another institution resolve a request, nor resolve it twice")
+  void resolutionIsScopedAndOneShot() {
+    final Scenario scenario = scenario();
+    final Scenario otherInstitution = scenario();
+    final GuardianDependentResponse pending = requestDependent(scenario, docNumber());
+    final UUID reviewerId = person(scenario.institution()).getId();
+
+    assertThatThrownBy(
+            () ->
+                resolveLink.approve(
+                    otherInstitution.institution().getId(),
+                    otherInstitution.tutor().getId(),
+                    pending.personGuardianId()))
+        .isInstanceOf(GuardianLinkNotFoundException.class);
+
+    resolveLink.approve(scenario.institution().getId(), reviewerId, pending.personGuardianId());
+    entityManager.flush();
+
+    assertThatThrownBy(
+            () ->
+                resolveLink.reject(
+                    scenario.institution().getId(), reviewerId, pending.personGuardianId()))
+        .isInstanceOf(GuardianLinkAlreadyResolvedException.class);
+    assertThat(
+            service
+                .startOrGetApplication(
+                    scenario.institution().getId(),
+                    scenario.tutor().getId(),
+                    startRequest(scenario, pending.dependentPersonId()))
+                .personId())
+        .isEqualTo(pending.dependentPersonId());
+  }
+
+  @Test
+  @Transactional
   @DisplayName("Should keep the self-service flow when no applicant is given")
   void startWithoutApplicantKeepsSelfService() {
     final Scenario scenario = scenario();
@@ -477,12 +576,25 @@ class EnrollmentApplicationGuardianshipPostgresIntegrationTest {
     return new MockMultipartFile("file", "dni.pdf", "application/pdf", "%PDF-1.4".getBytes());
   }
 
+  /** Registers a dependent and has the institution approve the link, so the tutor can act. */
   private GuardianDependentResponse registerDependent(final Scenario scenario) {
+    final GuardianDependentResponse requested = requestDependent(scenario, docNumber());
+    resolveLink.approve(
+        scenario.institution().getId(),
+        person(scenario.institution()).getId(),
+        requested.personGuardianId());
+
+    return requested;
+  }
+
+  /** Registers a dependent whose link stays pending until the institution resolves it. */
+  private GuardianDependentResponse requestDependent(
+      final Scenario scenario, final String documentNumber) {
     return registerDependent.execute(
         scenario.institution().getId(),
         scenario.tutor().getId(),
         new CreateGuardianDependentRequest(
-            docNumber(),
+            documentNumber,
             "Mateo",
             "Gonzalez",
             LocalDate.now().minusYears(8),

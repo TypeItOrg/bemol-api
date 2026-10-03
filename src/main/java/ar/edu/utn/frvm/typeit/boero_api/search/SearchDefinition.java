@@ -198,6 +198,7 @@ SELECT c.course_id AS id, c.institution_id, i.name AS institution_name,
           JOIN people p ON p.institution_id = g.institution_id AND p.person_id = g.dependent_person_id
           JOIN institutions i ON i.institution_id = p.institution_id
          WHERE g.tutor_person_id = :personId
+           AND g.status = 'ACTIVE'
            AND NOT p.deleted
            AND boero_search_vector(%1$s) @@ to_tsquery('simple', :query)
         """
