@@ -19,6 +19,7 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.jspecify.annotations.Nullable;
 
 /** Legal guardianship of a person (usually a minor) by another person, within an institution. */
 @Entity
@@ -60,10 +61,10 @@ public class PersonGuardian extends Auditable {
 
   @ManyToOne(fetch = FetchType.LAZY)
   @JoinColumn(name = "resolved_by_person_id")
-  private Person resolvedBy;
+  private @Nullable Person resolvedBy;
 
   @Column(name = "resolved_at")
-  private Instant resolvedAt;
+  private @Nullable Instant resolvedAt;
 
   /** Every link starts pending: the institution decides who may represent whom. */
   public static PersonGuardian request(
@@ -85,11 +86,11 @@ public class PersonGuardian extends Auditable {
     return status == GuardianLinkStatus.ACTIVE;
   }
 
-  public void approve(final Person reviewer) {
+  public void approve(final @Nullable Person reviewer) {
     resolve(GuardianLinkStatus.ACTIVE, reviewer);
   }
 
-  public void reject(final Person reviewer) {
+  public void reject(final @Nullable Person reviewer) {
     resolve(GuardianLinkStatus.REJECTED, reviewer);
   }
 
@@ -101,7 +102,7 @@ public class PersonGuardian extends Auditable {
     status = GuardianLinkStatus.ENDED;
   }
 
-  private void resolve(final GuardianLinkStatus outcome, final Person reviewer) {
+  private void resolve(final GuardianLinkStatus outcome, final @Nullable Person reviewer) {
     if (status != GuardianLinkStatus.PENDING) {
       throw new GuardianLinkAlreadyResolvedException();
     }

@@ -9,15 +9,16 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
+import org.jspecify.annotations.Nullable;
 
 public record GuardianDependentResponse(
     UUID personGuardianId,
     UUID dependentPersonId,
     GuardianLinkStatus status,
     String documentNumber,
-    @Schema(nullable = true) String firstName,
-    @Schema(nullable = true) String lastName,
-    @Schema(nullable = true) LocalDate birthDate,
+    @Nullable @Schema(nullable = true) String firstName,
+    @Nullable @Schema(nullable = true) String lastName,
+    @Nullable @Schema(nullable = true) LocalDate birthDate,
     GuardianRelationship relationship,
     boolean isPrimaryContact,
     long activeApplicationsCount,

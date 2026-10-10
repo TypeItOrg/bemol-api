@@ -1,5 +1,7 @@
 package ar.edu.utn.frvm.typeit.boero_api.institutional.controllers;
 
+import static java.util.Objects.requireNonNull;
+
 import ar.edu.utn.frvm.typeit.boero_api.auth.filters.JwtAuthenticatedUser;
 import ar.edu.utn.frvm.typeit.boero_api.authorization.RequiresInstitutionAccess;
 import ar.edu.utn.frvm.typeit.boero_api.authorization.RequiresPermission;
@@ -87,6 +89,6 @@ public class GuardianLinkReviewController {
   private UUID currentPersonId(final Authentication authentication) {
     institutionalCallerGuard.ensureInstitutionalPrincipal(authentication);
 
-    return ((JwtAuthenticatedUser) authentication.getPrincipal()).personId();
+    return ((JwtAuthenticatedUser) requireNonNull(authentication.getPrincipal())).personId();
   }
 }

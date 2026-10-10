@@ -16,6 +16,7 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import org.jspecify.annotations.Nullable;
 
 @Entity
 @Table(name = "applicant_responsibles")
@@ -38,20 +39,20 @@ public class ApplicantResponsible extends SoftDeletable {
   // Un DRAFT es parcial por definición: submitApplication() exige estos campos
   // recién al enviar, así que la columna acepta NULL (migración 20260908150000).
   @Column(name = "full_name", length = 200)
-  private String fullName;
+  private @Nullable String fullName;
 
   @Column(name = "document_number", length = 20)
-  private String documentNumber;
+  private @Nullable String documentNumber;
 
   @Column(name = "occupation", length = 100)
-  private String occupation;
+  private @Nullable String occupation;
 
   @Column(name = "phone_number", length = 50)
-  private String phoneNumber;
+  private @Nullable String phoneNumber;
 
   @Column(name = "email", length = 150)
-  private String email;
+  private @Nullable String email;
 
   @Column(name = "education_level", length = 50)
-  private String educationLevel;
+  private @Nullable String educationLevel;
 }

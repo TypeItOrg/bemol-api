@@ -15,6 +15,7 @@ import ar.edu.utn.frvm.typeit.boero_api.institutional.interfaces.PersonRepositor
 import ar.edu.utn.frvm.typeit.boero_api.institutional.payloads.guardian.GuardianLinkReviewResponse;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
+import org.jspecify.annotations.Nullable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -103,10 +104,15 @@ public class ResolveGuardianLinkUseCase {
     assignPersonSystemRoleUseCase.execute(dependent, SystemRoleCode.APPLICANT, false);
   }
 
-  private void audit(final PersonGuardian link, final Person reviewer, final AuditAction action) {
+  private void audit(
+      final PersonGuardian link, final @Nullable Person reviewer, final AuditAction action) {
+    if (reviewer == null) {
+      return;
+    }
+
     auditEventRecorder.record(
         link.getInstitution(),
-        reviewer == null ? null : reviewer.getId(),
+        reviewer.getId(),
         link.getDependentPerson().getId(),
         action,
         AuditEntityType.PERSON_GUARDIAN,
