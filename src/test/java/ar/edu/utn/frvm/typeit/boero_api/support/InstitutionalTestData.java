@@ -42,10 +42,16 @@ public final class InstitutionalTestData {
   }
 
   public static Person person(Institution institution, String documentNumber) {
+    return person(institution, documentNumber, null);
+  }
+
+  public static Person person(
+      Institution institution, String documentNumber, java.time.LocalDate birthDate) {
     return Person.builder()
         .institution(institution)
         .firstName("Ana")
         .lastName("Garcia")
+        .birthDate(birthDate)
         .documentNumber(documentNumber)
         .email(documentNumber + "@example.com")
         .build();

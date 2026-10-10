@@ -72,7 +72,7 @@ public class RegisterUserUseCase {
 
     if (preserveExistingRoles) {
       if (userRepository
-          .findByPerson_IdAndInstitution_Id(person.getId(), request.institutionId())
+          .findByPerson_IdAndInstitution_Id(requireNonNull(person).getId(), request.institutionId())
           .isPresent()) {
         throw new UserAlreadyExistsException();
       }

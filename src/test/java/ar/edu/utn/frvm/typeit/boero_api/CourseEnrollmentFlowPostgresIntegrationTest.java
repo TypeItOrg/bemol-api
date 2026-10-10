@@ -768,7 +768,9 @@ class CourseEnrollmentFlowPostgresIntegrationTest extends DatabaseMigrationTestS
     return tx(
         () -> {
           final var institution = em.find(Institution.class, f.institutionId());
-          final var person = persist(InstitutionalTestData.person(institution, document));
+          final var person =
+              persist(
+                  InstitutionalTestData.person(institution, document, LocalDate.of(2000, 1, 1)));
           final var app =
               persist(
                   EnrollmentApplication.createForTrainingPath(

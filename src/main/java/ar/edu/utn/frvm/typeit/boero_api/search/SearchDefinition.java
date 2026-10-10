@@ -12,7 +12,7 @@ enum SearchDefinition {
   INSTITUTION(
       SearchEntityType.INSTITUTION,
       null,
-"""
+      """
 SELECT i.institution_id AS id, i.institution_id, i.name AS institution_name,
        i.active AS institution_active, i.name AS title, i.slug AS subtitle,
        CASE WHEN i.active THEN 'ACTIVE' ELSE 'INACTIVE' END AS status,
@@ -24,7 +24,7 @@ SELECT i.institution_id AS id, i.institution_id, i.name AS institution_name,
   USER(
       SearchEntityType.USER,
       PermissionCode.INSTITUTION_PERSON_READ_ANY,
-"""
+      """
 SELECT p.person_id AS id, p.institution_id, i.name AS institution_name,
        i.active AS institution_active, p.first_name || ' ' || p.last_name AS title,
        p.document_number AS subtitle,
@@ -40,7 +40,7 @@ SELECT p.person_id AS id, p.institution_id, i.name AS institution_name,
   ROLE(
       SearchEntityType.ROLE,
       PermissionCode.INSTITUTION_ROLE_READ,
-"""
+      """
 SELECT r.role_id AS id, r.institution_id, i.name AS institution_name,
        i.active AS institution_active, r.name AS title, r.code AS subtitle,
        NULL::text AS status, CASE WHEN r.is_system THEN 'SYSTEM' ELSE 'CUSTOM' END AS category,
@@ -53,7 +53,7 @@ SELECT r.role_id AS id, r.institution_id, i.name AS institution_name,
   PLATFORM_ACCOUNT(
       SearchEntityType.PLATFORM_ACCOUNT,
       null,
-"""
+      """
 SELECT a.platform_account_id AS id, NULL::uuid AS institution_id,
        NULL::text AS institution_name, NULL::boolean AS institution_active,
        a.first_name || ' ' || a.last_name AS title, a.email AS subtitle,
@@ -66,7 +66,7 @@ SELECT a.platform_account_id AS id, NULL::uuid AS institution_id,
   ACADEMIC_YEAR(
       SearchEntityType.ACADEMIC_YEAR,
       PermissionCode.ACADEMIC_YEAR_READ,
-"""
+      """
 SELECT y.academic_year_id AS id, y.institution_id, i.name AS institution_name,
        i.active AS institution_active, y.year::text AS title, NULL::text AS subtitle,
        y.status, NULL::text AS category,
@@ -82,7 +82,7 @@ SELECT y.academic_year_id AS id, y.institution_id, i.name AS institution_name,
   STUDY_PLAN(
       SearchEntityType.STUDY_PLAN,
       PermissionCode.STUDY_PLAN_READ,
-"""
+      """
 SELECT p.study_plan_id AS id, p.institution_id, i.name AS institution_name,
        i.active AS institution_active, p.name AS title, t.name AS subtitle,
        p.status, NULL::text AS category,
@@ -96,7 +96,7 @@ SELECT p.study_plan_id AS id, p.institution_id, i.name AS institution_name,
   ACADEMIC_SPACE(
       SearchEntityType.ACADEMIC_SPACE,
       PermissionCode.ACADEMIC_SPACE_READ,
-"""
+      """
 SELECT e.academic_space_id AS id, e.institution_id, i.name AS institution_name,
        i.active AS institution_active, e.name AS title, e.description AS subtitle,
        CASE WHEN e.active THEN 'ACTIVE' ELSE 'INACTIVE' END AS status, e.type AS category,
@@ -206,8 +206,7 @@ SELECT c.course_id AS id, c.institution_id, i.name AS institution_name,
   }
 
   private static String namedEntity(final String table, final String idColumn) {
-    return
-"""
+    return """
 SELECT e.%s AS id, e.institution_id, i.name AS institution_name,
        i.active AS institution_active, e.name AS title, e.description AS subtitle,
        CASE WHEN e.active THEN 'ACTIVE' ELSE 'INACTIVE' END AS status,

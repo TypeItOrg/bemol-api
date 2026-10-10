@@ -47,7 +47,8 @@ public class PlatformRefreshTokenUseCase {
         RefreshRotationPolicy.decide(
             current.isRevoked(), current.isExpiredAt(clock.instant()), replay);
     return switch (decision) {
-      case RefreshRotationDecision.Replay(var tokens) -> {
+      case RefreshRotationDecision.Replay replayDecision -> {
+        final RefreshReplay tokens = replayDecision.tokens();
         findActiveSession(current);
         final PlatformAccount account = findEnabledAccount(current);
         yield PlatformAuthResponse.of(account, tokens.accessToken(), tokens.refreshToken());

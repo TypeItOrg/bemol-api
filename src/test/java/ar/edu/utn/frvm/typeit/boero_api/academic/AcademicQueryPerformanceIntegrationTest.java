@@ -46,6 +46,7 @@ import ar.edu.utn.frvm.typeit.boero_api.authorization.services.ScopedAuthorizati
 import ar.edu.utn.frvm.typeit.boero_api.config.JpaAuditingConfig;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.entities.Institution;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.interfaces.InstitutionRepository;
+import ar.edu.utn.frvm.typeit.boero_api.support.InstitutionalTestData;
 import ar.edu.utn.frvm.typeit.boero_api.support.IntegrationTest;
 import ar.edu.utn.frvm.typeit.boero_api.support.PostgresTestDatabase;
 import jakarta.persistence.EntityManager;
@@ -159,7 +160,9 @@ class AcademicQueryPerformanceIntegrationTest {
     when(scopedAuthorization.unrestricted(anyString())).thenReturn(true);
     when(scopedAuthorization.paths(anyString())).thenReturn(java.util.Set.of(new UUID(0, 0)));
     statistics = entityManagerFactory.unwrap(SessionFactory.class).getStatistics();
-    final var institution = institutionRepository.findAll().getFirst();
+    final var institution =
+        InstitutionalTestData.createInstitution(
+            entityManager, "academic-query-" + UUID.randomUUID());
     institutionId = institution.getId();
     institutionName = institution.getName();
 

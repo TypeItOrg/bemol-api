@@ -5,6 +5,8 @@ import ar.edu.utn.frvm.typeit.boero_api.common.exceptions.ErrorCategory;
 import java.util.Map;
 
 public class GuardianMustBeAdultException extends ApplicationException {
+  private static final long serialVersionUID = 1L;
+
   public GuardianMustBeAdultException() {
     super(
         ErrorCategory.INVALID_INPUT,

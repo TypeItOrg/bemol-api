@@ -492,9 +492,8 @@ class RoleScopePostgresIntegrationTest extends DatabaseMigrationTestSupport {
 
   @Test
   void preceptorCannotReadForeignApplicationsAttachmentsOrEnrollmentsAndOwnerKeepsOwnAccess() {
-    UUID institution = fixtures.firstInstitutionId(),
-        actor = UUID.randomUUID(),
-        applicant = UUID.randomUUID();
+    UUID institution = UUID.randomUUID(), actor = UUID.randomUUID(), applicant = UUID.randomUUID();
+    fixtures.insertTestInstitution(institution);
     UUID allowed = UUID.randomUUID(), hidden = UUID.randomUUID(), application = UUID.randomUUID();
     fixtures.insertPerson(actor, institution, "99110011", false);
     fixtures.insertPerson(applicant, institution, "99110012", false);

@@ -4,6 +4,7 @@ import ar.edu.utn.frvm.typeit.boero_api.common.exceptions.ApplicationException;
 import ar.edu.utn.frvm.typeit.boero_api.common.exceptions.ErrorCategory;
 
 public class GuardianLinkAttachmentNotFoundException extends ApplicationException {
+  private static final long serialVersionUID = 1L;
 
   public GuardianLinkAttachmentNotFoundException() {
     super(

@@ -59,7 +59,8 @@ public class RefreshTokenUseCase {
         RefreshRotationPolicy.decide(
             current.isRevoked(), current.isExpiredAt(clock.instant()), replay);
     return switch (decision) {
-      case RefreshRotationDecision.Replay(var tokens) -> {
+      case RefreshRotationDecision.Replay replayDecision -> {
+        final RefreshReplay tokens = replayDecision.tokens();
         final UserSession session = findActiveSession(current);
         final User user = findEnabledUser(session);
         yield createResponse(user, session, tokens.accessToken(), tokens.refreshToken());

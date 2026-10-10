@@ -48,7 +48,9 @@ public class ListAuditEventsUseCase {
     // A person may no longer exist; the event is kept and its name left empty.
     final Map<UUID, String> names =
         personRepository.findAllById(personIds).stream()
-            .collect(Collectors.toMap(Person::getId, this::fullName, (first, second) -> first));
+            .collect(
+                Collectors.toMap(
+                    person -> person.getId(), this::fullName, (first, second) -> first));
 
     return page.map(
         event ->

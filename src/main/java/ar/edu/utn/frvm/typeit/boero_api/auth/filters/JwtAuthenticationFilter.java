@@ -77,7 +77,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             request, response, new InsufficientAuthenticationException(TOKEN_INVALID));
       }
 
-      case AccessTokenParseResult.Ok(var claims) -> {
+      case AccessTokenParseResult.Ok ok -> {
+        Claims claims = ok.claims();
         String tokenId = jwtService.extractTokenId(claims);
         UUID sessionId = jwtService.extractSessionId(claims);
         AccountType accountType = jwtService.extractAccountType(claims);

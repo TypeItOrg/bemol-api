@@ -3,7 +3,6 @@ package ar.edu.utn.frvm.typeit.boero_api.institutional.services;
 import ar.edu.utn.frvm.typeit.boero_api.authorization.interfaces.PersonRoleAssignmentRepository;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.entities.GuardianLinkStatus;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.entities.PersonGuardian;
-import ar.edu.utn.frvm.typeit.boero_api.institutional.interfaces.DependentApplicationCount;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.interfaces.PersonGuardianRepository;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.payloads.guardian.GuardianDependentResponse;
 import java.util.List;
@@ -43,9 +42,7 @@ public class ListGuardianDependentsUseCase {
         personGuardianRepository
             .countActiveApplicationsByApplicant(institutionId, dependentIds)
             .stream()
-            .collect(
-                Collectors.toMap(
-                    DependentApplicationCount::personId, DependentApplicationCount::total));
+            .collect(Collectors.toMap(count -> count.personId(), count -> count.total()));
 
     final Map<UUID, List<String>> roles =
         personRoleAssignmentRepository
