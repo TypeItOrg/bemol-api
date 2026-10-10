@@ -4,15 +4,26 @@ import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import ar.edu.utn.frvm.typeit.boero_api.academic.entities.AcademicSpace;
 import ar.edu.utn.frvm.typeit.boero_api.academic.entities.AcademicYear;
+import ar.edu.utn.frvm.typeit.boero_api.academic.entities.Course;
+import ar.edu.utn.frvm.typeit.boero_api.academic.entities.DocumentDefinition;
 import ar.edu.utn.frvm.typeit.boero_api.academic.entities.StudyPlan;
+import ar.edu.utn.frvm.typeit.boero_api.academic.entities.StudyPlanSpace;
 import ar.edu.utn.frvm.typeit.boero_api.academic.entities.TrainingPath;
+import ar.edu.utn.frvm.typeit.boero_api.academic.entities.TrainingPathDocumentRequirement;
+import ar.edu.utn.frvm.typeit.boero_api.academic.enums.AcademicSpaceFormat;
+import ar.edu.utn.frvm.typeit.boero_api.academic.enums.AcademicSpaceType;
+import ar.edu.utn.frvm.typeit.boero_api.academic.enums.ApprovalMode;
+import ar.edu.utn.frvm.typeit.boero_api.academic.enums.RequirementType;
 import ar.edu.utn.frvm.typeit.boero_api.audit.entities.AuditEvent;
 import ar.edu.utn.frvm.typeit.boero_api.audit.enums.AuditAction;
 import ar.edu.utn.frvm.typeit.boero_api.audit.interfaces.AuditEventRepository;
 import ar.edu.utn.frvm.typeit.boero_api.auth.filters.JwtAuthenticatedUser;
 import ar.edu.utn.frvm.typeit.boero_api.authorization.services.InstitutionRoleProvisioner;
 import ar.edu.utn.frvm.typeit.boero_api.enrollment.entities.EnrollmentPeriod;
+import ar.edu.utn.frvm.typeit.boero_api.enrollment.entities.EnrollmentPeriodOffering;
+import ar.edu.utn.frvm.typeit.boero_api.enrollment.enums.DocumentRequirementLevel;
 import ar.edu.utn.frvm.typeit.boero_api.enrollment.enums.EnrollmentPeriodStatus;
 import ar.edu.utn.frvm.typeit.boero_api.enrollment.exceptions.EnrollmentApplicationNotFoundException;
 import ar.edu.utn.frvm.typeit.boero_api.enrollment.exceptions.EnrollmentValidationException;
@@ -38,6 +49,7 @@ import ar.edu.utn.frvm.typeit.boero_api.institutional.services.ListGuardianDepen
 import ar.edu.utn.frvm.typeit.boero_api.institutional.services.RegisterGuardianDependentUseCase;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.services.ResolveGuardianLinkUseCase;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.services.UnlinkGuardianDependentUseCase;
+import ar.edu.utn.frvm.typeit.boero_api.support.EnrollmentDocumentTestData;
 import ar.edu.utn.frvm.typeit.boero_api.support.InstitutionalTestData;
 import ar.edu.utn.frvm.typeit.boero_api.support.IntegrationTest;
 import jakarta.persistence.EntityManager;
@@ -49,6 +61,8 @@ import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.UUID;
+import org.jspecify.annotations.Nullable;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -58,6 +72,7 @@ import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.transaction.annotation.Transactional;
@@ -377,6 +392,7 @@ class EnrollmentApplicationGuardianshipPostgresIntegrationTest {
             scenario.institution().getId(),
             scenario.tutor().getId(),
             startRequest(scenario, dependent.dependentPersonId()));
+    final UUID startedId = requireNonNull(started.applicationId());
     final Person stranger = person(scenario.institution());
 
     assertThatThrownBy(
@@ -389,73 +405,71 @@ class EnrollmentApplicationGuardianshipPostgresIntegrationTest {
             UnauthorizedGuardianshipException.class,
             exception -> assertThat(exception.code()).isEqualTo("GUARDIANSHIP_UNAUTHORIZED"));
     assertThatThrownBy(
-            () ->
-                getMine.execute(
-                    scenario.institution().getId(), stranger.getId(), started.applicationId()))
+            () -> getMine.execute(scenario.institution().getId(), stranger.getId(), startedId))
         .isInstanceOf(EnrollmentApplicationNotFoundException.class);
     assertThatThrownBy(
             () ->
                 service.updateDraft(
-                    stranger.getId(),
-                    started.applicationId(),
-                    UpdateEnrollmentDraftRequest.builder().build()))
+                    stranger.getId(), startedId, UpdateEnrollmentDraftRequest.builder().build()))
         .isInstanceOf(EnrollmentApplicationNotFoundException.class);
-    assertThatThrownBy(
-            () -> service.getApplicationById(null, stranger.getId(), started.applicationId()))
+    assertThatThrownBy(() -> service.getApplicationById(null, stranger.getId(), startedId))
         .isInstanceOf(EnrollmentApplicationNotFoundException.class);
   }
 
   @Test
   @Transactional
   @DisplayName("Should let a tutor submit and manage attachments of a dependent's application")
-  void tutorSubmitsAndAttachesForDependent() {
+  void tutorSubmitsAndAttachesForDependent() throws IOException {
     final Scenario scenario = scenario();
     final GuardianDependentResponse dependent = registerDependent(scenario);
+    actAs(authentication(scenario, scenario.tutor()));
     final EnrollmentApplicationResponse started =
         service.startOrGetApplication(
             scenario.institution().getId(),
             scenario.tutor().getId(),
             startRequest(scenario, dependent.dependentPersonId()));
+    final UUID startedId = requireNonNull(started.applicationId());
     final Authentication tutor = authentication(scenario, scenario.tutor());
 
     final EnrollmentAttachmentResponse uploaded =
-        attachmentService.uploadAttachment(started.applicationId(), pdf(), "DNI_FRONT", tutor);
-    assertThat(attachmentService.listAttachments(started.applicationId(), tutor))
+        attachmentService.uploadAttachment(
+            startedId, pdf(), started.documents().getFirst().id(), tutor);
+    assertThat(attachmentService.listAttachments(startedId, tutor))
         .extracting(EnrollmentAttachmentResponse::id)
         .containsExactly(uploaded.id());
-    attachmentService.deleteAttachment(started.applicationId(), uploaded.id(), tutor);
-    assertThat(attachmentService.listAttachments(started.applicationId(), tutor)).isEmpty();
+    attachmentService.deleteAttachment(startedId, uploaded.id(), tutor);
+    assertThat(attachmentService.listAttachments(startedId, tutor)).isEmpty();
 
     // The draft is incomplete, so a validation error proves the tutor got past the access check
     // (a stranger gets "not found" instead, see unrelatedTutorCannotSubmitOrTouchAttachments).
-    assertThatThrownBy(
-            () -> service.submitApplication(scenario.tutor().getId(), started.applicationId()))
+    assertThatThrownBy(() -> service.submitApplication(scenario.tutor().getId(), startedId))
         .isInstanceOf(EnrollmentValidationException.class);
   }
 
   @Test
   @Transactional
   @DisplayName("Should keep an unrelated tutor from submitting or touching attachments")
-  void unrelatedTutorCannotSubmitOrTouchAttachments() {
+  void unrelatedTutorCannotSubmitOrTouchAttachments() throws IOException {
     final Scenario scenario = scenario();
     final GuardianDependentResponse dependent = registerDependent(scenario);
+    actAs(authentication(scenario, scenario.tutor()));
     final EnrollmentApplicationResponse started =
         service.startOrGetApplication(
             scenario.institution().getId(),
             scenario.tutor().getId(),
             startRequest(scenario, dependent.dependentPersonId()));
+    final UUID startedId = requireNonNull(started.applicationId());
     final Person stranger = person(scenario.institution());
     final Authentication strangerAuth = authentication(scenario, stranger);
 
-    assertThatThrownBy(() -> service.submitApplication(stranger.getId(), started.applicationId()))
+    assertThatThrownBy(() -> service.submitApplication(stranger.getId(), startedId))
         .isInstanceOf(EnrollmentApplicationNotFoundException.class);
     assertThatThrownBy(
             () ->
                 attachmentService.uploadAttachment(
-                    started.applicationId(), pdf(), "DNI_FRONT", strangerAuth))
+                    startedId, pdf(), started.documents().getFirst().id(), strangerAuth))
         .isInstanceOf(AccessDeniedException.class);
-    assertThatThrownBy(
-            () -> attachmentService.listAttachments(started.applicationId(), strangerAuth))
+    assertThatThrownBy(() -> attachmentService.listAttachments(startedId, strangerAuth))
         .isInstanceOf(AccessDeniedException.class);
   }
 
@@ -555,7 +569,18 @@ class EnrollmentApplicationGuardianshipPostgresIntegrationTest {
 
     assertThat(started.personId()).isEqualTo(scenario.tutor().getId());
     assertThat(started.submittedByPersonId()).isEqualTo(scenario.tutor().getId());
-    assertThat(started.data().getResponsible().getFullName()).isNull();
+    final var startData = requireNonNull(started.data());
+    final var startResp = requireNonNull(startData.getResponsible());
+    assertThat(startResp.getFullName()).isNull();
+  }
+
+  private void actAs(final Authentication authentication) {
+    SecurityContextHolder.getContext().setAuthentication(authentication);
+  }
+
+  @AfterEach
+  void clearSecurityContext() {
+    SecurityContextHolder.clearContext();
   }
 
   private Authentication authentication(final Scenario scenario, final Person person) {
@@ -570,8 +595,8 @@ class EnrollmentApplicationGuardianshipPostgresIntegrationTest {
     return new UsernamePasswordAuthenticationToken(principal, null, List.of());
   }
 
-  private MockMultipartFile pdf() {
-    return new MockMultipartFile("file", "dni.pdf", "application/pdf", "%PDF-1.4".getBytes());
+  private MockMultipartFile pdf() throws IOException {
+    return EnrollmentDocumentTestData.pdf("dni.pdf");
   }
 
   /** Registers a dependent and has the institution approve the link, so the tutor can act. */
@@ -601,8 +626,9 @@ class EnrollmentApplicationGuardianshipPostgresIntegrationTest {
   }
 
   private StartEnrollmentApplicationRequest startRequest(
-      final Scenario scenario, final UUID applicantPersonId) {
+      final Scenario scenario, final @Nullable UUID applicantPersonId) {
     return StartEnrollmentApplicationRequest.builder()
+        .trainingPathId(scenario.plan().getTrainingPath().getId())
         .studyPlanId(scenario.plan().getId())
         .academicYearId(scenario.year().getId())
         .applicantPersonId(applicantPersonId)
@@ -619,6 +645,13 @@ class EnrollmentApplicationGuardianshipPostgresIntegrationTest {
     final TrainingPath trainingPath =
         InstitutionalTestData.persist(
             entityManager, TrainingPath.create(institution, "Instrumento " + suffix, null));
+    final DocumentDefinition document = DocumentDefinition.create(institution);
+    document.update("DNI " + suffix, "Frente y dorso", List.of("application/pdf"), true);
+    InstitutionalTestData.persist(entityManager, document);
+    final TrainingPathDocumentRequirement requirement =
+        TrainingPathDocumentRequirement.create(trainingPath, document);
+    requirement.update(DocumentRequirementLevel.AT_SUBMISSION, 1, true, null);
+    InstitutionalTestData.persist(entityManager, requirement);
     final StudyPlan plan =
         StudyPlan.create(institution, trainingPath, "Piano " + suffix, LocalDate.now(), null);
     plan.activate();
@@ -627,16 +660,44 @@ class EnrollmentApplicationGuardianshipPostgresIntegrationTest {
         InstitutionalTestData.persist(
             entityManager,
             AcademicYear.create(institution, 2026, null, null, LocalDate.of(2026, 1, 1)));
-    InstitutionalTestData.persist(
-        entityManager,
-        EnrollmentPeriod.builder()
-            .institution(institution)
-            .academicYear(year)
-            .name("Periodo " + suffix)
-            .startDate(Instant.now().minus(1, ChronoUnit.DAYS))
-            .endDate(Instant.now().plus(30, ChronoUnit.DAYS))
-            .status(EnrollmentPeriodStatus.OPEN)
-            .build());
+    final EnrollmentPeriod period =
+        InstitutionalTestData.persist(
+            entityManager,
+            EnrollmentPeriod.builder()
+                .institution(institution)
+                .academicYear(year)
+                .name("Periodo " + suffix)
+                .startDate(Instant.now().minus(1, ChronoUnit.DAYS))
+                .endDate(Instant.now().plus(30, ChronoUnit.DAYS))
+                .status(EnrollmentPeriodStatus.OPEN)
+                .build());
+    final AcademicSpace space =
+        InstitutionalTestData.persist(
+            entityManager,
+            AcademicSpace.create(
+                institution,
+                "Espacio " + suffix,
+                "",
+                AcademicSpaceType.SUBJECT,
+                AcademicSpaceFormat.INDIVIDUAL));
+    final StudyPlanSpace planSpace =
+        InstitutionalTestData.persist(
+            entityManager,
+            StudyPlanSpace.create(
+                institution,
+                plan,
+                space,
+                null,
+                RequirementType.REQUIRED,
+                1,
+                ApprovalMode.FINAL_EXAM));
+    InstitutionalTestData.persist(entityManager, Course.create(institution, planSpace, year));
+    entityManager.flush();
+    period.markScopeConfigured();
+    final var offering = EnrollmentPeriodOffering.create(period, plan);
+    offering.selectLevels(List.of(), true);
+    period.getOfferings().add(offering);
+    entityManager.persist(offering);
     entityManager.flush();
 
     return new Scenario(institution, tutor, plan, year);
