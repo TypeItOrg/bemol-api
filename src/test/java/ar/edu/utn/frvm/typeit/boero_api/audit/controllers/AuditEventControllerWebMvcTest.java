@@ -147,7 +147,7 @@ class AuditEventControllerWebMvcTest {
             .sessionId(UUID.randomUUID())
             .tokenId("token-id")
             .build();
-    final var auth = new TestingAuthenticationToken(user, null);
+    final var auth = new TestingAuthenticationToken(user, "");
     auth.setAuthenticated(true);
     return auth;
   }

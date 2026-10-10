@@ -1,5 +1,6 @@
 package ar.edu.utn.frvm.typeit.boero_api.enrollment.services;
 
+import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -237,21 +238,25 @@ class EnrollmentApplicationGuardianshipPostgresIntegrationTest {
 
     assertThat(started.personId()).isEqualTo(dependent.dependentPersonId());
     assertThat(started.submittedByPersonId()).isEqualTo(scenario.tutor().getId());
-    assertThat(started.data().getResponsible().getFullName()).isEqualTo("Ana Garcia");
-    assertThat(started.data().getResponsible().getDocumentNumber())
-        .isEqualTo(scenario.tutor().getDocumentNumber());
+    final var startData = requireNonNull(started.data());
+    final var startResp = requireNonNull(startData.getResponsible());
+    assertThat(startResp.getFullName()).isEqualTo("Ana Garcia");
+    assertThat(startResp.getDocumentNumber()).isEqualTo(scenario.tutor().getDocumentNumber());
 
+    final UUID appId = requireNonNull(started.applicationId());
     final EnrollmentApplicationResponse edited =
         service.updateDraft(
             scenario.tutor().getId(),
-            started.applicationId(),
+            appId,
             UpdateEnrollmentDraftRequest.builder()
                 .data(
                     EnrollmentDraftData.builder()
                         .responsible(ResponsibleDto.builder().phoneNumber("3534112233").build())
                         .build())
                 .build());
-    assertThat(edited.data().getResponsible().getPhoneNumber()).isEqualTo("3534112233");
+    final var editData = requireNonNull(edited.data());
+    final var editResp = requireNonNull(editData.getResponsible());
+    assertThat(editResp.getPhoneNumber()).isEqualTo("3534112233");
 
     assertThat(
             listMine
@@ -264,7 +269,7 @@ class EnrollmentApplicationGuardianshipPostgresIntegrationTest {
                     PageRequest.of(0, 10))
                 .getContent())
         .extracting(EnrollmentApplicationResponse::applicationId)
-        .containsExactly(started.applicationId());
+        .containsExactly(appId);
     assertThat(
             listMine
                 .execute(
@@ -278,17 +283,11 @@ class EnrollmentApplicationGuardianshipPostgresIntegrationTest {
         .isEmpty();
     assertThat(
             getMine
-                .execute(
-                    scenario.institution().getId(),
-                    scenario.tutor().getId(),
-                    started.applicationId())
+                .execute(scenario.institution().getId(), scenario.tutor().getId(), appId)
                 .applicationId())
-        .isEqualTo(started.applicationId());
-    assertThat(
-            service
-                .getApplicationById(null, scenario.tutor().getId(), started.applicationId())
-                .applicationId())
-        .isEqualTo(started.applicationId());
+        .isEqualTo(appId);
+    assertThat(service.getApplicationById(null, scenario.tutor().getId(), appId).applicationId())
+        .isEqualTo(appId);
     assertThat(
             listDependents
                 .execute(scenario.institution().getId(), scenario.tutor().getId())
@@ -301,17 +300,13 @@ class EnrollmentApplicationGuardianshipPostgresIntegrationTest {
     entityManager.flush();
 
     assertThatThrownBy(
-            () ->
-                getMine.execute(
-                    scenario.institution().getId(),
-                    scenario.tutor().getId(),
-                    started.applicationId()))
+            () -> getMine.execute(scenario.institution().getId(), scenario.tutor().getId(), appId))
         .isInstanceOf(EnrollmentApplicationNotFoundException.class);
     assertThatThrownBy(
             () ->
                 service.updateDraft(
                     scenario.tutor().getId(),
-                    started.applicationId(),
+                    appId,
                     UpdateEnrollmentDraftRequest.builder().build()))
         .isInstanceOf(EnrollmentApplicationNotFoundException.class);
     assertThat(
