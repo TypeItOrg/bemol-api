@@ -8,6 +8,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.UUID;
+import org.jspecify.annotations.Nullable;
 
 /** A guardianship request as the institution sees it: who asks, for whom and with which tie. */
 public record GuardianLinkReviewResponse(
@@ -18,14 +19,14 @@ public record GuardianLinkReviewResponse(
     PersonSummary tutor,
     PersonSummary dependent,
     Instant createdAt,
-    @Schema(nullable = true) Instant resolvedAt) {
+    @Nullable @Schema(nullable = true) Instant resolvedAt) {
 
   public record PersonSummary(
       UUID personId,
       String documentNumber,
       String firstName,
       String lastName,
-      @Schema(nullable = true) LocalDate birthDate) {
+      @Nullable @Schema(nullable = true) LocalDate birthDate) {
 
     static PersonSummary from(final Person person) {
       return new PersonSummary(

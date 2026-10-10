@@ -142,9 +142,9 @@ class DependentApplicantRoleBackfillMigrationIntegrationTest extends DatabaseMig
   }
 
   private List<UUID> roleIdsOf(final UUID personId) {
-    return jdbcTemplate.queryForList(
+    return jdbcTemplate.query(
         "SELECT role_id FROM person_role_assignments WHERE person_id = ? AND institution_id = ?",
-        UUID.class,
+        (rs, rowNum) -> java.util.Objects.requireNonNull(rs.getObject(1, UUID.class)),
         personId,
         institutionId);
   }

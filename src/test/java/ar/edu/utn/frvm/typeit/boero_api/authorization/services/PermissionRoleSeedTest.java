@@ -154,7 +154,7 @@ class PermissionRoleSeedTest {
   @Test
   @DisplayName("Should let administrative staff and authorities review guardian links")
   void run_assignsGuardianLinkReviewToInstitutionalReviewers() {
-    permissionRoleSeed.run(null);
+    permissionRoleSeed.run(new org.springframework.boot.DefaultApplicationArguments());
 
     for (final SystemRoleCode code :
         List.of(SystemRoleCode.ADMINISTRATIVE, SystemRoleCode.INSTITUTIONAL_AUTHORITY)) {
@@ -172,7 +172,7 @@ class PermissionRoleSeedTest {
   @Test
   @DisplayName("Should grant guardians the applicant permissions plus dependent management")
   void run_assignsDependentManagementToGuardians() {
-    permissionRoleSeed.run(null);
+    permissionRoleSeed.run(new org.springframework.boot.DefaultApplicationArguments());
 
     final var guardianRole =
         roleRepository
@@ -195,7 +195,7 @@ class PermissionRoleSeedTest {
     final Institution institution = InstitutionalTestData.createInstitution(entityManager, "boero");
     entityManager.flush();
 
-    permissionRoleSeed.run(null);
+    permissionRoleSeed.run(new org.springframework.boot.DefaultApplicationArguments());
 
     final var guardianRole =
         roleRepository
