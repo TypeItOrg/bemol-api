@@ -23,6 +23,9 @@ public interface PersonGuardianRepository extends JpaRepository<PersonGuardian, 
   List<PersonGuardian> findByInstitution_IdAndStatusOrderByCreatedAtAsc(
       UUID institutionId, GuardianLinkStatus status);
 
+  @EntityGraph(attributePaths = {"institution", "tutorPerson", "dependentPerson"})
+  List<PersonGuardian> findByStatusOrderByCreatedAtAsc(GuardianLinkStatus status);
+
   @EntityGraph(attributePaths = "dependentPerson")
   Optional<PersonGuardian> findByInstitution_IdAndTutorPerson_IdAndDependentPerson_IdAndStatus(
       UUID institutionId, UUID tutorPersonId, UUID dependentPersonId, GuardianLinkStatus status);

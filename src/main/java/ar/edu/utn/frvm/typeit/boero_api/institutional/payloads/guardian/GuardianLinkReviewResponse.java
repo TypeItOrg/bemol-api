@@ -14,6 +14,7 @@ public record GuardianLinkReviewResponse(
     UUID personGuardianId,
     GuardianLinkStatus status,
     GuardianRelationship relationship,
+    InstitutionSummary institution,
     PersonSummary tutor,
     PersonSummary dependent,
     Instant createdAt,
@@ -36,11 +37,19 @@ public record GuardianLinkReviewResponse(
     }
   }
 
+  public record InstitutionSummary(UUID institutionId, String name) {
+    static InstitutionSummary from(
+        final ar.edu.utn.frvm.typeit.boero_api.institutional.entities.Institution institution) {
+      return new InstitutionSummary(institution.getId(), institution.getName());
+    }
+  }
+
   public static GuardianLinkReviewResponse from(final PersonGuardian link) {
     return new GuardianLinkReviewResponse(
         link.getId(),
         link.getStatus(),
         link.getRelationship(),
+        InstitutionSummary.from(link.getInstitution()),
         PersonSummary.from(link.getTutorPerson()),
         PersonSummary.from(link.getDependentPerson()),
         link.getCreatedAt(),

@@ -54,6 +54,28 @@ public class ResolveGuardianLinkUseCase {
     return GuardianLinkReviewResponse.from(link);
   }
 
+  @Transactional
+  public GuardianLinkReviewResponse approveForPlatform(
+      final UUID institutionId, final UUID linkId) {
+    final PersonGuardian link = findLink(institutionId, linkId);
+
+    link.approve(null);
+    assignApplicantRoleIfUnassigned(institutionId, link.getDependentPerson());
+    audit(link, null, AuditAction.GUARDIAN_LINK_APPROVED);
+
+    return GuardianLinkReviewResponse.from(link);
+  }
+
+  @Transactional
+  public GuardianLinkReviewResponse rejectForPlatform(final UUID institutionId, final UUID linkId) {
+    final PersonGuardian link = findLink(institutionId, linkId);
+
+    link.reject(null);
+    audit(link, null, AuditAction.GUARDIAN_LINK_REJECTED);
+
+    return GuardianLinkReviewResponse.from(link);
+  }
+
   private Person findReviewer(final UUID institutionId, final UUID reviewerPersonId) {
     return personRepository
         .findByIdAndInstitution_Id(reviewerPersonId, institutionId)
@@ -84,7 +106,7 @@ public class ResolveGuardianLinkUseCase {
   private void audit(final PersonGuardian link, final Person reviewer, final AuditAction action) {
     auditEventRecorder.record(
         link.getInstitution(),
-        reviewer.getId(),
+        reviewer == null ? null : reviewer.getId(),
         link.getDependentPerson().getId(),
         action,
         AuditEntityType.PERSON_GUARDIAN,

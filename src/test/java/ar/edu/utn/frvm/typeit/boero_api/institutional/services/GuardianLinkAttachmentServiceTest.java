@@ -22,6 +22,8 @@ import ar.edu.utn.frvm.typeit.boero_api.institutional.exceptions.GuardianLinkNot
 import ar.edu.utn.frvm.typeit.boero_api.institutional.interfaces.PersonGuardianAttachmentRepository;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.interfaces.PersonGuardianRepository;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.payloads.guardian.GuardianLinkAttachmentResponse;
+import ar.edu.utn.frvm.typeit.boero_api.support.EnrollmentDocumentTestData;
+import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -48,12 +50,12 @@ class GuardianLinkAttachmentServiceTest {
   private Person tutor;
   private PersonGuardian link;
   private final UUID linkId = UUID.randomUUID();
-  private final MockMultipartFile file =
-      new MockMultipartFile("file", "partida.pdf", "application/pdf", "%PDF-1.4".getBytes());
+  private MockMultipartFile file;
 
   @BeforeEach
-  void setUp() {
+  void setUp() throws IOException {
     TransactionSynchronizationManager.initSynchronization();
+    file = EnrollmentDocumentTestData.pdf("partida.pdf");
     service =
         new GuardianLinkAttachmentService(personGuardianRepository, attachmentRepository, storage);
     institution = Institution.builder().id(UUID.randomUUID()).build();
@@ -87,7 +89,7 @@ class GuardianLinkAttachmentServiceTest {
         service.upload(institution.getId(), tutor.getId(), linkId, file);
 
     assertThat(response.originalFileName()).isEqualTo("partida.pdf");
-    assertThat(response.size()).isEqualTo(8);
+    assertThat(response.size()).isEqualTo(file.getSize());
     assertThat(response.contentType()).isEqualTo("application/pdf");
   }
 

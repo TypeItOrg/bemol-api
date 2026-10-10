@@ -30,6 +30,7 @@ import ar.edu.utn.frvm.typeit.boero_api.institutional.entities.PersonGuardianAtt
 import ar.edu.utn.frvm.typeit.boero_api.institutional.exceptions.GuardianLinkAlreadyResolvedException;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.payloads.guardian.GuardianLinkAttachmentResponse;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.payloads.guardian.GuardianLinkReviewResponse;
+import ar.edu.utn.frvm.typeit.boero_api.institutional.payloads.guardian.GuardianLinkReviewResponse.InstitutionSummary;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.payloads.guardian.GuardianLinkReviewResponse.PersonSummary;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.services.GuardianLinkAttachmentService;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.services.ListGuardianLinksUseCase;
@@ -228,6 +229,7 @@ class GuardianLinkReviewControllerWebMvcTest {
         LINK_ID,
         status,
         GuardianRelationship.MOTHER,
+        new InstitutionSummary(INSTITUTION_ID, "Conservatorio Boero"),
         new PersonSummary(UUID.randomUUID(), "35123456", "Ana", "Garcia", null),
         new PersonSummary(
             UUID.randomUUID(), "54123456", "Mateo", "Gonzalez", LocalDate.of(2018, 9, 10)),

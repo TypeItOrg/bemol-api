@@ -25,4 +25,12 @@ public class ListGuardianLinksUseCase {
         .map(GuardianLinkReviewResponse::from)
         .toList();
   }
+
+  /** Platform administrators may review requests across all institutions. */
+  @Transactional(readOnly = true)
+  public List<GuardianLinkReviewResponse> executeForPlatform(final GuardianLinkStatus status) {
+    return personGuardianRepository.findByStatusOrderByCreatedAtAsc(status).stream()
+        .map(GuardianLinkReviewResponse::from)
+        .toList();
+  }
 }
