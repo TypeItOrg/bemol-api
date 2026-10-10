@@ -53,7 +53,7 @@ public final class InstitutionalTestData {
         .institution(institution)
         .firstName("Ana")
         .lastName("Garcia")
-        .birthDate(birthDate)
+        .birthDate(birthDate != null ? birthDate : LocalDate.of(2000, 1, 1))
         .documentNumber(documentNumber)
         .email(documentNumber + "@example.com")
         .build();

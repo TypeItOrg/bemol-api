@@ -111,7 +111,7 @@ public class Person extends Auditable {
 
   @Column(name = "birth_date")
   @MinimumAge(MINIMUM_AGE)
-  private @Nullable LocalDate birthDate;
+  private LocalDate birthDate;
 
   @Column(name = "phone_number", length = 30)
   private @Nullable String phoneNumber;
@@ -121,7 +121,7 @@ public class Person extends Auditable {
   @Email(message = ValidationMessages.PERSON_EMAIL_FORMAT)
   @Size(max = 150, message = ValidationMessages.PERSON_EMAIL_MAX_LENGTH)
   @Column(length = 150)
-  private @Nullable String email;
+  private String email;
 
   @Column(name = "deleted", nullable = false)
   @Builder.Default
@@ -130,9 +130,9 @@ public class Person extends Auditable {
   public void updateIdentity(
       final String firstName,
       final String lastName,
-      final @Nullable LocalDate birthDate,
-      final @Nullable City birthCity,
-      final @Nullable Country nationalityCountry) {
+      final LocalDate birthDate,
+      final City birthCity,
+      final Country nationalityCountry) {
     this.firstName = firstName;
     this.lastName = lastName;
     this.birthDate = birthDate;
@@ -140,7 +140,7 @@ public class Person extends Auditable {
     this.nationalityCountry = nationalityCountry;
   }
 
-  public void updateContact(final @Nullable String email, final @Nullable String phoneNumber) {
+  public void updateContact(final String email, final @Nullable String phoneNumber) {
     this.email = email;
     this.phoneNumber = phoneNumber;
   }
