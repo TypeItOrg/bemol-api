@@ -23,6 +23,7 @@ public class CourseEnrollmentOptionsController {
 
   @GetMapping(value = "/{courseId}/enrollment-options", version = Version.V1)
   @RequiresAnyPermission({
+    PermissionCode.COURSE_READ,
     PermissionCode.COURSE_ENROLLMENT_READ,
     PermissionCode.COURSE_ENROLLMENT_CREATE,
     PermissionCode.ENROLLMENT_APPLICATION_COURSE_ENROLL

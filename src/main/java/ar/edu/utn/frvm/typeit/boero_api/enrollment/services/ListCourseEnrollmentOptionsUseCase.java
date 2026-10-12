@@ -15,8 +15,6 @@ import ar.edu.utn.frvm.typeit.boero_api.authorization.enums.ScopedResource;
 import ar.edu.utn.frvm.typeit.boero_api.authorization.services.AcademicAccessGuard;
 import ar.edu.utn.frvm.typeit.boero_api.enrollment.entities.CourseEnrollmentSchedule;
 import ar.edu.utn.frvm.typeit.boero_api.enrollment.entities.CourseIndividualSlot;
-import ar.edu.utn.frvm.typeit.boero_api.enrollment.exceptions.EnrollmentMessages;
-import ar.edu.utn.frvm.typeit.boero_api.enrollment.exceptions.EnrollmentValidationException;
 import ar.edu.utn.frvm.typeit.boero_api.enrollment.interfaces.CourseEnrollmentScheduleRepository;
 import ar.edu.utn.frvm.typeit.boero_api.enrollment.interfaces.CourseIndividualSlotRepository;
 import ar.edu.utn.frvm.typeit.boero_api.enrollment.payloads.CourseEnrollmentAssignmentOptionsResponse;
@@ -53,6 +51,7 @@ public class ListCourseEnrollmentOptionsUseCase {
       final UUID institutionId, final UUID courseId) {
     accessGuard.requireAny(
         Set.of(
+            PermissionCode.COURSE_READ,
             PermissionCode.COURSE_ENROLLMENT_READ,
             PermissionCode.COURSE_ENROLLMENT_CREATE,
             PermissionCode.ENROLLMENT_APPLICATION_COURSE_ENROLL),
@@ -63,9 +62,6 @@ public class ListCourseEnrollmentOptionsUseCase {
         courseRepository
             .findByIdAndInstitution_Id(courseId, institutionId)
             .orElseThrow(CourseNotFoundException::new);
-    if (!course.isActive()) {
-      throw new EnrollmentValidationException(EnrollmentMessages.COURSE_NOT_ACTIVE);
-    }
 
     final var classes = courseClassRepository.findByCourse_IdOrderByClassNumberAsc(courseId);
     final var classIds = classes.stream().map(value -> value.getId()).toList();

@@ -58,11 +58,36 @@ public class ListAcademicSelectionOptionsUseCase {
       @Nullable StudyPlanStatus status,
       Pageable pageable,
       @Nullable PermissionCode operation) {
+    return execute(
+        institutionId,
+        resource,
+        search,
+        active,
+        published,
+        trainingPathId,
+        status,
+        pageable,
+        operation,
+        null);
+  }
+
+  @Transactional(readOnly = true)
+  public PaginatedResponse<AcademicSelectionOptionResponse> execute(
+      UUID institutionId,
+      String resource,
+      @Nullable String search,
+      @Nullable Boolean active,
+      @Nullable Boolean published,
+      @Nullable UUID trainingPathId,
+      @Nullable StudyPlanStatus status,
+      Pageable pageable,
+      @Nullable PermissionCode operation,
+      @Nullable UUID id) {
     final var source = AcademicSelectionSource.forResource(resource);
     final var access = requireAccess(source.permissions(), operation);
     final var selection =
         selectionQuery(
-            source, access, institutionId, search, active, published, trainingPathId, status);
+            source, access, institutionId, search, active, published, trainingPathId, status, id);
 
     final var countQuery =
         entityManager.createQuery("SELECT count(item)" + selection.clause(), Long.class);
@@ -126,10 +151,15 @@ public class ListAcademicSelectionOptionsUseCase {
       final @Nullable Boolean active,
       final @Nullable Boolean published,
       final @Nullable UUID trainingPathId,
-      final @Nullable StudyPlanStatus status) {
+      final @Nullable StudyPlanStatus status,
+      final @Nullable UUID id) {
     final var parameters = new HashMap<String, Object>();
     parameters.put("institution", institutionId);
     String where = " WHERE item.institution.id = :institution AND item.deletedAt IS NULL";
+    if (id != null) {
+      where += " AND item.id = :id";
+      parameters.put("id", id);
+    }
     if (source.pathExpression() != null && !access.institutional()) {
       where += " AND " + source.pathExpression() + " IN :paths";
       parameters.put("paths", access.trainingPathIds());

@@ -4,12 +4,33 @@ import ar.edu.utn.frvm.typeit.boero_api.academic.entities.AcademicLevel;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import org.jspecify.annotations.Nullable;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 public interface AcademicLevelRepository extends JpaRepository<AcademicLevel, UUID> {
   List<AcademicLevel> findByStudyPlan_IdOrderByDisplayOrderAsc(UUID studyPlanId);
+
+  @Query(
+      """
+      SELECT level FROM AcademicLevel level
+      WHERE level.studyPlan.institution.id = :institutionId
+        AND level.studyPlan.id = :studyPlanId
+        AND level.studyPlan.deletedAt IS NULL
+        AND (:#{@scopedAuthorization.unrestricted('COURSE_READ')} = true OR level.studyPlan.trainingPath.id IN :#{@scopedAuthorization.paths('COURSE_READ')})
+        AND (:id IS NULL OR level.id = :id)
+        AND (:search IS NULL OR UNACCENT_LOWER(level.name) LIKE UNACCENT_LOWER(CONCAT('%', CAST(:search AS string), '%')))
+      ORDER BY level.displayOrder, level.id
+      """)
+  Page<AcademicLevel> findCourseFilterOptions(
+      @Param("institutionId") UUID institutionId,
+      @Param("studyPlanId") UUID studyPlanId,
+      @Param("search") @Nullable String search,
+      @Param("id") @Nullable UUID id,
+      Pageable pageable);
 
   void deleteByStudyPlan_Id(UUID studyPlanId);
 

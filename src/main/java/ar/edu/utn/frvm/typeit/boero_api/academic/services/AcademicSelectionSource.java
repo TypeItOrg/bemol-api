@@ -56,10 +56,14 @@ record AcademicSelectionSource(
                   COURSE_ENROLLMENT_READ));
       case "academic-spaces" ->
           new AcademicSelectionSource(
-              "AcademicSpace", null, Set.of(ACADEMIC_SPACE_READ, STUDY_PLAN_CURRICULUM_UPDATE));
+              "AcademicSpace",
+              null,
+              Set.of(ACADEMIC_SPACE_READ, STUDY_PLAN_CURRICULUM_UPDATE, COURSE_READ));
       case "instruments" ->
           new AcademicSelectionSource(
-              "Instrument", null, Set.of(INSTRUMENT_READ, COURSE_CREATE, COURSE_UPDATE));
+              "Instrument",
+              null,
+              Set.of(INSTRUMENT_READ, COURSE_READ, COURSE_CREATE, COURSE_UPDATE));
       default -> throw new ScopedResourceNotFoundException();
     };
   }

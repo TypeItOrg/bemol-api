@@ -1,5 +1,7 @@
 package ar.edu.utn.frvm.typeit.boero_api.academic.controllers;
 
+import ar.edu.utn.frvm.typeit.boero_api.academic.enums.AcademicSpaceFormat;
+import ar.edu.utn.frvm.typeit.boero_api.academic.enums.AcademicSpaceType;
 import ar.edu.utn.frvm.typeit.boero_api.academic.enums.CourseStatus;
 import ar.edu.utn.frvm.typeit.boero_api.academic.payloads.CourseResponse;
 import ar.edu.utn.frvm.typeit.boero_api.academic.services.ListCoursesUseCase;
@@ -37,6 +39,11 @@ public class PlatformCourseCollectionController {
       @RequestParam(required = false) final UUID trainingPathId,
       @RequestParam(required = false) final UUID studyPlanId,
       @RequestParam(required = false) final Integer year,
+      @RequestParam(required = false) final UUID academicLevelId,
+      @RequestParam(required = false) final AcademicSpaceType type,
+      @RequestParam(required = false) final AcademicSpaceFormat format,
+      @RequestParam(required = false) final UUID instrumentId,
+      @RequestParam(defaultValue = "false") final boolean withoutInstrument,
       @RequestParam(defaultValue = "false") final boolean deleted,
       @PageableDefault(
               sort = {"institution.name", "academicSpace.name"},
@@ -50,6 +57,11 @@ public class PlatformCourseCollectionController {
         trainingPathId,
         studyPlanId,
         year,
+        academicLevelId,
+        type,
+        format,
+        instrumentId,
+        withoutInstrument,
         deleted,
         pageable);
   }

@@ -1,6 +1,9 @@
 package ar.edu.utn.frvm.typeit.boero_api.academic.controllers;
 
+import ar.edu.utn.frvm.typeit.boero_api.academic.enums.AcademicSpaceFormat;
+import ar.edu.utn.frvm.typeit.boero_api.academic.enums.AcademicSpaceType;
 import ar.edu.utn.frvm.typeit.boero_api.academic.enums.CourseStatus;
+import ar.edu.utn.frvm.typeit.boero_api.academic.payloads.AcademicLevelResponse;
 import ar.edu.utn.frvm.typeit.boero_api.academic.payloads.CourseResponse;
 import ar.edu.utn.frvm.typeit.boero_api.academic.payloads.CourseSpaceOptionResponse;
 import ar.edu.utn.frvm.typeit.boero_api.academic.payloads.CourseStatusRequest;
@@ -9,6 +12,7 @@ import ar.edu.utn.frvm.typeit.boero_api.academic.payloads.ReplaceCourseClassesRe
 import ar.edu.utn.frvm.typeit.boero_api.academic.payloads.TeacherOptionResponse;
 import ar.edu.utn.frvm.typeit.boero_api.academic.services.CreateCourseUseCase;
 import ar.edu.utn.frvm.typeit.boero_api.academic.services.GetCourseUseCase;
+import ar.edu.utn.frvm.typeit.boero_api.academic.services.ListCourseLevelOptionsUseCase;
 import ar.edu.utn.frvm.typeit.boero_api.academic.services.ListCourseSpaceOptionsUseCase;
 import ar.edu.utn.frvm.typeit.boero_api.academic.services.ListCourseTeachersUseCase;
 import ar.edu.utn.frvm.typeit.boero_api.academic.services.ListCoursesUseCase;
@@ -49,6 +53,7 @@ public class AdminCourseController {
 
   private final CreateCourseUseCase createCourseUseCase;
   private final ListCoursesUseCase listCoursesUseCase;
+  private final ListCourseLevelOptionsUseCase listCourseLevelOptionsUseCase;
   private final GetCourseUseCase getCourseUseCase;
   private final UpdateCourseStatusUseCase updateCourseStatusUseCase;
   private final ReplaceCourseClassesUseCase replaceCourseClassesUseCase;
@@ -72,6 +77,11 @@ public class AdminCourseController {
       @RequestParam(required = false) final UUID trainingPathId,
       @RequestParam(required = false) final UUID studyPlanId,
       @RequestParam(required = false) final Integer year,
+      @RequestParam(required = false) final UUID academicLevelId,
+      @RequestParam(required = false) final AcademicSpaceType type,
+      @RequestParam(required = false) final AcademicSpaceFormat format,
+      @RequestParam(required = false) final UUID instrumentId,
+      @RequestParam(defaultValue = "false") final boolean withoutInstrument,
       @RequestParam(defaultValue = "false") final boolean deleted,
       @PageableDefault(sort = "academicSpace.name", direction = Sort.Direction.ASC)
           final Pageable pageable) {
@@ -83,8 +93,23 @@ public class AdminCourseController {
         trainingPathId,
         studyPlanId,
         year,
+        academicLevelId,
+        type,
+        format,
+        instrumentId,
+        withoutInstrument,
         deleted,
         pageable);
+  }
+
+  @GetMapping(value = "/courses/levels", version = Version.V1)
+  public PaginatedResponse<AcademicLevelResponse> listLevels(
+      @PathVariable final UUID institutionId,
+      @RequestParam @NotNull final UUID studyPlanId,
+      @RequestParam(required = false) @Size(max = 100) final String search,
+      @RequestParam(required = false) final UUID id,
+      @PageableDefault(size = 20) final Pageable pageable) {
+    return listCourseLevelOptionsUseCase.execute(institutionId, studyPlanId, search, id, pageable);
   }
 
   @GetMapping(value = "/courses/teachers", version = Version.V1)
