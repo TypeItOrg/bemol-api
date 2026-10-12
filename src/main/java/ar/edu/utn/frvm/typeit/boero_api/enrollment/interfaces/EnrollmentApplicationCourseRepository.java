@@ -6,14 +6,18 @@ import jakarta.persistence.LockModeType;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 public interface EnrollmentApplicationCourseRepository
-    extends JpaRepository<EnrollmentApplicationCourse, UUID> {
+    extends JpaRepository<EnrollmentApplicationCourse, UUID>,
+        JpaSpecificationExecutor<EnrollmentApplicationCourse> {
 
   @EntityGraph(attributePaths = {"course", "course.studyPlanSpace", "preferredTeacher"})
   List<EnrollmentApplicationCourse> findByEnrollmentApplication_Id(UUID applicationId);
@@ -37,6 +41,7 @@ public interface EnrollmentApplicationCourseRepository
   List<EnrollmentApplicationCourse> findByCourseIdAndInstitutionId(
       @Param("courseId") UUID courseId, @Param("institutionId") UUID institutionId);
 
+  @Override
   @EntityGraph(
       attributePaths = {
         "enrollmentApplication",
@@ -45,9 +50,20 @@ public interface EnrollmentApplicationCourseRepository
         "course",
         "preferredTeacher"
       })
+  List<EnrollmentApplicationCourse> findAll(
+      Specification<EnrollmentApplicationCourse> specification, Sort sort);
+
   @Query(
-      "SELECT selection FROM EnrollmentApplicationCourse selection WHERE selection.institution.id = :institutionId AND selection.course.id = :courseId AND selection.status = ar.edu.utn.frvm.typeit.boero_api.enrollment.enums.EnrollmentApplicationCourseStatus.WAITLISTED ORDER BY selection.waitlistNumber")
-  List<EnrollmentApplicationCourse> findWaitlistedByCourseIdAndInstitutionIdOrderByWaitlistNumber(
+      """
+      SELECT DISTINCT TRIM(preference.preferredShift)
+      FROM EnrollmentApplicationCourse selection
+      JOIN selection.enrollmentApplication.preference preference
+      WHERE selection.institution.id = :institutionId AND selection.course.id = :courseId
+        AND selection.status = ar.edu.utn.frvm.typeit.boero_api.enrollment.enums.EnrollmentApplicationCourseStatus.WAITLISTED
+        AND preference.preferredShift IS NOT NULL AND TRIM(preference.preferredShift) <> ''
+      ORDER BY TRIM(preference.preferredShift)
+      """)
+  List<String> findWaitlistPreferredShifts(
       @Param("courseId") UUID courseId, @Param("institutionId") UUID institutionId);
 
   @Query(
