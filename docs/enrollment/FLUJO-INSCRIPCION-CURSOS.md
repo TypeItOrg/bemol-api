@@ -1,6 +1,10 @@
 # FLUJO DE INSCRIPCIÓN POR CURSOS Y CURSADAS
 
-Las solicitudes nuevas se inician por trayecto y ciclo lectivo. El postulante o estudiante selecciona cursos concretos, incluidos cursos sin instrumento y sin nivel. Puede elegir varios cursos del mismo espacio académico. El instrumento pertenece al curso ofrecido: un curso instrumental requiere instrumento; uno no instrumental no lo admite.
+Las solicitudes nuevas se inician por trayecto y se vinculan automáticamente al único ciclo lectivo activo de la institución, siempre que exista oferta abierta del trayecto para ese ciclo. El ciclo permanece fijo al retomar o cancelar la solicitud; los cursos seleccionados deben pertenecer a él. Cada hija conserva su propio período de inscripción: no se exige un único período para toda la solicitud. Los borradores se recuperan por institución, persona, trayecto y ciclo, sin impedir nuevas solicitudes de otros cursos después del envío.
+
+La migración `20261011033241__bind_enrollment_application_academic_year.sql` recupera ciclos históricos solo cuando los cursos y períodos registrados identifican uno inequívocamente. Los registros antiguos sin contexto suficiente siguen siendo consultables; las solicitudes nuevas no pueden crearse sin ciclo.
+
+ El postulante o estudiante selecciona cursos concretos, incluidos cursos sin instrumento y sin nivel. Puede elegir varios cursos del mismo espacio académico. El instrumento pertenece al curso ofrecido: un curso instrumental requiere instrumento; uno no instrumental no lo admite.
 
 El catálogo informa disponibilidad actual, sin reservar cupos. Una advertencia de falta de cupos permite continuar. Los períodos individuales se generan al crear los horarios y se consultan sin escrituras. Los cursos grupales usan el horario de la clase sin período individual.
 

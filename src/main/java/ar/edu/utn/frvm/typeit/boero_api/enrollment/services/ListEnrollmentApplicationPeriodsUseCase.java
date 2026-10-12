@@ -34,6 +34,7 @@ public class ListEnrollmentApplicationPeriodsUseCase {
                 principal.institutionId(),
                 clock.instant(),
                 trainingPathId,
+                null,
                 search == null || search.isBlank() ? null : search.trim(),
                 pageable)
             .map(EnrollmentPeriodResponse::from));

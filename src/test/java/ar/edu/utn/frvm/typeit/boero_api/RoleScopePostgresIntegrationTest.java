@@ -502,18 +502,19 @@ class RoleScopePostgresIntegrationTest extends DatabaseMigrationTestSupport {
     fixtures.insertTrainingPath(hidden, institution, "Scope Tecnicatura");
     selectPath(assignment(actor, institution, PermissionCode.ENROLLMENT_APPLICATION_READ), allowed);
     selectPath(assignment(actor, institution, PermissionCode.COURSE_ENROLLMENT_READ), allowed);
-    jdbcTemplate.update(
-        "INSERT INTO enrollment_applications (enrollment_application_id, institution_id, applicant_person_id, training_path_id, status, created_at, updated_at) VALUES (?, ?, ?, ?, 'DRAFT', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)",
-        application,
-        institution,
-        applicant,
-        hidden);
     UUID year = UUID.randomUUID(),
         plan = UUID.randomUUID(),
         space = UUID.randomUUID(),
         course = UUID.randomUUID(),
         courseClass = UUID.randomUUID();
     fixtures.insertAcademicYear(year, institution, 2098);
+    jdbcTemplate.update(
+        "INSERT INTO enrollment_applications (enrollment_application_id, institution_id, applicant_person_id, training_path_id, academic_year_id, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, 'DRAFT', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)",
+        application,
+        institution,
+        applicant,
+        hidden,
+        year);
     fixtures.insertStudyPlan(plan, institution, hidden);
     fixtures.insertAcademicSpace(space, institution);
     fixtures.insertCourse(course, institution, plan, space, year);

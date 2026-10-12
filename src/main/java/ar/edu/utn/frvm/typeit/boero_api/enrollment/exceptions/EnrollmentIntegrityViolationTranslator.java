@@ -14,6 +14,8 @@ public final class EnrollmentIntegrityViolationTranslator {
         continue;
       }
       switch (violation.getConstraintName()) {
+        case "enrollment_application_academic_year_check":
+          return validation(EnrollmentMessages.APPLICATION_ACADEMIC_YEAR_INVALID);
         case "enrollment_course_period_scope_check":
           return validation(EnrollmentMessages.COURSE_OUTSIDE_PERIOD);
         case "enrollment_application_courses_active_applicant_course_unique":

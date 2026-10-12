@@ -53,7 +53,9 @@ public class ListEnrollmentApplicationCoursesUseCase {
                 : application.getEnrollmentPeriod().getId(),
             clock.instant(),
             studyPlanSpaceId,
-            academicYear,
+            application.getAcademicYear() == null
+                ? academicYear
+                : application.getAcademicYear().getYear(),
             search == null || search.isBlank() ? null : search.trim(),
             pageable);
     final var coursesWithCapacity =

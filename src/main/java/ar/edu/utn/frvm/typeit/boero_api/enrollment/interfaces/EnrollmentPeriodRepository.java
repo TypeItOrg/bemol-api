@@ -74,6 +74,8 @@ WHERE period.institution.id = :institutionId
 SELECT ep FROM EnrollmentPeriod ep
 WHERE ep.institution.id = :institutionId AND ep.status = ar.edu.utn.frvm.typeit.boero_api.enrollment.enums.EnrollmentPeriodStatus.OPEN
   AND ep.deletedAt IS NULL AND ep.scopeConfigured = true
+  AND ep.academicYear.status = ar.edu.utn.frvm.typeit.boero_api.academic.enums.AcademicYearStatus.ACTIVE
+  AND (:academicYearId IS NULL OR ep.academicYear.id = :academicYearId)
   AND (:search IS NULL OR UNACCENT_LOWER(ep.name) LIKE UNACCENT_LOWER(CONCAT('%', CAST(:search AS string), '%')))
   AND ep.startDate <= :now AND ep.endDate >= :now AND EXISTS (SELECT course.id FROM Course course
         WHERE course.institution.id = ep.institution.id
@@ -98,6 +100,7 @@ WHERE ep.institution.id = :institutionId AND ep.status = ar.edu.utn.frvm.typeit.
       UUID institutionId,
       Instant now,
       @Nullable UUID trainingPathId,
+      @Nullable UUID academicYearId,
       @Nullable String search,
       Pageable pageable);
 

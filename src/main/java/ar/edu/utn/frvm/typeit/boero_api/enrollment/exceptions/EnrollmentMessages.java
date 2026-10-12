@@ -1,6 +1,10 @@
 package ar.edu.utn.frvm.typeit.boero_api.enrollment.exceptions;
 
 public final class EnrollmentMessages {
+  public static final String APPLICATION_ACADEMIC_YEAR_INVALID =
+      "La solicitud debe pertenecer al ciclo lectivo activo de la institución.";
+  public static final String COURSE_OUTSIDE_ACADEMIC_YEAR =
+      "El curso no pertenece al ciclo lectivo de la solicitud.";
   public static final String DOCUMENT_REQUEST_CLOSED =
       "Solo se puede solicitar documentación en inscripciones enviadas o aprobadas provisionalmente.";
   public static final String DOCUMENT_REQUEST_DUPLICATE =

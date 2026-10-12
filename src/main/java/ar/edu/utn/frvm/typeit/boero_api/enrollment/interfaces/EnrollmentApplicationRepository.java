@@ -51,9 +51,13 @@ public interface EnrollmentApplicationRepository
   boolean existsSubmittedByPeriod(@Param("periodId") UUID periodId);
 
   @Query(
-      "SELECT app FROM EnrollmentApplication app WHERE app.institution.id = :institutionId AND app.applicantPerson.id = :personId AND app.trainingPathId = :trainingPathId AND app.status = ar.edu.utn.frvm.typeit.boero_api.enrollment.enums.EnrollmentApplicationStatus.DRAFT AND app.deletedAt IS NULL ORDER BY CASE WHEN app.enrollmentPeriod IS NULL THEN 0 ELSE 1 END, app.updatedAt DESC, app.id DESC")
-  List<EnrollmentApplication> findDraftsForTrainingPath(
-      UUID institutionId, UUID personId, UUID trainingPathId, Pageable pageable);
+      "SELECT app FROM EnrollmentApplication app WHERE app.institution.id = :institutionId AND app.applicantPerson.id = :personId AND app.trainingPathId = :trainingPathId AND app.academicYear.id = :academicYearId AND app.status = ar.edu.utn.frvm.typeit.boero_api.enrollment.enums.EnrollmentApplicationStatus.DRAFT AND app.deletedAt IS NULL ORDER BY CASE WHEN app.enrollmentPeriod IS NULL THEN 0 ELSE 1 END, app.updatedAt DESC, app.id DESC")
+  List<EnrollmentApplication> findDraftsForTrainingPathAndAcademicYear(
+      UUID institutionId,
+      UUID personId,
+      UUID trainingPathId,
+      UUID academicYearId,
+      Pageable pageable);
 
   @Query(
       "SELECT app FROM EnrollmentApplication app WHERE app.id = :id AND app.applicantPerson.id = :personId AND app.deletedAt IS NULL")

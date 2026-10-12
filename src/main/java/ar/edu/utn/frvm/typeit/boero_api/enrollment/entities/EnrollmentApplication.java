@@ -3,11 +3,13 @@ package ar.edu.utn.frvm.typeit.boero_api.enrollment.entities;
 import ar.edu.utn.frvm.typeit.boero_api.academic.entities.AcademicYear;
 import ar.edu.utn.frvm.typeit.boero_api.academic.entities.StudyPlan;
 import ar.edu.utn.frvm.typeit.boero_api.academic.entities.TrainingPath;
+import ar.edu.utn.frvm.typeit.boero_api.academic.enums.AcademicYearStatus;
 import ar.edu.utn.frvm.typeit.boero_api.common.persistence.GeneratedUUIDv7;
 import ar.edu.utn.frvm.typeit.boero_api.common.persistence.SoftDeletable;
 import ar.edu.utn.frvm.typeit.boero_api.enrollment.enums.EnrollmentApplicationStatus;
 import ar.edu.utn.frvm.typeit.boero_api.enrollment.exceptions.ApplicationNotEditableException;
 import ar.edu.utn.frvm.typeit.boero_api.enrollment.exceptions.EnrollmentMessages;
+import ar.edu.utn.frvm.typeit.boero_api.enrollment.exceptions.EnrollmentValidationException;
 import ar.edu.utn.frvm.typeit.boero_api.enrollment.exceptions.InvalidEnrollmentApplicationStateException;
 import ar.edu.utn.frvm.typeit.boero_api.enrollment.exceptions.MissingRejectionReasonException;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.entities.Institution;
@@ -298,23 +300,23 @@ public class EnrollmentApplication extends SoftDeletable {
         : null;
   }
 
-  public void useCoursePeriods() {
-    if (status != EnrollmentApplicationStatus.DRAFT) {
-      throw new IllegalStateException("Only drafts can change their enrollment scope");
-    }
-    enrollmentPeriod = null;
-    academicYear = null;
-  }
-
   public static EnrollmentApplication createForTrainingPath(
       final Institution institution,
       final Person applicantPerson,
-      final TrainingPath trainingPath) {
+      final TrainingPath trainingPath,
+      final AcademicYear academicYear) {
+    if (academicYear.getStatus() != AcademicYearStatus.ACTIVE
+        || !academicYear.getInstitution().getId().equals(institution.getId())
+        || !trainingPath.getInstitution().getId().equals(institution.getId())) {
+      throw new EnrollmentValidationException(EnrollmentMessages.APPLICATION_ACADEMIC_YEAR_INVALID);
+    }
+
     return EnrollmentApplication.builder()
         .institution(institution)
         .applicantPerson(applicantPerson)
         .trainingPathId(trainingPath.getId())
         .trainingPath(trainingPath)
+        .academicYear(academicYear)
         .status(EnrollmentApplicationStatus.DRAFT)
         .build();
   }

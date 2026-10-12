@@ -2,6 +2,8 @@ package ar.edu.utn.frvm.typeit.boero_api.enrollment.services;
 
 import static java.util.Objects.requireNonNull;
 
+import ar.edu.utn.frvm.typeit.boero_api.academic.enums.AcademicYearStatus;
+import ar.edu.utn.frvm.typeit.boero_api.academic.interfaces.AcademicYearRepository;
 import ar.edu.utn.frvm.typeit.boero_api.academic.interfaces.TrainingPathRepository;
 import ar.edu.utn.frvm.typeit.boero_api.common.web.PaginatedResponse;
 import ar.edu.utn.frvm.typeit.boero_api.enrollment.entities.EnrollmentApplication;
@@ -44,6 +46,7 @@ public class EnrollmentApplicationService {
   private final EnrollmentDocumentRequirementsService documents;
   private final EnrollmentAdmissionHistory history;
   private final QueryEnrollmentApplicationsUseCase queries;
+  private final AcademicYearRepository academicYears;
 
   @Transactional
   public EnrollmentApplicationResponse startOrGetApplication(
@@ -69,21 +72,32 @@ public class EnrollmentApplicationService {
                 () ->
                     new EnrollmentValidationException(
                         EnrollmentMessages.ENROLLMENT_APPLICATION_TRAINING_PATH_INVALID));
-    if (!periods.hasOpenCourses(institutionId, path.getId())) {
+    final var activeYears =
+        academicYears.findAllByInstitutionIdAndStatus(institutionId, AcademicYearStatus.ACTIVE);
+    if (activeYears.size() != 1) {
+      throw new EnrollmentValidationException(EnrollmentMessages.APPLICATION_ACADEMIC_YEAR_INVALID);
+    }
+
+    final var academicYear = activeYears.getFirst();
+    if (request.getAcademicYearId() != null
+        && !request.getAcademicYearId().equals(academicYear.getId())) {
+      throw new EnrollmentValidationException(EnrollmentMessages.APPLICATION_ACADEMIC_YEAR_INVALID);
+    }
+
+    if (!periods.hasOpenCourses(institutionId, path.getId(), academicYear.getId())) {
       throw new EnrollmentPeriodClosedException();
     }
 
     final var existing =
-        applications.findDraftsForTrainingPath(
-            institutionId, personId, path.getId(), Pageable.ofSize(1));
+        applications.findDraftsForTrainingPathAndAcademicYear(
+            institutionId, personId, path.getId(), academicYear.getId(), Pageable.ofSize(1));
     if (!existing.isEmpty()) {
-      final var draft = existing.getFirst();
-      draft.useCoursePeriods();
-      return responses.from(saveDraft(draft));
+      return responses.from(existing.getFirst());
     }
 
     final var application =
-        EnrollmentApplication.createForTrainingPath(path.getInstitution(), person, path);
+        EnrollmentApplication.createForTrainingPath(
+            path.getInstitution(), person, path, academicYear);
     documents.snapshot(application);
     saveDraft(application);
     history.record(application);
