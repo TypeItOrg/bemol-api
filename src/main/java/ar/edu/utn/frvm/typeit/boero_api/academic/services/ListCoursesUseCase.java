@@ -105,7 +105,7 @@ public class ListCoursesUseCase {
     final Sort sort =
         pageable.getSort().stream()
             .map(ListCoursesUseCase::mapOrder)
-            .reduce(Sort.unsorted(), Sort::and)
+            .reduce(Sort.unsorted(), (left, right) -> left.and(right))
             .and(Sort.by("id"));
     return PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), sort);
   }

@@ -271,22 +271,6 @@ public class EnrollmentApplication extends SoftDeletable {
     clearCourseSelections();
   }
 
-  public static EnrollmentApplication create(
-      final Institution institution,
-      final Person applicantPerson,
-      final StudyPlan studyPlan,
-      final AcademicYear academicYear,
-      final EnrollmentPeriod enrollmentPeriod) {
-    return EnrollmentApplication.builder()
-        .institution(institution)
-        .applicantPerson(applicantPerson)
-        .studyPlan(studyPlan)
-        .academicYear(academicYear)
-        .enrollmentPeriod(enrollmentPeriod)
-        .status(EnrollmentApplicationStatus.DRAFT)
-        .build();
-  }
-
   public @Nullable AcademicYear commonAcademicYear() {
     if (academicYear != null) {
       return academicYear;
@@ -395,7 +379,7 @@ public class EnrollmentApplication extends SoftDeletable {
       return null;
     }
 
-    return courseSelections.stream().anyMatch(EnrollmentApplicationCourse::isPendingResolution);
+    return courseSelections.stream().anyMatch(selection -> selection.isPendingResolution());
   }
 
   public boolean isApproved() {

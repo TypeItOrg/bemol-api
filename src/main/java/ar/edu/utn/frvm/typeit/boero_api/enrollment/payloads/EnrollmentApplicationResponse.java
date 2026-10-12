@@ -90,45 +90,6 @@ public record EnrollmentApplicationResponse(
             description =
                 "Null unless admitted with course selections; true includes the waitlist.")
         @Nullable Boolean pendingCourses) {
-  public EnrollmentApplicationResponse() {
-    this(
-        null,
-        null,
-        null,
-        null,
-        null,
-        null,
-        null,
-        null,
-        null,
-        null,
-        null,
-        null,
-        null,
-        null,
-        null,
-        false,
-        null,
-        null,
-        null,
-        null,
-        null,
-        null,
-        null,
-        new ArrayList<>(),
-        new ArrayList<>(),
-        null,
-        false,
-        false,
-        List.of(),
-        false,
-        false,
-        List.of(),
-        false,
-        List.of(),
-        null);
-  }
-
   public EnrollmentApplicationResponse {
     documents = documents == null ? List.of() : documents;
     documentRequests = documentRequests == null ? List.of() : documentRequests;

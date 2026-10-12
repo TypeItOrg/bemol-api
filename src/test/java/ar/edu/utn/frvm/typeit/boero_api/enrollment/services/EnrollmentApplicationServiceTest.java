@@ -335,7 +335,10 @@ class EnrollmentApplicationServiceTest {
 
     assertThat(response.getApplicationId()).isEqualTo(applicationId);
     assertThat(draft.getAcademicYear()).isSameAs(activeYear);
-    assertThat(draft.getEnrollmentPeriod().getId()).isEqualTo(periodId);
+    assertThat(draft.getEnrollmentPeriod())
+        .isNotNull()
+        .extracting(period -> period.getId())
+        .isEqualTo(periodId);
     verify(documentRequirements, never()).snapshot(any());
   }
 
