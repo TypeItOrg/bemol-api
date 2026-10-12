@@ -41,6 +41,7 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import org.hibernate.annotations.BatchSize;
 import org.jspecify.annotations.Nullable;
 
 @Entity
@@ -190,6 +191,7 @@ public class EnrollmentApplication extends SoftDeletable {
       fetch = FetchType.LAZY,
       orphanRemoval = true)
   @Builder.Default
+  @BatchSize(size = 50)
   private List<EnrollmentApplicationCourse> courseSelections = new ArrayList<>();
 
   public void setEducationBackground(ApplicantEducationBackground educationBackground) {
@@ -386,6 +388,14 @@ public class EnrollmentApplication extends SoftDeletable {
 
   public boolean isAdmitted() {
     return isApproved() || status == EnrollmentApplicationStatus.PROVISIONALLY_APPROVED;
+  }
+
+  public @Nullable Boolean getPendingCourses() {
+    if (!isAdmitted() || courseSelections.isEmpty()) {
+      return null;
+    }
+
+    return courseSelections.stream().anyMatch(EnrollmentApplicationCourse::isPendingResolution);
   }
 
   public boolean isApproved() {

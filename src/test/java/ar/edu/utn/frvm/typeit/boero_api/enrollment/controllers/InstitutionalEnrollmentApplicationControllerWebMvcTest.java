@@ -106,7 +106,13 @@ class InstitutionalEnrollmentApplicationControllerWebMvcTest {
     final var authentication = authentication();
     stubPermission(PermissionCode.ENROLLMENT_APPLICATION_READ, true);
     when(listEnrollmentApplicationsUseCase.execute(
-            eq(INSTITUTION_ID), isNull(), isNull(), eq(false), eq(false), any(Pageable.class)))
+            eq(INSTITUTION_ID),
+            isNull(),
+            isNull(),
+            eq(false),
+            eq(false),
+            isNull(),
+            any(Pageable.class)))
         .thenReturn(
             new PageImpl<>(
                 List.of(response(EnrollmentApplicationStatus.SUBMITTED)), Pageable.ofSize(20), 1));
@@ -120,7 +126,14 @@ class InstitutionalEnrollmentApplicationControllerWebMvcTest {
         .andExpect(jsonPath("$.items[0].status").value("SUBMITTED"));
 
     verify(listEnrollmentApplicationsUseCase)
-        .execute(eq(INSTITUTION_ID), isNull(), isNull(), eq(false), eq(false), any(Pageable.class));
+        .execute(
+            eq(INSTITUTION_ID),
+            isNull(),
+            isNull(),
+            eq(false),
+            eq(false),
+            isNull(),
+            any(Pageable.class));
   }
 
   @Test
@@ -136,7 +149,7 @@ class InstitutionalEnrollmentApplicationControllerWebMvcTest {
         .andExpect(status().isForbidden());
 
     verify(listEnrollmentApplicationsUseCase, never())
-        .execute(any(), any(), any(), anyBoolean(), anyBoolean(), any());
+        .execute(any(), any(), any(), anyBoolean(), anyBoolean(), any(), any());
   }
 
   @Test

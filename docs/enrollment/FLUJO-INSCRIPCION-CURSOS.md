@@ -4,6 +4,8 @@ Las solicitudes nuevas se inician por trayecto y se vinculan automáticamente al
 
 La migración `20261011033241__bind_enrollment_application_academic_year.sql` recupera ciclos históricos solo cuando los cursos y períodos registrados identifican uno inequívocamente. Los registros antiguos sin contexto suficiente siguen siendo consultables; las solicitudes nuevas no pueden crearse sin ciclo.
 
+Los listados institucional, de plataforma y del solicitante aceptan `pendingCourses=true` (cursos pendientes) o `pendingCourses=false` (cursos resueltos), combinable con el estado de admisión y aplicado antes de paginar. La respuesta incluye `pendingCourses`: solo se calcula para solicitudes admitidas provisoria o definitivamente con al menos una hija. `PENDING` y `WAITLISTED` cuentan como pendientes; `ENROLLED`, `REJECTED` y `CANCELLED` están resueltas. En solicitudes no admitidas o sin hijas, el campo es `null` y no coincide con ninguno de esos filtros. Resolver todos los cursos no implica que todos hayan sido aceptados ni reemplaza la aprobación documental.
+
  El postulante o estudiante selecciona cursos concretos, incluidos cursos sin instrumento y sin nivel. Puede elegir varios cursos del mismo espacio académico. El instrumento pertenece al curso ofrecido: un curso instrumental requiere instrumento; uno no instrumental no lo admite.
 
 El catálogo informa disponibilidad actual, sin reservar cupos. Una advertencia de falta de cupos permite continuar. Los períodos individuales se generan al crear los horarios y se consultan sin escrituras. Los cursos grupales usan el horario de la clase sin período individual.

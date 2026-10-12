@@ -82,11 +82,18 @@ public class InstitutionalEnrollmentApplicationController {
       @RequestParam(required = false) final UUID trainingPathId,
       @RequestParam(defaultValue = "false") final boolean open,
       @RequestParam(defaultValue = "false") final boolean pendingDocuments,
+      @RequestParam(required = false) final Boolean pendingCourses,
       @PageableDefault(sort = "createdAt", direction = Sort.Direction.DESC)
           final Pageable pageable) {
     return PaginatedResponse.from(
         listEnrollmentApplicationsUseCase.execute(
-            institutionId, status, trainingPathId, open, pendingDocuments, pageable));
+            institutionId,
+            status,
+            trainingPathId,
+            open,
+            pendingDocuments,
+            pendingCourses,
+            pageable));
   }
 
   @GetMapping(value = "/{applicationId}", version = Version.V1)

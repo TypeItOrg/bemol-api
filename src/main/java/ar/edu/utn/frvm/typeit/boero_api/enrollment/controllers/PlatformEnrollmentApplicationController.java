@@ -62,11 +62,18 @@ public class PlatformEnrollmentApplicationController {
       @RequestParam(required = false) final UUID trainingPathId,
       @RequestParam(defaultValue = "false") final boolean open,
       @RequestParam(defaultValue = "false") final boolean pendingDocuments,
+      @RequestParam(required = false) final Boolean pendingCourses,
       @PageableDefault(sort = "createdAt", direction = Sort.Direction.DESC)
           final Pageable pageable) {
     return PaginatedResponse.from(
         listEnrollmentApplicationsUseCase.executeForPlatform(
-            institutionId, status, trainingPathId, open, pendingDocuments, pageable));
+            institutionId,
+            status,
+            trainingPathId,
+            open,
+            pendingDocuments,
+            pendingCourses,
+            pageable));
   }
 
   @GetMapping(value = "/{institutionId}/{applicationId}", version = Version.V1)

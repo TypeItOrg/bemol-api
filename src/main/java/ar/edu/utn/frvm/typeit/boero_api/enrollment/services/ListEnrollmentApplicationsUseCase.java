@@ -48,11 +48,12 @@ public class ListEnrollmentApplicationsUseCase {
       final @Nullable UUID trainingPathId,
       final boolean open,
       final boolean pendingDocuments,
+      final @Nullable Boolean pendingCourses,
       final Pageable pageable) {
     requireDocumentFilter(pendingDocuments, institutionId);
     return enrollmentApplicationRepository
         .findByInstitutionId(
-            institutionId, status, trainingPathId, open, pendingDocuments, pageable)
+            institutionId, status, trainingPathId, open, pendingDocuments, pendingCourses, pageable)
         .map(application -> responseFactory.from(application, false));
   }
 
@@ -63,10 +64,12 @@ public class ListEnrollmentApplicationsUseCase {
       final @Nullable UUID trainingPathId,
       final boolean open,
       final boolean pendingDocuments,
+      final @Nullable Boolean pendingCourses,
       final Pageable pageable) {
     requireDocumentFilter(pendingDocuments, institutionId);
     return enrollmentApplicationRepository
-        .findByFilters(institutionId, status, trainingPathId, open, pendingDocuments, pageable)
+        .findByFilters(
+            institutionId, status, trainingPathId, open, pendingDocuments, pendingCourses, pageable)
         .map(application -> responseFactory.from(application, false));
   }
 }

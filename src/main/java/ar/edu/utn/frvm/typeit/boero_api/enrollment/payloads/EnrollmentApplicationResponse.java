@@ -47,7 +47,8 @@ import org.jspecify.annotations.Nullable;
       "canConfirm",
       "documentRequests",
       "canRequestDocuments",
-      "admissionHistory"
+      "admissionHistory",
+      "pendingCourses"
     })
 public record EnrollmentApplicationResponse(
     @Schema(nullable = true) @Nullable UUID applicationId,
@@ -83,7 +84,12 @@ public record EnrollmentApplicationResponse(
     boolean canConfirm,
     List<EnrollmentAdmissionHistoryResponse> admissionHistory,
     boolean canRequestDocuments,
-    List<EnrollmentDocumentRequestResponse> documentRequests) {
+    List<EnrollmentDocumentRequestResponse> documentRequests,
+    @Schema(
+            nullable = true,
+            description =
+                "Null unless admitted with course selections; true includes the waitlist.")
+        @Nullable Boolean pendingCourses) {
   public EnrollmentApplicationResponse() {
     this(
         null,
@@ -119,7 +125,8 @@ public record EnrollmentApplicationResponse(
         false,
         List.of(),
         false,
-        List.of());
+        List.of(),
+        null);
   }
 
   public EnrollmentApplicationResponse {

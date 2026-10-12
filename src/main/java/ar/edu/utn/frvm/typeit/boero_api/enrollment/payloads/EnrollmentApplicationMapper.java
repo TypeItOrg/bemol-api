@@ -68,6 +68,7 @@ final class EnrollmentApplicationMapper {
         .enrollmentPeriod(period == null ? null : EnrollmentPeriodResponse.from(period))
         .periodOpen(period != null && period.isOpenAt(Instant.now()))
         .status(application.getStatus())
+        .pendingCourses(application.getPendingCourses())
         .isEditable(application.isEditable())
         .secondarySchool(education == null ? null : education.getSecondarySchool())
         .rejectionReason(application.getRejectionReason())

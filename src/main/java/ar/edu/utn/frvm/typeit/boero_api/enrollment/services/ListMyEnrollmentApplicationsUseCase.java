@@ -23,9 +23,10 @@ public class ListMyEnrollmentApplicationsUseCase {
       final UUID institutionId,
       final UUID personId,
       final @Nullable EnrollmentApplicationStatus status,
+      final @Nullable Boolean pendingCourses,
       final Pageable pageable) {
     return enrollmentApplicationRepository
-        .findMyApplications(institutionId, personId, status, pageable)
+        .findMyApplications(institutionId, personId, status, pendingCourses, pageable)
         .map(application -> responses.summary(application));
   }
 }
