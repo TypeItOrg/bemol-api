@@ -1,8 +1,9 @@
 package ar.edu.utn.frvm.typeit.boero_api.institutional.services;
 
+import ar.edu.utn.frvm.typeit.boero_api.common.storage.StorageService;
 import ar.edu.utn.frvm.typeit.boero_api.enrollment.exceptions.InvalidFileException;
-import ar.edu.utn.frvm.typeit.boero_api.enrollment.interfaces.EnrollmentStorage;
-import ar.edu.utn.frvm.typeit.boero_api.enrollment.interfaces.EnrollmentStorage.StoredFile;
+import ar.edu.utn.frvm.typeit.boero_api.enrollment.services.EnrollmentFilePolicy;
+import ar.edu.utn.frvm.typeit.boero_api.enrollment.services.EnrollmentFilePolicy.StoredFile;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.entities.GuardianLinkStatus;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.entities.PersonGuardian;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.entities.PersonGuardianAttachment;
@@ -37,7 +38,7 @@ public class GuardianLinkAttachmentService {
 
   private final PersonGuardianRepository personGuardianRepository;
   private final PersonGuardianAttachmentRepository attachmentRepository;
-  private final EnrollmentStorage storage;
+  private final StorageService storage;
 
   public record Content(Resource resource, PersonGuardianAttachment attachment) {}
 
@@ -53,7 +54,8 @@ public class GuardianLinkAttachmentService {
       throw new InvalidFileException(InstitutionMessages.GUARDIAN_LINK_ATTACHMENT_LIMIT);
     }
 
-    final StoredFile stored = storage.store(linkId, file);
+    final StoredFile stored = EnrollmentFilePolicy.prepare(linkId, file);
+    storage.write(stored.storagePath(), stored.contentType(), stored.size(), file);
     TransactionSynchronizationManager.registerSynchronization(
         new TransactionSynchronization() {
           @Override

@@ -48,10 +48,11 @@ public class RegisterUserUseCase {
 
   @Transactional
   public UserRegisteredResponse execute(final RegisterRequest request) {
-    hostContext.requireInstitution(request.institutionId());
     if (request.registersAsGuardian() && isUnderage(request.birthDate())) {
       throw new GuardianMustBeAdultException();
     }
+
+    hostContext.requireInstitution(request.institutionId());
 
     Institution institution =
         institutionRepository

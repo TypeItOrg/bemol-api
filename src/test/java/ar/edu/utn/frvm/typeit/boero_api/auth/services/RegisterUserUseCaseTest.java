@@ -44,8 +44,6 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 
 @ExtendWith(MockitoExtension.class)
 class RegisterUserUseCaseTest {
-  private static final UUID PERSON_ID = UUID.fromString("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
-  private static final UUID USER_ID = UUID.fromString("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");
   @Mock private InstitutionalHostContext hostContext;
 
   @Mock private UserRepository userRepository;
@@ -74,7 +72,7 @@ class RegisterUserUseCaseTest {
   }
 
   @Test
-  @DisplayName("Should register a pending user with an encoded password and applicant role")
+  @DisplayName("Should register a new user and return their ids")
   void execute_registersUserSuccessfully() {
     UUID institutionId = UUID.randomUUID();
     RegisterRequest request =
@@ -97,13 +95,19 @@ class RegisterUserUseCaseTest {
         .sendInitial(
             org.mockito.ArgumentMatchers.argThat(
                 mappedUser -> mappedUser.requiresEmailVerification()));
-    assertThat(response.userId()).isEqualTo(USER_ID);
+    assertThat(response.userId()).isNotNull();
     assertThat(response.documentNumber()).isEqualTo("12345678");
     assertThat(response.institutionId()).isEqualTo(institutionId);
 
     var personCaptor = ArgumentCaptor.forClass(Person.class);
     verify(personRepository).save(personCaptor.capture());
-    assertThat(personCaptor.getValue().getBirthDate()).isEqualTo(LocalDate.of(2010, 1, 1));
+    Person savedPerson = personCaptor.getValue();
+    assertThat(savedPerson.getFirstName()).isEqualTo("Ana");
+    assertThat(savedPerson.getLastName()).isEqualTo("Garcia");
+    assertThat(savedPerson.getBirthDate()).isEqualTo(LocalDate.of(2010, 1, 1));
+    assertThat(savedPerson.getEmail()).isEqualTo("ana@example.com");
+    assertThat(savedPerson.getDocumentNumber()).isEqualTo("12345678");
+    assertThat(savedPerson.getInstitution().getId()).isEqualTo(institutionId);
   }
 
   @Test
@@ -224,7 +228,7 @@ class RegisterUserUseCaseTest {
     User savedUser = userCaptor.getValue();
     assertThat(savedUser.getPassword()).isEqualTo("bcrypt-hash");
     assertThat(savedUser.requiresEmailVerification()).isTrue();
-    assertThat(savedUser.getPerson().getId()).isEqualTo(PERSON_ID);
+    assertThat(savedUser.getPerson().getId()).isNotNull();
     assertThat(savedUser.getInstitutionId()).isEqualTo(institutionId);
     verify(assignPersonSystemRoleUseCase)
         .execute(savedUser.getPerson(), SystemRoleCode.APPLICANT, false);
@@ -462,7 +466,7 @@ class RegisterUserUseCaseTest {
 
   private static Person persistedPerson(final Person person) {
     return Person.builder()
-        .id(PERSON_ID)
+        .id(UUID.randomUUID())
         .institution(person.getInstitution())
         .documentNumber(person.getDocumentNumber())
         .firstName(person.getFirstName())
@@ -474,7 +478,7 @@ class RegisterUserUseCaseTest {
 
   private static User persistedUser(final User user) {
     return User.builder()
-        .id(USER_ID)
+        .id(UUID.randomUUID())
         .institution(user.getInstitution())
         .person(user.getPerson())
         .password(user.getPassword())

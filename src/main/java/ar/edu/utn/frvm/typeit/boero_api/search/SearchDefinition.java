@@ -114,21 +114,21 @@ SELECT e.academic_space_id AS id, e.institution_id, i.name AS institution_name,
       SearchEntityType.COURSE,
       PermissionCode.COURSE_READ,
       """
-SELECT c.course_id AS id, c.institution_id, i.name AS institution_name,
-       i.active AS institution_active, e.name AS title, p.name AS subtitle,
-       c.status,
-       NULL::text AS category,
-       boero_search_rank(e.name || ' ' || p.name, :query, :normalized) AS score, p.version_number AS study_plan_version
-  FROM courses c
-  JOIN institutions i ON i.institution_id = c.institution_id
-  JOIN academic_spaces e ON e.academic_space_id = c.academic_space_id
-  JOIN study_plan_spaces s ON s.study_plan_space_id = c.study_plan_space_id
-  JOIN study_plans p ON p.study_plan_id = s.study_plan_id
- WHERE c.deleted_at IS NULL
-   AND e.deleted_at IS NULL
-   AND p.deleted_at IS NULL
-   AND boero_search_vector(e.name || ' ' || p.name) @@ to_tsquery('simple', :query)
-"""),
+      SELECT c.course_id AS id, c.institution_id, i.name AS institution_name,
+             i.active AS institution_active, e.name AS title, p.name AS subtitle,
+             c.status,
+             NULL::text AS category,
+             boero_search_rank(e.name || ' ' || p.name, :query, :normalized) AS score, p.version_number AS study_plan_version
+        FROM courses c
+        JOIN institutions i ON i.institution_id = c.institution_id
+        JOIN academic_spaces e ON e.academic_space_id = c.academic_space_id
+        JOIN study_plan_spaces s ON s.study_plan_space_id = c.study_plan_space_id
+        JOIN study_plans p ON p.study_plan_id = s.study_plan_id
+       WHERE c.deleted_at IS NULL
+         AND e.deleted_at IS NULL
+         AND p.deleted_at IS NULL
+         AND boero_search_vector(e.name || ' ' || p.name) @@ to_tsquery('simple', :query)
+       """),
   // Scoped to the caller's own dependents through :personId, so it is institutional-only.
   GUARDIAN_DEPENDENT(
       SearchEntityType.GUARDIAN_DEPENDENT,
@@ -156,12 +156,12 @@ SELECT c.course_id AS id, c.institution_id, i.name AS institution_name,
     return permission != null && permissions.contains(permission);
   }
 
-  @Nullable PermissionCode permission() {
-    return permission;
+  boolean requiresPerson() {
+    return type == SearchEntityType.GUARDIAN_DEPENDENT;
   }
 
-  private boolean requiresPerson() {
-    return type == SearchEntityType.GUARDIAN_DEPENDENT;
+  @Nullable PermissionCode permission() {
+    return permission;
   }
 
   String selectSql() {

@@ -376,6 +376,21 @@ public enum PermissionCode {
       PermissionScope.INSTITUTION,
       PermissionGroup.ENROLLMENT,
       "Rechazar solicitudes de inscripción"),
+  GUARDIAN_DEPENDENT_MANAGE(
+      "institution:guardian-dependent:manage",
+      PermissionScope.INSTITUTION,
+      PermissionGroup.ENROLLMENT,
+      "Gestionar personas a cargo"),
+  GUARDIAN_LINK_REVIEW(
+      "institution:guardian-link:review",
+      PermissionScope.INSTITUTION,
+      PermissionGroup.ENROLLMENT,
+      "Validar vinculaciones entre tutores y estudiantes"),
+  INSTITUTION_AUDIT_READ(
+      "institution:audit:read",
+      PermissionScope.INSTITUTION,
+      PermissionGroup.INSTITUTION,
+      "Ver registro de auditoría"),
   COURSE_ENROLLMENT_READ(
       "institution:course-enrollment:read",
       PermissionScope.INSTITUTION,
@@ -415,22 +430,7 @@ public enum PermissionCode {
       "institution:course-waitlist:read",
       PermissionScope.INSTITUTION,
       PermissionGroup.ENROLLMENT,
-      "Ver listas de espera"),
-  GUARDIAN_DEPENDENT_MANAGE(
-      "institution:guardian-dependent:manage",
-      PermissionScope.INSTITUTION,
-      PermissionGroup.ENROLLMENT,
-      "Gestionar personas a cargo"),
-  GUARDIAN_LINK_REVIEW(
-      "institution:guardian-link:review",
-      PermissionScope.INSTITUTION,
-      PermissionGroup.ENROLLMENT,
-      "Validar vinculaciones entre tutores y estudiantes"),
-  INSTITUTION_AUDIT_READ(
-      "institution:audit:read",
-      PermissionScope.INSTITUTION,
-      PermissionGroup.INSTITUTION,
-      "Ver registro de auditoría");
+      "Ver listas de espera");
 
   private final String code;
   private final PermissionScope scope;

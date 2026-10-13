@@ -85,7 +85,8 @@ class EnrollmentAttachmentServiceTest {
   @BeforeEach
   void setUp() {
     final var authorization =
-        new EnrollmentDocumentAuthorization(authorityResolver, authorizationService, audit);
+        new EnrollmentDocumentAuthorization(
+            authorityResolver, authorizationService, audit, applicationRepository);
     final var documents =
         new EnrollmentDocumentRequirementsService(
             definitions, attachmentRepository, authorization, periods);

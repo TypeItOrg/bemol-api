@@ -108,7 +108,7 @@ class RoleScopePostgresIntegrationTest extends DatabaseMigrationTestSupport {
     assertThat(page.getContent()).extracting(p -> p.getId()).containsExactly(allowed);
     var searchResults =
         search.institutionalSummary(
-            institution, "Migration", 1, Set.of(PermissionCode.TRAINING_PATH_READ));
+            institution, person, "Migration", 1, Set.of(PermissionCode.TRAINING_PATH_READ));
     assertThat(searchResults.groups())
         .flatExtracting(group -> group.items())
         .extracting(result -> result.id())

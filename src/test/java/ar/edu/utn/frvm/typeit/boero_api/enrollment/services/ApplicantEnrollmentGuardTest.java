@@ -50,10 +50,22 @@ class ApplicantEnrollmentGuardTest {
   }
 
   @Test
+  @DisplayName("Should accept a person with the STUDENT role")
+  void requireApplicant_acceptsStudent() {
+    final Person person = Person.builder().build();
+    stubRole("APPLICANT", false);
+    stubRole("STUDENT", true);
+    stubPerson(person);
+
+    assertThat(guard.requireApplicant(principal)).isSameAs(person);
+  }
+
+  @Test
   @DisplayName("Should accept a person with the GUARDIAN role")
   void requireApplicant_acceptsGuardian() {
     final Person person = Person.builder().build();
     stubRole("APPLICANT", false);
+    stubRole("STUDENT", false);
     stubRole("GUARDIAN", true);
     stubPerson(person);
 
@@ -61,9 +73,10 @@ class ApplicantEnrollmentGuardTest {
   }
 
   @Test
-  @DisplayName("Should reject a person that is neither applicant nor guardian")
+  @DisplayName("Should reject a person that is neither applicant, student nor guardian")
   void requireApplicant_rejectsOthers() {
     stubRole("APPLICANT", false);
+    stubRole("STUDENT", false);
     stubRole("GUARDIAN", false);
 
     assertThatThrownBy(() -> guard.requireApplicant(principal))

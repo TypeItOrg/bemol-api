@@ -55,7 +55,7 @@ class SearchRepository {
     }
 
     final var queryParameters =
-        parameters(searchQuery, institutionId).addValue("fetchLimit", fetchLimit);
+        parameters(searchQuery, institutionId, personId).addValue("fetchLimit", fetchLimit);
     final String unionSql =
         definitions.stream()
             .map(definition -> summaryBranch(definition, institutionId != null, queryParameters))

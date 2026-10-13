@@ -8,9 +8,8 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+import ar.edu.utn.frvm.typeit.boero_api.common.storage.StorageService;
 import ar.edu.utn.frvm.typeit.boero_api.enrollment.exceptions.InvalidFileException;
-import ar.edu.utn.frvm.typeit.boero_api.enrollment.interfaces.EnrollmentStorage;
-import ar.edu.utn.frvm.typeit.boero_api.enrollment.interfaces.EnrollmentStorage.StoredFile;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.entities.GuardianRelationship;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.entities.Institution;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.entities.Person;
@@ -43,7 +42,7 @@ class GuardianLinkAttachmentServiceTest {
 
   @Mock private PersonGuardianRepository personGuardianRepository;
   @Mock private PersonGuardianAttachmentRepository attachmentRepository;
-  @Mock private EnrollmentStorage storage;
+  @Mock private StorageService storage;
 
   private GuardianLinkAttachmentService service;
   private Institution institution;
@@ -80,8 +79,6 @@ class GuardianLinkAttachmentServiceTest {
     when(personGuardianRepository.findForUpdate(linkId, institution.getId()))
         .thenReturn(Optional.of(link));
     when(attachmentRepository.countByPersonGuardian(link)).thenReturn(0L);
-    when(storage.store(linkId, file))
-        .thenReturn(new StoredFile("stored.pdf", linkId + "/stored.pdf", "application/pdf", 8));
     when(attachmentRepository.saveAndFlush(any(PersonGuardianAttachment.class)))
         .thenAnswer(invocation -> invocation.getArgument(0));
 
