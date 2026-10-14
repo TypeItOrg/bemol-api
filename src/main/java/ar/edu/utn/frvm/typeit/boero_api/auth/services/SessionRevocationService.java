@@ -55,7 +55,9 @@ public class SessionRevocationService {
 
   @Transactional
   public void revokeInstitutionalSessionsByIds(final Collection<UUID> sessionIds) {
-    if (sessionIds.isEmpty()) return;
+    if (sessionIds.isEmpty()) {
+      return;
+    }
 
     refreshTokenRepository.revokeBySessionIds(sessionIds);
     userSessionRepository.deactivateByIds(sessionIds, clock.instant());
@@ -64,7 +66,9 @@ public class SessionRevocationService {
 
   @Transactional
   public void revokePlatformSessionsByIds(final Collection<UUID> sessionIds) {
-    if (sessionIds.isEmpty()) return;
+    if (sessionIds.isEmpty()) {
+      return;
+    }
 
     platformRefreshTokenRepository.revokeByPlatformSessionIds(sessionIds);
     platformSessionRepository.deactivateByIds(sessionIds, clock.instant());
@@ -72,17 +76,19 @@ public class SessionRevocationService {
   }
 
   private void deactivateInstitutionalSessions(final List<UserSession> sessions) {
-    if (sessions.isEmpty()) return;
+    if (sessions.isEmpty()) {
+      return;
+    }
 
-    revokeInstitutionalSessionsByIds(
-        sessions.stream().map(mappedUserSession -> mappedUserSession.getId()).toList());
+    revokeInstitutionalSessionsByIds(sessions.stream().map(session -> session.getId()).toList());
   }
 
   private void deactivatePlatformSessions(final List<PlatformSession> sessions) {
-    if (sessions.isEmpty()) return;
+    if (sessions.isEmpty()) {
+      return;
+    }
 
-    revokePlatformSessionsByIds(
-        sessions.stream().map(mappedPlatformSession -> mappedPlatformSession.getId()).toList());
+    revokePlatformSessionsByIds(sessions.stream().map(session -> session.getId()).toList());
   }
 
   private void evictSessions(final AuthRealm realm, final Collection<UUID> sessionIds) {

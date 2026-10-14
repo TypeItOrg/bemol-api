@@ -35,7 +35,20 @@ class ListCoursesUseCaseTest {
     ArgumentCaptor<Pageable> pageable = ArgumentCaptor.forClass(Pageable.class);
     verify(courseRepository)
         .findByFilters(
-            any(), any(), any(), any(), any(), any(), any(), eq(false), pageable.capture());
+            any(),
+            any(),
+            any(),
+            any(),
+            any(),
+            any(),
+            any(),
+            any(),
+            any(),
+            any(),
+            any(),
+            eq(false),
+            eq(false),
+            pageable.capture());
     return pageable.getValue();
   }
 
@@ -44,7 +57,8 @@ class ListCoursesUseCaseTest {
   void mapsPublicSortFields() {
     given(
             courseRepository.findByFilters(
-                any(), any(), any(), any(), any(), any(), any(), eq(false), any()))
+                any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(),
+                eq(false), eq(false), any()))
         .willReturn(Page.empty());
 
     useCase.execute(
@@ -55,6 +69,11 @@ class ListCoursesUseCaseTest {
         null,
         null,
         null,
+        null,
+        null,
+        null,
+        null,
+        false,
         false,
         PageRequest.of(
             0,
@@ -95,6 +114,11 @@ class ListCoursesUseCaseTest {
                     null,
                     null,
                     null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    false,
                     false,
                     PageRequest.of(0, 10, Sort.by(Sort.Order.asc("year")))))
         .isInstanceOf(AcademicValidationException.class);

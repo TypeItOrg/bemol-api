@@ -123,13 +123,17 @@ public class UpdatePersonUseCase {
 
   private void assertPersonValid(final Person person) {
     final var violations = validator.validate(person);
-    if (!violations.isEmpty()) throw new ConstraintViolationException(violations);
+    if (!violations.isEmpty()) {
+      throw new ConstraintViolationException(violations);
+    }
   }
 
   private Optional<User> verifyCurrentPassword(
       final JwtAuthenticatedUser principal, final UpdatePersonRequest request) {
     final String password = request.password();
-    if (password == null || password.isEmpty()) return Optional.empty();
+    if (password == null || password.isEmpty()) {
+      return Optional.empty();
+    }
 
     final User user =
         userRepository.findById(principal.userId()).orElseThrow(InvalidCredentialsException::new);

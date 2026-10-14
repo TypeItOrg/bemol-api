@@ -1,9 +1,11 @@
 package ar.edu.utn.frvm.typeit.boero_api.auth.controllers;
 
 import static ar.edu.utn.frvm.typeit.boero_api.support.AuthTestData.institutionalPrincipal;
+import static org.hamcrest.Matchers.aMapWithSize;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -35,10 +37,16 @@ import ar.edu.utn.frvm.typeit.boero_api.auth.services.TokenBlacklistService;
 import ar.edu.utn.frvm.typeit.boero_api.authorization.services.InstitutionalCallerGuard;
 import ar.edu.utn.frvm.typeit.boero_api.common.web.PaginatedResponse;
 import java.time.Instant;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
@@ -50,6 +58,7 @@ import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.util.PathMatcher;
+import tools.jackson.databind.json.JsonMapper;
 
 @WebMvcTest(AuthController.class)
 @AutoConfigureMockMvc(addFilters = false)
@@ -62,6 +71,7 @@ class AuthControllerWebMvcTest {
   private static final UUID SESSION_ID = UUID.fromString("33333333-3333-3333-3333-333333333333");
 
   @Autowired private MockMvc mockMvc;
+  @Autowired private JsonMapper jsonMapper;
 
   @MockitoBean private PathMatcher pathMatcher;
   @MockitoBean private AuthenticationEntryPoint authenticationEntryPoint;
@@ -228,6 +238,71 @@ class AuthControllerWebMvcTest {
         .andExpect(status().isNoContent());
 
     verify(logoutUseCase).execute(principal, "access-token");
+  }
+
+  @ParameterizedTest(name = "{0}: {2}")
+  @MethodSource("invalidRegisterFields")
+  void shouldRejectInvalidRegistrationBeforeCallingUseCase(
+      final String field, final Object value, final String expectedMessage) throws Exception {
+    final Map<String, Object> request =
+        new HashMap<>(
+            Map.of(
+                "name", "Ana",
+                "lastName", "Garcia",
+                "birthDate", "2010-01-01",
+                "documentNumber", "12345678",
+                "email", "ana@example.com",
+                "password", "password123",
+                "institutionId", INSTITUTION_ID.toString()));
+    request.put(field, value);
+
+    mockMvc
+        .perform(
+            post("/api/v1/auth/register")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(jsonMapper.writeValueAsString(request)))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.status").value(400))
+        .andExpect(jsonPath("$.message").value("Se encontraron errores de validación."))
+        .andExpect(jsonPath("$.fieldErrors", aMapWithSize(1)))
+        .andExpect(jsonPath("$.fieldErrors." + field).value(expectedMessage));
+
+    verifyNoInteractions(registerUserUseCase);
+  }
+
+  private static Stream<Arguments> invalidRegisterFields() {
+    return Stream.of(
+        Arguments.of("email", null, "El email es requerido."),
+        Arguments.of(
+            "documentNumber",
+            "123",
+            "El número de documento debe tener exactamente 8 dígitos numéricos."),
+        Arguments.of("institutionId", null, "La institución es requerida."),
+        Arguments.of("birthDate", null, "La fecha de nacimiento es requerida."),
+        Arguments.of("password", "short", "La contraseña debe tener al menos 8 caracteres."));
+  }
+
+  @Test
+  @DisplayName("Should reject refresh when refresh token is blank")
+  void shouldRejectRefreshWhenRefreshTokenIsBlank() throws Exception {
+    mockMvc
+        .perform(
+            post("/api/v1/auth/refresh")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    """
+                    {
+                      "refreshToken": ""
+                    }
+                    """))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.status").value(400))
+        .andExpect(jsonPath("$.message").value("Se encontraron errores de validación."))
+        .andExpect(
+            jsonPath("$.fieldErrors.refreshToken")
+                .value("El token de actualización es requerido."));
+
+    verifyNoInteractions(refreshTokenUseCase);
   }
 
   private static AuthResponse authResponse() {

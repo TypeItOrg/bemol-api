@@ -12,6 +12,7 @@ import ar.edu.utn.frvm.typeit.boero_api.institutional.exceptions.PublicSubdomain
 import ar.edu.utn.frvm.typeit.boero_api.institutional.interfaces.InstitutionRepository;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.payloads.requests.*;
 import ar.edu.utn.frvm.typeit.boero_api.support.*;
+import ar.edu.utn.frvm.typeit.boero_api.support.PostgresTestDatabase;
 import jakarta.persistence.EntityManager;
 import java.util.*;
 import java.util.concurrent.*;
@@ -29,7 +30,6 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.*;
 import org.springframework.transaction.support.TransactionTemplate;
-import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.*;
 
 @DataJpaTest
@@ -45,8 +45,8 @@ import org.testcontainers.junit.jupiter.*;
 @IntegrationTest
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
 class QaInstitutionPublicAccessPostgresIntegrationTest {
-  @Container
-  static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>("postgres:17-alpine");
+  static final PostgresTestDatabase POSTGRES =
+      new PostgresTestDatabase("postgres:17-alpine", "institution_public_access");
 
   @DynamicPropertySource
   static void database(final DynamicPropertyRegistry registry) {

@@ -1,58 +1,39 @@
-<div align="center">
 
-<br />
-<img src="assets/logo.svg" alt="Boero" width="80" height="80" />
+<!-- Banner -->
+<p align="center">
+  <img
+    src="https://github.com/user-attachments/assets/4b9303aa-7c33-4866-a2c7-8e73fe7c1c80"
+    alt="Boero - Plataforma de gestión académica"
+    width="2170"
+    height="725"
+  />
+</p>
 
-# Boero
+<!-- Tecnologías: Backend & Data -->
+<p align="center">
+  <a href="https://spring.io/projects/spring-boot"><img src="https://img.shields.io/badge/Spring_Boot-4.0.6-6DB33F?style=for-the-badge&logo=springboot&logoColor=white" alt="Spring Boot 4.0.6" /></a>
+  <a href="https://openjdk.org/"><img src="https://img.shields.io/badge/Java-21-ED8B00?style=for-the-badge&logo=openjdk&logoColor=white" alt="Java 21" /></a>
+  <a href="https://www.postgresql.org/"><img src="https://img.shields.io/badge/PostgreSQL-18-4169E1?style=for-the-badge&logo=postgresql&logoColor=white" alt="PostgreSQL 18" /></a>
+  <a href="https://redis.io/"><img src="https://img.shields.io/badge/Redis-7-FF4438?style=for-the-badge&logo=redis&logoColor=white" alt="Redis 7" /></a>
+  <a href="https://spring.io/projects/spring-security"><img src="https://img.shields.io/badge/Spring_Security-6DB33F?style=for-the-badge&logo=springsecurity&logoColor=white" alt="Spring Security" /></a>
+</p>
 
-**Backend multiinstitucional para la plataforma de gestión académica y administrativa Boero.**
+<!-- Tecnologías: Tooling, Testing & DevOps -->
+<p align="center">
+  <a href="https://gradle.org/"><img src="https://img.shields.io/badge/Gradle-9.4-02303A?style=for-the-badge&logo=gradle&logoColor=white" alt="Gradle 9.4" /></a>
+  <a href="https://documentation.red-gate.com/flyway"><img src="https://img.shields.io/badge/Flyway-Migrations-CC0200?style=for-the-badge&logo=flyway&logoColor=white" alt="Flyway" /></a>
+  <a href="https://testcontainers.com/"><img src="https://img.shields.io/badge/Testcontainers-1.20-2496ED?style=for-the-badge&logo=testcontainers&logoColor=white" alt="Testcontainers 1.20" /></a>
+  <a href="https://www.docker.com/"><img src="https://img.shields.io/badge/Docker-Ready-2496ED?style=for-the-badge&logo=docker&logoColor=white" alt="Docker" /></a>
+  <a href="https://github.com/features/actions"><img src="https://img.shields.io/badge/CI%2FCD-GitHub_Actions-2088FF?style=for-the-badge&logo=githubactions&logoColor=white" alt="GitHub Actions CI/CD" /></a>
+  <a href="https://ghcr.io"><img src="https://img.shields.io/badge/Registry-GHCR-181717?style=for-the-badge&logo=github&logoColor=white" alt="GitHub Container Registry" /></a>
+</p>
 
-[![Spring Boot](https://img.shields.io/badge/Spring_Boot-4.0.6-6DB33F?style=for-the-badge&logo=springboot&logoColor=white)](https://spring.io/projects/spring-boot)
-[![Java](https://img.shields.io/badge/Java-21-ED8B00?style=for-the-badge&logo=openjdk&logoColor=white)](https://openjdk.org/)
-[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-18-4169E1?style=for-the-badge&logo=postgresql&logoColor=white)](https://www.postgresql.org/)
-[![Redis](https://img.shields.io/badge/Redis-7-FF4438?style=for-the-badge&logo=redis&logoColor=white)](https://redis.io/)
-[![Spring Security](https://img.shields.io/badge/Spring_Security-6DB33F?style=for-the-badge&logo=springsecurity&logoColor=white)](https://spring.io/projects/spring-security)
+<!-- Presentación -->
+<h1 align="center">Boero</h1>
 
-[![Gradle](https://img.shields.io/badge/Gradle-9.4-02303A?style=flat-square&logo=gradle&logoColor=white)](https://gradle.org/)
-[![Flyway](https://img.shields.io/badge/Flyway-Migrations-CC0200?style=flat-square&logo=flyway&logoColor=white)](https://documentation.red-gate.com/flyway)
-[![Testcontainers](https://img.shields.io/badge/Testcontainers-1.20-2496ED?style=flat-square&logo=docker&logoColor=white)](https://testcontainers.com/)
-[![Docker](https://img.shields.io/badge/Docker-Ready-2496ED?style=flat-square&logo=docker&logoColor=white)](https://www.docker.com/)
-[![GitHub Actions](https://img.shields.io/badge/CI/CD-GitHub_Actions-2088FF?style=flat-square&logo=githubactions&logoColor=white)](https://github.com/features/actions)
-[![GHCR](https://img.shields.io/badge/Registry-GHCR-181717?style=flat-square&logo=github&logoColor=white)](https://ghcr.io)
-
-_Centraliza las reglas de negocio, protege el acceso y mantiene aislada la información de cada institución._
-
-</div>
-
-## Desarrollo local
-
-Preparar la configuración sin sobrescribir un archivo privado existente:
-
-```bash
-test -f .env.dev || cp .env.dev.example .env.dev
-make dev
-```
-
-Los comandos Compose de Make cargan `.env.dev` tanto para interpolar `compose.yaml`
-como para definir el entorno del servicio. Si el archivo no existe, se conservan
-los defaults de Compose y del perfil `dev`.
-
-La plantilla conserva `http://localhost:3000` como acceso general y
-`http://cboero.localhost:3000` para una institución con nombre público `cboero`.
-La UI debe tener la misma URL canónica y dominio base. El origen general conserva
-el selector de institución; no se redirige a un namespace local adicional.
-
-En Chromium, los nombres terminados en `.localhost` permiten WebAuthn en HTTP,
-pero `localhost` se considera un dominio de primer nivel y no puede ser el RP común
-de sus subdominios. Con `WEBAUTHN_RP_ID=localhost` en `dev`/`test`, la API resuelve el
-RP ID institucional desde el origen validado por el BFF: `localhost` para el acceso
-general y `cboero.localhost` para el institucional. La política se aplica tanto a
-registro como a autenticación y verificación, manteniendo la validación del origen.
-
-Las passkeys son independientes por hostname local: las existentes de `localhost`
-siguen perteneciendo a ese acceso; ingresar con contraseña en `cboero.localhost`
-y registrar allí una llave propia. No borrar las anteriores ni recrear la base de
-datos. En QA/staging/producción se conserva el RP ID configurado del ambiente, común
-al dominio general y sus instituciones.
-
-Referencia: [orígenes WebAuthn admitidos por Chromium](https://chromium.googlesource.com/chromium/src/+/refs/heads/main/content/browser/webauth/origins.md).
+<p align="center">
+  Boero es una plataforma que centraliza inscripciones, cursadas, calificaciones y procesos administrativos <strong>en un solo lugar</strong>.
+  Pensada para <strong>estudiantes, docentes y personal administrativo</strong>, ofrece un espacio donde gestionar actividades,
+  consultar información académica y dar seguimiento a los distintos procesos institucionales,
+  mejorando la organización y facilitando la gestión cotidiana.
+</p>

@@ -25,6 +25,7 @@ import ar.edu.utn.frvm.typeit.boero_api.auth.payloads.requests.ResetPasswordRequ
 import ar.edu.utn.frvm.typeit.boero_api.institutional.entities.Person;
 import ar.edu.utn.frvm.typeit.boero_api.support.IntegrationTest;
 import ar.edu.utn.frvm.typeit.boero_api.support.JpaAuditingTestConfig;
+import ar.edu.utn.frvm.typeit.boero_api.support.PostgresTestDatabase;
 import jakarta.persistence.EntityManager;
 import java.time.Clock;
 import java.time.Duration;
@@ -51,8 +52,6 @@ import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
-import org.testcontainers.containers.PostgreSQLContainer;
-import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 @DataJpaTest
@@ -66,8 +65,8 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
 @IntegrationTest
 class EmailVerificationPostgresIntegrationTest {
-  @Container
-  static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>("postgres:17-alpine");
+  static final PostgresTestDatabase POSTGRES =
+      new PostgresTestDatabase("postgres:17-alpine", "email_verification");
 
   @Autowired EntityManager em;
   @Autowired PlatformTransactionManager transactions;

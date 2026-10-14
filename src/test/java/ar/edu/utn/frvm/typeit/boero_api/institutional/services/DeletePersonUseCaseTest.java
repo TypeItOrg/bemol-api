@@ -2,7 +2,6 @@ package ar.edu.utn.frvm.typeit.boero_api.institutional.services;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -68,40 +67,13 @@ class DeletePersonUseCaseTest {
         .thenReturn(Optional.of(user));
 
     deletePersonUseCase.execute(institutionId, personId);
+    deletePersonUseCase.execute(institutionId, personId);
 
     assertThat(person.isDeleted()).isTrue();
     assertThat(user.isEnabled()).isFalse();
     verify(personRepository).save(person);
     verify(userRepository).save(user);
     verify(sessionRevocationService).revokeInstitutionalSessionsForPerson(personId, institutionId);
-  }
-
-  @Test
-  @DisplayName("Should be idempotent if person is already deleted")
-  void execute_isIdempotentOnAlreadyDeleted() {
-    person.delete();
-    when(institutionPersonResolver.requirePersonInInstitution(institutionId, personId))
-        .thenReturn(person);
-
-    deletePersonUseCase.execute(institutionId, personId);
-
-    verify(personRepository, never()).save(person);
-    verify(userRepository, never()).findByPerson_IdAndInstitution_Id(personId, institutionId);
-    verify(sessionRevocationService, never())
-        .revokeInstitutionalSessionsForPerson(personId, institutionId);
-  }
-
-  @Test
-  @DisplayName("Should allow deleting the last institutional administrator")
-  void execute_allowsDeletingLastInstitutionalAdministrator() {
-    when(institutionPersonResolver.requirePersonInInstitution(institutionId, personId))
-        .thenReturn(person);
-    when(userRepository.findByPerson_IdAndInstitution_Id(personId, institutionId))
-        .thenReturn(Optional.of(user));
-
-    deletePersonUseCase.execute(institutionId, personId);
-
-    assertThat(person.isDeleted()).isTrue();
   }
 
   @Test

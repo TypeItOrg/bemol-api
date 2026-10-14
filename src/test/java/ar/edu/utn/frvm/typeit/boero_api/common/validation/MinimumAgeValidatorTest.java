@@ -4,11 +4,13 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import jakarta.validation.Validation;
 import jakarta.validation.Validator;
+import jakarta.validation.ValidatorFactory;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
@@ -19,15 +21,21 @@ class MinimumAgeValidatorTest {
       Clock.fixed(Instant.parse("2026-09-09T02:00:00Z"), ZoneOffset.UTC);
 
   private static Validator validator;
+  private static ValidatorFactory factory;
 
   @BeforeAll
   static void setUpValidator() {
-    validator =
+    factory =
         Validation.byDefaultProvider()
             .configure()
             .clockProvider(() -> CLOCK)
-            .buildValidatorFactory()
-            .getValidator();
+            .buildValidatorFactory();
+    validator = factory.getValidator();
+  }
+
+  @AfterAll
+  static void closeValidatorFactory() {
+    factory.close();
   }
 
   @Test

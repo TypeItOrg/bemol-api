@@ -1,5 +1,6 @@
 package ar.edu.utn.frvm.typeit.boero_api.authorization.services;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
@@ -28,6 +29,7 @@ import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -107,7 +109,7 @@ class ReplacePersonRolesUseCaseTest {
         false,
         Set.of(PermissionCode.INSTITUTION_ROLE_ASSIGN));
 
-    verify(assignmentRepository).save(any(PersonRoleAssignment.class));
+    assertSavedAssignment(student, person);
     verify(assignmentRepository, never()).delete(any());
   }
 
@@ -167,6 +169,17 @@ class ReplacePersonRolesUseCaseTest {
 
     verify(assignmentRepository).delete(authorityAssignment);
     verify(assignmentRepository).save(any(PersonRoleAssignment.class));
+  }
+
+  private void assertSavedAssignment(Role expectedRole, Person expectedPerson) {
+    ArgumentCaptor<PersonRoleAssignment> saved =
+        ArgumentCaptor.forClass(PersonRoleAssignment.class);
+    verify(assignmentRepository).save(saved.capture());
+    assertThat(saved.getValue().getPerson()).isSameAs(expectedPerson);
+    assertThat(saved.getValue().getInstitution()).isSameAs(expectedPerson.getInstitution());
+    assertThat(saved.getValue().getRole()).isSameAs(expectedRole);
+    assertThat(saved.getValue().getAccessScope()).isEqualTo(AccessScope.INSTITUTION);
+    assertThat(saved.getValue().getTrainingPathIds()).isEmpty();
   }
 
   private void givenPersonAndCurrentRoles(

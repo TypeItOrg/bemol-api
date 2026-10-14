@@ -95,23 +95,6 @@ Migraciones generadas con `make migration`:
 - `20260922152727__configurable_enrollment_documents.sql`.
 - `20260922154916__enforce_document_delivery_integrity.sql`.
 
-Requieren el circuito de auditoría/almacenamiento preparado previamente. Los adjuntos
-del esquema fijo anterior son datos descartables de desarrollo: no se migran ni se
-incorpora compatibilidad para ellos. Antes de arrancar una base que todavía tenga
-ese esquema, ejecutar:
-
-```sh
-make discard-legacy-documents
-make dev
-```
-
-El primer comando detiene la API local, inicia únicamente PostgreSQL y elimina los
-registros de adjuntos del esquema anterior. Conserva solicitudes, personas y
-catálogos. Si ya existe el modelo versionado, no modifica sus entregas. Los trabajos
-que conocen el destino físico del archivo antiguo quedan pendientes de limpieza;
-no se infieren ubicaciones para archivos que no tengan ese registro. No elimina
-volúmenes ni modifica migraciones existentes.
-
 ### Verificación estática
 
 - Compilación Java y formato Spotless limitado a los archivos modificados.

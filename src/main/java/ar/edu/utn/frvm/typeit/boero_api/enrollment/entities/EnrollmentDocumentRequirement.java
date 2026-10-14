@@ -126,14 +126,8 @@ public class EnrollmentDocumentRequirement {
             || level != source.getLevel()
             || !allowedFormats.equals(source.getAllowedFormats())
             || displayOrder != source.getDisplayOrder();
-    name = source.getName();
-    instructions = source.getInstructions();
-    specificInstructions = source.getSpecificInstructions();
-    level = source.getLevel();
-    allowedFormats = List.copyOf(source.getAllowedFormats());
-    displayOrder = source.getDisplayOrder();
-    definitionRevision = source.getDocument().getRevision();
-    assignmentRevision = source.getRevision();
+
+    copySource(source);
     active = true;
     return changed;
   }
@@ -153,14 +147,18 @@ public class EnrollmentDocumentRequirement {
     result.sourceRequirementId = source.getId();
     result.document = source.getDocument();
     result.institutionId = application.getInstitution().getId();
-    result.definitionRevision = source.getDocument().getRevision();
-    result.assignmentRevision = source.getRevision();
-    result.specificInstructions = source.getSpecificInstructions();
-    result.name = source.getName();
-    result.instructions = source.getInstructions();
-    result.level = source.getLevel();
-    result.allowedFormats = List.copyOf(source.getAllowedFormats());
-    result.displayOrder = source.getDisplayOrder();
+    result.copySource(source);
     return result;
+  }
+
+  private void copySource(final TrainingPathDocumentRequirement source) {
+    name = source.getName();
+    instructions = source.getInstructions();
+    specificInstructions = source.getSpecificInstructions();
+    level = source.getLevel();
+    allowedFormats = List.copyOf(source.getAllowedFormats());
+    displayOrder = source.getDisplayOrder();
+    definitionRevision = source.getDocument().getRevision();
+    assignmentRevision = source.getRevision();
   }
 }

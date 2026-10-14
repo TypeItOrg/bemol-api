@@ -3,7 +3,6 @@ package ar.edu.utn.frvm.typeit.boero_api.auth.services;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -40,6 +39,8 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 
 @ExtendWith(MockitoExtension.class)
 class RegisterUserUseCaseTest {
+  private static final UUID PERSON_ID = UUID.fromString("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
+  private static final UUID USER_ID = UUID.fromString("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");
   @Mock private InstitutionalHostContext hostContext;
 
   @Mock private UserRepository userRepository;
@@ -67,7 +68,7 @@ class RegisterUserUseCaseTest {
   }
 
   @Test
-  @DisplayName("Should register a new user and return their ids")
+  @DisplayName("Should register a pending user with an encoded password and applicant role")
   void execute_registersUserSuccessfully() {
     UUID institutionId = UUID.randomUUID();
     RegisterRequest request =
@@ -89,61 +90,29 @@ class RegisterUserUseCaseTest {
         .sendInitial(
             org.mockito.ArgumentMatchers.argThat(
                 mappedUser -> mappedUser.requiresEmailVerification()));
-    assertThat(response.userId()).isNotNull();
+    assertThat(response.userId()).isEqualTo(USER_ID);
     assertThat(response.documentNumber()).isEqualTo("12345678");
     assertThat(response.institutionId()).isEqualTo(institutionId);
 
     var personCaptor = ArgumentCaptor.forClass(Person.class);
     verify(personRepository).save(personCaptor.capture());
-    assertThat(personCaptor.getValue().getBirthDate()).isEqualTo(LocalDate.of(2010, 1, 1));
-  }
-
-  @Test
-  @DisplayName("Should assign APPLICANT role after registering a person")
-  void execute_assignsApplicantRole() {
-    UUID institutionId = UUID.randomUUID();
-    RegisterRequest request =
-        new RegisterRequest(
-            "Ana",
-            "Garcia",
-            LocalDate.of(2010, 1, 1),
-            "12345678",
-            "ana@example.com",
-            "password123",
-            institutionId);
-
-    stubSuccessfulRegistration(institutionId, "password123", "encoded-hash");
-
-    registerUserUseCase.execute(request);
-
-    var personCaptor = ArgumentCaptor.forClass(Person.class);
-    verify(assignPersonSystemRoleUseCase)
-        .execute(personCaptor.capture(), eq(SystemRoleCode.APPLICANT), eq(false));
-  }
-
-  @Test
-  @DisplayName("Should encode the password before saving the user")
-  void execute_encodesPasswordBeforeSaving() {
-    UUID institutionId = UUID.randomUUID();
-    RegisterRequest request =
-        new RegisterRequest(
-            "Ana",
-            "Garcia",
-            LocalDate.of(2010, 1, 1),
-            "12345678",
-            "ana@example.com",
-            "plaintext",
-            institutionId);
-
-    stubSuccessfulRegistration(institutionId, "plaintext", "bcrypt-hash");
-
-    registerUserUseCase.execute(request);
+    Person savedPerson = personCaptor.getValue();
+    assertThat(savedPerson.getFirstName()).isEqualTo("Ana");
+    assertThat(savedPerson.getLastName()).isEqualTo("Garcia");
+    assertThat(savedPerson.getBirthDate()).isEqualTo(LocalDate.of(2010, 1, 1));
+    assertThat(savedPerson.getEmail()).isEqualTo("ana@example.com");
+    assertThat(savedPerson.getDocumentNumber()).isEqualTo("12345678");
+    assertThat(savedPerson.getInstitution().getId()).isEqualTo(institutionId);
 
     var userCaptor = ArgumentCaptor.forClass(User.class);
     verify(userRepository).save(userCaptor.capture());
     User savedUser = userCaptor.getValue();
-    assertThat(savedUser.getPassword()).isNotEqualTo("plaintext");
-    assertThat(savedUser.getPassword()).isEqualTo("bcrypt-hash");
+    assertThat(savedUser.getPassword()).isEqualTo("encoded-hash");
+    assertThat(savedUser.requiresEmailVerification()).isTrue();
+    assertThat(savedUser.getPerson().getId()).isEqualTo(PERSON_ID);
+    assertThat(savedUser.getInstitutionId()).isEqualTo(institutionId);
+    verify(assignPersonSystemRoleUseCase)
+        .execute(savedUser.getPerson(), SystemRoleCode.APPLICANT, false);
   }
 
   @Test
@@ -269,7 +238,7 @@ class RegisterUserUseCaseTest {
 
   private static Person persistedPerson(final Person person) {
     return Person.builder()
-        .id(UUID.randomUUID())
+        .id(PERSON_ID)
         .institution(person.getInstitution())
         .documentNumber(person.getDocumentNumber())
         .firstName(person.getFirstName())
@@ -281,7 +250,7 @@ class RegisterUserUseCaseTest {
 
   private static User persistedUser(final User user) {
     return User.builder()
-        .id(UUID.randomUUID())
+        .id(USER_ID)
         .institution(user.getInstitution())
         .person(user.getPerson())
         .password(user.getPassword())

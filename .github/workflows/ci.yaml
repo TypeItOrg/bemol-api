@@ -34,8 +34,8 @@ jobs:
             25
           cache: gradle
 
-      - name: Check nullness and compiler warnings
-        run: ./gradlew --no-daemon --continue staticAnalysis
+      - name: Check code structure, nullness and compiler warnings
+        run: ./gradlew --no-daemon --continue codeStructureCheck staticAnalysis
 
       - name: Upload compiler diagnostics
         if: always()

@@ -1,0 +1,60 @@
+// Physical lines after Spotless formatting, including imports, annotations and blank lines.
+// Keep these cohesive declarations intact; their existing ceilings cannot silently grow.
+def sourceRoot = file('src/main/java')
+def defaultLineLimit = 250
+def exceptions = [
+    'ar/edu/utn/frvm/typeit/boero_api/authorization/enums/PermissionCode.java': [
+        limit: 574,
+        reason: 'Single permission catalog: enum identity and exhaustive switches stay together.'
+    ],
+    'ar/edu/utn/frvm/typeit/boero_api/enrollment/entities/EnrollmentApplication.java': [
+        limit: 448,
+        reason: 'JPA aggregate mapping and intrinsic lifecycle invariants stay in the entity.'
+    ]
+]
+
+tasks.register('codeStructureCheck') {
+    group = 'verification'
+    description = 'Checks production Java file size with explicit, non-growing exceptions; runs no tests.'
+    inputs.files(sourceSets.main.allJava)
+    inputs.property('defaultLineLimit', defaultLineLimit)
+    inputs.property('exceptions', exceptions)
+    def report = layout.buildDirectory.file('reports/code-structure.txt')
+    outputs.file(report)
+
+    doLast {
+        def violations = []
+        def lines = ["Production Java limit: ${defaultLineLimit} physical lines per file."]
+        def paths = [] as Set
+        sourceSets.main.allJava.files.sort { it.path }.each { source ->
+            def path = sourceRoot.toPath().relativize(source.toPath()).toString().replace('\\', '/')
+            paths.add(path)
+            def lineCount = source.readLines('UTF-8').size()
+            def exception = exceptions[path]
+            def limit = exception == null ? defaultLineLimit : exception.limit
+            if (lineCount > limit) {
+                violations.add("${path}: ${lineCount} lines (limit ${limit})")
+            }
+            if (exception != null) {
+                lines.add("Exception: ${path}: ${lineCount}/${limit}. ${exception.reason}")
+                if (lineCount <= defaultLineLimit) {
+                    violations.add("Remove the now-unnecessary exception for ${path}")
+                }
+            }
+        }
+        (exceptions.keySet() - paths).each { path ->
+            violations.add("Remove the stale exception for ${path}")
+        }
+        lines.addAll(violations)
+        report.get().asFile.parentFile.mkdirs()
+        report.get().asFile.setText(lines.join('\n') + '\n', 'UTF-8')
+        if (!violations.isEmpty()) {
+            throw new GradleException('Production code structure exceeds its budget:\n' + violations.join('\n'))
+        }
+        logger.lifecycle("Code structure checked: ${paths.size()} Java files, ${exceptions.size()} documented exceptions.")
+    }
+}
+
+tasks.named('check') {
+    dependsOn 'codeStructureCheck'
+}

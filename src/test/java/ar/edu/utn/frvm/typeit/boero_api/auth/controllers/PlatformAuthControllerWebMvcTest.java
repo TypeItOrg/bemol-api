@@ -1,8 +1,10 @@
 package ar.edu.utn.frvm.typeit.boero_api.auth.controllers;
 
 import static ar.edu.utn.frvm.typeit.boero_api.support.AuthTestData.platformPrincipal;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -23,6 +25,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.http.MediaType;
 import org.springframework.security.authentication.TestingAuthenticationToken;
 import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
@@ -73,5 +76,44 @@ class PlatformAuthControllerWebMvcTest {
         .andExpect(jsonPath("$.account.email").value("admin@plataforma.com"))
         .andExpect(jsonPath("$.account.name").value("Juan"))
         .andExpect(jsonPath("$.account.lastName").value("Perez"));
+  }
+
+  @Test
+  @DisplayName("Should reject platform login when email and password are missing")
+  void shouldRejectPlatformLoginWhenEmailAndPasswordAreMissing() throws Exception {
+    mockMvc
+        .perform(
+            post("/api/v1/admin/auth/login").contentType(MediaType.APPLICATION_JSON).content("{}"))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.status").value(400))
+        .andExpect(jsonPath("$.message").value("Se encontraron errores de validación."))
+        .andExpect(jsonPath("$.fieldErrors.email").value("El correo electrónico es requerido."))
+        .andExpect(jsonPath("$.fieldErrors.password").value("La contraseña es requerida."));
+
+    verifyNoInteractions(platformLoginUseCase);
+  }
+
+  @Test
+  @DisplayName("Should reject platform login when email format is invalid")
+  void shouldRejectPlatformLoginWhenEmailFormatIsInvalid() throws Exception {
+    mockMvc
+        .perform(
+            post("/api/v1/admin/auth/login")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    """
+                    {
+                      "email": "not-an-email",
+                      "password": "password123"
+                    }
+                    """))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.status").value(400))
+        .andExpect(jsonPath("$.message").value("Se encontraron errores de validación."))
+        .andExpect(
+            jsonPath("$.fieldErrors.email")
+                .value("El correo electrónico debe tener un formato válido."));
+
+    verifyNoInteractions(platformLoginUseCase);
   }
 }

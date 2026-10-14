@@ -18,6 +18,7 @@ import ar.edu.utn.frvm.typeit.boero_api.institutional.entities.Institution;
 import ar.edu.utn.frvm.typeit.boero_api.support.InstitutionalTestData;
 import ar.edu.utn.frvm.typeit.boero_api.support.IntegrationTest;
 import ar.edu.utn.frvm.typeit.boero_api.support.JpaAuditingTestConfig;
+import ar.edu.utn.frvm.typeit.boero_api.support.PostgresTestDatabase;
 import jakarta.persistence.EntityManager;
 import java.time.Duration;
 import java.time.Instant;
@@ -25,6 +26,7 @@ import java.util.UUID;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -39,10 +41,7 @@ import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
-import org.testcontainers.containers.PostgreSQLContainer;
-import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
-import org.testcontainers.utility.DockerImageName;
 
 @DataJpaTest
 @Import({
@@ -56,9 +55,8 @@ import org.testcontainers.utility.DockerImageName;
 @IntegrationTest
 class RefreshTokenPostgresIntegrationTest {
 
-  @Container
-  static final PostgreSQLContainer<?> POSTGRES =
-      new PostgreSQLContainer<>(DockerImageName.parse("postgres:17-alpine"));
+  static final PostgresTestDatabase POSTGRES =
+      new PostgresTestDatabase("postgres:17-alpine", "refresh_rotation");
 
   @Autowired private RefreshTokenUseCase useCase;
   @Autowired private RefreshTokenRepository refreshTokenRepository;
@@ -115,7 +113,7 @@ class RefreshTokenPostgresIntegrationTest {
     final Callable<Boolean> rotation =
         () -> {
           ready.countDown();
-          start.await();
+          assertThat(start.await(10, TimeUnit.SECONDS)).isTrue();
           try {
             useCase.execute(new RefreshTokenRequest(fixture.rawRefreshToken()));
             return true;
@@ -127,10 +125,11 @@ class RefreshTokenPostgresIntegrationTest {
     try (var executor = Executors.newFixedThreadPool(2)) {
       final var first = executor.submit(rotation);
       final var second = executor.submit(rotation);
-      ready.await();
+      assertThat(ready.await(10, TimeUnit.SECONDS)).isTrue();
       start.countDown();
 
-      assertThat(java.util.List.of(first.get(), second.get()))
+      assertThat(
+              java.util.List.of(first.get(15, TimeUnit.SECONDS), second.get(15, TimeUnit.SECONDS)))
           .containsExactlyInAnyOrder(true, false);
     }
 

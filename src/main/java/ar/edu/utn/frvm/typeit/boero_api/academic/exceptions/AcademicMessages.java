@@ -1,6 +1,8 @@
 package ar.edu.utn.frvm.typeit.boero_api.academic.exceptions;
 
 public final class AcademicMessages {
+  public static final String DOCUMENT_INSTITUTION_CHANGE_BLOCKED =
+      "No se puede cambiar la institución porque el documento ya fue utilizado. Creá una copia en la otra institución.";
   public static final String DOCUMENT_NOT_FOUND = "El documento no existe en esta institución.";
   public static final String DOCUMENT_REVISION_CONFLICT =
       "El documento o su asignación cambió. Recargá la información antes de guardar.";
@@ -107,6 +109,9 @@ public final class AcademicMessages {
       "Completá la fecha de inicio antes de indicar una fecha final.";
   public static final String DATE_PAIR_REQUIRED = "Completá ambas fechas o dejá ambas vacías.";
   public static final String INVALID_VALUE = "El valor indicado no es válido.";
+  public static final String CONFLICTING_INSTRUMENT_FILTERS =
+      "No se puede seleccionar un instrumento y filtrar cursos sin instrumento a la vez.";
+
   public static final String INVALID_SORT_FIELD = "El campo de ordenamiento indicado no es válido.";
   public static final String COURSE_DAY_DUPLICATED =
       "Cada día solo puede configurarse una vez por clase.";

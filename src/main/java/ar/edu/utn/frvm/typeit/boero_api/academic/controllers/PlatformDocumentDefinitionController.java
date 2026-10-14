@@ -71,9 +71,10 @@ public class PlatformDocumentDefinitionController {
       @PathVariable UUID institutionId,
       @PathVariable UUID id,
       @RequestParam(required = false) @Nullable UUID trainingPathId,
+      @RequestParam(required = false) @Nullable Boolean active,
       @PageableDefault(sort = {"displayOrder", "id"}) Pageable pageable) {
     return PaginatedResponse.from(
-        catalog.associations(institutionId, id, trainingPathId, pageable));
+        catalog.associations(institutionId, id, trainingPathId, active, pageable));
   }
 
   @PutMapping(value = "/{id}/training-paths", version = Version.V1)

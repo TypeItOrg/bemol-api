@@ -12,6 +12,7 @@ import ar.edu.utn.frvm.typeit.boero_api.academic.entities.StudyPlanSpace;
 import ar.edu.utn.frvm.typeit.boero_api.academic.entities.TrainingPath;
 import ar.edu.utn.frvm.typeit.boero_api.academic.enums.AcademicSpaceFormat;
 import ar.edu.utn.frvm.typeit.boero_api.academic.enums.AcademicSpaceType;
+import ar.edu.utn.frvm.typeit.boero_api.academic.enums.AcademicYearStatus;
 import ar.edu.utn.frvm.typeit.boero_api.academic.enums.ApprovalMode;
 import ar.edu.utn.frvm.typeit.boero_api.academic.enums.RequirementType;
 import ar.edu.utn.frvm.typeit.boero_api.common.web.PaginatedResponse;
@@ -246,7 +247,13 @@ class EnrollmentApplicationPostgresIntegrationTest extends DatabaseMigrationTest
     AcademicYear academicYear =
         InstitutionalTestData.persist(
             entityManager,
-            AcademicYear.create(institution, 2026, null, null, LocalDate.of(2026, 1, 1)));
+            AcademicYear.create(
+                institution,
+                2026,
+                LocalDate.of(2026, 1, 1),
+                LocalDate.of(2026, 12, 31),
+                LocalDate.of(2026, 1, 1)));
+    academicYear.transitionTo(AcademicYearStatus.ACTIVE);
 
     EnrollmentPeriod period =
         InstitutionalTestData.persist(

@@ -16,6 +16,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import ar.edu.utn.frvm.typeit.boero_api.academic.payloads.CourseStatusRequest;
 import ar.edu.utn.frvm.typeit.boero_api.academic.services.CreateCourseUseCase;
 import ar.edu.utn.frvm.typeit.boero_api.academic.services.GetCourseUseCase;
+import ar.edu.utn.frvm.typeit.boero_api.academic.services.ListCourseLevelOptionsUseCase;
 import ar.edu.utn.frvm.typeit.boero_api.academic.services.ListCourseSpaceOptionsUseCase;
 import ar.edu.utn.frvm.typeit.boero_api.academic.services.ListCourseTeachersUseCase;
 import ar.edu.utn.frvm.typeit.boero_api.academic.services.ListCoursesUseCase;
@@ -58,6 +59,7 @@ class CourseControllerWebMvcTest {
 
   @MockitoBean private CreateCourseUseCase createCourseUseCase;
   @MockitoBean private ListCoursesUseCase listCoursesUseCase;
+  @MockitoBean private ListCourseLevelOptionsUseCase listCourseLevelOptionsUseCase;
   @MockitoBean private GetCourseUseCase getCourseUseCase;
   @MockitoBean private UpdateCourseStatusUseCase updateCourseStatusUseCase;
   @MockitoBean private ReplaceCourseClassesUseCase replaceCourseClassesUseCase;
@@ -117,6 +119,11 @@ class CourseControllerWebMvcTest {
             isNull(),
             isNull(),
             isNull(),
+            isNull(),
+            isNull(),
+            isNull(),
+            isNull(),
+            eq(false),
             eq(false),
             any(Pageable.class)))
         .thenReturn(new PaginatedResponse<>(List.of(), 0, 10, 0, 0));
@@ -135,6 +142,11 @@ class CourseControllerWebMvcTest {
             isNull(),
             isNull(),
             eq(2027),
+            isNull(),
+            isNull(),
+            isNull(),
+            isNull(),
+            eq(false),
             eq(false),
             pageable.capture());
     assertThatSortIs(pageable.getValue(), "academicSpace.name");
@@ -151,6 +163,11 @@ class CourseControllerWebMvcTest {
             isNull(),
             isNull(),
             isNull(),
+            isNull(),
+            isNull(),
+            isNull(),
+            isNull(),
+            eq(false),
             eq(false),
             any(Pageable.class)))
         .thenReturn(new PaginatedResponse<>(List.of(), 0, 10, 0, 0));

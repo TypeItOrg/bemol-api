@@ -56,12 +56,7 @@ public class ReplacePersonRolesUseCase {
     List<PersonRoleAssignment> current =
         assignmentRepository.findByPerson_IdAndInstitution_Id(personId, institutionId);
 
-    Map<UUID, AssignRoleRequest> requested = new HashMap<>();
-    for (var assignment : request.assignments()) {
-      if (requested.put(assignment.roleId(), assignment) != null) {
-        throw new InvalidAccessScopeException();
-      }
-    }
+    final var requested = requestedAssignments(request);
     Map<UUID, Role> desiredRoles = loadRoles(institutionId, requested.keySet());
     ensureInstitutionalAuthorityIsUnchanged(current, desiredRoles, allowAuthority);
     removeApplicantWhenAnotherRoleIsSelected(desiredRoles);
@@ -125,24 +120,7 @@ public class ReplacePersonRolesUseCase {
         allowAuthority,
         allowAuthority ? actorPermissions : scopeValidator.freshPermissions());
 
-    current.stream()
-        .filter(assignment -> !desiredIds.contains(assignment.getRole().getId()))
-        .forEach(assignmentRepository::delete);
-    for (Role role : desiredRoles.values()) {
-      if (!currentIds.contains(role.getId())) {
-        var assignment = PersonRoleAssignment.assign(person, role, person.getInstitution());
-        var desired = requireNonNull(requested.get(role.getId()));
-        assignment.changeAccessScope(desired.accessScope(), desired.selectedTrainingPathIds());
-        assignmentRepository.save(assignment);
-      }
-    }
-
-    for (var assignment : current) {
-      var desired = requested.get(assignment.getRole().getId());
-      if (desired != null && desiredIds.contains(desired.roleId())) {
-        assignment.changeAccessScope(desired.accessScope(), desired.selectedTrainingPathIds());
-      }
-    }
+    replaceAssignments(person, current, desiredRoles, requested, currentIds);
 
     if (scopeChanged || !additions.isEmpty() || !removals.isEmpty()) {
       sessionRevocationService.revokeInstitutionalSessionsForPerson(personId, institutionId);
@@ -152,6 +130,45 @@ public class ReplacePersonRolesUseCase {
     return assignmentRepository.findByPerson_IdAndInstitution_Id(personId, institutionId).stream()
         .map(responseFactory::from)
         .toList();
+  }
+
+  private Map<UUID, AssignRoleRequest> requestedAssignments(
+      final ReplacePersonRolesRequest request) {
+    final var requested = new HashMap<UUID, AssignRoleRequest>();
+    for (final var assignment : request.assignments()) {
+      if (requested.put(assignment.roleId(), assignment) != null) {
+        throw new InvalidAccessScopeException();
+      }
+    }
+
+    return requested;
+  }
+
+  private void replaceAssignments(
+      final Person person,
+      final List<PersonRoleAssignment> current,
+      final Map<UUID, Role> desiredRoles,
+      final Map<UUID, AssignRoleRequest> requested,
+      final Set<UUID> currentIds) {
+    final var desiredIds = desiredRoles.keySet();
+    current.stream()
+        .filter(assignment -> !desiredIds.contains(assignment.getRole().getId()))
+        .forEach(assignmentRepository::delete);
+    for (final var role : desiredRoles.values()) {
+      if (!currentIds.contains(role.getId())) {
+        final var assignment = PersonRoleAssignment.assign(person, role, person.getInstitution());
+        final var desired = requireNonNull(requested.get(role.getId()));
+        assignment.changeAccessScope(desired.accessScope(), desired.selectedTrainingPathIds());
+        assignmentRepository.save(assignment);
+      }
+    }
+
+    for (final var assignment : current) {
+      final var desired = requested.get(assignment.getRole().getId());
+      if (desired != null && desiredIds.contains(desired.roleId())) {
+        assignment.changeAccessScope(desired.accessScope(), desired.selectedTrainingPathIds());
+      }
+    }
   }
 
   private Map<UUID, Role> loadRoles(UUID institutionId, Set<UUID> roleIds) {

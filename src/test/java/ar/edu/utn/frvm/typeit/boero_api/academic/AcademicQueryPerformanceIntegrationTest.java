@@ -47,6 +47,7 @@ import ar.edu.utn.frvm.typeit.boero_api.config.JpaAuditingConfig;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.entities.Institution;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.interfaces.InstitutionRepository;
 import ar.edu.utn.frvm.typeit.boero_api.support.IntegrationTest;
+import ar.edu.utn.frvm.typeit.boero_api.support.PostgresTestDatabase;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.EntityManagerFactory;
 import java.time.LocalDate;
@@ -71,10 +72,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
-import org.testcontainers.containers.PostgreSQLContainer;
-import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
-import org.testcontainers.utility.DockerImageName;
 
 @DataJpaTest(
     properties = {
@@ -109,9 +107,8 @@ class AcademicQueryPerformanceIntegrationTest {
   private static final int COLLECTION_SIZE = 21;
   private static final int PAGE_SIZE = 20;
 
-  @Container
-  static final PostgreSQLContainer<?> POSTGRES =
-      new PostgreSQLContainer<>(DockerImageName.parse("postgres:18-alpine"));
+  static final PostgresTestDatabase POSTGRES =
+      new PostgresTestDatabase("postgres:18-alpine", "academic_query_performance");
 
   @Autowired private EntityManager entityManager;
   @Autowired private EntityManagerFactory entityManagerFactory;

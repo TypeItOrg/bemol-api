@@ -3,6 +3,7 @@ package ar.edu.utn.frvm.typeit.boero_api.authorization.services;
 import static java.util.Objects.requireNonNull;
 
 import ar.edu.utn.frvm.typeit.boero_api.authorization.cache.AuthorizationCacheNames;
+import ar.edu.utn.frvm.typeit.boero_api.authorization.config.DefaultRolePermissions;
 import ar.edu.utn.frvm.typeit.boero_api.authorization.entities.Permission;
 import ar.edu.utn.frvm.typeit.boero_api.authorization.entities.Role;
 import ar.edu.utn.frvm.typeit.boero_api.authorization.entities.RolePermission;
@@ -17,7 +18,6 @@ import ar.edu.utn.frvm.typeit.boero_api.authorization.interfaces.RoleRepository;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.entities.Person;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.interfaces.InstitutionRepository;
 import jakarta.persistence.EntityManager;
-import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -44,113 +44,6 @@ public class PermissionRoleSeed implements ApplicationRunner {
   private static final List<String> AUTHORITY_CACHE_NAMES =
       List.of(
           AuthorizationCacheNames.PERSON_AUTHORITIES, AuthorizationCacheNames.PLATFORM_AUTHORITIES);
-
-  private static final Map<SystemRoleCode, Set<PermissionCode>> INSTITUTIONAL_ROLE_PERMISSIONS =
-      Map.of(
-          SystemRoleCode.APPLICANT,
-          EnumSet.of(PermissionCode.ACADEMIC_OFFER_READ),
-          SystemRoleCode.STUDENT,
-          EnumSet.of(PermissionCode.STUDY_PLAN_READ, PermissionCode.ACADEMIC_YEAR_READ),
-          SystemRoleCode.ADMINISTRATIVE,
-          EnumSet.of(
-              PermissionCode.DOCUMENT_CATALOG_READ,
-              PermissionCode.ENROLLMENT_APPLICATION_READ,
-              PermissionCode.ENROLLMENT_DOCUMENT_REQUEST_CREATE,
-              PermissionCode.ENROLLMENT_ATTACHMENT_READ,
-              PermissionCode.ENROLLMENT_ATTACHMENT_UPLOAD,
-              PermissionCode.ENROLLMENT_ATTACHMENT_DELETE,
-              PermissionCode.ENROLLMENT_ATTACHMENT_REVIEW,
-              PermissionCode.ENROLLMENT_APPLICATION_APPROVE,
-              PermissionCode.ENROLLMENT_APPLICATION_REJECT,
-              PermissionCode.ENROLLMENT_APPLICATION_COURSE_READ,
-              PermissionCode.ENROLLMENT_APPLICATION_COURSE_ENROLL,
-              PermissionCode.ENROLLMENT_APPLICATION_COURSE_REJECT,
-              PermissionCode.COURSE_ENROLLMENT_READ,
-              PermissionCode.COURSE_ENROLLMENT_CREATE,
-              PermissionCode.COURSE_ENROLLMENT_WITHDRAW,
-              PermissionCode.COURSE_ENROLLMENT_ACADEMIC_STATUS_UPDATE,
-              PermissionCode.COURSE_ENROLLMENT_GRADE_READ,
-              PermissionCode.COURSE_ENROLLMENT_GRADE_CREATE,
-              PermissionCode.COURSE_ENROLLMENT_GRADE_UPDATE,
-              PermissionCode.COURSE_ENROLLMENT_GRADE_DELETE,
-              PermissionCode.COURSE_ENROLLMENT_GRADE_PUBLISH,
-              PermissionCode.COURSE_WAITLIST_READ),
-          SystemRoleCode.INSTITUTIONAL_AUTHORITY,
-          EnumSet.of(
-              PermissionCode.DOCUMENT_CATALOG_MANAGE,
-              PermissionCode.INSTITUTION_ROLE_ASSIGN,
-              PermissionCode.INSTITUTION_ROLE_REVOKE,
-              PermissionCode.INSTITUTION_PERSON_READ_ANY,
-              PermissionCode.INSTITUTION_PERSON_CREATE,
-              PermissionCode.INSTITUTION_PERSON_UPDATE_ANY,
-              PermissionCode.INSTITUTION_PERSON_DELETE,
-              PermissionCode.INSTITUTION_READ,
-              PermissionCode.INSTITUTION_UPDATE,
-              PermissionCode.ACADEMIC_YEAR_CREATE,
-              PermissionCode.ACADEMIC_YEAR_UPDATE,
-              PermissionCode.ACADEMIC_YEAR_STATUS_UPDATE,
-              PermissionCode.ACADEMIC_YEAR_DELETE,
-              PermissionCode.ACADEMIC_YEAR_RESTORE,
-              PermissionCode.TRAINING_PATH_CREATE,
-              PermissionCode.TRAINING_PATH_UPDATE,
-              PermissionCode.TRAINING_PATH_STATUS_UPDATE,
-              PermissionCode.TRAINING_PATH_DELETE,
-              PermissionCode.TRAINING_PATH_RESTORE,
-              PermissionCode.STUDY_PLAN_CREATE,
-              PermissionCode.STUDY_PLAN_UPDATE,
-              PermissionCode.STUDY_PLAN_STATUS_UPDATE,
-              PermissionCode.STUDY_PLAN_CURRICULUM_UPDATE,
-              PermissionCode.STUDY_PLAN_DELETE,
-              PermissionCode.STUDY_PLAN_RESTORE,
-              PermissionCode.ACADEMIC_OFFER_READ,
-              PermissionCode.ACADEMIC_SPACE_CREATE,
-              PermissionCode.ACADEMIC_SPACE_UPDATE,
-              PermissionCode.ACADEMIC_SPACE_STATUS_UPDATE,
-              PermissionCode.ACADEMIC_SPACE_DELETE,
-              PermissionCode.ACADEMIC_SPACE_RESTORE,
-              PermissionCode.INSTRUMENT_CREATE,
-              PermissionCode.INSTRUMENT_UPDATE,
-              PermissionCode.INSTRUMENT_STATUS_UPDATE,
-              PermissionCode.INSTRUMENT_DELETE,
-              PermissionCode.INSTRUMENT_RESTORE,
-              PermissionCode.ENROLLMENT_PERIOD_READ,
-              PermissionCode.ENROLLMENT_PERIOD_CREATE,
-              PermissionCode.ENROLLMENT_PERIOD_UPDATE,
-              PermissionCode.ENROLLMENT_PERIOD_STATUS_UPDATE,
-              PermissionCode.ENROLLMENT_PERIOD_DELETE,
-              PermissionCode.SHIFT_CREATE,
-              PermissionCode.SHIFT_UPDATE,
-              PermissionCode.SHIFT_STATUS_UPDATE,
-              PermissionCode.SHIFT_DELETE,
-              PermissionCode.SHIFT_RESTORE,
-              PermissionCode.COURSE_READ,
-              PermissionCode.COURSE_CREATE,
-              PermissionCode.COURSE_UPDATE,
-              PermissionCode.COURSE_STATUS_UPDATE,
-              PermissionCode.COURSE_DELETE,
-              PermissionCode.COURSE_RESTORE,
-              PermissionCode.DOCUMENT_CATALOG_READ,
-              PermissionCode.ENROLLMENT_APPLICATION_READ,
-              PermissionCode.ENROLLMENT_DOCUMENT_REQUEST_CREATE,
-              PermissionCode.ENROLLMENT_ATTACHMENT_READ,
-              PermissionCode.ENROLLMENT_ATTACHMENT_UPLOAD,
-              PermissionCode.ENROLLMENT_ATTACHMENT_DELETE,
-              PermissionCode.ENROLLMENT_ATTACHMENT_REVIEW,
-              PermissionCode.ENROLLMENT_APPLICATION_APPROVE,
-              PermissionCode.ENROLLMENT_APPLICATION_REJECT,
-              PermissionCode.ENROLLMENT_APPLICATION_COURSE_READ,
-              PermissionCode.ENROLLMENT_APPLICATION_COURSE_ENROLL,
-              PermissionCode.ENROLLMENT_APPLICATION_COURSE_REJECT,
-              PermissionCode.COURSE_ENROLLMENT_READ,
-              PermissionCode.COURSE_ENROLLMENT_CREATE,
-              PermissionCode.COURSE_ENROLLMENT_WITHDRAW,
-              PermissionCode.COURSE_ENROLLMENT_ACADEMIC_STATUS_UPDATE,
-              PermissionCode.COURSE_ENROLLMENT_GRADE_READ,
-              PermissionCode.COURSE_ENROLLMENT_GRADE_CREATE,
-              PermissionCode.COURSE_ENROLLMENT_GRADE_UPDATE,
-              PermissionCode.COURSE_ENROLLMENT_GRADE_DELETE,
-              PermissionCode.COURSE_ENROLLMENT_GRADE_PUBLISH,
-              PermissionCode.COURSE_WAITLIST_READ));
 
   private final PermissionRepository permissionRepository;
   private final RoleRepository roleRepository;
@@ -227,7 +120,7 @@ public class PermissionRoleSeed implements ApplicationRunner {
           RoleScope.INSTITUTION,
           roleCode.name(),
           roleCode.getDisplayName(),
-          INSTITUTIONAL_ROLE_PERMISSIONS.getOrDefault(roleCode, Set.of()),
+          DefaultRolePermissions.institutional(roleCode),
           permissions);
     }
   }

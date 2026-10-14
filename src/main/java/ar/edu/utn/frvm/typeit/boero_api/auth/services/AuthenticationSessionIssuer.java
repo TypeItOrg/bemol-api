@@ -46,7 +46,9 @@ public class AuthenticationSessionIssuer {
     if (!user.isEnabled() || !user.getPassword().equals(authenticated.getPassword())) {
       throw new InvalidCredentialsException();
     }
+
     loginAttemptService.claim(attempt.id());
+
     return issue(user, ipAddress, userAgent, rememberMe, METHOD_PASSWORD);
   }
 
@@ -56,7 +58,10 @@ public class AuthenticationSessionIssuer {
       final String userAgent,
       final boolean rememberMe,
       final String method) {
-    if (!user.isEnabled()) throw new InvalidCredentialsException();
+    if (!user.isEnabled()) {
+      throw new InvalidCredentialsException();
+    }
+
     final var authorities =
         authorityResolver.resolveForPerson(user.getPerson().getId(), user.getInstitutionId());
     final LoginSessionPersistenceService.Result session =
@@ -75,6 +80,7 @@ public class AuthenticationSessionIssuer {
         "[Auth] Login succeeded, userId: {}, institutionId: {}",
         user.getId(),
         user.getInstitutionId());
+
     return AuthResponse.of(
         user, user.getPerson().getId(), authorities, accessToken, session.refreshToken());
   }

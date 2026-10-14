@@ -12,9 +12,7 @@ import ar.edu.utn.frvm.typeit.boero_api.enrollment.enums.EnrollmentApplicationSt
 import ar.edu.utn.frvm.typeit.boero_api.enrollment.exceptions.EnrollmentMessages;
 import ar.edu.utn.frvm.typeit.boero_api.enrollment.exceptions.EnrollmentValidationException;
 import ar.edu.utn.frvm.typeit.boero_api.enrollment.interfaces.EnrollmentAttachmentRepository;
-import ar.edu.utn.frvm.typeit.boero_api.enrollment.payloads.EnrollmentAttachmentResponse;
 import ar.edu.utn.frvm.typeit.boero_api.enrollment.payloads.EnrollmentDocumentRequirementResponse;
-import ar.edu.utn.frvm.typeit.boero_api.enrollment.payloads.EnrollmentRequirementChangeResponse;
 import java.time.Instant;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -174,13 +172,15 @@ public class EnrollmentDocumentRequirementsService {
   }
 
   public void requireApproval(EnrollmentApplication application, boolean provisional) {
-    if (provisional
-        ? !initialAccepted(application) || allAccepted(application)
-        : !allAccepted(application)) {
-      throw new EnrollmentValidationException(
-          provisional
-              ? EnrollmentMessages.DOCUMENT_PROVISIONAL_REQUIRED
-              : EnrollmentMessages.DOCUMENT_CONFIRMATION_REQUIRED);
+    if (provisional) {
+      if (!initialAccepted(application) || allAccepted(application)) {
+        throw new EnrollmentValidationException(EnrollmentMessages.DOCUMENT_PROVISIONAL_REQUIRED);
+      }
+      return;
+    }
+
+    if (!allAccepted(application)) {
+      throw new EnrollmentValidationException(EnrollmentMessages.DOCUMENT_CONFIRMATION_REQUIRED);
     }
   }
 
@@ -211,57 +211,17 @@ public class EnrollmentDocumentRequirementsService {
     return application.getDocumentRequirements().stream()
         .sorted(
             Comparator.comparingInt(
-                    (EnrollmentDocumentRequirement mappedEnrollmentDocumentRequirement) ->
-                        mappedEnrollmentDocumentRequirement.getDisplayOrder())
-                .thenComparing(
-                    (EnrollmentDocumentRequirement mappedEnrollmentDocumentRequirement) ->
-                        mappedEnrollmentDocumentRequirement.getId()))
+                    (EnrollmentDocumentRequirement requirement) -> requirement.getDisplayOrder())
+                .thenComparing(requirement -> requirement.getId()))
         .map(
-            value -> {
-              var file = current.get(value.getId());
-              boolean mutable =
-                  file == null || file.getReviewStatus() != DocumentReviewStatus.ACCEPTED;
-              final var request = value.getRequest();
-              return new EnrollmentDocumentRequirementResponse(
-                  value.getId(),
-                  value.getName(),
-                  value.getInstructions(),
-                  value.getLevel(),
-                  value.getAllowedFormats(),
-                  value.getDisplayOrder(),
-                  file == null ? "MISSING" : file.getReviewStatus().name(),
-                  file == null ? null : EnrollmentAttachmentResponse.from(file),
-                  value.isActive() && upload && file == null,
-                  value.isActive() && upload && delete && file != null && mutable,
-                  value.isActive()
-                      && delete
-                      && file != null
-                      && mutable
-                      && (application.isEditable()
-                          || value.getOrigin()
-                              == ar.edu.utn.frvm.typeit.boero_api.enrollment.enums
-                                  .DocumentRequirementOrigin.ADDITIONAL
-                          || value.getLevel() != DocumentRequirementLevel.AT_SUBMISSION),
-                  value.isActive()
-                      && review
-                      && file != null
-                      && file.getReviewStatus() == DocumentReviewStatus.PENDING_REVIEW,
-                  value.getDocument().getId(),
-                  value.isActive(),
-                  value.getSpecificInstructions(),
-                  value.isActive()
-                      && file != null
-                      && !value.getAllowedFormats().contains(file.getContentType()),
-                  value.getChanges().stream()
-                      .sorted(Comparator.comparing(change -> change.getOccurredAt()))
-                      .map(EnrollmentRequirementChangeResponse::from)
-                      .toList(),
-                  value.getOrigin(),
-                  request == null ? null : request.getId(),
-                  value.getSourceRequirementId(),
-                  value.getDefinitionRevision(),
-                  value.getAssignmentRevision());
-            })
+            requirement ->
+                EnrollmentDocumentRequirementResponse.from(
+                    requirement,
+                    current.get(requirement.getId()),
+                    application.isEditable(),
+                    upload,
+                    delete,
+                    review))
         .toList();
   }
 

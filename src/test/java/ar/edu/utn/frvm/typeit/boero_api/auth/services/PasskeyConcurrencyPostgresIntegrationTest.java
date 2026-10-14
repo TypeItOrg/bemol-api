@@ -19,6 +19,7 @@ import ar.edu.utn.frvm.typeit.boero_api.auth.interfaces.PasskeyCredentialReposit
 import ar.edu.utn.frvm.typeit.boero_api.auth.webauthn.WebAuthnOptionsCodec;
 import ar.edu.utn.frvm.typeit.boero_api.support.IntegrationTest;
 import ar.edu.utn.frvm.typeit.boero_api.support.JpaAuditingTestConfig;
+import ar.edu.utn.frvm.typeit.boero_api.support.PostgresTestDatabase;
 import jakarta.persistence.EntityManager;
 import java.security.SecureRandom;
 import java.time.Instant;
@@ -52,8 +53,6 @@ import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
-import org.testcontainers.containers.PostgreSQLContainer;
-import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import tools.jackson.databind.node.JsonNodeFactory;
 
@@ -71,8 +70,8 @@ import tools.jackson.databind.node.JsonNodeFactory;
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
 @IntegrationTest
 class PasskeyConcurrencyPostgresIntegrationTest {
-  @Container
-  static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>("postgres:17-alpine");
+  static final PostgresTestDatabase POSTGRES =
+      new PostgresTestDatabase("postgres:17-alpine", "passkey_concurrency");
 
   @Autowired private EntityManager entityManager;
   @Autowired private PlatformTransactionManager transactionManager;

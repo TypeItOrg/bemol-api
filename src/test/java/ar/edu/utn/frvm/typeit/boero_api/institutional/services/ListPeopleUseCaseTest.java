@@ -1,18 +1,22 @@
 package ar.edu.utn.frvm.typeit.boero_api.institutional.services;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+import ar.edu.utn.frvm.typeit.boero_api.auth.entities.User;
 import ar.edu.utn.frvm.typeit.boero_api.auth.interfaces.UserRepository;
+import ar.edu.utn.frvm.typeit.boero_api.authorization.entities.PersonRoleAssignment;
+import ar.edu.utn.frvm.typeit.boero_api.authorization.entities.Role;
 import ar.edu.utn.frvm.typeit.boero_api.authorization.interfaces.PersonRoleAssignmentRepository;
+import ar.edu.utn.frvm.typeit.boero_api.common.web.PaginatedResponse;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.entities.Institution;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.entities.Person;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.interfaces.PersonRepository;
+import ar.edu.utn.frvm.typeit.boero_api.institutional.payloads.person.PersonSummaryResponse;
 import java.util.List;
 import java.util.UUID;
-import org.junit.jupiter.api.DisplayName;
+import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -20,128 +24,117 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 
 @ExtendWith(MockitoExtension.class)
 class ListPeopleUseCaseTest {
-
+  private static final UUID INSTITUTION_ID =
+      UUID.fromString("00000000-0000-0000-0000-000000000001");
+  private static final UUID ANA_ID = UUID.fromString("00000000-0000-0000-0000-000000000002");
+  private static final UUID LUIS_ID = UUID.fromString("00000000-0000-0000-0000-000000000003");
+  private static final UUID ROLE_ID = UUID.fromString("00000000-0000-0000-0000-000000000004");
+  private static final PageRequest PAGE = PageRequest.of(1, 20, Sort.by("lastName"));
+  private final Institution institution = Institution.builder().id(INSTITUTION_ID).build();
   @Mock private PersonRepository personRepository;
-  @Mock private PersonRoleAssignmentRepository personRoleAssignmentRepository;
-  @Mock private UserRepository userRepository;
-
-  @InjectMocks private ListPeopleUseCase listPeopleUseCase;
+  @Mock private PersonRoleAssignmentRepository assignments;
+  @Mock private UserRepository users;
+  @InjectMocks private ListPeopleUseCase useCase;
 
   @Test
-  @DisplayName("Should list people in institution when no search provided")
-  void execute_listsPeopleWithoutSearch() {
-    UUID institutionId = UUID.randomUUID();
-    Pageable pageable = PageRequest.of(0, 20);
-    Person person = personWith(institutionId, "11111111", "Ana", "García");
-    when(personRepository.findByInstitution_IdAndDeletedFalse(institutionId, pageable))
-        .thenReturn(new PageImpl<>(List.of(person), pageable, 1));
-    when(personRoleAssignmentRepository.findByPerson_IdInAndInstitution_Id(
-            List.of(person.getId()), institutionId))
-        .thenReturn(List.of());
-    when(userRepository.findByPerson_IdInAndInstitution_Id(List.of(person.getId()), institutionId))
-        .thenReturn(List.of());
+  void mapsRolesAndAccessByPersonWithoutMixingPeopleAndPreservesPagination() {
+    final var ana = person(ANA_ID, "Ana", "11111111");
+    final var luis = person(LUIS_ID, "Luis", "22222222");
+    final var teacher =
+        Role.builder().id(ROLE_ID).institution(institution).code("TEACHER").name("Docente").build();
+    final var activeUser =
+        User.builder().institution(institution).person(ana).password("hash").build();
+    final var disabledUser =
+        User.builder().institution(institution).person(luis).password("hash").build();
+    disabledUser.updateAccess(false);
+    when(personRepository.findByInstitution_IdAndDeletedFalse(INSTITUTION_ID, PAGE))
+        .thenReturn(new PageImpl<>(List.of(ana, luis), PAGE, 22));
+    when(assignments.findByPerson_IdInAndInstitution_Id(List.of(ANA_ID, LUIS_ID), INSTITUTION_ID))
+        .thenReturn(List.of(PersonRoleAssignment.assign(ana, teacher, institution)));
+    when(users.findByPerson_IdInAndInstitution_Id(List.of(ANA_ID, LUIS_ID), INSTITUTION_ID))
+        .thenReturn(List.of(disabledUser, activeUser));
 
-    var response = listPeopleUseCase.execute(institutionId, null, null, pageable);
-
-    assertThat(response.items()).hasSize(1);
-    assertThat(response.items().getFirst().firstName()).isEqualTo("Ana");
-    assertThat(response.items().getFirst().lastName()).isEqualTo("García");
-    assertThat(response.items().getFirst().documentNumber()).isEqualTo("11111111");
+    assertThat(useCase.execute(INSTITUTION_ID, "   ", null, PAGE))
+        .isEqualTo(
+            new PaginatedResponse<>(
+                List.of(
+                    new PersonSummaryResponse(
+                        ANA_ID,
+                        "Ana",
+                        "García",
+                        "11111111",
+                        "ana@example.com",
+                        "353-123",
+                        true,
+                        List.of(
+                            new PersonSummaryResponse.PersonRoleSummaryResponse(
+                                "TEACHER", "Docente"))),
+                    new PersonSummaryResponse(
+                        LUIS_ID,
+                        "Luis",
+                        "García",
+                        "22222222",
+                        "luis@example.com",
+                        "353-123",
+                        false,
+                        List.of())),
+                1,
+                20,
+                22,
+                2));
   }
 
   @Test
-  @DisplayName("Should delegate to search when search term is provided")
-  void execute_delegatesToSearchWhenSearchProvided() {
-    UUID institutionId = UUID.randomUUID();
-    Pageable pageable = PageRequest.of(0, 20);
-    Person person = personWith(institutionId, "11111111", "Ana", "García");
-    when(personRepository.search(institutionId, "ana", null, pageable))
-        .thenReturn(new PageImpl<>(List.of(person), pageable, 1));
-    when(personRoleAssignmentRepository.findByPerson_IdInAndInstitution_Id(
-            List.of(person.getId()), institutionId))
-        .thenReturn(List.of());
-    when(userRepository.findByPerson_IdInAndInstitution_Id(List.of(person.getId()), institutionId))
-        .thenReturn(List.of());
+  void usesTheTrimmedSearchWithoutRequiringARoleFilter() {
+    stubFilteredPage("Ana", null);
 
-    var response = listPeopleUseCase.execute(institutionId, "ana", null, pageable);
-
-    assertThat(response.items()).hasSize(1);
-    assertThat(response.items().getFirst().firstName()).isEqualTo("Ana");
+    assertThat(useCase.execute(INSTITUTION_ID, "  Ana  ", null, PAGE).items())
+        .extracting(person -> person.id())
+        .containsExactly(ANA_ID);
   }
 
   @Test
-  @DisplayName("Should delegate to search when role ID is provided")
-  void execute_delegatesToSearchWhenRoleIdProvided() {
-    UUID institutionId = UUID.randomUUID();
-    UUID roleId = UUID.randomUUID();
-    Pageable pageable = PageRequest.of(0, 20);
-    Person person = personWith(institutionId, "11111111", "Ana", "García");
-    when(personRepository.search(institutionId, null, roleId, pageable))
-        .thenReturn(new PageImpl<>(List.of(person), pageable, 1));
-    when(personRoleAssignmentRepository.findByPerson_IdInAndInstitution_Id(
-            List.of(person.getId()), institutionId))
+  void usesTheRoleFilterWithoutRequiringASearch() {
+    stubFilteredPage(null, ROLE_ID);
+
+    assertThat(useCase.execute(INSTITUTION_ID, null, ROLE_ID, PAGE).items())
+        .extracting(person -> person.id())
+        .containsExactly(ANA_ID);
+  }
+
+  @Test
+  void preservesAnEmptyPageBeyondTheLastPageAndSkipsRelatedQueries() {
+    final var outOfRange = PageRequest.of(2, 20);
+    when(personRepository.search(INSTITUTION_ID, "nope", null, outOfRange))
+        .thenReturn(new PageImpl<>(List.of(), outOfRange, 35));
+
+    assertThat(useCase.execute(INSTITUTION_ID, "nope", null, outOfRange))
+        .isEqualTo(new PaginatedResponse<>(List.of(), 2, 20, 35, 2));
+    verifyNoInteractions(assignments, users);
+  }
+
+  private void stubFilteredPage(@Nullable String search, @Nullable UUID role) {
+    when(personRepository.search(INSTITUTION_ID, search, role, PAGE))
+        .thenReturn(new PageImpl<>(List.of(person(ANA_ID, "Ana", "11111111")), PAGE, 21));
+    when(assignments.findByPerson_IdInAndInstitution_Id(List.of(ANA_ID), INSTITUTION_ID))
         .thenReturn(List.of());
-    when(userRepository.findByPerson_IdInAndInstitution_Id(List.of(person.getId()), institutionId))
+    when(users.findByPerson_IdInAndInstitution_Id(List.of(ANA_ID), INSTITUTION_ID))
         .thenReturn(List.of());
-
-    var response = listPeopleUseCase.execute(institutionId, null, roleId, pageable);
-
-    assertThat(response.items()).hasSize(1);
-    assertThat(response.items().getFirst().firstName()).isEqualTo("Ana");
   }
 
-  @Test
-  @DisplayName("Should trim the search before delegating to repository")
-  void execute_trimsSearchBeforeDelegating() {
-    UUID institutionId = UUID.randomUUID();
-    Pageable pageable = PageRequest.of(0, 20);
-    when(personRepository.search(institutionId, "matias", null, pageable))
-        .thenReturn(new PageImpl<>(List.of(), pageable, 0));
-
-    listPeopleUseCase.execute(institutionId, "  matias  ", null, pageable);
-
-    verify(personRepository).search(institutionId, "matias", null, pageable);
-  }
-
-  @Test
-  @DisplayName("Should treat whitespace-only search as no search")
-  void execute_treatsWhitespaceOnlyAsNoSearch() {
-    UUID institutionId = UUID.randomUUID();
-    Pageable pageable = PageRequest.of(0, 20);
-    when(personRepository.findByInstitution_IdAndDeletedFalse(institutionId, pageable))
-        .thenReturn(new PageImpl<>(List.of(), pageable, 0));
-
-    listPeopleUseCase.execute(institutionId, "   ", null, pageable);
-
-    verify(personRepository, never()).search(institutionId, "   ", null, pageable);
-  }
-
-  @Test
-  @DisplayName("Should return empty page when no matches")
-  void execute_returnsEmptyWhenNoMatch() {
-    UUID institutionId = UUID.randomUUID();
-    Pageable pageable = PageRequest.of(0, 20);
-    when(personRepository.search(institutionId, "nope", null, pageable))
-        .thenReturn(new PageImpl<>(List.of(), pageable, 0));
-
-    var response = listPeopleUseCase.execute(institutionId, "nope", null, pageable);
-
-    assertThat(response.items()).isEmpty();
-    assertThat(response.totalItems()).isZero();
-  }
-
-  private Person personWith(UUID institutionId, String documentNumber, String name, String last) {
-    Institution institution = Institution.builder().id(institutionId).name("Conservatorio").build();
+  private Person person(UUID id, String firstName, String document) {
     return Person.builder()
-        .id(UUID.randomUUID())
+        .id(id)
         .institution(institution)
-        .firstName(name)
-        .lastName(last)
-        .documentNumber(documentNumber)
+        .firstName(firstName)
+        .lastName("García")
+        .documentNumber(document)
+        .email(firstName.toLowerCase(java.util.Locale.ROOT) + "@example.com")
+        .phoneNumber("353-123")
         .build();
   }
 }

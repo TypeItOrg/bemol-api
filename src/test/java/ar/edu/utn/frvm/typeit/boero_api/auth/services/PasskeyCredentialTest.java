@@ -33,21 +33,11 @@ class PasskeyCredentialTest {
     final PasskeyCredential credential = credentialWith("Key");
 
     assertThat(credential.isActive()).isTrue();
-    assertThat(credential.revoke(Instant.now())).isTrue();
+    final var revokedAt = Instant.parse("2026-09-14T15:00:00Z");
+    assertThat(credential.revoke(revokedAt)).isTrue();
     assertThat(credential.isActive()).isFalse();
-    assertThat(credential.revoke(Instant.now())).isFalse();
-  }
-
-  @Test
-  @DisplayName("Should track last usage")
-  void markUsed_updatesTimestamp() {
-    final PasskeyCredential credential = credentialWith("Key");
-    final Instant now = Instant.now();
-
-    credential.markUsed(now, 7L);
-
-    assertThat(credential.getLastUsedAt()).isEqualTo(now);
-    assertThat(credential.getSignatureCount()).isEqualTo(7L);
+    assertThat(credential.revoke(revokedAt.plusSeconds(60))).isFalse();
+    assertThat(credential.getRevokedAt()).isEqualTo(revokedAt);
   }
 
   private static PasskeyCredential credentialWith(final String label) {

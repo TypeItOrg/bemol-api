@@ -16,8 +16,12 @@ import ar.edu.utn.frvm.typeit.boero_api.authorization.services.AcademicAccessGua
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.NullSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -46,13 +50,18 @@ class ListCourseSpaceOptionsUseCaseTest {
                 ACADEMIC_SPACE_ID, "Educación Física", "SUBJECT", "INDIVIDUAL"));
   }
 
-  @Test
-  void ignoresBlankSearchValues() {
+  @ParameterizedTest
+  @NullSource
+  @ValueSource(strings = {"", "  "})
+  void ignoresBlankSearchValues(final @Nullable String search) {
     stubActivePlanAndSpace("Educación Física");
 
-    final var result = useCase().execute(INSTITUTION_ID, STUDY_PLAN_ID, "  ");
+    final var result = useCase().execute(INSTITUTION_ID, STUDY_PLAN_ID, search);
 
-    assertThat(result).hasSize(1);
+    assertThat(result)
+        .containsExactly(
+            new CourseSpaceOptionResponse(
+                ACADEMIC_SPACE_ID, "Educación Física", "SUBJECT", "INDIVIDUAL"));
   }
 
   private ListCourseSpaceOptionsUseCase useCase() {

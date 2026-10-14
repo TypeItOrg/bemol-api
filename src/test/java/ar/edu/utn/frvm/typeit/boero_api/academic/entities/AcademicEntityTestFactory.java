@@ -27,6 +27,35 @@ public final class AcademicEntityTestFactory {
         .build();
   }
 
+  public static StudyPlan studyPlan(
+      final Institution institution, final UUID planId, final UUID pathId) {
+    return StudyPlan.builder()
+        .id(planId)
+        .institution(institution)
+        .trainingPath(
+            TrainingPath.builder()
+                .id(pathId)
+                .institution(institution)
+                .name("Path")
+                .description("Programa")
+                .build())
+        .name("Plan")
+        .effectiveFrom(LocalDate.of(2026, 1, 1))
+        .effectiveTo(LocalDate.of(2030, 12, 31))
+        .status(StudyPlanStatus.ACTIVE)
+        .build();
+  }
+
+  public static AcademicLevel academicLevel(final StudyPlan plan, final UUID id, final int order) {
+    return AcademicLevel.builder()
+        .id(id)
+        .studyPlan(plan)
+        .name("Nivel " + order)
+        .displayOrder(order)
+        .description(null)
+        .build();
+  }
+
   public static StudyPlanSpace studyPlanSpace(final StudyPlan plan, final UUID id) {
     final var academicSpace =
         AcademicSpace.builder()

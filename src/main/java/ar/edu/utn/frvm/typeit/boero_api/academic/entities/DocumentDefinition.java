@@ -1,13 +1,18 @@
 package ar.edu.utn.frvm.typeit.boero_api.academic.entities;
 
+import ar.edu.utn.frvm.typeit.boero_api.academic.exceptions.AcademicMessages;
+import ar.edu.utn.frvm.typeit.boero_api.academic.exceptions.DocumentCatalogException;
+import ar.edu.utn.frvm.typeit.boero_api.common.exceptions.ErrorCategory;
 import ar.edu.utn.frvm.typeit.boero_api.common.persistence.GeneratedUUIDv7;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.entities.Institution;
 import jakarta.persistence.*;
+import java.time.Instant;
 import java.util.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
+import org.jspecify.annotations.Nullable;
 
 @Entity
 @Table(name = "document_definitions")
@@ -35,10 +40,21 @@ public class DocumentDefinition {
 
   @Version private long revision;
 
+  @Column(name = "used_at", insertable = false, updatable = false)
+  private @Nullable Instant usedAt;
+
   public static DocumentDefinition create(final Institution institution) {
     var value = new DocumentDefinition();
     value.institution = institution;
     return value;
+  }
+
+  public void changeInstitution(final Institution destination) {
+    if (usedAt != null) {
+      throw new DocumentCatalogException(
+          ErrorCategory.CONFLICT, AcademicMessages.DOCUMENT_INSTITUTION_CHANGE_BLOCKED);
+    }
+    this.institution = destination;
   }
 
   public void update(

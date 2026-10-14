@@ -14,6 +14,7 @@ import ar.edu.utn.frvm.typeit.boero_api.common.exceptions.GlobalExceptionHandler
 import ar.edu.utn.frvm.typeit.boero_api.config.WebConfig;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.exceptions.*;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.payloads.*;
+import ar.edu.utn.frvm.typeit.boero_api.institutional.payloads.requests.UpdateInstitutionWithBrandingRequest.LogoIntent;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.services.*;
 import ar.edu.utn.frvm.typeit.boero_api.support.AuthTestData;
 import java.util.UUID;
@@ -60,10 +61,9 @@ class QaInstitutionAccessWebMvcTest {
   @MockitoBean ListInstitutionsAdminUseCase adminList;
   @MockitoBean GetInstitutionAdminUseCase adminGet;
   @MockitoBean CreateInstitutionUseCase create;
-  @MockitoBean UpdateInstitutionUseCase update;
+  @MockitoBean UpdateInstitutionWithBrandingUseCase update;
   @MockitoBean UpdateInstitutionStatusUseCase statusUpdate;
   @MockitoBean UpdateInstitutionalInstitutionUseCase tenantUpdate;
-  @MockitoBean UpdateInstitutionPublicAccessUseCase publicAccess;
   @MockitoBean ResolveInstitutionPublicAccessUseCase resolve;
   @MockitoBean InstitutionLogoUseCase logos;
   final UUID institutionId = UUID.fromString("22222222-2222-2222-2222-222222222222");
@@ -115,21 +115,25 @@ class QaInstitutionAccessWebMvcTest {
     when(authorization.hasPlatformRole(any(), eq(PlatformRoleCode.PLATFORM_ADMIN)))
         .thenReturn(true);
     mvc.perform(
-            patch("/api/v1/admin/institutions/{id}/public-access", institutionId)
-                .principal(platform())
-                .contentType("application/json")
-                .content("{\"publicSubdomain\":\"cboero\"}"))
+            multipart(HttpMethod.PUT, "/api/v1/admin/institutions/{id}", institutionId)
+                .file(brandingData("\"publicSubdomain\":\"cboero\",", "KEEP"))
+                .principal(platform()))
         .andExpect(status().isOk());
-    verify(publicAccess).execute(institutionId, "cboero");
+    verify(update)
+        .execute(
+            eq(institutionId),
+            argThat(request -> "cboero".equals(request.publicSubdomain())),
+            isNull());
     when(authorization.hasPlatformRole(any(), eq(PlatformRoleCode.PLATFORM_ADMIN)))
         .thenReturn(false);
     mvc.perform(
-            patch("/api/v1/admin/institutions/{id}/public-access", institutionId)
-                .principal(tenant())
-                .contentType("application/json")
-                .content("{\"publicSubdomain\":null}"))
+            multipart(HttpMethod.PUT, "/api/v1/admin/institutions/{id}", institutionId)
+                .file(brandingData("\"publicSubdomain\":null,", "KEEP"))
+                .principal(tenant()))
         .andExpect(status().isForbidden());
-    verify(publicAccess, never()).execute(institutionId, null);
+    verify(update, never())
+        .execute(
+            eq(institutionId), argThat(request -> request.publicSubdomain() == null), isNull());
   }
 
   @Test
@@ -137,35 +141,47 @@ class QaInstitutionAccessWebMvcTest {
     when(authorization.hasPlatformRole(any(), eq(PlatformRoleCode.PLATFORM_ADMIN)))
         .thenReturn(true);
     mvc.perform(
-            patch("/api/v1/admin/institutions/{id}/public-access", institutionId)
-                .principal(platform())
-                .contentType("application/json")
-                .content("{}"))
+            multipart(HttpMethod.PUT, "/api/v1/admin/institutions/{id}", institutionId)
+                .file(brandingData("", "KEEP"))
+                .principal(platform()))
         .andExpect(status().isBadRequest());
-    verifyNoInteractions(publicAccess);
+    verifyNoInteractions(update);
     mvc.perform(
-            patch("/api/v1/admin/institutions/{id}/public-access", institutionId)
-                .principal(platform())
-                .contentType("application/json")
-                .content("{\"publicSubdomain\":null}"))
+            multipart(HttpMethod.PUT, "/api/v1/admin/institutions/{id}", institutionId)
+                .file(brandingData("\"publicSubdomain\":null,", "KEEP"))
+                .principal(platform()))
         .andExpect(status().isOk());
-    verify(publicAccess).execute(institutionId, null);
+    verify(update)
+        .execute(
+            eq(institutionId), argThat(request -> request.publicSubdomain() == null), isNull());
   }
 
   @Test
-  void L01_platformLogoLifecycle_httpPutDelete() throws Exception {
+  void L01_platformLogoLifecycle_combinedUpdate() throws Exception {
     when(authorization.hasPlatformRole(any(), eq(PlatformRoleCode.PLATFORM_ADMIN)))
         .thenReturn(true);
     final var file = new MockMultipartFile("file", "logo.png", "image/png", new byte[] {1});
     mvc.perform(
-            multipart(HttpMethod.PUT, "/api/v1/admin/institutions/{id}/logo", institutionId)
+            multipart(HttpMethod.PUT, "/api/v1/admin/institutions/{id}", institutionId)
+                .file(brandingData("\"publicSubdomain\":null,", "REPLACE"))
                 .file(file)
                 .principal(platform()))
         .andExpect(status().isOk());
-    mvc.perform(delete("/api/v1/admin/institutions/{id}/logo", institutionId).principal(platform()))
-        .andExpect(status().isNoContent());
-    verify(logos).replace(eq(institutionId), any());
-    verify(logos).delete(institutionId);
+    mvc.perform(
+            multipart(HttpMethod.PUT, "/api/v1/admin/institutions/{id}", institutionId)
+                .file(brandingData("\"publicSubdomain\":null,", "REMOVE"))
+                .principal(platform()))
+        .andExpect(status().isOk());
+    verify(update)
+        .execute(
+            eq(institutionId),
+            argThat(request -> request.logoIntent() == LogoIntent.REPLACE),
+            any());
+    verify(update)
+        .execute(
+            eq(institutionId),
+            argThat(request -> request.logoIntent() == LogoIntent.REMOVE),
+            isNull());
   }
 
   @Test
@@ -193,9 +209,34 @@ class QaInstitutionAccessWebMvcTest {
         .thenReturn(true);
     mvc.perform(delete("/api/v1/institutions/{id}/logo", UUID.randomUUID()).principal(tenant()))
         .andExpect(status().isForbidden());
-    mvc.perform(delete("/api/v1/admin/institutions/{id}/logo", institutionId).principal(tenant()))
+    mvc.perform(
+            multipart(HttpMethod.PUT, "/api/v1/admin/institutions/{id}", institutionId)
+                .file(brandingData("\"publicSubdomain\":null,", "REMOVE"))
+                .principal(tenant()))
         .andExpect(status().isForbidden());
-    verifyNoInteractions(logos);
+    verifyNoInteractions(logos, update);
+  }
+
+  private MockMultipartFile brandingData(final String subdomainField, final String logoIntent) {
+    final String payload =
+        """
+        {
+          "institution": {
+            "name": "Conservatorio QA",
+            "slug": "qa",
+            "cityId": "33333333-3333-3333-3333-333333333333",
+            "active": true
+          },
+          %s
+          "logoIntent": "%s"
+        }
+        """
+            .formatted(subdomainField, logoIntent);
+    return new MockMultipartFile(
+        "data",
+        "data.json",
+        "application/json",
+        payload.getBytes(java.nio.charset.StandardCharsets.UTF_8));
   }
 
   @Test

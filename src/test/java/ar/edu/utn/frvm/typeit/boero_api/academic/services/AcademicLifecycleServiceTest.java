@@ -36,6 +36,7 @@ import ar.edu.utn.frvm.typeit.boero_api.academic.payloads.AcademicLifecycleReque
 import ar.edu.utn.frvm.typeit.boero_api.academic.payloads.AcademicYearStatusRequest;
 import ar.edu.utn.frvm.typeit.boero_api.authorization.enums.AccountType;
 import ar.edu.utn.frvm.typeit.boero_api.authorization.services.AcademicAccessGuard;
+import ar.edu.utn.frvm.typeit.boero_api.enrollment.interfaces.CourseEnrollmentRepository;
 import ar.edu.utn.frvm.typeit.boero_api.enrollment.services.CourseClosureService;
 import ar.edu.utn.frvm.typeit.boero_api.enrollment.services.EnrollmentInstitutionLock;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.entities.Institution;
@@ -46,10 +47,10 @@ import java.time.ZoneId;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.Spy;
@@ -69,7 +70,32 @@ class AcademicLifecycleServiceTest {
   @Mock private CourseRepository courseRepository;
   @Mock private AcademicLifecycleEventRepository eventRepository;
   @Mock private AcademicLifecycleActorResolver actorResolver;
-  @InjectMocks private AcademicLifecycleService service;
+  @Mock private CourseEnrollmentRepository courseEnrollmentRepository;
+  private AcademicLifecycleService service;
+
+  @BeforeEach
+  void setUp() {
+    final var journal = new AcademicLifecycleJournal(clock, eventRepository, actorResolver);
+    service =
+        new AcademicLifecycleService(
+            new AcademicCatalogLifecycleUseCase(
+                clock,
+                academicYearRepository,
+                academicSpaceRepository,
+                instrumentRepository,
+                shiftRepository,
+                journal),
+            new AcademicCurriculumLifecycleUseCase(
+                accessGuard,
+                clock,
+                academicYearRepository,
+                trainingPathRepository,
+                studyPlanRepository,
+                courseRepository,
+                courseEnrollmentRepository,
+                journal),
+            journal);
+  }
 
   @Test
   void deletesAnInactiveTrainingPathAndRecordsItsActorAndReason() {
@@ -195,12 +221,14 @@ class AcademicLifecycleServiceTest {
     final var studyPlanId = UUID.randomUUID();
     final var institution = Institution.builder().id(institutionId).build();
     final var academicYear =
-        AcademicYear.create(
-            institution,
-            2027,
-            LocalDate.of(2027, 3, 1),
-            LocalDate.of(2027, 12, 15),
-            LocalDate.now(ZoneId.of("America/Argentina/Buenos_Aires")));
+        Mockito.spy(
+            AcademicYear.create(
+                institution,
+                2027,
+                LocalDate.of(2027, 3, 1),
+                LocalDate.of(2027, 12, 15),
+                LocalDate.of(2026, 10, 7)));
+    Mockito.doReturn(academicYearId).when(academicYear).getId();
     academicYear.transitionTo(AcademicYearStatus.ACTIVE);
     final var trainingPath = TrainingPath.create(institution, "Tecnicatura", null);
     final var studyPlan =

@@ -1,5 +1,6 @@
 package ar.edu.utn.frvm.typeit.boero_api.auth.services;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
@@ -58,24 +59,31 @@ class AuthenticationSessionIssuerTest {
     when(persistence.create(userId, "ip", "agent", false))
         .thenReturn(new LoginSessionPersistenceService.Result(sessionId, "refresh"));
     when(jwt.generateAccessToken(any())).thenReturn("access");
-    issuer.issuePassword(attempt, user, "ip", "agent", false);
+    var response = issuer.issuePassword(attempt, user, "ip", "agent", false);
+    assertThat(response.tokens().accessToken()).isEqualTo("access");
+    assertThat(response.tokens().refreshToken()).isEqualTo("refresh");
+    assertThat(response.user().userId()).isEqualTo(userId);
+    assertThat(response.user().personId()).isEqualTo(person.getId());
+    assertThat(response.user().institutionId()).isEqualTo(institutionId);
+    assertThat(response.user().documentNumber()).isEqualTo("12345678");
     final var order = inOrder(attempts, persistence, jwt, recentAuth);
     order.verify(attempts).claim("attempt");
     order.verify(persistence).create(userId, "ip", "agent", false);
-    order.verify(jwt).generateAccessToken(any());
+    order
+        .verify(jwt)
+        .generateAccessToken(
+            new InstitutionalAccessTokenInput(
+                userId, person.getId(), institutionId, "12345678", sessionId));
     order.verify(recentAuth).mark(sessionId, userId, AuthenticationSessionIssuer.METHOD_PASSWORD);
   }
 
   @Test
   @DisplayName("Should reject an account disabled after password verification without claiming")
   void rejectsFreshlyDisabledAccount() {
-    final User authenticated = mock(User.class);
-    final User current = mock(User.class);
+    final User authenticated = realUser("hash");
+    final User current = realUser("hash");
+    current.updateAccess(false);
     when(users.findWithPersonAndInstitutionById(userId)).thenReturn(Optional.of(current));
-    when(current.getId()).thenReturn(userId);
-    when(authenticated.getId()).thenReturn(userId);
-    when(current.getInstitutionId()).thenReturn(institutionId);
-    when(current.isEnabled()).thenReturn(false);
     assertThatThrownBy(() -> issuer.issuePassword(attempt, authenticated, "ip", "agent", false))
         .isInstanceOf(InvalidCredentialsException.class);
     verifyNoInteractions(attempts, persistence, jwt, authorities, recentAuth);
@@ -84,15 +92,9 @@ class AuthenticationSessionIssuerTest {
   @Test
   @DisplayName("Should reject a password reset between authentication and session issuance")
   void rejectsPasswordChangedAfterVerification() {
-    final User authenticated = mock(User.class);
-    final User current = mock(User.class);
+    final User authenticated = realUser("old-hash");
+    final User current = realUser("new-hash");
     when(users.findWithPersonAndInstitutionById(userId)).thenReturn(Optional.of(current));
-    when(current.getId()).thenReturn(userId);
-    when(authenticated.getId()).thenReturn(userId);
-    when(current.getInstitutionId()).thenReturn(institutionId);
-    when(current.isEnabled()).thenReturn(true);
-    when(current.getPassword()).thenReturn("new-hash");
-    when(authenticated.getPassword()).thenReturn("old-hash");
     assertThatThrownBy(() -> issuer.issuePassword(attempt, authenticated, "ip", "agent", false))
         .isInstanceOf(InvalidCredentialsException.class);
     verifyNoInteractions(attempts, persistence, jwt, authorities, recentAuth);
@@ -101,15 +103,27 @@ class AuthenticationSessionIssuerTest {
   @Test
   @DisplayName("Should not issue a session if a verified attempt expires or was already claimed")
   void rejectsClaimFailureBeforePersistence() {
-    final User authenticated = mock(User.class);
+    final User authenticated = realUser("hash");
     when(users.findWithPersonAndInstitutionById(userId)).thenReturn(Optional.of(authenticated));
-    when(authenticated.getId()).thenReturn(userId);
-    when(authenticated.getInstitutionId()).thenReturn(institutionId);
-    when(authenticated.isEnabled()).thenReturn(true);
-    when(authenticated.getPassword()).thenReturn("hash");
     when(attempts.claim("attempt")).thenThrow(new InvalidLoginAttemptException());
     assertThatThrownBy(() -> issuer.issuePassword(attempt, authenticated, "ip", "agent", false))
         .isInstanceOf(InvalidLoginAttemptException.class);
     verifyNoInteractions(persistence, jwt, authorities, recentAuth);
+  }
+
+  private User realUser(String password) {
+    Institution institution = Institution.builder().id(institutionId).build();
+    Person person =
+        Person.builder()
+            .id(UUID.fromString("00000000-0000-0000-0000-000000000003"))
+            .institution(institution)
+            .documentNumber("12345678")
+            .build();
+    return User.builder()
+        .id(userId)
+        .institution(institution)
+        .person(person)
+        .password(password)
+        .build();
   }
 }

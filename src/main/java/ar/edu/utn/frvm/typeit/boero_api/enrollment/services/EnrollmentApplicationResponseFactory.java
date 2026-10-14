@@ -5,19 +5,30 @@ import ar.edu.utn.frvm.typeit.boero_api.enrollment.entities.EnrollmentApplicatio
 import ar.edu.utn.frvm.typeit.boero_api.enrollment.enums.EnrollmentApplicationStatus;
 import ar.edu.utn.frvm.typeit.boero_api.enrollment.enums.EnrollmentDocumentAction;
 import ar.edu.utn.frvm.typeit.boero_api.enrollment.payloads.EnrollmentApplicationResponse;
+import ar.edu.utn.frvm.typeit.boero_api.enrollment.payloads.EnrollmentDocumentRequestResponse;
+import java.util.Comparator;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 
 @Component
 @RequiredArgsConstructor
+@Transactional(readOnly = true, propagation = Propagation.MANDATORY)
 public class EnrollmentApplicationResponseFactory {
   private final EnrollmentApplicationPeriodService periods;
   private final EnrollmentDocumentAuthorization authorization;
   private final EnrollmentDocumentAudit audit;
   private final EnrollmentDocumentRequirementsService documents;
   private final EnrollmentAdmissionHistory history;
+
+  public EnrollmentApplicationResponse summary(final EnrollmentApplication application) {
+    return EnrollmentApplicationResponse.summary(application).toBuilder()
+        .periodOpen(periods.isOpen(application))
+        .build();
+  }
 
   public EnrollmentApplicationResponse from(final EnrollmentApplication application) {
     return from(application, true);
@@ -65,11 +76,8 @@ public class EnrollmentApplicationResponseFactory {
         .documentRequests(
             canRead
                 ? application.getDocumentRequests().stream()
-                    .sorted(java.util.Comparator.comparing(request -> request.getCreatedAt()))
-                    .map(
-                        ar.edu.utn.frvm.typeit.boero_api.enrollment.payloads
-                                .EnrollmentDocumentRequestResponse
-                            ::from)
+                    .sorted(Comparator.comparing(request -> request.getCreatedAt()))
+                    .map(EnrollmentDocumentRequestResponse::from)
                     .toList()
                 : List.of())
         .canApproveProvisionally(

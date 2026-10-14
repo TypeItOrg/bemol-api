@@ -9,6 +9,7 @@ import ar.edu.utn.frvm.typeit.boero_api.institutional.entities.Institution;
 import ar.edu.utn.frvm.typeit.boero_api.support.JpaAuditingTestConfig;
 import jakarta.persistence.EntityManager;
 import java.util.List;
+import org.hibernate.Hibernate;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -23,29 +24,35 @@ class UserRepositoryTest {
   @Autowired private UserRepository userRepository;
 
   @Test
-  @DisplayName("Should find user by document number within institution")
-  void shouldFindUserByDocumentNumberWithinInstitution() {
-    Institution institution = createInstitution(entityManager, "boero");
-    User user = createUser(entityManager, institution, "12345678");
-    entityManager.flush();
-
-    assertThat(
-            userRepository.findByPersonDocumentNumberAndInstitution_Id(
-                "12345678", institution.getId()))
-        .contains(user);
-  }
-
-  @Test
-  @DisplayName("Should not find user from another institution")
-  void shouldNotFindUserFromAnotherInstitution() {
+  @DisplayName("Document lookup and existence stay scoped even when institutions share a document")
+  void documentQueriesCannotCrossInstitutionBoundaries() {
     Institution boero = createInstitution(entityManager, "boero");
     Institution other = createInstitution(entityManager, "other-school");
-    createUser(entityManager, boero, "12345678");
+    User first = createUser(entityManager, boero, "12345678");
+    User second = createUser(entityManager, other, "12345678");
+    createUser(entityManager, boero, "87654321");
     entityManager.flush();
+    entityManager.clear();
 
     assertThat(
+            userRepository.findByPersonDocumentNumberAndInstitution_Id("12345678", boero.getId()))
+        .get()
+        .extracting(user -> user.getId())
+        .isEqualTo(first.getId());
+    assertThat(
             userRepository.findByPersonDocumentNumberAndInstitution_Id("12345678", other.getId()))
+        .get()
+        .extracting(user -> user.getId())
+        .isEqualTo(second.getId());
+    assertThat(
+            userRepository.findByPersonDocumentNumberAndInstitution_Id("87654321", other.getId()))
         .isEmpty();
+    assertThat(
+            userRepository.existsByPersonDocumentNumberAndInstitution_Id("12345678", boero.getId()))
+        .isTrue();
+    assertThat(
+            userRepository.existsByPersonDocumentNumberAndInstitution_Id("87654321", other.getId()))
+        .isFalse();
   }
 
   @Test
@@ -77,27 +84,17 @@ class UserRepositoryTest {
     User user = createUser(entityManager, institution, "12345678");
     entityManager.flush();
 
-    assertThat(
-            userRepository.findWithPersonAndInstitutionForPasswordRecovery(
-                "12345678", institution.getId()))
-        .contains(user);
-  }
-
-  @Test
-  @DisplayName("Should check user existence by document number within institution")
-  void shouldCheckUserExistenceByDocumentNumberWithinInstitution() {
-    Institution institution = createInstitution(entityManager, "boero");
-    createUser(entityManager, institution, "12345678");
-    entityManager.flush();
-
-    assertThat(
-            userRepository.existsByPersonDocumentNumberAndInstitution_Id(
-                "12345678", institution.getId()))
-        .isTrue();
-    assertThat(
-            userRepository.existsByPersonDocumentNumberAndInstitution_Id(
-                "87654321", institution.getId()))
-        .isFalse();
+    entityManager.clear();
+    User loaded =
+        userRepository
+            .findWithPersonAndInstitutionForPasswordRecovery("12345678", institution.getId())
+            .orElseThrow();
+    assertThat(loaded.getId()).isEqualTo(user.getId());
+    assertThat(Hibernate.isInitialized(loaded.getPerson())).isTrue();
+    assertThat(Hibernate.isInitialized(loaded.getInstitution())).isTrue();
+    entityManager.detach(loaded);
+    assertThat(loaded.getPerson().getDocumentNumber()).isEqualTo("12345678");
+    assertThat(loaded.getInstitution().getName()).isEqualTo(institution.getName());
   }
 
   @Test

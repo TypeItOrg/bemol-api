@@ -47,7 +47,12 @@ class EnrollmentApplicationLockingTest {
     AcademicYear academicYear =
         persist(
             entityManager,
-            AcademicYear.create(institution, 2026, null, null, LocalDate.of(2026, 1, 15)));
+            AcademicYear.create(
+                institution,
+                2026,
+                LocalDate.of(2026, 3, 1),
+                LocalDate.of(2026, 12, 15),
+                LocalDate.of(2026, 1, 15)));
     academicYear.transitionTo(
         ar.edu.utn.frvm.typeit.boero_api.academic.enums.AcademicYearStatus.ACTIVE);
     EnrollmentPeriod period =

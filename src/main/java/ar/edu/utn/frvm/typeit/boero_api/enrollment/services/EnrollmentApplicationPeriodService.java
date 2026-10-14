@@ -1,6 +1,7 @@
 package ar.edu.utn.frvm.typeit.boero_api.enrollment.services;
 
 import ar.edu.utn.frvm.typeit.boero_api.academic.entities.Course;
+import ar.edu.utn.frvm.typeit.boero_api.academic.enums.AcademicYearStatus;
 import ar.edu.utn.frvm.typeit.boero_api.enrollment.entities.EnrollmentApplication;
 import ar.edu.utn.frvm.typeit.boero_api.enrollment.entities.EnrollmentPeriod;
 import ar.edu.utn.frvm.typeit.boero_api.enrollment.exceptions.EnrollmentMessages;
@@ -22,19 +23,33 @@ public class EnrollmentApplicationPeriodService {
   private final Clock clock;
 
   @Transactional(readOnly = true)
-  public boolean hasOpenCourses(final UUID institutionId, final UUID trainingPathId) {
+  public boolean hasOpenCourses(
+      final UUID institutionId, final UUID trainingPathId, final @Nullable UUID academicYearId) {
     return periodRepository
         .findAvailableOffers(
-            institutionId, clock.instant(), trainingPathId, null, Pageable.ofSize(1))
+            institutionId,
+            clock.instant(),
+            trainingPathId,
+            academicYearId,
+            null,
+            Pageable.ofSize(1))
         .hasContent();
   }
 
   @Transactional(readOnly = true)
   public boolean isOpen(final EnrollmentApplication application) {
+    final var year = application.getAcademicYear();
+    if (year != null && year.getStatus() != AcademicYearStatus.ACTIVE) {
+      return false;
+    }
+
     if (application.getEnrollmentPeriod() != null) {
       return application.getEnrollmentPeriod().isOpenAt(clock.instant());
     }
-    return hasOpenCourses(application.getInstitution().getId(), application.getTrainingPathId());
+    return hasOpenCourses(
+        application.getInstitution().getId(),
+        application.getTrainingPathId(),
+        year == null ? null : year.getId());
   }
 
   @Transactional(readOnly = true)
@@ -49,6 +64,11 @@ public class EnrollmentApplicationPeriodService {
       final EnrollmentApplication application,
       final Course course,
       final @Nullable EnrollmentPeriod assigned) {
+    final var year = application.getAcademicYear();
+    if (year != null && !year.getId().equals(course.getAcademicYear().getId())) {
+      throw new EnrollmentValidationException(EnrollmentMessages.COURSE_OUTSIDE_ACADEMIC_YEAR);
+    }
+
     final var original = assigned != null ? assigned : application.getEnrollmentPeriod();
     if (original != null) {
       if (!original.isOpenAt(clock.instant())) {

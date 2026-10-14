@@ -12,9 +12,12 @@ public final class RefreshRotationPolicy {
       return new RefreshRotationDecision.Replay(replay.orElseThrow());
     }
 
-    if (revoked) return new RefreshRotationDecision.Reuse();
-
-    if (expired) return new RefreshRotationDecision.Invalid();
+    if (revoked) {
+      return new RefreshRotationDecision.Reuse();
+    }
+    if (expired) {
+      return new RefreshRotationDecision.Invalid();
+    }
 
     return new RefreshRotationDecision.Rotate();
   }

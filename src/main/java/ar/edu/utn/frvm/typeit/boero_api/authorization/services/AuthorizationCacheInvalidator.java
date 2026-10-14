@@ -47,7 +47,9 @@ public class AuthorizationCacheInvalidator {
 
   private void evict(String cacheName, Object key) {
     var cache = cacheManager.getCache(cacheName);
-    if (cache != null) cache.evict(key);
+    if (cache != null) {
+      cache.evict(key);
+    }
   }
 
   private void afterCommit(Runnable eviction) {

@@ -36,7 +36,9 @@ public class ListCitiesUseCase {
   @Transactional(readOnly = true)
   public PaginatedResponse<CityListItemResponse> executeByProvince(
       UUID provinceId, @Nullable String search, Pageable pageable) {
-    if (!provinceRepository.existsById(provinceId)) throw new ProvinceNotFoundException();
+    if (!provinceRepository.existsById(provinceId)) {
+      throw new ProvinceNotFoundException();
+    }
 
     final String normalizedSearch = SearchNormalization.normalizeSearch(search);
     if (normalizedSearch != null) {

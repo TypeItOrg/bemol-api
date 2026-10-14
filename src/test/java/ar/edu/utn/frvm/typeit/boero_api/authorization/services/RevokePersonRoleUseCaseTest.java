@@ -1,12 +1,16 @@
 package ar.edu.utn.frvm.typeit.boero_api.authorization.services;
 
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import ar.edu.utn.frvm.typeit.boero_api.auth.services.SessionRevocationService;
 import ar.edu.utn.frvm.typeit.boero_api.authorization.entities.PersonRoleAssignment;
 import ar.edu.utn.frvm.typeit.boero_api.authorization.entities.Role;
+import ar.edu.utn.frvm.typeit.boero_api.authorization.enums.PermissionCode;
 import ar.edu.utn.frvm.typeit.boero_api.authorization.enums.RoleScope;
 import ar.edu.utn.frvm.typeit.boero_api.authorization.enums.SystemRoleCode;
 import ar.edu.utn.frvm.typeit.boero_api.authorization.exceptions.LastPersonRoleRevocationException;
@@ -45,14 +49,39 @@ class RevokePersonRoleUseCaseTest {
     UUID personId = UUID.randomUUID();
     Person person = personWith(institutionId, personId);
     Role role = roleWith(SystemRoleCode.TEACHER);
+    final var assignment =
+        PersonRoleAssignment.builder()
+            .person(person)
+            .role(role)
+            .institution(person.getInstitution())
+            .build();
+    final var remaining =
+        PersonRoleAssignment.builder()
+            .person(person)
+            .role(roleWith(SystemRoleCode.STUDENT))
+            .institution(person.getInstitution())
+            .build();
 
     when(institutionPersonResolver.requirePersonInInstitutionForUpdate(institutionId, personId))
         .thenReturn(person);
     when(roleRepository.findByIdAndScopeAndInstitution_Id(
             role.getId(), RoleScope.INSTITUTION, institutionId))
         .thenReturn(Optional.of(role));
+    when(personRoleAssignmentRepository.findByPerson_IdAndInstitution_Id(personId, institutionId))
+        .thenReturn(List.of(assignment, remaining));
+    when(personRoleAssignmentRepository.findByPerson_IdAndRole_IdAndInstitution_Id(
+            personId, role.getId(), institutionId))
+        .thenReturn(Optional.of(assignment));
 
     revokePersonRoleUseCase.execute(institutionId, personId, role.getId(), false);
+
+    verify(roleAdministrationLock).lock(institutionId);
+    verify(roleAssignmentScopeValidator).requireOperation(PermissionCode.INSTITUTION_ROLE_REVOKE);
+    verify(roleAssignmentScopeValidator).requireDelegation(assignment);
+    verify(personRoleAssignmentRepository).delete(assignment);
+    verify(personRoleAssignmentRepository, never()).delete(remaining);
+    verify(sessionRevocationService).revokeInstitutionalSessionsForPerson(personId, institutionId);
+    verify(authorizationCacheInvalidator).evictPerson(personId, institutionId);
   }
 
   @Test
@@ -80,6 +109,9 @@ class RevokePersonRoleUseCaseTest {
     assertThatThrownBy(
             () -> revokePersonRoleUseCase.execute(institutionId, personId, role.getId(), false))
         .isInstanceOf(LastPersonRoleRevocationException.class);
+
+    verify(personRoleAssignmentRepository, never()).delete(any());
+    verifyNoInteractions(sessionRevocationService, authorizationCacheInvalidator);
   }
 
   @Test

@@ -83,8 +83,6 @@ services:
     container_name: boero-api-redis-dev
     image: redis:7-alpine
     command: ["redis-server", "--save", "", "--appendonly", "no"]
-    ports:
-      - "6379:6379"
     logging:
       driver: "local"
       options:

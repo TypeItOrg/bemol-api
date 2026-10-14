@@ -7,12 +7,14 @@ import ar.edu.utn.frvm.typeit.boero_api.auth.config.WebAuthnProperties;
 import ar.edu.utn.frvm.typeit.boero_api.auth.exceptions.InvalidLoginAttemptException;
 import ar.edu.utn.frvm.typeit.boero_api.support.IntegrationTest;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.AfterEach;
@@ -66,7 +68,7 @@ class LoginAttemptServiceRedisIntegrationTest {
 
   @Test
   @DisplayName("Should let exactly one concurrent claim succeed per attempt")
-  void claim_allowsExactlyOneConcurrentWinner() throws InterruptedException {
+  void claim_allowsExactlyOneConcurrentWinner() throws Exception {
     final LoginAttempt attempt = service.create(UUID.randomUUID(), UUID.randomUUID(), true);
     final int threads = 10;
     final ExecutorService executor = Executors.newFixedThreadPool(threads);
@@ -75,30 +77,41 @@ class LoginAttemptServiceRedisIntegrationTest {
     final CountDownLatch done = new CountDownLatch(threads);
     final AtomicInteger winners = new AtomicInteger();
     final ConcurrentLinkedQueue<UUID> winnerUserIds = new ConcurrentLinkedQueue<>();
+    final List<Future<?>> claims = new ArrayList<>();
 
-    for (int thread = 0; thread < threads; thread++) {
-      executor.submit(
-          () -> {
-            ready.countDown();
-            try {
-              start.await();
-              final LoginAttempt claimed = service.claim(attempt.id());
-              winners.incrementAndGet();
-              winnerUserIds.add(claimed.userId());
-            } catch (final InvalidLoginAttemptException expected) {
-              // concurrent loser
-            } catch (final InterruptedException exception) {
-              Thread.currentThread().interrupt();
-            } finally {
-              done.countDown();
-            }
-          });
+    try {
+      for (int thread = 0; thread < threads; thread++) {
+        claims.add(
+            executor.submit(
+                () -> {
+                  ready.countDown();
+                  try {
+                    assertThat(start.await(10, TimeUnit.SECONDS)).isTrue();
+                    final LoginAttempt claimed = service.claim(attempt.id());
+                    winners.incrementAndGet();
+                    winnerUserIds.add(claimed.userId());
+                  } catch (final InvalidLoginAttemptException expected) {
+                    // concurrent loser
+                  } catch (final InterruptedException exception) {
+                    Thread.currentThread().interrupt();
+                    throw new IllegalStateException(
+                        "Concurrent login claim was interrupted", exception);
+                  } finally {
+                    done.countDown();
+                  }
+                }));
+      }
+
+      assertThat(ready.await(10, TimeUnit.SECONDS)).isTrue();
+      start.countDown();
+      assertThat(done.await(30, TimeUnit.SECONDS)).isTrue();
+      for (final var claim : claims) {
+        claim.get(10, TimeUnit.SECONDS);
+      }
+    } finally {
+      start.countDown();
+      executor.shutdownNow();
     }
-
-    ready.await();
-    start.countDown();
-    assertThat(done.await(30, TimeUnit.SECONDS)).isTrue();
-    executor.shutdown();
 
     assertThat(winners.get()).isEqualTo(1);
     assertThat(winnerUserIds).containsExactly(attempt.userId());

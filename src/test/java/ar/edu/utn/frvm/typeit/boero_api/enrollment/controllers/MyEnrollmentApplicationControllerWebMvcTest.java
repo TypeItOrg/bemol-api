@@ -90,7 +90,7 @@ class MyEnrollmentApplicationControllerWebMvcTest {
   void list_returnsApplicationsForApplicant() throws Exception {
     final var auth = authentication();
     when(listMyEnrollmentApplicationsUseCase.execute(
-            eq(INSTITUTION_ID), eq(PERSON_ID), isNull(), any(Pageable.class)))
+            eq(INSTITUTION_ID), eq(PERSON_ID), isNull(), isNull(), any(Pageable.class)))
         .thenReturn(
             new PageImpl<>(
                 List.of(response(EnrollmentApplicationStatus.SUBMITTED)), Pageable.ofSize(20), 1));
@@ -104,7 +104,7 @@ class MyEnrollmentApplicationControllerWebMvcTest {
         .andExpect(jsonPath("$.items[0].status").value("SUBMITTED"));
 
     verify(listMyEnrollmentApplicationsUseCase)
-        .execute(eq(INSTITUTION_ID), eq(PERSON_ID), isNull(), any(Pageable.class));
+        .execute(eq(INSTITUTION_ID), eq(PERSON_ID), isNull(), isNull(), any(Pageable.class));
   }
 
   @Test

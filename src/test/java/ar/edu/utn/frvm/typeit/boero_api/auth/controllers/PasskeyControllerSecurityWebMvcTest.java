@@ -11,7 +11,9 @@ import ar.edu.utn.frvm.typeit.boero_api.auth.config.JwtProperties;
 import ar.edu.utn.frvm.typeit.boero_api.auth.config.WebAuthnProperties;
 import ar.edu.utn.frvm.typeit.boero_api.auth.filters.JwtAuthenticationFilter;
 import ar.edu.utn.frvm.typeit.boero_api.auth.payloads.responses.PasskeyResponse;
+import ar.edu.utn.frvm.typeit.boero_api.auth.services.DiscoverablePasskeyLoginUseCase;
 import ar.edu.utn.frvm.typeit.boero_api.auth.services.InstitutionalAccessTokenInput;
+import ar.edu.utn.frvm.typeit.boero_api.auth.services.InstitutionalHostContext;
 import ar.edu.utn.frvm.typeit.boero_api.auth.services.IsPlatformSessionActiveUseCase;
 import ar.edu.utn.frvm.typeit.boero_api.auth.services.IsSessionActiveUseCase;
 import ar.edu.utn.frvm.typeit.boero_api.auth.services.JwtService;
@@ -105,6 +107,8 @@ class PasskeyControllerSecurityWebMvcTest {
   private RequestPasskeyAuthenticationOptionsUseCase requestAuthenticationOptionsUseCase;
 
   @MockitoBean private VerifyPasskeyAuthenticationUseCase verifyPasskeyAuthenticationUseCase;
+  @MockitoBean private DiscoverablePasskeyLoginUseCase discoverablePasskeyLoginUseCase;
+  @MockitoBean private InstitutionalHostContext institutionalHostContext;
   @MockitoBean private ReAuthenticateUseCase reAuthenticateUseCase;
   @MockitoBean private AuthorizationService authorizationService;
   @MockitoBean private IsSessionActiveUseCase isSessionActiveUseCase;

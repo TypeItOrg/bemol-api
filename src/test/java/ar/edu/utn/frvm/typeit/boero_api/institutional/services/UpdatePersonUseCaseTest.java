@@ -1,6 +1,5 @@
 package ar.edu.utn.frvm.typeit.boero_api.institutional.services;
 
-import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
@@ -31,25 +30,22 @@ import ar.edu.utn.frvm.typeit.boero_api.institutional.payloads.person.UpdateAddr
 import ar.edu.utn.frvm.typeit.boero_api.institutional.payloads.person.UpdatePersonRequest;
 import jakarta.validation.ConstraintViolationException;
 import jakarta.validation.Validation;
-import jakarta.validation.Validator;
+import jakarta.validation.ValidatorFactory;
 import java.time.LocalDate;
 import java.util.Optional;
 import java.util.UUID;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
-import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.mockito.junit.jupiter.MockitoSettings;
-import org.mockito.quality.Strictness;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 @ExtendWith(MockitoExtension.class)
-@MockitoSettings(strictness = Strictness.LENIENT)
 class UpdatePersonUseCaseTest {
 
   @Mock private PersonRepository personRepository;
@@ -60,9 +56,18 @@ class UpdatePersonUseCaseTest {
   @Mock private PasswordEncoder passwordEncoder;
   @Mock private SessionRevocationService sessionRevocationService;
 
-  @Spy private final Validator validator = Validation.buildDefaultValidatorFactory().getValidator();
+  private static ValidatorFactory validatorFactory;
+  private UpdatePersonUseCase updatePersonUseCase;
 
-  @InjectMocks private UpdatePersonUseCase updatePersonUseCase;
+  @BeforeAll
+  static void createValidator() {
+    validatorFactory = Validation.buildDefaultValidatorFactory();
+  }
+
+  @AfterAll
+  static void closeValidator() {
+    validatorFactory.close();
+  }
 
   private UUID institutionId;
   private UUID personId;
@@ -72,8 +77,8 @@ class UpdatePersonUseCaseTest {
 
   @BeforeEach
   void setUp() {
-    institutionId = UUID.randomUUID();
-    personId = UUID.randomUUID();
+    institutionId = UUID.fromString("00000000-0000-0000-0000-000000000001");
+    personId = UUID.fromString("00000000-0000-0000-0000-000000000002");
     institution = Institution.builder().id(institutionId).name("Conservatorio Boero").build();
     person =
         Person.builder()
@@ -93,36 +98,80 @@ class UpdatePersonUseCaseTest {
 
     when(personRepository.findByIdAndInstitution_Id(personId, institutionId))
         .thenReturn(Optional.of(person));
+    updatePersonUseCase =
+        new UpdatePersonUseCase(
+            personRepository,
+            userRepository,
+            cityRepository,
+            countryRepository,
+            addressRepository,
+            passwordEncoder,
+            sessionRevocationService,
+            validatorFactory.getValidator());
+  }
+
+  private void stubUpdatedDetails() {
     when(personRepository.findWithDetailsByIdAndInstitution_Id(personId, institutionId))
         .thenReturn(Optional.of(person));
   }
 
   @Test
-  @DisplayName("Should update first name")
-  void execute_updatesFirstName() {
-    UpdatePersonRequest request =
-        new UpdatePersonRequest("Carlos", null, null, null, null, null, null, null);
+  @DisplayName("Updates the complete identity and contact without changing the tenant or account")
+  void execute_updatesIdentityAndContact() {
+    stubUpdatedDetails();
+    UUID provinceId = UUID.fromString("00000000-0000-0000-0000-000000000003");
+    UUID cityId = UUID.fromString("00000000-0000-0000-0000-000000000004");
+    UUID countryId = UUID.fromString("00000000-0000-0000-0000-000000000005");
+    Province province = Province.builder().id(provinceId).name("Córdoba").build();
+    City city = City.builder().id(cityId).name("Villa María").province(province).build();
+    Country country = Country.builder().id(countryId).name("Argentina").isoCode("ARG").build();
+    when(cityRepository.findById(cityId)).thenReturn(Optional.of(city));
+    when(countryRepository.findById(countryId)).thenReturn(Optional.of(country));
+    LocalDate birthDate = LocalDate.of(1990, 5, 15);
 
-    var response = updatePersonUseCase.execute(principal, request);
+    var response =
+        updatePersonUseCase.execute(
+            principal,
+            new UpdatePersonRequest(
+                "Carlos",
+                "García",
+                birthDate,
+                "carlos@test.com",
+                "0353-123456",
+                cityId,
+                countryId,
+                null));
 
-    assertThat(response.firstName()).isEqualTo("Carlos");
-    verify(personRepository).save(any(Person.class));
-  }
-
-  @Test
-  @DisplayName("Should update email")
-  void execute_updatesEmail() {
-    UpdatePersonRequest request =
-        new UpdatePersonRequest(null, null, null, "carlos@test.com", null, null, null, null);
-
-    var response = updatePersonUseCase.execute(principal, request);
-
-    assertThat(response.email()).isEqualTo("carlos@test.com");
+    assertThat(response)
+        .isEqualTo(
+            new ar.edu.utn.frvm.typeit.boero_api.institutional.payloads.person.PersonResponse(
+                personId,
+                "Carlos",
+                "García",
+                "12345678",
+                birthDate,
+                "0353-123456",
+                "carlos@test.com",
+                institutionId,
+                "Conservatorio Boero",
+                null,
+                new ar.edu.utn.frvm.typeit.boero_api.institutional.payloads.person
+                    .CitySummaryResponse(cityId, "Villa María", provinceId, "Córdoba"),
+                new ar.edu.utn.frvm.typeit.boero_api.institutional.payloads.CountrySummaryResponse(
+                    countryId, "Argentina", "ARG"),
+                false));
+    assertThat(person.getBirthCity()).isSameAs(city);
+    assertThat(person.getNationalityCountry()).isSameAs(country);
+    assertThat(person.getInstitution()).isSameAs(institution);
+    verify(personRepository).save(person);
+    verifyNoInteractions(
+        userRepository, passwordEncoder, sessionRevocationService, addressRepository);
   }
 
   @Test
   @DisplayName("Should hash the new password and revoke institutional sessions")
   void execute_updatesPassword() {
+    stubUpdatedDetails();
     User user =
         User.builder()
             .id(principal.userId())
@@ -172,48 +221,9 @@ class UpdatePersonUseCaseTest {
   }
 
   @Test
-  @DisplayName("Should preserve the password when it is omitted")
-  void execute_preservesPasswordWhenOmitted() {
-    updatePersonUseCase.execute(
-        principal, new UpdatePersonRequest(null, null, null, null, null, null, null, null, null));
-
-    verifyNoInteractions(userRepository, passwordEncoder, sessionRevocationService);
-  }
-
-  @Test
-  @DisplayName("Should update birth city")
-  void execute_updatesBirthCity() {
-    UUID cityId = UUID.randomUUID();
-    Province province = Province.builder().name("Córdoba").build();
-    City city = City.builder().id(cityId).name("Villa María").province(province).build();
-    when(cityRepository.findById(cityId)).thenReturn(Optional.of(city));
-    UpdatePersonRequest request =
-        new UpdatePersonRequest(null, null, null, null, null, cityId, null, null);
-
-    var response = updatePersonUseCase.execute(principal, request);
-
-    assertThat(response.birthCity()).isNotNull();
-    assertThat(response.birthCity().name()).isEqualTo("Villa María");
-  }
-
-  @Test
-  @DisplayName("Should update nationality country")
-  void execute_updatesNationalityCountry() {
-    UUID countryId = UUID.randomUUID();
-    Country country = Country.builder().id(countryId).name("Argentina").isoCode("ARG").build();
-    when(countryRepository.findById(countryId)).thenReturn(Optional.of(country));
-    UpdatePersonRequest request =
-        new UpdatePersonRequest(null, null, null, null, null, null, countryId, null);
-
-    var response = updatePersonUseCase.execute(principal, request);
-
-    assertThat(response.nationalityCountry()).isNotNull();
-    assertThat(response.nationalityCountry().name()).isEqualTo("Argentina");
-  }
-
-  @Test
   @DisplayName("Should create new address when person has none")
   void execute_createsAddress() {
+    stubUpdatedDetails();
     UUID cityId = UUID.randomUUID();
     Province province = Province.builder().name("Córdoba").build();
     City city = City.builder().id(cityId).name("Villa María").province(province).build();
@@ -231,8 +241,8 @@ class UpdatePersonUseCaseTest {
 
     var response = updatePersonUseCase.execute(principal, request);
 
-    assertThat(requireNonNull(response.address())).isNotNull();
-    assertThat(requireNonNull(response.address()).street()).isEqualTo("San Martín");
+    assertThat(response.address()).isNotNull();
+    assertThat(response.address().street()).isEqualTo("San Martín");
 
     ArgumentCaptor<Address> captor = ArgumentCaptor.forClass(Address.class);
     verify(addressRepository).save(captor.capture());
@@ -242,6 +252,7 @@ class UpdatePersonUseCaseTest {
   @Test
   @DisplayName("Should update existing address")
   void execute_updatesExistingAddress() {
+    stubUpdatedDetails();
     UUID cityId = UUID.randomUUID();
     Province province = Province.builder().name("Córdoba").build();
     City newCity = City.builder().id(cityId).name("Córdoba").province(province).build();
@@ -269,27 +280,18 @@ class UpdatePersonUseCaseTest {
 
     var response = updatePersonUseCase.execute(principal, request);
 
-    assertThat(requireNonNull(response.address()).street()).isEqualTo("Belgrano");
-    assertThat(requireNonNull(response.address()).number()).isEqualTo("200");
-    assertThat(requireNonNull(response.address()).apartment()).isEqualTo("3B");
-    assertThat(requireNonNull(response.address()).city().name()).isEqualTo("Córdoba");
-  }
-
-  @Test
-  @DisplayName("Should update birth date")
-  void execute_updatesBirthDate() {
-    LocalDate birthDate = LocalDate.of(1990, 5, 15);
-    UpdatePersonRequest request =
-        new UpdatePersonRequest(null, null, birthDate, null, null, null, null, null);
-
-    var response = updatePersonUseCase.execute(principal, request);
-
-    assertThat(response.birthDate()).isEqualTo(birthDate);
+    final var updatedAddress = response.address();
+    assertThat(updatedAddress).isNotNull();
+    assertThat(updatedAddress.street()).isEqualTo("Belgrano");
+    assertThat(updatedAddress.number()).isEqualTo("200");
+    assertThat(updatedAddress.apartment()).isEqualTo("3B");
+    assertThat(updatedAddress.city().name()).isEqualTo("Córdoba");
   }
 
   @Test
   @DisplayName("Should only update provided fields (partial update)")
   void execute_partialUpdate() {
+    stubUpdatedDetails();
     person.updateContact(person.getEmail(), "0353-123456");
     UpdatePersonRequest request =
         new UpdatePersonRequest(null, "García", null, null, null, null, null, null);
@@ -299,6 +301,9 @@ class UpdatePersonUseCaseTest {
     assertThat(response.firstName()).isEqualTo("Juan");
     assertThat(response.lastName()).isEqualTo("García");
     assertThat(response.phoneNumber()).isEqualTo("0353-123456");
+    assertThat(response.email()).isEqualTo("juan@example.com");
+    assertThat(response.documentNumber()).isEqualTo("12345678");
+    verifyNoInteractions(userRepository, passwordEncoder, sessionRevocationService);
   }
 
   @Test
@@ -364,7 +369,12 @@ class UpdatePersonUseCaseTest {
         new UpdatePersonRequest("A", null, null, null, null, null, null, null);
 
     assertThatThrownBy(() -> updatePersonUseCase.execute(principal, request))
-        .isInstanceOf(ConstraintViolationException.class);
+        .isInstanceOfSatisfying(
+            ConstraintViolationException.class,
+            exception ->
+                assertThat(exception.getConstraintViolations())
+                    .extracting(violation -> violation.getPropertyPath().toString())
+                    .containsExactly("firstName"));
 
     verify(personRepository, never()).save(any());
   }

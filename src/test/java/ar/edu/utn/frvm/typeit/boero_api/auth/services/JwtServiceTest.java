@@ -118,16 +118,14 @@ class JwtServiceTest {
   }
 
   @Test
-  @DisplayName("Should produce the same hash for the same input")
-  void hashToken_isDeterministic() {
-    String raw = UUID.randomUUID().toString();
-    assertThat(JwtService.hashToken(raw)).isEqualTo(JwtService.hashToken(raw));
-  }
-
-  @Test
-  @DisplayName("Should produce different hashes for different inputs")
-  void hashToken_producesDifferentHashesForDifferentInputs() {
-    assertThat(JwtService.hashToken("token-a")).isNotEqualTo(JwtService.hashToken("token-b"));
+  @DisplayName("Should hash UTF-8 tokens as SHA-256 encoded in Base64")
+  void hashToken_matchesKnownDigests() {
+    assertThat(JwtService.hashToken("token-a"))
+        .isEqualTo("pwv1DlMc4agXVh8vXVtmRdToBr7PWMzF6M9rgEWgkKg=");
+    assertThat(JwtService.hashToken("token-b"))
+        .isEqualTo("SeK7fqtUzwm0Cf+v0/qKipVaYOuXL6rK777T29MgcTI=");
+    assertThat(JwtService.hashToken("á-é-token"))
+        .isEqualTo("GPwkIq1AXPefilk7Ew/j9qoEDATkS9kKhOdgYKprnbU=");
   }
 
   @Test

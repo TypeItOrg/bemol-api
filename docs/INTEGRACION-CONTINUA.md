@@ -40,7 +40,7 @@ Este trabajo valida la calidad del código, contratos de nulidad y detección te
      - Inspecciona el 100% de las clases de producción y pruebas (`@NullMarked`).
      - Rechaza cualquier asignación o desreferenciación potencialmente nula que no esté explícitamente declarada con `@Nullable`.
   2. **Eclipse Compiler for Java (ECJ)**:
-     - Configurado en `config/static-analysis/ecj.properties`.
+     - Configurado en `ecj.properties`.
      - Trata cualquier advertencia como error bloqueante: imports o miembros no utilizados, conversiones inseguras (raw types), deprecaciones y fugas de recursos cerrables.
 - **Artefactos**: En caso de fallo o advertencia, los informes XML de diagnóstico (`build/reports/static-analysis/`) se suben como artefactos de GitHub Actions para su inspección.
 
@@ -62,6 +62,11 @@ Garantiza que el comportamiento del sistema y los contratos HTTP e institucional
     ```bash
     ./gradlew --no-daemon spotlessCheck test
     ```
+
+#### Fixtures y contratos de error
+
+- Las entidades creadas con fábricas de dominio no reciben un UUID hasta su persistencia. En tests unitarios que simulan entidades persistidas, usar un `spy` con `doReturn(id).when(entity).getId()` cuando el caso de uso consulta ese identificador; mantener los argumentos exactos de los mocks y la validación estricta de Mockito.
+- La validación de logos distingue archivos que superan los 2 MiB (`InstitutionLogoTooLargeException`) de contenido inválido, vacío, truncado o con dimensiones excesivas (`InvalidInstitutionLogoException`). Verificar estos contratos por separado.
 
 ### C. Trabajo: Construcción y Publicación de Imágenes (`publish-image`)
 

@@ -16,7 +16,8 @@ import org.jspecify.annotations.Nullable;
       "active",
       "revision",
       "affectedTrainingPaths",
-      "affectedDrafts"
+      "affectedDrafts",
+      "canChangeInstitution"
     })
 public record DocumentDefinitionResponse(
     UUID id,
@@ -27,13 +28,28 @@ public record DocumentDefinitionResponse(
     boolean active,
     long revision,
     @Schema(nullable = true) @Nullable Long affectedTrainingPaths,
-    @Schema(nullable = true) @Nullable Long affectedDrafts) {
+    @Schema(nullable = true) @Nullable Long affectedDrafts,
+    boolean canChangeInstitution) {
   public DocumentDefinitionResponse withImpact(final long paths, final long drafts) {
     return new DocumentDefinitionResponse(
-        id, institutionId, name, instructions, allowedFormats, active, revision, paths, drafts);
+        id,
+        institutionId,
+        name,
+        instructions,
+        allowedFormats,
+        active,
+        revision,
+        paths,
+        drafts,
+        canChangeInstitution);
   }
 
   public static DocumentDefinitionResponse from(final DocumentDefinition value) {
+    return from(value, false);
+  }
+
+  public static DocumentDefinitionResponse from(
+      final DocumentDefinition value, final boolean canChangeInstitution) {
     return new DocumentDefinitionResponse(
         value.getId(),
         value.getInstitution().getId(),
@@ -43,6 +59,7 @@ public record DocumentDefinitionResponse(
         value.isActive(),
         value.getRevision(),
         null,
-        null);
+        null,
+        canChangeInstitution);
   }
 }

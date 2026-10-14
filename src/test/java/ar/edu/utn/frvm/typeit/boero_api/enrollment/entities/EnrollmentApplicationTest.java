@@ -3,6 +3,7 @@ package ar.edu.utn.frvm.typeit.boero_api.enrollment.entities;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import ar.edu.utn.frvm.typeit.boero_api.academic.entities.StudyPlanSpace;
 import ar.edu.utn.frvm.typeit.boero_api.enrollment.enums.EnrollmentApplicationStatus;
 import ar.edu.utn.frvm.typeit.boero_api.enrollment.exceptions.ApplicationNotEditableException;
 import ar.edu.utn.frvm.typeit.boero_api.enrollment.exceptions.InvalidEnrollmentApplicationStateException;
@@ -10,11 +11,40 @@ import ar.edu.utn.frvm.typeit.boero_api.enrollment.exceptions.MissingRejectionRe
 import java.time.Instant;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 
 class EnrollmentApplicationTest {
 
   private static final Instant RESOLVED_AT = Instant.parse("2026-09-06T10:00:00Z");
   private static final UUID RESOLVER_PERSON_ID = UUID.randomUUID();
+
+  @ParameterizedTest
+  @CsvSource({
+    "DRAFT, true", "SUBMITTED, false", "CANCELLED, false",
+    "PROVISIONALLY_APPROVED, false", "APPROVED, false", "REJECTED, false"
+  })
+  void editableOnlyWhileDraft(final EnrollmentApplicationStatus status, final boolean editable) {
+    final var application = EnrollmentApplication.builder().status(status).build();
+
+    assertThat(application.isEditable()).isEqualTo(editable);
+  }
+
+  @Test
+  void managesSelectedSpacesAndTheirOwningApplication() {
+    final var application = draft();
+    final var selectedSpace =
+        EnrollmentApplicationSpace.builder().studyPlanSpace(new StudyPlanSpace()).build();
+
+    application.addSelectedSpace(selectedSpace);
+
+    assertThat(application.getSelectedSpaces()).containsExactly(selectedSpace);
+    assertThat(selectedSpace.getEnrollmentApplication()).isSameAs(application);
+
+    application.clearSelectedSpaces();
+
+    assertThat(application.getSelectedSpaces()).isEmpty();
+  }
 
   @Test
   void submit_transitionsDraftToSubmitted() {

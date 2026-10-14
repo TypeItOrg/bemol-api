@@ -42,13 +42,13 @@ class ListProvincesUseCaseTest {
   }
 
   @Test
-  @DisplayName("Should match province with accent using search without accent")
-  void execute_matchesAccentedProvinceWithUnaccentedSearch() {
+  @DisplayName("Should delegate a trimmed search and preserve province details")
+  void execute_delegatesTrimmedSearch() {
     Province province = Province.builder().id(UUID.randomUUID()).name("Córdoba").build();
     when(provinceRepository.searchByName("cordoba", PageRequest.of(0, 20)))
         .thenReturn(new PageImpl<>(List.of(province)));
 
-    var response = listProvincesUseCase.execute("cordoba", PageRequest.of(0, 20));
+    var response = listProvincesUseCase.execute("  cordoba  ", PageRequest.of(0, 20));
 
     assertThat(response.items()).hasSize(1);
     assertThat(response.items().getFirst().name()).isEqualTo("Córdoba");

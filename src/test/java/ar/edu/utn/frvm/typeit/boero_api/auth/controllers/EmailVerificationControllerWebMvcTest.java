@@ -11,6 +11,7 @@ import ar.edu.utn.frvm.typeit.boero_api.auth.exceptions.EmailVerificationCooldow
 import ar.edu.utn.frvm.typeit.boero_api.auth.exceptions.InvalidEmailVerificationTokenException;
 import ar.edu.utn.frvm.typeit.boero_api.auth.filters.JwtAuthenticationFilter;
 import ar.edu.utn.frvm.typeit.boero_api.auth.services.InstitutionalEmailVerificationUseCase;
+import ar.edu.utn.frvm.typeit.boero_api.auth.services.InstitutionalHostContext;
 import ar.edu.utn.frvm.typeit.boero_api.auth.services.IsPlatformSessionActiveUseCase;
 import ar.edu.utn.frvm.typeit.boero_api.auth.services.IsSessionActiveUseCase;
 import ar.edu.utn.frvm.typeit.boero_api.auth.services.JwtService;
@@ -58,6 +59,7 @@ class EmailVerificationControllerWebMvcTest {
 
   @Autowired MockMvc mvc;
   @MockitoBean InstitutionalEmailVerificationUseCase verification;
+  @MockitoBean InstitutionalHostContext institutionalHostContext;
   @MockitoBean JwtService jwt;
   @MockitoBean AuthorizationService authorization;
   @MockitoBean TokenBlacklistService blacklist;

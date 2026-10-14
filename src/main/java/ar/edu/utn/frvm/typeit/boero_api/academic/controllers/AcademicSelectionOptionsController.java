@@ -51,6 +51,7 @@ public class AcademicSelectionOptionsController {
       @RequestParam(required = false) UUID trainingPathId,
       @RequestParam(required = false) StudyPlanStatus status,
       @RequestParam(required = false) PermissionCode operation,
+      @RequestParam(required = false) UUID id,
       Pageable pageable) {
     return useCase.execute(
         institutionId,
@@ -61,7 +62,8 @@ public class AcademicSelectionOptionsController {
         trainingPathId,
         status,
         pageable,
-        operation);
+        operation,
+        id);
   }
 
   @GetMapping(
@@ -77,6 +79,7 @@ public class AcademicSelectionOptionsController {
       @RequestParam(required = false) UUID trainingPathId,
       @RequestParam(required = false) StudyPlanStatus status,
       @RequestParam(required = false) PermissionCode operation,
+      @RequestParam(required = false) UUID id,
       Pageable pageable) {
     return useCase.execute(
         institutionId,
@@ -87,6 +90,7 @@ public class AcademicSelectionOptionsController {
         trainingPathId,
         status,
         pageable,
-        operation);
+        operation,
+        id);
   }
 }

@@ -11,9 +11,9 @@ import java.util.Locale;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
 import javax.imageio.ImageIO;
+import javax.imageio.ImageReader;
 import javax.imageio.stream.MemoryCacheImageInputStream;
 import org.apache.pdfbox.io.RandomAccessReadBuffer;
-import org.apache.pdfbox.pdfparser.PDFParser;
 import org.apache.pdfbox.pdmodel.encryption.InvalidPasswordException;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -31,19 +31,8 @@ public final class EnrollmentFilePolicy {
 
   public static StoredFile prepare(final UUID applicationId, final MultipartFile file) {
     validateMetadata(file);
-    final byte[] bytes;
-    try (final var input = file.getInputStream()) {
-      bytes = input.readNBytes((int) MAX_FILE_SIZE_BYTES + 1);
-    } catch (IOException exception) {
-      throw new InvalidFileException(EnrollmentMessages.FILE_CONTENT_INVALID);
-    }
-    if (bytes.length > MAX_FILE_SIZE_BYTES) {
-      throw new InvalidFileException(EnrollmentMessages.FILE_TOO_LARGE);
-    }
-    if (bytes.length == 0 || bytes.length != file.getSize()) {
-      throw new InvalidFileException(EnrollmentMessages.FILE_CONTENT_INVALID);
-    }
 
+    final byte[] bytes = readContent(file);
     final String declaredType =
         requireNonNull(file.getContentType()).trim().toLowerCase(Locale.ROOT);
     final String contentType = validateContent(bytes);
@@ -52,6 +41,7 @@ public final class EnrollmentFilePolicy {
     if (!contentType.equals(normalizedDeclaredType)) {
       throw new InvalidFileException(EnrollmentMessages.FILE_CONTENT_INVALID);
     }
+
     final String extension =
         switch (contentType) {
           case "application/pdf" -> ".pdf";
@@ -60,8 +50,27 @@ public final class EnrollmentFilePolicy {
           default -> throw new InvalidFileException(EnrollmentMessages.FILE_TYPE_INVALID);
         };
     final String fileName = UUID.randomUUID() + extension;
+
     return new StoredFile(
         fileName, "enrollments/" + applicationId + "/" + fileName, contentType, bytes.length);
+  }
+
+  private static byte[] readContent(final MultipartFile file) {
+    final byte[] bytes;
+    try (final var input = file.getInputStream()) {
+      bytes = input.readNBytes((int) MAX_FILE_SIZE_BYTES + 1);
+    } catch (IOException exception) {
+      throw new InvalidFileException(EnrollmentMessages.FILE_CONTENT_INVALID);
+    }
+
+    if (bytes.length > MAX_FILE_SIZE_BYTES) {
+      throw new InvalidFileException(EnrollmentMessages.FILE_TOO_LARGE);
+    }
+    if (bytes.length == 0 || bytes.length != file.getSize()) {
+      throw new InvalidFileException(EnrollmentMessages.FILE_CONTENT_INVALID);
+    }
+
+    return bytes;
   }
 
   private static void validateMetadata(final MultipartFile file) {
@@ -104,25 +113,24 @@ public final class EnrollmentFilePolicy {
         .endsWith("%%EOF")) {
       throw new InvalidFileException(EnrollmentMessages.FILE_CONTENT_INVALID);
     }
-    try (final var source = new RandomAccessReadBuffer(bytes)) {
-      final var parser = new PDFParser(source);
-      try (final var document = parser.parse(false)) {
-        if (document.isEncrypted()) {
-          throw new InvalidFileException(EnrollmentMessages.FILE_PDF_ENCRYPTED);
-        }
-        if (document.getNumberOfPages() < 1 || document.getNumberOfPages() > MAX_PDF_PAGES) {
-          throw new InvalidFileException(EnrollmentMessages.FILE_CONTENT_INVALID);
-        }
-        long decodedBytes = 0;
-        final byte[] buffer = new byte[8192];
-        for (final var page : document.getPages()) {
-          try (final var content = page.getContents()) {
-            int read;
-            while ((read = content.read(buffer)) != -1) {
-              decodedBytes += read;
-              if (decodedBytes > MAX_PDF_DECODED_BYTES) {
-                throw new InvalidFileException(EnrollmentMessages.FILE_CONTENT_INVALID);
-              }
+    try (final var source = new RandomAccessReadBuffer(bytes);
+        final var parser = new EnrollmentPdfParser(source, MAX_PDF_DECODED_BYTES);
+        final var document = parser.parse(false)) {
+      if (document.isEncrypted()) {
+        throw new InvalidFileException(EnrollmentMessages.FILE_PDF_ENCRYPTED);
+      }
+      if (document.getNumberOfPages() < 1 || document.getNumberOfPages() > MAX_PDF_PAGES) {
+        throw new InvalidFileException(EnrollmentMessages.FILE_CONTENT_INVALID);
+      }
+      long decodedBytes = 0;
+      final byte[] buffer = new byte[8192];
+      for (final var page : document.getPages()) {
+        try (final var content = page.getContents()) {
+          int read;
+          while ((read = content.read(buffer)) != -1) {
+            decodedBytes += read;
+            if (decodedBytes > MAX_PDF_DECODED_BYTES) {
+              throw new InvalidFileException(EnrollmentMessages.FILE_CONTENT_INVALID);
             }
           }
         }
@@ -142,34 +150,53 @@ public final class EnrollmentFilePolicy {
         if (!format.equals("jpeg") && !format.equals("png")) {
           throw new InvalidFileException(EnrollmentMessages.FILE_TYPE_INVALID);
         }
-        final boolean complete =
-            format.equals("jpeg")
-                ? bytes.length >= 2
-                    && bytes[bytes.length - 2] == (byte) 0xff
-                    && bytes[bytes.length - 1] == (byte) 0xd9
-                : bytes.length >= 12
-                    && "IEND"
-                        .equals(new String(bytes, bytes.length - 8, 4, StandardCharsets.US_ASCII));
-        if (!complete) {
-          throw new InvalidFileException(EnrollmentMessages.FILE_CONTENT_INVALID);
-        }
+        validateImageTrailer(bytes, format);
+
         reader.setInput(input, true, true);
-        final int width = reader.getWidth(0);
-        final int height = reader.getHeight(0);
-        if (width <= 0 || height <= 0 || (long) width * height > MAX_IMAGE_PIXELS) {
-          throw new InvalidFileException(EnrollmentMessages.FILE_IMAGE_TOO_LARGE);
-        }
-        final var warning = new AtomicBoolean();
-        reader.addIIOReadWarningListener((source, message) -> warning.set(true));
-        final var image = reader.read(0);
-        if (image == null || warning.get()) {
-          throw new InvalidFileException(EnrollmentMessages.FILE_CONTENT_INVALID);
-        }
-        image.flush();
+        validateImageDimensions(reader);
+        validateDecodedImage(reader);
+
         return format.equals("jpeg") ? "image/jpeg" : "image/png";
       } finally {
         reader.dispose();
       }
     }
+  }
+
+  private static void validateImageTrailer(final byte[] bytes, final String format) {
+    final boolean complete =
+        switch (format) {
+          case "jpeg" ->
+              bytes.length >= 2
+                  && bytes[bytes.length - 2] == (byte) 0xff
+                  && bytes[bytes.length - 1] == (byte) 0xd9;
+          case "png" ->
+              bytes.length >= 12
+                  && "IEND"
+                      .equals(new String(bytes, bytes.length - 8, 4, StandardCharsets.US_ASCII));
+          default -> false;
+        };
+    if (!complete) {
+      throw new InvalidFileException(EnrollmentMessages.FILE_CONTENT_INVALID);
+    }
+  }
+
+  private static void validateImageDimensions(final ImageReader reader) throws IOException {
+    final int width = reader.getWidth(0);
+    final int height = reader.getHeight(0);
+    if (width <= 0 || height <= 0 || (long) width * height > MAX_IMAGE_PIXELS) {
+      throw new InvalidFileException(EnrollmentMessages.FILE_IMAGE_TOO_LARGE);
+    }
+  }
+
+  private static void validateDecodedImage(final ImageReader reader) throws IOException {
+    final var warning = new AtomicBoolean();
+    reader.addIIOReadWarningListener((source, message) -> warning.set(true));
+
+    final var image = reader.read(0);
+    if (image == null || warning.get()) {
+      throw new InvalidFileException(EnrollmentMessages.FILE_CONTENT_INVALID);
+    }
+    image.flush();
   }
 }

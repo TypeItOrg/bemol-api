@@ -7,6 +7,7 @@ import static org.mockito.Mockito.*;
 
 import ar.edu.utn.frvm.typeit.boero_api.common.storage.StorageService;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.entities.Institution;
+import ar.edu.utn.frvm.typeit.boero_api.institutional.exceptions.InstitutionLogoTooLargeException;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.exceptions.InvalidInstitutionLogoException;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.interfaces.InstitutionRepository;
 import java.awt.image.BufferedImage;
@@ -112,7 +113,7 @@ class QaInstitutionLogoTest {
   }
 
   @Test
-  void L03_realImageValidation_spoofedTruncatedSvgEmptyAndOverLimit() throws IOException {
+  void L03_realImageValidation_spoofedTruncatedSvgEmptyAndExcessiveDimensions() throws IOException {
     final var png = image("png", 2, 2);
     for (final var invalid :
         new MockMultipartFile[] {
@@ -122,12 +123,20 @@ class QaInstitutionLogoTest {
           new MockMultipartFile(
               "file", "logo.png", "image/png", Arrays.copyOf(png, png.length - 8)),
           new MockMultipartFile("file", "logo.png", "image/png", new byte[0]),
-          new MockMultipartFile(
-              "file", "logo.png", "image/png", new byte[(int) InstitutionLogoPolicy.MAX_BYTES + 1]),
           new MockMultipartFile("file", "logo.png", "image/png", image("png", 2100, 2000))
         }) {
       assertThatThrownBy(() -> InstitutionLogoPolicy.prepare(invalid))
           .isInstanceOf(InvalidInstitutionLogoException.class);
     }
+  }
+
+  @Test
+  void L03_realImageValidation_overByteLimit() {
+    final var oversized =
+        new MockMultipartFile(
+            "file", "logo.png", "image/png", new byte[(int) InstitutionLogoPolicy.MAX_BYTES + 1]);
+
+    assertThatThrownBy(() -> InstitutionLogoPolicy.prepare(oversized))
+        .isInstanceOf(InstitutionLogoTooLargeException.class);
   }
 }

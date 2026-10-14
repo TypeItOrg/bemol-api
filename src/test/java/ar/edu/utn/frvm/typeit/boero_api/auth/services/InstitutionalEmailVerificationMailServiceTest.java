@@ -1,14 +1,19 @@
 package ar.edu.utn.frvm.typeit.boero_api.auth.services;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
 
 import ar.edu.utn.frvm.typeit.boero_api.auth.config.EmailVerificationProperties;
 import ar.edu.utn.frvm.typeit.boero_api.auth.config.FrontendPublicProperties;
 import ar.edu.utn.frvm.typeit.boero_api.auth.events.InstitutionalEmailVerificationRequested;
+import ar.edu.utn.frvm.typeit.boero_api.auth.listeners.InstitutionalEmailVerificationMailListener;
 import ar.edu.utn.frvm.typeit.boero_api.common.mail.MailMessage;
 import ar.edu.utn.frvm.typeit.boero_api.common.mail.MailProperties;
 import ar.edu.utn.frvm.typeit.boero_api.common.mail.MailSender;
+import ar.edu.utn.frvm.typeit.boero_api.common.mail.MailSendingException;
 import java.time.Duration;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
@@ -50,7 +55,7 @@ class InstitutionalEmailVerificationMailServiceTest {
   }
 
   @Test
-  void sendRendersVerificationTemplateAndDelegatesToMailSender() {
+  void listenerRendersVerificationTemplateAndDelegatesToMailSender() {
     final InstitutionalEmailVerificationRequested event =
         new InstitutionalEmailVerificationRequested(
             UUID.randomUUID(),
@@ -59,7 +64,7 @@ class InstitutionalEmailVerificationMailServiceTest {
             "Ana García",
             "token-123");
 
-    mailService.send(event);
+    new InstitutionalEmailVerificationMailListener(mailService).on(event);
 
     final ArgumentCaptor<MailMessage> mailCaptor = ArgumentCaptor.forClass(MailMessage.class);
     verify(mailSender).send(mailCaptor.capture());
@@ -76,5 +81,27 @@ class InstitutionalEmailVerificationMailServiceTest {
         .contains("Ana García")
         .contains("24 horas")
         .doesNotContain("${resetUrl}", "th:href", "th:src", "th:text");
+  }
+
+  @Test
+  void smtpFailureCannotEscapeTheListener() {
+    doThrow(new MailSendingException(new IllegalStateException("SMTP unavailable")))
+        .when(mailSender)
+        .send(any());
+    var event =
+        new InstitutionalEmailVerificationRequested(
+            UUID.fromString("00000000-0000-0000-0000-000000000001"),
+            "ana@example.com",
+            "Conservatorio",
+            "Ana García",
+            "token-123");
+
+    assertThatCode(() -> new InstitutionalEmailVerificationMailListener(mailService).on(event))
+        .doesNotThrowAnyException();
+
+    ArgumentCaptor<MailMessage> message = ArgumentCaptor.forClass(MailMessage.class);
+    verify(mailSender).send(message.capture());
+    assertThat(message.getValue().to()).isEqualTo("ana@example.com");
+    assertThat(message.getValue().htmlBody()).contains("token=token-123");
   }
 }

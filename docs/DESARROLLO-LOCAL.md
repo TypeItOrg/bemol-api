@@ -134,18 +134,7 @@ El archivo [`Makefile`](../Makefile) centraliza los atajos más frecuentes de Do
 | `make test` | Ejecuta la suite de pruebas mediante Gradle. |
 | `make seed-demo` | Carga el dataset demo de inscripciones en la base de datos. |
 
-## 7. Carga de Datos de Prueba (Seeder Demo)
-
-El proyecto incluye un seeder modular para poblar el entorno de desarrollo con una oferta académica realista, usuarios demo (postulantes, alumnos, docentes y administradores) y cursos:
-
-```bash
-SEED_INSTITUTION=cboero SEED_YEAR=2026 make seed-demo
-```
-
-- Contraseña predeterminada de las cuentas demo: **`BoeroDemo2026!`**.
-- Para más información sobre el seeder y escenarios de prueba, consultar [Seeder de inscripciones y datos de prueba](enrollment/SEEDER-DEMO.md).
-
-## 8. Relación con Staging y Producción
+## 7. Relación con Staging y Producción
 
 - La preparación de imágenes de producción (`ghcr.io/typeitorg/boero-api`) se realiza a través de CI.
 - Los ambientes compartidos de Staging y Producción requieren una VPS provisionada bajo las especificaciones de `boero-infra`.

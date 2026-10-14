@@ -91,16 +91,8 @@ class InstitutionalCallerGuardTest {
   }
 
   @Test
-  @DisplayName("Should reject platform admin on institutional principal guard")
-  void ensureInstitutionalPrincipal_rejectsPlatformAdmin() {
-    var authentication = new TestingAuthenticationToken(platformPrincipal(PLATFORM_ACCOUNT_ID), "");
-    assertThatThrownBy(() -> institutionalCallerGuard.ensureInstitutionalPrincipal(authentication))
-        .isInstanceOf(AccessDeniedException.class);
-  }
-
-  @Test
-  @DisplayName("Should reject non-admin platform account on institutional principal guard")
-  void ensureInstitutionalPrincipal_rejectsNonAdminPlatformAccount() {
+  @DisplayName("Should reject platform principals on institutional principal guard")
+  void ensureInstitutionalPrincipal_rejectsPlatformPrincipal() {
     var authentication = new TestingAuthenticationToken(platformPrincipal(PLATFORM_ACCOUNT_ID), "");
     assertThatThrownBy(() -> institutionalCallerGuard.ensureInstitutionalPrincipal(authentication))
         .isInstanceOf(AccessDeniedException.class);

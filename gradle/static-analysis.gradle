@@ -57,14 +57,14 @@ sourceSets.each { sourceSet ->
             languageVersion = JavaLanguageVersion.of(21)
         }
         inputs.files(sourceSet.allJava, sourceSet.compileClasspath)
-        inputs.files('config/static-analysis/ecj.properties', 'lombok.config')
+        inputs.files('ecj.properties', 'lombok.config')
         def report = layout.buildDirectory.file("reports/static-analysis/ecj-${sourceSet.name}.xml")
         outputs.file(report)
         doFirst {
             report.get().asFile.parentFile.mkdirs()
             jvmArgs "-javaagent:${configurations.annotationProcessor.files.find { it.name ==~ /lombok-[0-9].*\.jar/ }}"
             args '-21', '-proc:none', '-d', 'none', '-failOnWarning',
-                '-properties', file('config/static-analysis/ecj.properties').absolutePath,
+                '-properties', file('ecj.properties').absolutePath,
                 '-log', report.get().asFile.absolutePath,
                 '-classpath', sourceSet.compileClasspath.asPath
             args sourceSet.allJava.files.collect { it.absolutePath }.sort()

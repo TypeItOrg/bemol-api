@@ -3,9 +3,11 @@ package ar.edu.utn.frvm.typeit.boero_api.auth.services;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import ar.edu.utn.frvm.typeit.boero_api.auth.entities.User;
@@ -23,22 +25,31 @@ import java.time.Instant;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InOrder;
 import org.mockito.Mock;
-import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.authentication.DisabledException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.AuthenticationException;
 
 @ExtendWith(MockitoExtension.class)
 class PasswordLoginWithAttemptUseCaseTest {
 
   @Mock private LoginAttemptService loginAttemptService;
   @Mock private UserRepository userRepository;
-  @Mock private CredentialsAuthenticator credentialsAuthenticator;
+  @Mock private AuthenticationManager authenticationManager;
   @Mock private AuthenticationSessionIssuer sessionIssuer;
   @Mock private HttpServletRequest httpRequest;
 
@@ -48,26 +59,30 @@ class PasswordLoginWithAttemptUseCaseTest {
   void setUp() {
     useCase =
         new PasswordLoginWithAttemptUseCase(
-            loginAttemptService, userRepository, credentialsAuthenticator, sessionIssuer);
-    Mockito.lenient().when(httpRequest.getHeader("User-Agent")).thenReturn("JUnit");
-    Mockito.lenient().when(httpRequest.getRemoteAddr()).thenReturn("127.0.0.1");
+            loginAttemptService,
+            userRepository,
+            new CredentialsAuthenticator(authenticationManager),
+            sessionIssuer);
   }
 
   @Test
-  @DisplayName("Should claim the attempt between verification and session issuance")
-  void execute_claimsAttemptBetweenVerificationAndIssuance() {
+  @DisplayName("Verifies the institutional credentials before issuing a session for that account")
+  void execute_authenticatesTheExactAccountBeforeSessionIssuance() {
+    when(httpRequest.getHeader("User-Agent")).thenReturn("JUnit");
+    when(httpRequest.getRemoteAddr()).thenReturn("127.0.0.1");
     final UUID institutionId = UUID.randomUUID();
     final User user = userWith(institutionId);
     final LoginAttempt attempt =
-        new LoginAttempt("attempt", user.getId(), institutionId, false, Instant.now());
+        new LoginAttempt(
+            "attempt", user.getId(), institutionId, false, Instant.parse("2026-10-08T12:00:00Z"));
     when(loginAttemptService.resolve("attempt")).thenReturn(attempt);
     when(userRepository.findWithPersonAndInstitutionById(user.getId()))
         .thenReturn(Optional.of(user));
-    when(credentialsAuthenticator.authenticate(any(), any()))
+    when(authenticationManager.authenticate(any()))
         .thenReturn(
             UsernamePasswordAuthenticationToken.authenticated(
                 user, "secret", user.getAuthorities()));
-    when(sessionIssuer.issuePassword(any(), any(), any(), any(), any(boolean.class)))
+    when(sessionIssuer.issuePassword(eq(attempt), eq(user), eq("127.0.0.1"), eq("JUnit"), eq(true)))
         .thenReturn(
             AuthResponse.builder()
                 .user(UserPayload.from(user, user.getPerson().getId(), Set.of()))
@@ -76,13 +91,19 @@ class PasswordLoginWithAttemptUseCaseTest {
                 .build());
 
     final AuthResponse response =
-        useCase.execute(new PasswordLoginRequest("attempt", "secret", false), httpRequest);
+        useCase.execute(new PasswordLoginRequest("attempt", "secret", true), httpRequest);
 
     assertThat(response.tokens().accessToken()).isEqualTo("access");
-    final InOrder order = inOrder(loginAttemptService, credentialsAuthenticator, sessionIssuer);
+    assertThat(response.tokens().refreshToken()).isEqualTo("refresh");
+    assertThat(response.user().userId()).isEqualTo(user.getId());
+    final InOrder order = inOrder(loginAttemptService, authenticationManager, sessionIssuer);
     order.verify(loginAttemptService).resolve("attempt");
-    order.verify(credentialsAuthenticator).authenticate(any(), any());
-    order.verify(sessionIssuer).issuePassword(any(), any(), any(), any(), any(boolean.class));
+    ArgumentCaptor<Authentication> credentials = ArgumentCaptor.forClass(Authentication.class);
+    order.verify(authenticationManager).authenticate(credentials.capture());
+    assertThat(credentials.getValue().getPrincipal()).isEqualTo(institutionId + ":12345678");
+    assertThat(credentials.getValue().getCredentials()).isEqualTo("secret");
+    assertThat(credentials.getValue().isAuthenticated()).isFalse();
+    order.verify(sessionIssuer).issuePassword(attempt, user, "127.0.0.1", "JUnit", true);
   }
 
   @Test
@@ -90,7 +111,12 @@ class PasswordLoginWithAttemptUseCaseTest {
   void execute_rejectsInstitutionMismatch() {
     final User user = userWith(UUID.randomUUID());
     final LoginAttempt attempt =
-        new LoginAttempt("attempt", user.getId(), UUID.randomUUID(), false, Instant.now());
+        new LoginAttempt(
+            "attempt",
+            user.getId(),
+            UUID.randomUUID(),
+            false,
+            Instant.parse("2026-10-08T12:00:00Z"));
     when(loginAttemptService.resolve("attempt")).thenReturn(attempt);
     when(userRepository.findWithPersonAndInstitutionById(user.getId()))
         .thenReturn(Optional.of(user));
@@ -99,20 +125,30 @@ class PasswordLoginWithAttemptUseCaseTest {
             () ->
                 useCase.execute(new PasswordLoginRequest("attempt", "secret", false), httpRequest))
         .isInstanceOf(InvalidLoginAttemptException.class);
+    verify(loginAttemptService).invalidate("attempt");
+    verifyNoInteractions(authenticationManager, sessionIssuer);
   }
 
-  @Test
-  @DisplayName("Should propagate invalid credentials without invalidating state twice")
-  void execute_propagatesBadPassword() {
+  static Stream<Arguments> credentialFailures() {
+    return Stream.of(
+        Arguments.of("bad password", new BadCredentialsException("bad password")),
+        Arguments.of("disabled account", new DisabledException("disabled account")));
+  }
+
+  @ParameterizedTest(name = "Rejects {0} without issuing a session")
+  @MethodSource("credentialFailures")
+  @DisplayName("Credential failures have the same public error and cannot issue a session")
+  void execute_propagatesBadPassword(
+      String failureKind, AuthenticationException authenticationFailure) {
     final UUID institutionId = UUID.randomUUID();
     final User user = userWith(institutionId);
     final LoginAttempt attempt =
-        new LoginAttempt("attempt", user.getId(), institutionId, false, Instant.now());
+        new LoginAttempt(
+            "attempt", user.getId(), institutionId, false, Instant.parse("2026-10-08T12:00:00Z"));
     when(loginAttemptService.resolve("attempt")).thenReturn(attempt);
     when(userRepository.findWithPersonAndInstitutionById(user.getId()))
         .thenReturn(Optional.of(user));
-    when(credentialsAuthenticator.authenticate(any(), any()))
-        .thenThrow(new InvalidCredentialsException());
+    when(authenticationManager.authenticate(any())).thenThrow(authenticationFailure);
 
     assertThatThrownBy(
             () -> useCase.execute(new PasswordLoginRequest("attempt", "wrong", false), httpRequest))
@@ -128,11 +164,12 @@ class PasswordLoginWithAttemptUseCaseTest {
     final User user = userWith(institutionId);
     user.updateAccess(false);
     final LoginAttempt attempt =
-        new LoginAttempt("attempt", user.getId(), institutionId, false, Instant.now());
+        new LoginAttempt(
+            "attempt", user.getId(), institutionId, false, Instant.parse("2026-10-08T12:00:00Z"));
     when(loginAttemptService.resolve("attempt")).thenReturn(attempt);
     when(userRepository.findWithPersonAndInstitutionById(user.getId()))
         .thenReturn(Optional.of(user));
-    when(credentialsAuthenticator.authenticate(any(), any()))
+    when(authenticationManager.authenticate(any()))
         .thenReturn(
             UsernamePasswordAuthenticationToken.authenticated(
                 user, "secret", user.getAuthorities()));
@@ -152,11 +189,12 @@ class PasswordLoginWithAttemptUseCaseTest {
     final User user = userWith(institutionId);
     user.getInstitution().updateStatus(false);
     final LoginAttempt attempt =
-        new LoginAttempt("attempt", user.getId(), institutionId, false, Instant.now());
+        new LoginAttempt(
+            "attempt", user.getId(), institutionId, false, Instant.parse("2026-10-08T12:00:00Z"));
     when(loginAttemptService.resolve("attempt")).thenReturn(attempt);
     when(userRepository.findWithPersonAndInstitutionById(user.getId()))
         .thenReturn(Optional.of(user));
-    when(credentialsAuthenticator.authenticate(any(), any()))
+    when(authenticationManager.authenticate(any()))
         .thenReturn(
             UsernamePasswordAuthenticationToken.authenticated(
                 user, "secret", user.getAuthorities()));

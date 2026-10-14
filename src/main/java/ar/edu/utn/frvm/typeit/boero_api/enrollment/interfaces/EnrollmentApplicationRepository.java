@@ -51,9 +51,13 @@ public interface EnrollmentApplicationRepository
   boolean existsSubmittedByPeriod(@Param("periodId") UUID periodId);
 
   @Query(
-      "SELECT app FROM EnrollmentApplication app WHERE app.institution.id = :institutionId AND app.applicantPerson.id = :personId AND app.trainingPathId = :trainingPathId AND app.status = ar.edu.utn.frvm.typeit.boero_api.enrollment.enums.EnrollmentApplicationStatus.DRAFT AND app.deletedAt IS NULL ORDER BY CASE WHEN app.enrollmentPeriod IS NULL THEN 0 ELSE 1 END, app.updatedAt DESC, app.id DESC")
-  List<EnrollmentApplication> findDraftsForTrainingPath(
-      UUID institutionId, UUID personId, UUID trainingPathId, Pageable pageable);
+      "SELECT app FROM EnrollmentApplication app WHERE app.institution.id = :institutionId AND app.applicantPerson.id = :personId AND app.trainingPathId = :trainingPathId AND app.academicYear.id = :academicYearId AND app.status = ar.edu.utn.frvm.typeit.boero_api.enrollment.enums.EnrollmentApplicationStatus.DRAFT AND app.deletedAt IS NULL ORDER BY CASE WHEN app.enrollmentPeriod IS NULL THEN 0 ELSE 1 END, app.updatedAt DESC, app.id DESC")
+  List<EnrollmentApplication> findDraftsForTrainingPathAndAcademicYear(
+      UUID institutionId,
+      UUID personId,
+      UUID trainingPathId,
+      UUID academicYearId,
+      Pageable pageable);
 
   @Query(
       "SELECT app FROM EnrollmentApplication app WHERE app.id = :id AND app.applicantPerson.id = :personId AND app.deletedAt IS NULL")
@@ -114,6 +118,7 @@ public interface EnrollmentApplicationRepository
           + "AND application.deletedAt IS NULL "
           + "AND (:#{@scopedAuthorization.unrestricted('ENROLLMENT_APPLICATION_READ')} = true OR application.trainingPathId IN :#{@scopedAuthorization.paths('ENROLLMENT_APPLICATION_READ')}) AND (:status IS NULL OR application.status = :status) "
           + "AND (:trainingPathId IS NULL OR application.trainingPathId = :trainingPathId) "
+          + EnrollmentApplicationFilters.PENDING_COURSES_FILTER
           + "AND (:pendingDocuments = false OR ((:#{@scopedAuthorization.unrestricted('ENROLLMENT_ATTACHMENT_READ')} = true OR application.trainingPathId IN :#{@scopedAuthorization.paths('ENROLLMENT_ATTACHMENT_READ')}) AND EXISTS (SELECT requirement.id FROM EnrollmentDocumentRequirement requirement WHERE requirement.application.id = application.id AND requirement.active = true AND requirement.level <> ar.edu.utn.frvm.typeit.boero_api.enrollment.enums.DocumentRequirementLevel.OPTIONAL AND NOT EXISTS (SELECT attachment.id FROM EnrollmentAttachment attachment WHERE attachment.requirement.id = requirement.id AND attachment.versionStatus = ar.edu.utn.frvm.typeit.boero_api.enrollment.enums.DocumentVersionStatus.CURRENT AND attachment.reviewStatus = ar.edu.utn.frvm.typeit.boero_api.enrollment.enums.DocumentReviewStatus.ACCEPTED AND attachment.deletedAt IS NULL)))) "
           + "AND (:open = false OR EXISTS ("
           + "SELECT period.id FROM EnrollmentPeriod period "
@@ -128,6 +133,7 @@ public interface EnrollmentApplicationRepository
       @Param("trainingPathId") @Nullable UUID trainingPathId,
       @Param("open") boolean open,
       @Param("pendingDocuments") boolean pendingDocuments,
+      @Param("pendingCourses") @Nullable Boolean pendingCourses,
       Pageable pageable);
 
   @EntityGraph(
@@ -144,6 +150,7 @@ public interface EnrollmentApplicationRepository
           + "AND (:institutionId IS NULL OR application.institution.id = :institutionId) "
           + "AND (:status IS NULL OR application.status = :status) "
           + "AND (:trainingPathId IS NULL OR application.trainingPathId = :trainingPathId) "
+          + EnrollmentApplicationFilters.PENDING_COURSES_FILTER
           + "AND (:pendingDocuments = false OR ((:#{@scopedAuthorization.unrestricted('ENROLLMENT_ATTACHMENT_READ')} = true OR application.trainingPathId IN :#{@scopedAuthorization.paths('ENROLLMENT_ATTACHMENT_READ')}) AND EXISTS (SELECT requirement.id FROM EnrollmentDocumentRequirement requirement WHERE requirement.application.id = application.id AND requirement.active = true AND requirement.level <> ar.edu.utn.frvm.typeit.boero_api.enrollment.enums.DocumentRequirementLevel.OPTIONAL AND NOT EXISTS (SELECT attachment.id FROM EnrollmentAttachment attachment WHERE attachment.requirement.id = requirement.id AND attachment.versionStatus = ar.edu.utn.frvm.typeit.boero_api.enrollment.enums.DocumentVersionStatus.CURRENT AND attachment.reviewStatus = ar.edu.utn.frvm.typeit.boero_api.enrollment.enums.DocumentReviewStatus.ACCEPTED AND attachment.deletedAt IS NULL)))) "
           + "AND (:open = false OR EXISTS ("
           + "SELECT period.id FROM EnrollmentPeriod period "
@@ -158,6 +165,7 @@ public interface EnrollmentApplicationRepository
       @Param("trainingPathId") @Nullable UUID trainingPathId,
       @Param("open") boolean open,
       @Param("pendingDocuments") boolean pendingDocuments,
+      @Param("pendingCourses") @Nullable Boolean pendingCourses,
       Pageable pageable);
 
   @EntityGraph(
@@ -205,11 +213,13 @@ public interface EnrollmentApplicationRepository
           + "WHERE application.institution.id = :institutionId "
           + "AND application.applicantPerson.id = :personId "
           + "AND application.deletedAt IS NULL "
-          + "AND (:status IS NULL OR application.status = :status)")
+          + "AND (:status IS NULL OR application.status = :status) "
+          + EnrollmentApplicationFilters.PENDING_COURSES_FILTER)
   Page<EnrollmentApplication> findMyApplications(
       @Param("institutionId") UUID institutionId,
       @Param("personId") UUID personId,
       @Param("status") @Nullable EnrollmentApplicationStatus status,
+      @Param("pendingCourses") @Nullable Boolean pendingCourses,
       Pageable pageable);
 
   @EntityGraph(

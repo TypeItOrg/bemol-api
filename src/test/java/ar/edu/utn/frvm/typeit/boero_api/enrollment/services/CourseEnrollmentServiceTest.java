@@ -5,15 +5,18 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import ar.edu.utn.frvm.typeit.boero_api.academic.interfaces.CourseClassTeacherRepository;
 import ar.edu.utn.frvm.typeit.boero_api.authorization.services.AcademicAccessGuard;
+import ar.edu.utn.frvm.typeit.boero_api.enrollment.interfaces.CourseEnrollmentHistoryRepository;
 import ar.edu.utn.frvm.typeit.boero_api.enrollment.interfaces.CourseEnrollmentRepository;
 import ar.edu.utn.frvm.typeit.boero_api.enrollment.interfaces.CourseEnrollmentScheduleRepository;
 import java.util.UUID;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -29,7 +32,21 @@ class CourseEnrollmentServiceTest {
   @Mock private CourseEnrollmentRepository courseEnrollmentRepository;
   @Mock private CourseEnrollmentScheduleRepository courseEnrollmentScheduleRepository;
 
-  @InjectMocks private CourseEnrollmentService service;
+  private CourseEnrollmentService service;
+
+  @BeforeEach
+  void setUp() {
+    service =
+        new CourseEnrollmentService(
+            Mockito.mock(CreateCourseEnrollmentUseCase.class),
+            Mockito.mock(ChangeCourseEnrollmentStatusUseCase.class),
+            accessGuard,
+            courseEnrollmentRepository,
+            Mockito.mock(CourseEnrollmentHistoryRepository.class),
+            new CourseEnrollmentResponseFactory(
+                courseEnrollmentScheduleRepository,
+                Mockito.mock(CourseClassTeacherRepository.class)));
+  }
 
   @Test
   @DisplayName("Should return an empty page when the person has no student record")

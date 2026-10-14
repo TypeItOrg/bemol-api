@@ -4,12 +4,9 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
-import java.util.Locale;
-import java.util.Map;
 import org.jspecify.annotations.Nullable;
 import org.springframework.security.web.webauthn.api.AttestationConveyancePreference;
 import org.springframework.security.web.webauthn.api.AuthenticationExtensionsClientInputs;
-import org.springframework.security.web.webauthn.api.AuthenticatorAttachment;
 import org.springframework.security.web.webauthn.api.AuthenticatorSelectionCriteria;
 import org.springframework.security.web.webauthn.api.AuthenticatorSelectionCriteria.AuthenticatorSelectionCriteriaBuilder;
 import org.springframework.security.web.webauthn.api.AuthenticatorTransport;
@@ -23,24 +20,12 @@ import org.springframework.security.web.webauthn.api.PublicKeyCredentialParamete
 import org.springframework.security.web.webauthn.api.PublicKeyCredentialRpEntity;
 import org.springframework.security.web.webauthn.api.PublicKeyCredentialType;
 import org.springframework.security.web.webauthn.api.PublicKeyCredentialUserEntity;
-import org.springframework.security.web.webauthn.api.ResidentKeyRequirement;
 import org.springframework.security.web.webauthn.api.UserVerificationRequirement;
 import tools.jackson.databind.JsonNode;
 
 final class WebAuthnOptionsReader {
 
   private WebAuthnOptionsReader() {}
-
-  private static final Map<Long, PublicKeyCredentialParameters> CRED_PARAMS =
-      Map.of(
-          -7L, PublicKeyCredentialParameters.ES256,
-          -35L, PublicKeyCredentialParameters.ES384,
-          -36L, PublicKeyCredentialParameters.ES512,
-          -257L, PublicKeyCredentialParameters.RS256,
-          -258L, PublicKeyCredentialParameters.RS384,
-          -259L, PublicKeyCredentialParameters.RS512,
-          -8L, PublicKeyCredentialParameters.EdDSA,
-          -65535L, PublicKeyCredentialParameters.RS1);
 
   static JsonNode required(final JsonNode parent, final String field) {
     final JsonNode child = parent.get(field);
@@ -145,17 +130,9 @@ final class WebAuthnOptionsReader {
       if (!alg.isNumber()) {
         throw new IllegalArgumentException("Invalid WebAuthn options field");
       }
-      params.add(credParam(alg.asLong()));
+      params.add(WebAuthnOptionValues.credentialAlgorithm(alg.asLong()));
     }
     return List.copyOf(params);
-  }
-
-  private static PublicKeyCredentialParameters credParam(final long alg) {
-    final PublicKeyCredentialParameters param = CRED_PARAMS.get(alg);
-    if (param == null) {
-      throw new IllegalArgumentException("Unsupported WebAuthn credential algorithm");
-    }
-    return param;
   }
 
   static List<PublicKeyCredentialDescriptor> descriptors(final JsonNode node) {
@@ -193,77 +170,31 @@ final class WebAuthnOptionsReader {
       if (!entry.isString()) {
         throw new IllegalArgumentException("Invalid WebAuthn options field");
       }
-      transports.add(transport(entry.asString()));
+      transports.add(WebAuthnOptionValues.transport(entry.asString()));
     }
     return transports.toArray(AuthenticatorTransport[]::new);
-  }
-
-  private static AuthenticatorTransport transport(final String value) {
-    final String normalized = value.trim().toUpperCase(Locale.ROOT).replace('-', '_');
-    return switch (normalized) {
-      case "USB" -> AuthenticatorTransport.USB;
-      case "NFC" -> AuthenticatorTransport.NFC;
-      case "BLE" -> AuthenticatorTransport.BLE;
-      case "SMART_CARD" -> AuthenticatorTransport.SMART_CARD;
-      case "HYBRID" -> AuthenticatorTransport.HYBRID;
-      case "INTERNAL" -> AuthenticatorTransport.INTERNAL;
-      default -> throw new IllegalArgumentException("Unsupported WebAuthn transport");
-    };
   }
 
   static AuthenticatorSelectionCriteria selection(final JsonNode node) {
     requireObject(node);
     final AuthenticatorSelectionCriteriaBuilder builder = AuthenticatorSelectionCriteria.builder();
-    builder.residentKey(residentKey(requiredText(node, "residentKey")));
+    builder.residentKey(WebAuthnOptionValues.residentKey(requiredText(node, "residentKey")));
     builder.userVerification(userVerification(requiredText(node, "userVerification")));
     final JsonNode attachment = node.get("authenticatorAttachment");
     if (attachment != null && !attachment.isNull()) {
       if (!attachment.isString()) {
         throw new IllegalArgumentException("Invalid WebAuthn options field");
       }
-      builder.authenticatorAttachment(authenticatorAttachment(attachment.asString()));
+      builder.authenticatorAttachment(WebAuthnOptionValues.attachment(attachment.asString()));
     }
     return builder.build();
   }
 
-  private static ResidentKeyRequirement residentKey(final String value) {
-    final String normalized = value.trim().toLowerCase(Locale.ROOT);
-    return switch (normalized) {
-      case "required" -> ResidentKeyRequirement.REQUIRED;
-      case "preferred" -> ResidentKeyRequirement.PREFERRED;
-      case "discouraged" -> ResidentKeyRequirement.DISCOURAGED;
-      default -> throw new IllegalArgumentException("Unsupported WebAuthn resident key");
-    };
-  }
-
   static UserVerificationRequirement userVerification(final String value) {
-    final String normalized = value.trim().toLowerCase(Locale.ROOT);
-    return switch (normalized) {
-      case "required" -> UserVerificationRequirement.REQUIRED;
-      case "preferred" -> UserVerificationRequirement.PREFERRED;
-      case "discouraged" -> UserVerificationRequirement.DISCOURAGED;
-      default -> throw new IllegalArgumentException("Unsupported WebAuthn user verification");
-    };
-  }
-
-  private static AuthenticatorAttachment authenticatorAttachment(final String value) {
-    final String normalized = value.trim().toLowerCase(Locale.ROOT);
-    return switch (normalized) {
-      case "platform" -> AuthenticatorAttachment.PLATFORM;
-      case "cross-platform" -> AuthenticatorAttachment.CROSS_PLATFORM;
-      default ->
-          throw new IllegalArgumentException("Unsupported WebAuthn authenticator attachment");
-    };
+    return WebAuthnOptionValues.userVerification(value);
   }
 
   static AttestationConveyancePreference attestation(final String value) {
-    final String normalized = value.trim().toLowerCase(Locale.ROOT);
-    return switch (normalized) {
-      case "none" -> AttestationConveyancePreference.NONE;
-      case "indirect" -> AttestationConveyancePreference.INDIRECT;
-      case "direct" -> AttestationConveyancePreference.DIRECT;
-      case "enterprise" -> AttestationConveyancePreference.ENTERPRISE;
-      default -> throw new IllegalArgumentException("Unsupported WebAuthn attestation");
-    };
+    return WebAuthnOptionValues.attestation(value);
   }
 }

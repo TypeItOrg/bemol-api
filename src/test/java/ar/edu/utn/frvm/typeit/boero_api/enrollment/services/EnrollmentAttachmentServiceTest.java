@@ -84,22 +84,25 @@ class EnrollmentAttachmentServiceTest {
 
   @BeforeEach
   void setUp() {
+    final var authorization =
+        new EnrollmentDocumentAuthorization(authorityResolver, authorizationService, audit);
+    final var documents =
+        new EnrollmentDocumentRequirementsService(
+            definitions, attachmentRepository, authorization, periods);
+    final var access =
+        new EnrollmentDocumentAccess(
+            applicationRepository, authorization, institutionLock, entityManager, documents);
     service =
         new EnrollmentAttachmentService(
-            applicationRepository,
             attachmentRepository,
             storage,
-            new EnrollmentDocumentAuthorization(authorityResolver, authorizationService, audit),
+            authorization,
             audit,
-            journal,
             Clock.systemUTC(),
-            institutionLock,
-            entityManager,
-            new EnrollmentDocumentRequirementsService(
-                definitions,
-                attachmentRepository,
-                new EnrollmentDocumentAuthorization(authorityResolver, authorizationService, audit),
-                periods));
+            documents,
+            access,
+            new UploadEnrollmentAttachmentUseCase(
+                access, attachmentRepository, storage, authorization, audit, journal, documents));
 
     Institution institution = Mockito.mock(Institution.class);
     Mockito.lenient().when(institution.getId()).thenReturn(institutionId);
@@ -117,6 +120,7 @@ class EnrollmentAttachmentServiceTest {
             .build();
     application.addDocumentRequirement(requirement);
     when(requirement.getId()).thenReturn(requirementId);
+    when(requirement.isActive()).thenReturn(true);
     when(requirement.getAllowedFormats()).thenReturn(List.of("application/pdf", "image/png"));
     when(requirement.getLevel()).thenReturn(DocumentRequirementLevel.AT_SUBMISSION);
     when(applicationRepository.findById(applicationId)).thenReturn(Optional.of(application));

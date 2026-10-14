@@ -1,13 +1,9 @@
 package ar.edu.utn.frvm.typeit.boero_api.academic.services;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.when;
 
-import ar.edu.utn.frvm.typeit.boero_api.academic.entities.AcademicLevel;
-import ar.edu.utn.frvm.typeit.boero_api.academic.entities.AcademicSpace;
-import ar.edu.utn.frvm.typeit.boero_api.academic.entities.StudyPlan;
-import ar.edu.utn.frvm.typeit.boero_api.academic.entities.StudyPlanSpace;
-import ar.edu.utn.frvm.typeit.boero_api.academic.entities.TrainingPath;
+import ar.edu.utn.frvm.typeit.boero_api.academic.entities.AcademicEntityTestFactory;
 import ar.edu.utn.frvm.typeit.boero_api.academic.enums.AcademicSpaceFormat;
 import ar.edu.utn.frvm.typeit.boero_api.academic.enums.AcademicSpaceType;
 import ar.edu.utn.frvm.typeit.boero_api.academic.enums.ApprovalMode;
@@ -15,18 +11,22 @@ import ar.edu.utn.frvm.typeit.boero_api.academic.enums.RequirementType;
 import ar.edu.utn.frvm.typeit.boero_api.academic.interfaces.AcademicLevelRepository;
 import ar.edu.utn.frvm.typeit.boero_api.academic.interfaces.StudyPlanRepository;
 import ar.edu.utn.frvm.typeit.boero_api.academic.interfaces.StudyPlanSpaceRepository;
+import ar.edu.utn.frvm.typeit.boero_api.academic.payloads.AcademicOfferDetailResponse;
+import ar.edu.utn.frvm.typeit.boero_api.academic.payloads.AcademicOfferLevelResponse;
+import ar.edu.utn.frvm.typeit.boero_api.academic.payloads.AcademicOfferSpaceResponse;
+import ar.edu.utn.frvm.typeit.boero_api.academic.payloads.AcademicOfferSummaryResponse;
 import ar.edu.utn.frvm.typeit.boero_api.authorization.services.AcademicAccessGuard;
 import ar.edu.utn.frvm.typeit.boero_api.common.time.BusinessDateProvider;
 import ar.edu.utn.frvm.typeit.boero_api.enrollment.interfaces.EnrollmentPeriodRepository;
+import ar.edu.utn.frvm.typeit.boero_api.institutional.entities.Institution;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
-import org.jspecify.annotations.Nullable;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -34,106 +34,105 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
 class GetAcademicOfferUseCaseTest {
-
   private static final Clock CLOCK =
       Clock.fixed(Instant.parse("2026-09-09T02:00:00Z"), ZoneOffset.UTC);
-
-  private static final UUID INSTITUTION_ID = UUID.randomUUID();
-  private static final UUID STUDY_PLAN_ID = UUID.randomUUID();
-  private static final UUID LEVEL_ID = UUID.randomUUID();
-
-  @Mock private StudyPlanRepository studyPlanRepository;
-  @Mock private EnrollmentPeriodRepository enrollmentPeriodRepository;
-  @Mock private AcademicLevelRepository academicLevelRepository;
-  @Mock private StudyPlanSpaceRepository studyPlanSpaceRepository;
-  @Mock private StudyPlan studyPlan;
-  @Mock private TrainingPath trainingPath;
-  @Mock private AcademicLevel level;
-  @Mock private StudyPlanSpace assignedPlanSpace;
-  @Mock private StudyPlanSpace unassignedPlanSpace;
-  @Mock private AcademicSpace assignedAcademicSpace;
-  @Mock private AcademicSpace unassignedAcademicSpace;
+  private static final UUID INSTITUTION_ID = id(1);
+  private static final UUID PLAN_ID = id(2);
+  @Mock private StudyPlanRepository plans;
+  @Mock private EnrollmentPeriodRepository periods;
+  @Mock private AcademicLevelRepository levels;
+  @Mock private StudyPlanSpaceRepository spaces;
+  @Mock private AcademicAccessGuard access;
 
   @Test
-  @DisplayName("Should organize active academic spaces by level and preserve unassigned spaces")
-  void execute_buildsAvailableCurriculum() {
-    stubOffer();
+  void groupsRealCurriculumSpacesByLevelAndPreservesUnassignedSpacesAndEmptyLevels() {
+    var institution = Institution.builder().id(INSTITUTION_ID).build();
+    var plan = AcademicEntityTestFactory.studyPlan(institution, PLAN_ID, id(3));
+    var firstLevel = AcademicEntityTestFactory.academicLevel(plan, id(4), 1);
+    var emptyLevel = AcademicEntityTestFactory.academicLevel(plan, id(5), 2);
+    var assigned = AcademicEntityTestFactory.studyPlanSpace(plan, id(6));
+    assigned
+        .getAcademicSpace()
+        .update(
+            "Lenguaje Musical", "Lectura", AcademicSpaceType.SUBJECT, AcademicSpaceFormat.GRUPAL);
+    assigned.update(
+        assigned.getAcademicSpace(),
+        firstLevel,
+        RequirementType.REQUIRED,
+        2,
+        ApprovalMode.PROMOTION);
+    var unassigned = AcademicEntityTestFactory.studyPlanSpace(plan, id(7));
+    unassigned
+        .getAcademicSpace()
+        .update(
+            "Taller institucional",
+            null,
+            AcademicSpaceType.WORKSHOP,
+            AcademicSpaceFormat.INDIVIDUAL);
+    unassigned.update(
+        unassigned.getAcademicSpace(), null, RequirementType.OPTIONAL, 3, ApprovalMode.FINAL_EXAM);
+    when(plans.findAvailableOfferById(INSTITUTION_ID, PLAN_ID, LocalDate.of(2026, 9, 8)))
+        .thenReturn(Optional.of(plan));
+    when(spaces.findActiveByStudyPlanIdWithDetails(PLAN_ID))
+        .thenReturn(List.of(unassigned, assigned));
+    when(levels.findByStudyPlan_IdOrderByDisplayOrderAsc(PLAN_ID))
+        .thenReturn(List.of(firstLevel, emptyLevel));
+    when(periods.findStudyPlanIdsWithOpenEnrollment(
+            INSTITUTION_ID, List.of(PLAN_ID), CLOCK.instant()))
+        .thenReturn(Set.of(PLAN_ID));
 
-    final var response = useCase().execute(INSTITUTION_ID, STUDY_PLAN_ID);
+    var response =
+        new GetAcademicOfferUseCase(
+                access, new BusinessDateProvider(CLOCK), CLOCK, periods, plans, levels, spaces)
+            .execute(INSTITUTION_ID, PLAN_ID);
 
-    assertThat(response.offer().trainingPathName()).isEqualTo("CAVI");
-    assertThat(response.levels())
-        .singleElement()
-        .satisfies(
-            offerLevel -> {
-              assertThat(offerLevel.name()).isEqualTo("Nivel 1");
-              assertThat(offerLevel.spaces())
-                  .singleElement()
-                  .satisfies(space -> assertThat(space.name()).isEqualTo("Lenguaje Musical"));
-            });
-    assertThat(response.unassignedSpaces())
-        .singleElement()
-        .satisfies(space -> assertThat(space.name()).isEqualTo("Taller institucional"));
+    assertThat(response)
+        .isEqualTo(
+            new AcademicOfferDetailResponse(
+                new AcademicOfferSummaryResponse(
+                    PLAN_ID,
+                    "Plan",
+                    1,
+                    LocalDate.of(2026, 1, 1),
+                    LocalDate.of(2030, 12, 31),
+                    id(3),
+                    "Path",
+                    "Programa",
+                    true),
+                List.of(
+                    new AcademicOfferLevelResponse(
+                        id(4),
+                        "Nivel 1",
+                        1,
+                        null,
+                        List.of(
+                            new AcademicOfferSpaceResponse(
+                                id(6),
+                                assigned.getAcademicSpace().getId(),
+                                id(4),
+                                "Lenguaje Musical",
+                                "Lectura",
+                                AcademicSpaceType.SUBJECT,
+                                AcademicSpaceFormat.GRUPAL,
+                                RequirementType.REQUIRED,
+                                2,
+                                ApprovalMode.PROMOTION))),
+                    new AcademicOfferLevelResponse(id(5), "Nivel 2", 2, null, List.of())),
+                List.of(
+                    new AcademicOfferSpaceResponse(
+                        id(7),
+                        unassigned.getAcademicSpace().getId(),
+                        null,
+                        "Taller institucional",
+                        null,
+                        AcademicSpaceType.WORKSHOP,
+                        AcademicSpaceFormat.INDIVIDUAL,
+                        RequirementType.OPTIONAL,
+                        3,
+                        ApprovalMode.FINAL_EXAM))));
   }
 
-  private GetAcademicOfferUseCase useCase() {
-    return new GetAcademicOfferUseCase(
-        org.mockito.Mockito.mock(AcademicAccessGuard.class),
-        new BusinessDateProvider(CLOCK),
-        CLOCK,
-        enrollmentPeriodRepository,
-        studyPlanRepository,
-        academicLevelRepository,
-        studyPlanSpaceRepository);
-  }
-
-  private void stubOffer() {
-    given(
-            studyPlanRepository.findAvailableOfferById(
-                INSTITUTION_ID, STUDY_PLAN_ID, LocalDate.of(2026, 9, 8)))
-        .willReturn(Optional.of(studyPlan));
-    given(studyPlanSpaceRepository.findActiveByStudyPlanIdWithDetails(STUDY_PLAN_ID))
-        .willReturn(List.of(assignedPlanSpace, unassignedPlanSpace));
-    given(academicLevelRepository.findByStudyPlan_IdOrderByDisplayOrderAsc(STUDY_PLAN_ID))
-        .willReturn(List.of(level));
-
-    given(studyPlan.getId()).willReturn(STUDY_PLAN_ID);
-    given(studyPlan.getName()).willReturn("Plan CAVI 2026");
-    given(studyPlan.getVersionNumber()).willReturn(1);
-    given(studyPlan.getEffectiveFrom()).willReturn(LocalDate.of(2026, 1, 1));
-    given(studyPlan.getTrainingPath()).willReturn(trainingPath);
-    given(trainingPath.getId()).willReturn(UUID.randomUUID());
-    given(trainingPath.getName()).willReturn("CAVI");
-
-    given(level.getId()).willReturn(LEVEL_ID);
-    given(level.getName()).willReturn("Nivel 1");
-    given(level.getDisplayOrder()).willReturn(1);
-
-    stubPlanSpace(
-        assignedPlanSpace, assignedAcademicSpace, UUID.randomUUID(), "Lenguaje Musical", level);
-    stubPlanSpace(
-        unassignedPlanSpace,
-        unassignedAcademicSpace,
-        UUID.randomUUID(),
-        "Taller institucional",
-        null);
-  }
-
-  private static void stubPlanSpace(
-      final StudyPlanSpace planSpace,
-      final AcademicSpace academicSpace,
-      final UUID id,
-      final String name,
-      final @Nullable AcademicLevel academicLevel) {
-    given(planSpace.getId()).willReturn(id);
-    given(planSpace.getAcademicSpace()).willReturn(academicSpace);
-    given(planSpace.getAcademicLevel()).willReturn(academicLevel);
-    given(planSpace.getRequirementType()).willReturn(RequirementType.REQUIRED);
-    given(planSpace.getDisplayOrder()).willReturn(1);
-    given(planSpace.getApprovalMode()).willReturn(ApprovalMode.PROMOTION);
-    given(academicSpace.getId()).willReturn(UUID.randomUUID());
-    given(academicSpace.getName()).willReturn(name);
-    given(academicSpace.getType()).willReturn(AcademicSpaceType.SUBJECT);
-    given(academicSpace.getFormat()).willReturn(AcademicSpaceFormat.GRUPAL);
+  private static UUID id(int value) {
+    return new UUID(0, value);
   }
 }

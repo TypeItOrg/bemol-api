@@ -6,10 +6,41 @@ import ar.edu.utn.frvm.typeit.boero_api.support.IntegrationTest;
 import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.springframework.dao.DataIntegrityViolationException;
 
 @IntegrationTest
 class TenantMigrationIntegrationTest extends DatabaseMigrationTestSupport {
+
+  @ParameterizedTest
+  @CsvSource({
+    "1234567,Ana,Garcia,people_document_number_format",
+    "12345678,AB,Garcia,people_first_name_length",
+    "12345678,Ana,AB,people_last_name_length"
+  })
+  void rejectsMalformedPersonDataThroughTheNamedPostgresConstraint(
+      String document, String firstName, String lastName, String constraint) {
+    final var institutionId = fixtures.firstInstitutionId();
+    final var id = UUID.randomUUID();
+    assertThatThrownBy(
+            () ->
+                jdbcTemplate.update(
+                    """
+        INSERT INTO people (
+          person_id, institution_id, document_number, first_name, last_name, email,
+          deleted, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, 'ana@example.com', false, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+        """,
+                    id,
+                    institutionId,
+                    document,
+                    firstName,
+                    lastName))
+        .isInstanceOf(DataIntegrityViolationException.class)
+        .rootCause()
+        .hasMessageContaining("violates check constraint \"" + constraint + "\"");
+  }
 
   @Test
   @DisplayName("Should enforce document uniqueness only for active people")

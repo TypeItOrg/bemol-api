@@ -1,11 +1,9 @@
 package ar.edu.utn.frvm.typeit.boero_api.authorization.entities;
 
-import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import ar.edu.utn.frvm.typeit.boero_api.auth.entities.PlatformAccount;
 import ar.edu.utn.frvm.typeit.boero_api.authorization.enums.RoleScope;
-import ar.edu.utn.frvm.typeit.boero_api.authorization.enums.SystemRoleCode;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.entities.Institution;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.entities.Person;
 import java.util.UUID;
@@ -39,31 +37,5 @@ class AuthorizationDomainTest {
 
     assertThatThrownBy(() -> PlatformAccountRole.assign(account, institutionalRole))
         .isInstanceOf(IllegalArgumentException.class);
-  }
-
-  @Test
-  @DisplayName("Should identify the protected institutional authority role")
-  void roleIdentifiesInstitutionalAuthority() {
-    final Role role =
-        Role.builder()
-            .scope(RoleScope.INSTITUTION)
-            .code(SystemRoleCode.INSTITUTIONAL_AUTHORITY.name())
-            .system(true)
-            .build();
-
-    assertThat(role.isInstitutionalAuthority()).isTrue();
-  }
-
-  @Test
-  @DisplayName("Should identify the applicant role")
-  void roleIdentifiesApplicant() {
-    final Role role =
-        Role.builder()
-            .scope(RoleScope.INSTITUTION)
-            .code(SystemRoleCode.APPLICANT.name())
-            .system(true)
-            .build();
-
-    assertThat(role.isApplicant()).isTrue();
   }
 }

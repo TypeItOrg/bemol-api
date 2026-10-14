@@ -7,6 +7,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import ar.edu.utn.frvm.typeit.boero_api.academic.entities.AcademicYear;
 import ar.edu.utn.frvm.typeit.boero_api.academic.entities.StudyPlan;
 import ar.edu.utn.frvm.typeit.boero_api.academic.entities.TrainingPath;
+import ar.edu.utn.frvm.typeit.boero_api.authorization.exceptions.ScopedResourceNotFoundException;
 import ar.edu.utn.frvm.typeit.boero_api.authorization.services.AcademicAccessGuard;
 import ar.edu.utn.frvm.typeit.boero_api.authorization.services.ScopedAuthorizationService;
 import ar.edu.utn.frvm.typeit.boero_api.enrollment.entities.EnrollmentApplication;
@@ -29,10 +30,12 @@ import ar.edu.utn.frvm.typeit.boero_api.enrollment.services.EnrollmentInstitutio
 import ar.edu.utn.frvm.typeit.boero_api.enrollment.services.RejectEnrollmentApplicationUseCase;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.entities.Institution;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.entities.Person;
+import ar.edu.utn.frvm.typeit.boero_api.institutional.entities.Student;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.interfaces.StudentRepository;
 import ar.edu.utn.frvm.typeit.boero_api.support.InstitutionalTestData;
 import ar.edu.utn.frvm.typeit.boero_api.support.IntegrationTest;
 import ar.edu.utn.frvm.typeit.boero_api.support.JpaAuditingTestConfig;
+import ar.edu.utn.frvm.typeit.boero_api.support.PostgresTestDatabase;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceException;
 import java.time.LocalDate;
@@ -43,6 +46,8 @@ import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase;
@@ -50,10 +55,7 @@ import org.springframework.context.annotation.Import;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
-import org.testcontainers.containers.PostgreSQLContainer;
-import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
-import org.testcontainers.utility.DockerImageName;
 
 @DataJpaTest(
     properties = {
@@ -78,9 +80,8 @@ import org.testcontainers.utility.DockerImageName;
 })
 class EnrollmentResolutionPostgresIntegrationTest {
 
-  @Container
-  static final PostgreSQLContainer<?> POSTGRES =
-      new PostgreSQLContainer<>(DockerImageName.parse("postgres:18-alpine"));
+  static final PostgresTestDatabase POSTGRES =
+      new PostgresTestDatabase("postgres:18-alpine", "enrollment_resolution");
 
   @MockitoBean private EnrollmentApplicationCourseApprovalService applicationCourseApprovalService;
 
@@ -165,10 +166,23 @@ class EnrollmentResolutionPostgresIntegrationTest {
     entityManager.clear();
   }
 
-  @Test
+  @ParameterizedTest
+  @ValueSource(booleans = {false, true})
   @DisplayName(
       "Should approve a submitted application, create the student and block a second approval")
-  void approve_createsStudentAndCannotResolveTwice() {
+  void approve_createsOrPreservesTheStudentAndCannotResolveTwice(boolean alreadyStudent) {
+    UUID existingStudentId = null;
+    if (alreadyStudent) {
+      Student existing =
+          Student.builder()
+              .institution(entityManager.find(Institution.class, institution.getId()))
+              .person(entityManager.find(Person.class, person.getId()))
+              .fileNumber("2020-00001")
+              .enrollmentDate(LocalDate.of(2020, 3, 1))
+              .build();
+      InstitutionalTestData.persist(entityManager, existing);
+      existingStudentId = existing.getId();
+    }
     final var applicationId = startAndSubmit();
 
     final var approved =
@@ -182,6 +196,18 @@ class EnrollmentResolutionPostgresIntegrationTest {
                 institution.getId(), person.getId()))
         .isTrue();
     assertThat(studentRepository.countByInstitution_Id(institution.getId())).isEqualTo(1);
+    var student =
+        studentRepository
+            .findByInstitution_IdAndPerson_Id(institution.getId(), person.getId())
+            .orElseThrow();
+    if (alreadyStudent) {
+      assertThat(student.getId()).isEqualTo(existingStudentId);
+      assertThat(student.getFileNumber()).isEqualTo("2020-00001");
+      assertThat(student.getEnrollmentDate()).isEqualTo(LocalDate.of(2020, 3, 1));
+    } else {
+      assertThat(student.getFileNumber()).matches("\\d{4}-\\d{5}");
+      assertThat(student.getEnrollmentDate()).isNotNull();
+    }
 
     assertThatThrownBy(
             () -> approveUseCase.execute(institution.getId(), applicationId, resolverPersonId))
@@ -240,6 +266,48 @@ class EnrollmentResolutionPostgresIntegrationTest {
                     new RejectEnrollmentApplicationRequest(" "),
                     resolverPersonId))
         .isInstanceOf(MissingRejectionReasonException.class);
+    entityManager.flush();
+    entityManager.clear();
+    var preserved = enrollmentApplicationRepository.findById(applicationId).orElseThrow();
+    assertThat(preserved.getStatus()).isEqualTo(EnrollmentApplicationStatus.SUBMITTED);
+    assertThat(preserved.getRejectionReason()).isNull();
+    assertThat(preserved.getResolvedAt()).isNull();
+  }
+
+  @ParameterizedTest
+  @ValueSource(strings = {"approve", "reject"})
+  void resolutionCannotFindMissingOrForeignApplications(String operation) {
+    UUID applicationId = startAndSubmit();
+    Institution foreign =
+        InstitutionalTestData.createInstitution(entityManager, "foreign-resolution");
+    entityManager.flush();
+    UUID missing = UUID.fromString("00000000-0000-0000-0000-000000000001");
+
+    assertThatThrownBy(() -> resolve(operation, institution.getId(), missing))
+        .isExactlyInstanceOf(ScopedResourceNotFoundException.class);
+    assertThatThrownBy(() -> resolve(operation, foreign.getId(), applicationId))
+        .isExactlyInstanceOf(ScopedResourceNotFoundException.class);
+
+    entityManager.flush();
+    entityManager.clear();
+    var preserved = enrollmentApplicationRepository.findById(applicationId).orElseThrow();
+    assertThat(preserved.getStatus()).isEqualTo(EnrollmentApplicationStatus.SUBMITTED);
+    assertThat(preserved.getRejectionReason()).isNull();
+    assertThat(preserved.getResolvedAt()).isNull();
+    assertThat(studentRepository.countByInstitution_Id(institution.getId())).isZero();
+    assertThat(studentRepository.countByInstitution_Id(foreign.getId())).isZero();
+  }
+
+  private void resolve(String operation, UUID tenantId, UUID applicationId) {
+    if (operation.equals("approve")) {
+      approveUseCase.execute(tenantId, applicationId, resolverPersonId);
+    } else {
+      rejectUseCase.execute(
+          tenantId,
+          applicationId,
+          new RejectEnrollmentApplicationRequest("Documentación incompleta"),
+          resolverPersonId);
+    }
   }
 
   @Test

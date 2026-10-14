@@ -8,6 +8,9 @@ import static ar.edu.utn.frvm.typeit.boero_api.support.InstitutionalTestData.per
 import static ar.edu.utn.frvm.typeit.boero_api.support.InstitutionalTestData.province;
 import static ar.edu.utn.frvm.typeit.boero_api.support.InstitutionalTestData.user;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.reset;
+import static org.mockito.Mockito.spy;
 
 import ar.edu.utn.frvm.typeit.boero_api.auth.entities.RefreshToken;
 import ar.edu.utn.frvm.typeit.boero_api.auth.entities.User;
@@ -18,6 +21,7 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.UUID;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -35,13 +39,20 @@ class AuditingJpaTest {
   private static final Instant EXPIRES_AT = Instant.parse("2026-12-01T18:45:30.123456Z");
 
   @Autowired private EntityManager entityManager;
+  @Autowired private Clock clock;
+
+  @BeforeEach
+  void resetClock() {
+    reset(clock);
+    doReturn(FIXED_INSTANT).when(clock).instant();
+  }
 
   @TestConfiguration
   static class FixedClockConfig {
     @Bean
     @Primary
     Clock fixedClock() {
-      return Clock.fixed(FIXED_INSTANT, ZoneOffset.UTC);
+      return spy(Clock.fixed(FIXED_INSTANT, ZoneOffset.UTC));
     }
   }
 
@@ -80,13 +91,18 @@ class AuditingJpaTest {
   void shouldKeepLastModifiedDateOnSharedClockWhenAuditableEntityChanges() {
     Country country = persist(entityManager, country("URY"));
     entityManager.flush();
-    Instant firstUpdatedAt = country.getUpdatedAt();
+    final var later = FIXED_INSTANT.plusSeconds(3600);
+    doReturn(later).when(clock).instant();
 
     country.setName("Republica Oriental del Uruguay");
     entityManager.flush();
 
-    assertThat(firstUpdatedAt).isEqualTo(FIXED_INSTANT);
-    assertThat(country.getUpdatedAt()).isEqualTo(FIXED_INSTANT);
+    final UUID id = country.getId();
+    entityManager.clear();
+    final var reloaded = entityManager.find(Country.class, id);
+    assertThat(reloaded.getCreatedAt()).isEqualTo(FIXED_INSTANT);
+    assertThat(reloaded.getUpdatedAt()).isEqualTo(later);
+    assertThat(reloaded.getName()).isEqualTo("Republica Oriental del Uruguay");
   }
 
   @Test
@@ -114,22 +130,8 @@ class AuditingJpaTest {
     assertThat(found.getId().version()).isEqualTo(7);
     assertThat(found.getExpiresAt()).isEqualTo(EXPIRES_AT);
     assertThat(found.getCreatedAt()).isEqualTo(FIXED_INSTANT);
+    assertThat(foundSession.getId().version()).isEqualTo(7);
     assertThat(foundSession.getStartedAt()).isEqualTo(FIXED_INSTANT);
-  }
-
-  @Test
-  @DisplayName("Should set session start time when user session is created")
-  void shouldSetSessionStartTimeWhenUserSessionIsCreated() {
-    Institution institution = createInstitution("session-audit");
-    User user = createUser(institution, "30000001");
-    UserSession session = userSession(user);
-
-    persist(entityManager, session);
-    entityManager.flush();
-
-    assertThat(session.getId()).isNotNull();
-    assertThat(session.getId().version()).isEqualTo(7);
-    assertThat(session.getStartedAt()).isEqualTo(FIXED_INSTANT);
   }
 
   private Institution createInstitution(final String slug) {

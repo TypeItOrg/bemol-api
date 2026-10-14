@@ -34,6 +34,7 @@ class UpdateInstitutionStatusUseCaseTest {
     when(institutionRepository.findById(institutionId)).thenReturn(Optional.of(institution));
 
     useCase.execute(institutionId, false);
+    useCase.execute(institutionId, false);
 
     assertThat(institution.isActive()).isFalse();
     verify(institutionRepository).save(institution);
@@ -50,6 +51,7 @@ class UpdateInstitutionStatusUseCaseTest {
     useCase.execute(institutionId, true);
 
     assertThat(institution.isActive()).isTrue();
+    verify(institutionRepository).save(institution);
     verify(sessionRevocationService, never())
         .revokeInstitutionalSessionsForInstitution(institutionId);
   }

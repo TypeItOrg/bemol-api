@@ -9,8 +9,8 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.http.MediaType.APPLICATION_JSON;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -32,7 +32,7 @@ import ar.edu.utn.frvm.typeit.boero_api.institutional.payloads.InstitutionDetail
 import ar.edu.utn.frvm.typeit.boero_api.institutional.payloads.InstitutionListItemResponse;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.payloads.ProvinceSummaryResponse;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.payloads.requests.CreateInstitutionRequest;
-import ar.edu.utn.frvm.typeit.boero_api.institutional.payloads.requests.UpdateInstitutionRequest;
+import ar.edu.utn.frvm.typeit.boero_api.institutional.payloads.requests.UpdateInstitutionWithBrandingRequest;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.services.CreateInstitutionUseCase;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.services.GetInstitutionAdminUseCase;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.services.GetInstitutionUseCase;
@@ -40,9 +40,8 @@ import ar.edu.utn.frvm.typeit.boero_api.institutional.services.InstitutionLogoUs
 import ar.edu.utn.frvm.typeit.boero_api.institutional.services.ListInstitutionsAdminUseCase;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.services.ListInstitutionsUseCase;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.services.ResolveInstitutionPublicAccessUseCase;
-import ar.edu.utn.frvm.typeit.boero_api.institutional.services.UpdateInstitutionPublicAccessUseCase;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.services.UpdateInstitutionStatusUseCase;
-import ar.edu.utn.frvm.typeit.boero_api.institutional.services.UpdateInstitutionUseCase;
+import ar.edu.utn.frvm.typeit.boero_api.institutional.services.UpdateInstitutionWithBrandingUseCase;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
@@ -52,6 +51,8 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.EnableAspectJAutoProxy;
 import org.springframework.context.annotation.Import;
+import org.springframework.http.HttpMethod;
+import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.security.authentication.TestingAuthenticationToken;
 import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
@@ -76,7 +77,6 @@ class InstitutionControllerWebMvcTest {
 
   @MockitoBean private InstitutionLogoUseCase logos;
   @MockitoBean private ResolveInstitutionPublicAccessUseCase resolvePublicAccess;
-  @MockitoBean private UpdateInstitutionPublicAccessUseCase publicAccess;
 
   @MockitoBean private PathMatcher pathMatcher;
   @MockitoBean private AuthenticationEntryPoint authenticationEntryPoint;
@@ -90,7 +90,7 @@ class InstitutionControllerWebMvcTest {
   @MockitoBean private GetInstitutionUseCase getInstitutionUseCase;
   @MockitoBean private GetInstitutionAdminUseCase getInstitutionAdminUseCase;
   @MockitoBean private CreateInstitutionUseCase createInstitutionUseCase;
-  @MockitoBean private UpdateInstitutionUseCase updateInstitutionUseCase;
+  @MockitoBean private UpdateInstitutionWithBrandingUseCase updateInstitutionUseCase;
   @MockitoBean private UpdateInstitutionStatusUseCase updateInstitutionStatusUseCase;
 
   @Test
@@ -230,10 +230,9 @@ class InstitutionControllerWebMvcTest {
 
     mockMvc
         .perform(
-            put("/api/v1/admin/institutions/{id}", INSTITUTION_ID)
-                .principal(authentication)
-                .contentType(APPLICATION_JSON)
-                .content(updatePayload()))
+            multipart(HttpMethod.PUT, "/api/v1/admin/institutions/{id}", INSTITUTION_ID)
+                .file(updateData(updatePayload()))
+                .principal(authentication))
         .andExpect(status().isForbidden());
   }
 
@@ -242,15 +241,15 @@ class InstitutionControllerWebMvcTest {
   void update_returnsOkForPlatformAdmin() throws Exception {
     var authentication = new TestingAuthenticationToken(platformPrincipal(PLATFORM_ACCOUNT_ID), "");
     stubPlatformAdminAccess(true);
-    when(updateInstitutionUseCase.execute(eq(INSTITUTION_ID), any(UpdateInstitutionRequest.class)))
+    when(updateInstitutionUseCase.execute(
+            eq(INSTITUTION_ID), any(UpdateInstitutionWithBrandingRequest.class), isNull()))
         .thenReturn(detailResponse());
 
     mockMvc
         .perform(
-            put("/api/v1/admin/institutions/{id}", INSTITUTION_ID)
-                .principal(authentication)
-                .contentType(APPLICATION_JSON)
-                .content(updatePayload()))
+            multipart(HttpMethod.PUT, "/api/v1/admin/institutions/{id}", INSTITUTION_ID)
+                .file(updateData(updatePayload()))
+                .principal(authentication))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.id").value(INSTITUTION_ID.toString()));
   }
@@ -293,15 +292,15 @@ class InstitutionControllerWebMvcTest {
   void update_returnsBadRequestWhenCityNotFound() throws Exception {
     var authentication = new TestingAuthenticationToken(platformPrincipal(PLATFORM_ACCOUNT_ID), "");
     stubPlatformAdminAccess(true);
-    when(updateInstitutionUseCase.execute(eq(INSTITUTION_ID), any(UpdateInstitutionRequest.class)))
+    when(updateInstitutionUseCase.execute(
+            eq(INSTITUTION_ID), any(UpdateInstitutionWithBrandingRequest.class), isNull()))
         .thenThrow(new CityNotFoundException());
 
     mockMvc
         .perform(
-            put("/api/v1/admin/institutions/{id}", INSTITUTION_ID)
-                .principal(authentication)
-                .contentType(APPLICATION_JSON)
-                .content(updatePayload()))
+            multipart(HttpMethod.PUT, "/api/v1/admin/institutions/{id}", INSTITUTION_ID)
+                .file(updateData(updatePayload()))
+                .principal(authentication))
         .andExpect(status().isBadRequest())
         .andExpect(jsonPath("$.message").value("La ciudad especificada no existe."));
   }
@@ -314,10 +313,9 @@ class InstitutionControllerWebMvcTest {
 
     mockMvc
         .perform(
-            put("/api/v1/admin/institutions/{id}", INSTITUTION_ID)
-                .principal(authentication)
-                .contentType(APPLICATION_JSON)
-                .content(invalidCityIdPayload()))
+            multipart(HttpMethod.PUT, "/api/v1/admin/institutions/{id}", INSTITUTION_ID)
+                .file(updateData(invalidCityIdPayload()))
+                .principal(authentication))
         .andExpect(status().isBadRequest());
   }
 
@@ -443,6 +441,19 @@ class InstitutionControllerWebMvcTest {
         }
         """
         .formatted(CITY_ID);
+  }
+
+  private static MockMultipartFile updateData(final String institution) {
+    final String payload =
+        """
+        {"institution": %s, "publicSubdomain": null, "logoIntent": "KEEP"}
+        """
+            .formatted(institution);
+    return new MockMultipartFile(
+        "data",
+        "data.json",
+        "application/json",
+        payload.getBytes(java.nio.charset.StandardCharsets.UTF_8));
   }
 
   private static String updatePayload() {

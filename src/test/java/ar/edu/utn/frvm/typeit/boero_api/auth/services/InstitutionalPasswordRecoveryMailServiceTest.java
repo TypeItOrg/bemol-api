@@ -1,14 +1,19 @@
 package ar.edu.utn.frvm.typeit.boero_api.auth.services;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
 
 import ar.edu.utn.frvm.typeit.boero_api.auth.config.FrontendPublicProperties;
 import ar.edu.utn.frvm.typeit.boero_api.auth.config.PasswordRecoveryProperties;
 import ar.edu.utn.frvm.typeit.boero_api.auth.events.InstitutionalPasswordRecoveryRequested;
+import ar.edu.utn.frvm.typeit.boero_api.auth.listeners.InstitutionalPasswordRecoveryMailListener;
 import ar.edu.utn.frvm.typeit.boero_api.common.mail.MailMessage;
 import ar.edu.utn.frvm.typeit.boero_api.common.mail.MailProperties;
 import ar.edu.utn.frvm.typeit.boero_api.common.mail.MailSender;
+import ar.edu.utn.frvm.typeit.boero_api.common.mail.MailSendingException;
 import java.time.Duration;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
@@ -49,7 +54,7 @@ class InstitutionalPasswordRecoveryMailServiceTest {
   }
 
   @Test
-  void sendRendersPasswordRecoveryTemplateAndDelegatesToMailSender() {
+  void listenerRendersPasswordRecoveryTemplateAndDelegatesToMailSender() {
     final InstitutionalPasswordRecoveryRequested event =
         new InstitutionalPasswordRecoveryRequested(
             UUID.randomUUID(),
@@ -58,7 +63,7 @@ class InstitutionalPasswordRecoveryMailServiceTest {
             "Ana García",
             "token-123");
 
-    mailService.send(event);
+    new InstitutionalPasswordRecoveryMailListener(mailService).on(event);
 
     final ArgumentCaptor<MailMessage> mailCaptor = ArgumentCaptor.forClass(MailMessage.class);
     verify(mailSender).send(mailCaptor.capture());
@@ -75,5 +80,27 @@ class InstitutionalPasswordRecoveryMailServiceTest {
         .contains("Ana García")
         .contains("30 minutos")
         .doesNotContain("${resetUrl}", "th:href", "th:src", "th:text");
+  }
+
+  @Test
+  void smtpFailureCannotEscapeTheListener() {
+    doThrow(new MailSendingException(new IllegalStateException("SMTP unavailable")))
+        .when(mailSender)
+        .send(any());
+    var event =
+        new InstitutionalPasswordRecoveryRequested(
+            UUID.fromString("00000000-0000-0000-0000-000000000001"),
+            "ana@example.com",
+            "Conservatorio",
+            "Ana García",
+            "token-123");
+
+    assertThatCode(() -> new InstitutionalPasswordRecoveryMailListener(mailService).on(event))
+        .doesNotThrowAnyException();
+
+    ArgumentCaptor<MailMessage> message = ArgumentCaptor.forClass(MailMessage.class);
+    verify(mailSender).send(message.capture());
+    assertThat(message.getValue().to()).isEqualTo("ana@example.com");
+    assertThat(message.getValue().htmlBody()).contains("token=token-123");
   }
 }

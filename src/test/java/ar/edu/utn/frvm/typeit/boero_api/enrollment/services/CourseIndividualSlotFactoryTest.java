@@ -1,19 +1,22 @@
 package ar.edu.utn.frvm.typeit.boero_api.enrollment.services;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.tuple;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 
+import ar.edu.utn.frvm.typeit.boero_api.academic.entities.Course;
+import ar.edu.utn.frvm.typeit.boero_api.academic.entities.CourseClass;
 import ar.edu.utn.frvm.typeit.boero_api.academic.entities.CourseClassDay;
 import ar.edu.utn.frvm.typeit.boero_api.academic.entities.CourseClassSchedule;
 import ar.edu.utn.frvm.typeit.boero_api.academic.enums.CourseDay;
-import ar.edu.utn.frvm.typeit.boero_api.academic.exceptions.AcademicMessages;
-import ar.edu.utn.frvm.typeit.boero_api.academic.exceptions.AcademicValidationException;
 import ar.edu.utn.frvm.typeit.boero_api.enrollment.entities.CourseIndividualSlot;
 import ar.edu.utn.frvm.typeit.boero_api.enrollment.interfaces.CourseIndividualSlotRepository;
+import ar.edu.utn.frvm.typeit.boero_api.institutional.entities.Institution;
 import java.time.LocalTime;
+import java.util.Arrays;
 import java.util.List;
+import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -25,75 +28,47 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
 class CourseIndividualSlotFactoryTest {
-  @Mock CourseIndividualSlotRepository repository;
-  @Captor ArgumentCaptor<List<CourseIndividualSlot>> slots;
+  private final Institution institution = Institution.builder().id(UUID.randomUUID()).build();
+  private final CourseClass courseClass = CourseClass.create(institution, new Course(), 1);
+  @Mock private CourseIndividualSlotRepository repository;
+  @Captor private ArgumentCaptor<List<CourseIndividualSlot>> slots;
 
   @ParameterizedTest
-  @CsvSource({"10:00,11:00,30,2", "23:00,23:30,30,1", "10:00:30,11:00:30,30,2"})
-  void createsOnlyCompletePeriodsInsideSchedule(String start, String end, int minutes, int count) {
-    final var day =
-        CourseClassDay.create(
-            org.mockito.Mockito.mock(
-                ar.edu.utn.frvm.typeit.boero_api.institutional.entities.Institution.class),
-            org.mockito.Mockito.mock(
-                ar.edu.utn.frvm.typeit.boero_api.academic.entities.CourseClass.class),
-            CourseDay.MONDAY,
-            count,
-            minutes);
+  @CsvSource({
+    "10:00,11:00,10:00/10:30;10:30/11:00",
+    "23:00,23:30,23:00/23:30",
+    "10:00:30,11:00:30,10:00:30/10:30:30;10:30:30/11:00:30"
+  })
+  void createsEveryPeriodExactlyOnceWithItsScheduleAndTenant(
+      String start, String end, String expectedPeriods) {
+    final var day = CourseClassDay.create(institution, courseClass, CourseDay.MONDAY, null, 30);
     final var schedule =
-        CourseClassSchedule.create(
-            day.getInstitution(), day, LocalTime.parse(start), LocalTime.parse(end));
+        CourseClassSchedule.create(institution, day, LocalTime.parse(start), LocalTime.parse(end));
 
     new CourseIndividualSlotFactory(repository).createFor(schedule);
 
     verify(repository).saveAll(slots.capture());
+    final var expected =
+        Arrays.stream(expectedPeriods.split(";"))
+            .map(period -> period.split("/"))
+            .map(period -> tuple(LocalTime.parse(period[0]), LocalTime.parse(period[1])))
+            .toList();
     assertThat(slots.getValue())
-        .hasSize(count)
+        .extracting(slot -> slot.getStartTime(), slot -> slot.getEndTime())
+        .containsExactlyElementsOf(expected);
+    assertThat(slots.getValue())
         .allSatisfy(
             slot -> {
-              assertThat(slot.getStartTime()).isAfterOrEqualTo(schedule.getStartTime());
-              assertThat(slot.getEndTime()).isBeforeOrEqualTo(schedule.getEndTime());
-              assertThat(slot.getStartTime()).isBefore(slot.getEndTime());
+              assertThat(slot.getInstitution()).isSameAs(institution);
+              assertThat(slot.getSchedule()).isSameAs(schedule);
             });
-    assertThat(slots.getValue().getLast().getEndTime()).isEqualTo(schedule.getEndTime());
-  }
-
-  @ParameterizedTest
-  @CsvSource({"23:00,23:30:30", "10:00,11:00:30", "10:00,11:00:00.000000001", "10:00,10:15"})
-  void rejectsIncompletePeriodsWithoutTruncatingSeconds(String start, String end) {
-    final var day =
-        CourseClassDay.create(
-            org.mockito.Mockito.mock(
-                ar.edu.utn.frvm.typeit.boero_api.institutional.entities.Institution.class),
-            org.mockito.Mockito.mock(
-                ar.edu.utn.frvm.typeit.boero_api.academic.entities.CourseClass.class),
-            CourseDay.MONDAY,
-            2,
-            30);
-
-    assertThatThrownBy(
-            () ->
-                CourseClassSchedule.create(
-                    day.getInstitution(), day, LocalTime.parse(start), LocalTime.parse(end)))
-        .isInstanceOf(AcademicValidationException.class)
-        .hasMessage(AcademicMessages.COURSE_PERIOD_DURATION_NOT_DIVISIBLE);
-    verifyNoInteractions(repository);
   }
 
   @Test
   void doesNotCreatePeriodsForGroupClasses() {
-    final var day =
-        CourseClassDay.create(
-            org.mockito.Mockito.mock(
-                ar.edu.utn.frvm.typeit.boero_api.institutional.entities.Institution.class),
-            org.mockito.Mockito.mock(
-                ar.edu.utn.frvm.typeit.boero_api.academic.entities.CourseClass.class),
-            CourseDay.MONDAY,
-            20,
-            null);
+    final var day = CourseClassDay.create(institution, courseClass, CourseDay.MONDAY, 20, null);
     final var schedule =
-        CourseClassSchedule.create(
-            day.getInstitution(), day, LocalTime.of(10, 0), LocalTime.of(11, 0));
+        CourseClassSchedule.create(institution, day, LocalTime.of(10, 0), LocalTime.of(11, 0));
 
     new CourseIndividualSlotFactory(repository).createFor(schedule);
 

@@ -7,6 +7,10 @@ import static ar.edu.utn.frvm.typeit.boero_api.common.exceptions.ErrorMessages.U
 import static ar.edu.utn.frvm.typeit.boero_api.common.exceptions.ErrorMessages.VALIDATION_ERROR_MESSAGE;
 import static ar.edu.utn.frvm.typeit.boero_api.security.handlers.SecurityErrorMessages.DEFAULT_FORBIDDEN_MESSAGE;
 
+import ar.edu.utn.frvm.typeit.boero_api.academic.entities.DocumentDefinition;
+import ar.edu.utn.frvm.typeit.boero_api.academic.entities.TrainingPathDocumentRequirement;
+import ar.edu.utn.frvm.typeit.boero_api.academic.exceptions.AcademicMessages;
+import ar.edu.utn.frvm.typeit.boero_api.academic.exceptions.DocumentCatalogException;
 import ar.edu.utn.frvm.typeit.boero_api.auth.exceptions.AuthMessages;
 import ar.edu.utn.frvm.typeit.boero_api.authorization.exceptions.InvalidAccessScopeException;
 import ar.edu.utn.frvm.typeit.boero_api.enrollment.exceptions.EnrollmentMessages;
@@ -22,6 +26,7 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.DisabledException;
 import org.springframework.transaction.TransactionSystemException;
@@ -50,21 +55,17 @@ public class GlobalExceptionHandler {
         .build();
   }
 
-  @ExceptionHandler(org.springframework.orm.ObjectOptimisticLockingFailureException.class)
+  @ExceptionHandler(ObjectOptimisticLockingFailureException.class)
   public ResponseEntity<ExceptionPayload> handleDocumentRevisionConflict(
-      final org.springframework.orm.ObjectOptimisticLockingFailureException exception) {
-    if (!Set.of(
-            "ar.edu.utn.frvm.typeit.boero_api.academic.entities.DocumentDefinition",
-            "ar.edu.utn.frvm.typeit.boero_api.academic.entities.TrainingPathDocumentRequirement")
+      final ObjectOptimisticLockingFailureException exception) {
+    if (!Set.of(DocumentDefinition.class.getName(), TrainingPathDocumentRequirement.class.getName())
         .contains(Objects.toString(exception.getPersistentClassName(), ""))) {
       return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
           .body(handleException(exception));
     }
     return handleApplicationException(
-        new ar.edu.utn.frvm.typeit.boero_api.academic.exceptions.DocumentCatalogException(
-            ErrorCategory.CONFLICT,
-            ar.edu.utn.frvm.typeit.boero_api.academic.exceptions.AcademicMessages
-                .DOCUMENT_REVISION_CONFLICT));
+        new DocumentCatalogException(
+            ErrorCategory.CONFLICT, AcademicMessages.DOCUMENT_REVISION_CONFLICT));
   }
 
   @ExceptionHandler({DataIntegrityViolationException.class, TransactionSystemException.class})
@@ -79,27 +80,32 @@ public class GlobalExceptionHandler {
             "role_scope_training_path_tenant_fk",
             "person_role_assignment_training_paths_pkey");
     for (Throwable cause = exception; cause != null; cause = cause.getCause()) {
-      if (cause instanceof org.hibernate.exception.ConstraintViolationException documentViolation) {
-        final String constraint = Objects.toString(documentViolation.getConstraintName(), "");
+      if (cause instanceof org.hibernate.exception.ConstraintViolationException violation) {
+        final String constraint = Objects.toString(violation.getConstraintName(), "");
+        if (Set.of(
+                "document_definition_institution_change_check",
+                "document_definition_usage_immutable_check")
+            .contains(constraint)) {
+          return handleApplicationException(
+              new DocumentCatalogException(
+                  ErrorCategory.CONFLICT, AcademicMessages.DOCUMENT_INSTITUTION_CHANGE_BLOCKED));
+        }
         if (constraint.equals("training_path_document_identity_check")) {
           return handleApplicationException(
-              new ar.edu.utn.frvm.typeit.boero_api.academic.exceptions.DocumentCatalogException(
-                  ErrorCategory.CONFLICT,
-                  ar.edu.utn.frvm.typeit.boero_api.academic.exceptions.AcademicMessages
-                      .DOCUMENT_ASSIGNMENT_IMMUTABLE));
+              new DocumentCatalogException(
+                  ErrorCategory.CONFLICT, AcademicMessages.DOCUMENT_ASSIGNMENT_IMMUTABLE));
         }
         if (Set.of("training_path_document_unique", "enrollment_document_definition_unique")
             .contains(constraint)) {
           return handleApplicationException(
-              new ar.edu.utn.frvm.typeit.boero_api.academic.exceptions.DocumentCatalogException(
+              new DocumentCatalogException(
                   ErrorCategory.CONFLICT,
                   constraint.equals("training_path_document_unique")
-                      ? ar.edu.utn.frvm.typeit.boero_api.academic.exceptions.AcademicMessages
-                          .DOCUMENT_DUPLICATE_ASSIGNMENT
+                      ? AcademicMessages.DOCUMENT_DUPLICATE_ASSIGNMENT
                       : EnrollmentMessages.DOCUMENT_REQUEST_DUPLICATE));
         }
         final String message =
-            switch (Objects.toString(documentViolation.getConstraintName(), "")) {
+            switch (constraint) {
               case "enrollment_document_request_closed_check" ->
                   EnrollmentMessages.DOCUMENT_REQUEST_CLOSED;
               case "enrollment_document_request_inactive_check" ->
@@ -132,10 +138,9 @@ public class GlobalExceptionHandler {
         if (message != null) {
           return handleApplicationException(new EnrollmentValidationException(message));
         }
-      }
-      if (cause instanceof org.hibernate.exception.ConstraintViolationException violation
-          && scopeConstraints.contains(violation.getConstraintName())) {
-        return handleApplicationException(new InvalidAccessScopeException());
+        if (scopeConstraints.contains(constraint)) {
+          return handleApplicationException(new InvalidAccessScopeException());
+        }
       }
     }
     return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(handleException(exception));

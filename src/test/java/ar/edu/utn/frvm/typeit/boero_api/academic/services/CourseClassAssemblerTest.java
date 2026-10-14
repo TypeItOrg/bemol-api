@@ -2,16 +2,20 @@ package ar.edu.utn.frvm.typeit.boero_api.academic.services;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.tuple;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
-import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.BDDMockito.given;
-import static org.mockito.Mockito.atLeastOnce;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 
 import ar.edu.utn.frvm.typeit.boero_api.academic.entities.Course;
+import ar.edu.utn.frvm.typeit.boero_api.academic.entities.CourseClassDay;
+import ar.edu.utn.frvm.typeit.boero_api.academic.entities.CourseClassSchedule;
 import ar.edu.utn.frvm.typeit.boero_api.academic.enums.AcademicSpaceFormat;
 import ar.edu.utn.frvm.typeit.boero_api.academic.enums.CourseDay;
+import ar.edu.utn.frvm.typeit.boero_api.academic.exceptions.AcademicMessages;
 import ar.edu.utn.frvm.typeit.boero_api.academic.exceptions.AcademicValidationException;
 import ar.edu.utn.frvm.typeit.boero_api.academic.interfaces.CourseClassDayRepository;
 import ar.edu.utn.frvm.typeit.boero_api.academic.interfaces.CourseClassRepository;
@@ -34,14 +38,13 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
-import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.mockito.junit.jupiter.MockitoSettings;
-import org.mockito.quality.Strictness;
 
 @ExtendWith(MockitoExtension.class)
-@MockitoSettings(strictness = Strictness.LENIENT)
 class CourseClassAssemblerTest {
 
   @Mock private CourseClassRepository courseClassRepository;
@@ -50,12 +53,13 @@ class CourseClassAssemblerTest {
   @Mock private CourseClassTeacherRepository courseClassTeacherRepository;
   @Mock private PersonRoleAssignmentRepository personRoleAssignmentRepository;
   @Mock private PersonRepository personRepository;
-  @Mock private Course course;
-  @Mock private Person person;
+  @Mock private CourseIndividualSlotFactory slotFactory;
 
   private CourseClassAssembler assembler;
 
   private final Institution institution = Institution.builder().id(UUID.randomUUID()).build();
+  private final Course course = new Course();
+  private final Person person = Person.builder().institution(institution).build();
 
   @BeforeEach
   void setUp() {
@@ -67,12 +71,19 @@ class CourseClassAssemblerTest {
             courseClassTeacherRepository,
             personRoleAssignmentRepository,
             personRepository,
-            Mockito.mock(CourseIndividualSlotFactory.class));
+            slotFactory);
+  }
+
+  private void stubClassAndDayPersistence() {
     given(courseClassRepository.save(any())).willAnswer(invocation -> invocation.getArgument(0));
     given(courseClassDayRepository.save(any())).willAnswer(invocation -> invocation.getArgument(0));
+    given(personRepository.findByIdAndInstitution_Id(any(), any())).willReturn(Optional.of(person));
+  }
+
+  private void stubAssemblyPersistence() {
+    stubClassAndDayPersistence();
     given(courseClassScheduleRepository.save(any()))
         .willAnswer(invocation -> invocation.getArgument(0));
-    given(personRepository.findByIdAndInstitution_Id(any(), any())).willReturn(Optional.of(person));
   }
 
   private void stubValidTeachers() {
@@ -99,19 +110,24 @@ class CourseClassAssemblerTest {
   @DisplayName("Should assemble classes and compute capacity for individual spaces")
   void assemblesIndividualClassesWithComputedCapacity() {
     stubValidTeachers();
+    stubAssemblyPersistence();
 
     final var classes =
         assembler.assemble(
             institution, course, AcademicSpaceFormat.INDIVIDUAL, List.of(individualMondayClass()));
 
     assertThat(classes).hasSize(1);
-    verifySavedCapacity(5);
+    assertThat(classes.getFirst().getInstitution()).isSameAs(institution);
+    assertThat(classes.getFirst().getCourse()).isSameAs(course);
+    assertThat(classes.getFirst().getClassNumber()).isEqualTo(1);
+    verifySavedDay(5, 60, CourseDay.MONDAY);
   }
 
   @Test
   @DisplayName("Should keep optional grupal capacity and clear the period duration")
   void keepsGrupalOptionalCapacity() {
     stubValidTeachers();
+    stubAssemblyPersistence();
     final var request =
         new CourseClassRequest(
             List.of(UUID.randomUUID()),
@@ -119,7 +135,7 @@ class CourseClassAssemblerTest {
                 new CourseClassDayRequest(
                     CourseDay.TUESDAY,
                     null,
-                    null,
+                    45,
                     List.of(
                         new CourseClassScheduleRequest(LocalTime.of(8, 0), LocalTime.of(10, 0))))));
 
@@ -127,13 +143,21 @@ class CourseClassAssemblerTest {
         assembler.assemble(institution, course, AcademicSpaceFormat.GRUPAL, List.of(request));
 
     assertThat(classes).hasSize(1);
-    verifySavedCapacity(null);
+    verifySavedDay(null, null, CourseDay.TUESDAY);
   }
 
-  @Test
+  @ParameterizedTest
+  @CsvSource({
+    "23:00,23:30:30",
+    "10:00,11:00:30",
+    "10:00,11:00:00.000000001",
+    "10:00,10:15",
+    "10:00,10:45"
+  })
   @DisplayName("Should reject schedules whose total duration is not divisible by the period")
-  void rejectsIndivisibleSchedules() {
+  void rejectsIndivisibleSchedules(String start, String end) {
     stubValidTeachers();
+    stubClassAndDayPersistence();
     final var request =
         new CourseClassRequest(
             List.of(UUID.randomUUID()),
@@ -141,16 +165,18 @@ class CourseClassAssemblerTest {
                 new CourseClassDayRequest(
                     CourseDay.WEDNESDAY,
                     null,
-                    60,
+                    30,
                     List.of(
                         new CourseClassScheduleRequest(
-                            LocalTime.of(14, 0), LocalTime.of(16, 30))))));
+                            LocalTime.parse(start), LocalTime.parse(end))))));
 
     assertThatThrownBy(
             () ->
                 assembler.assemble(
                     institution, course, AcademicSpaceFormat.INDIVIDUAL, List.of(request)))
-        .isInstanceOf(AcademicValidationException.class);
+        .isInstanceOf(AcademicValidationException.class)
+        .hasMessage(AcademicMessages.COURSE_PERIOD_DURATION_NOT_DIVISIBLE);
+    verifyNoInteractions(courseClassScheduleRepository, slotFactory);
   }
 
   @Test
@@ -181,6 +207,7 @@ class CourseClassAssemblerTest {
   @DisplayName("Should allow contiguous schedules within the same day")
   void allowsContiguousSchedules() {
     stubValidTeachers();
+    stubAssemblyPersistence();
     final var request =
         new CourseClassRequest(
             List.of(UUID.randomUUID()),
@@ -198,6 +225,19 @@ class CourseClassAssemblerTest {
         assembler.assemble(institution, course, AcademicSpaceFormat.GRUPAL, List.of(request));
 
     assertThat(classes).hasSize(1);
+    verifySavedDay(10, null, CourseDay.THURSDAY);
+    final var schedules = ArgumentCaptor.forClass(CourseClassSchedule.class);
+    verify(courseClassScheduleRepository, times(2)).save(schedules.capture());
+    assertThat(schedules.getAllValues())
+        .extracting(schedule -> schedule.getStartTime(), schedule -> schedule.getEndTime())
+        .containsExactly(
+            tuple(LocalTime.of(14, 0), LocalTime.of(16, 0)),
+            tuple(LocalTime.of(16, 0), LocalTime.of(18, 0)));
+    for (final var schedule : schedules.getAllValues()) {
+      assertThat(schedule.getInstitution()).isSameAs(institution);
+      assertThat(schedule.getDay().getCourseClass()).isSameAs(classes.getFirst());
+      verify(slotFactory).createFor(schedule);
+    }
   }
 
   @Test
@@ -239,13 +279,15 @@ class CourseClassAssemblerTest {
         .isInstanceOf(AcademicValidationException.class);
   }
 
-  private void verifySavedCapacity(final @Nullable Integer expected) {
-    verify(courseClassDayRepository, atLeastOnce())
-        .save(
-            argThat(
-                day ->
-                    expected == null
-                        ? day.getCapacity() == null
-                        : expected.equals(day.getCapacity())));
+  private void verifySavedDay(
+      final @Nullable Integer capacity,
+      final @Nullable Integer periodMinutes,
+      final CourseDay dayOfWeek) {
+    final var day = ArgumentCaptor.forClass(CourseClassDay.class);
+    verify(courseClassDayRepository).save(day.capture());
+    assertThat(day.getValue().getCapacity()).isEqualTo(capacity);
+    assertThat(day.getValue().getPeriodDurationMinutes()).isEqualTo(periodMinutes);
+    assertThat(day.getValue().getDayOfWeek()).isEqualTo(dayOfWeek);
+    assertThat(day.getValue().getInstitution()).isSameAs(institution);
   }
 }
