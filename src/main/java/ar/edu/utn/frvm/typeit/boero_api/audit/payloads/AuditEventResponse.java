@@ -8,6 +8,20 @@ import java.time.Instant;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 
+@Schema(
+    requiredProperties = {
+      "id",
+      "actorPersonId",
+      "actorName",
+      "subjectPersonId",
+      "subjectName",
+      "action",
+      "entityType",
+      "entityId",
+      "actedOnBehalf",
+      "requestId",
+      "occurredAt"
+    })
 public record AuditEventResponse(
     UUID id,
     UUID actorPersonId,

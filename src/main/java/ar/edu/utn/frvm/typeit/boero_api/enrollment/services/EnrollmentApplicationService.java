@@ -134,9 +134,7 @@ public class EnrollmentApplicationService {
     final var application =
         EnrollmentApplication.createForTrainingPath(
             path.getInstitution(), person, path, academicYear);
-    if (personId.equals(person.getId())) {
-      application.assignSubmitter(person);
-    } else {
+    if (actingForDependent) {
       final var submitter =
           people
               .findByIdAndInstitution_Id(personId, institutionId)
@@ -144,7 +142,6 @@ public class EnrollmentApplicationService {
                   () ->
                       new EnrollmentValidationException(
                           EnrollmentMessages.ENROLLMENT_APPLICATION_APPLICANT_REQUIRED));
-      application.assignSubmitter(submitter);
       application.setResponsible(responsibleFrom(submitter));
     }
     documents.snapshot(application);
@@ -219,6 +216,13 @@ public class EnrollmentApplicationService {
     }
     documents.synchronize(application, clock.instant());
     documents.requireSubmission(application);
+    application.assignSubmitter(
+        people
+            .findByIdAndInstitution_Id(personId, application.getInstitution().getId())
+            .orElseThrow(
+                () ->
+                    new EnrollmentValidationException(
+                        EnrollmentMessages.ENROLLMENT_APPLICATION_APPLICANT_REQUIRED)));
     application.submit();
     history.record(application);
 

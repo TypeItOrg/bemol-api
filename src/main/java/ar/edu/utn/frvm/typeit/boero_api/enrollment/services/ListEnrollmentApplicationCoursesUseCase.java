@@ -26,6 +26,7 @@ public class ListEnrollmentApplicationCoursesUseCase {
 
   @Transactional(readOnly = true)
   public Page<EnrollmentCourseOptionResponse> execute(
+      final UUID institutionId,
       final UUID personId,
       final UUID applicationId,
       final @Nullable String search,
@@ -34,9 +35,7 @@ public class ListEnrollmentApplicationCoursesUseCase {
       final Pageable pageable) {
     final var application =
         applicationRepository
-            .findById(applicationId)
-            .filter(candidate -> candidate.getDeletedAt() == null)
-            .filter(candidate -> candidate.getApplicantPerson().getId().equals(personId))
+            .findAccessibleByIdAndInstitutionId(institutionId, personId, applicationId)
             .orElseThrow(EnrollmentApplicationNotFoundException::new);
     if (application.getTrainingPath() == null) {
       return Page.empty(pageable);
@@ -47,7 +46,7 @@ public class ListEnrollmentApplicationCoursesUseCase {
             application.getInstitution().getId(),
             application.getTrainingPath().getId(),
             application.getId(),
-            personId,
+            application.getApplicantPerson().getId(),
             application.getEnrollmentPeriod() == null
                 ? null
                 : application.getEnrollmentPeriod().getId(),
@@ -64,7 +63,9 @@ public class ListEnrollmentApplicationCoursesUseCase {
 
     final var eligibility =
         eligibilityService.evaluateCourses(
-            application.getInstitution().getId(), personId, courses.getContent());
+            application.getInstitution().getId(),
+            application.getApplicantPerson().getId(),
+            courses.getContent());
 
     return courses.map(
         course ->

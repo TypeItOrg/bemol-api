@@ -1,9 +1,11 @@
 package ar.edu.utn.frvm.typeit.boero_api.institutional.payloads.guardian;
 
 import ar.edu.utn.frvm.typeit.boero_api.institutional.entities.PersonGuardianAttachment;
+import io.swagger.v3.oas.annotations.media.Schema;
 import java.time.Instant;
 import java.util.UUID;
 
+@Schema(requiredProperties = {"id", "originalFileName", "contentType", "size", "createdAt"})
 public record GuardianLinkAttachmentResponse(
     UUID id, String originalFileName, String contentType, long size, Instant createdAt) {
 

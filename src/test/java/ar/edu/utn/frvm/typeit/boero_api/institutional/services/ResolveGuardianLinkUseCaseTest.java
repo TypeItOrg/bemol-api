@@ -12,10 +12,7 @@ import static org.mockito.Mockito.when;
 import ar.edu.utn.frvm.typeit.boero_api.audit.enums.AuditAction;
 import ar.edu.utn.frvm.typeit.boero_api.audit.enums.AuditEntityType;
 import ar.edu.utn.frvm.typeit.boero_api.audit.services.AuditEventRecorder;
-import ar.edu.utn.frvm.typeit.boero_api.authorization.entities.PersonRoleAssignment;
-import ar.edu.utn.frvm.typeit.boero_api.authorization.entities.Role;
 import ar.edu.utn.frvm.typeit.boero_api.authorization.enums.SystemRoleCode;
-import ar.edu.utn.frvm.typeit.boero_api.authorization.interfaces.PersonRoleAssignmentRepository;
 import ar.edu.utn.frvm.typeit.boero_api.authorization.services.AssignPersonSystemRoleUseCase;
 import ar.edu.utn.frvm.typeit.boero_api.common.exceptions.ErrorCategory;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.entities.GuardianLinkStatus;
@@ -28,7 +25,6 @@ import ar.edu.utn.frvm.typeit.boero_api.institutional.exceptions.GuardianLinkNot
 import ar.edu.utn.frvm.typeit.boero_api.institutional.interfaces.PersonGuardianRepository;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.interfaces.PersonRepository;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.payloads.guardian.GuardianLinkReviewResponse;
-import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
@@ -43,7 +39,6 @@ class ResolveGuardianLinkUseCaseTest {
 
   @Mock private PersonGuardianRepository personGuardianRepository;
   @Mock private PersonRepository personRepository;
-  @Mock private PersonRoleAssignmentRepository personRoleAssignmentRepository;
   @Mock private AssignPersonSystemRoleUseCase assignPersonSystemRoleUseCase;
   @Mock private AuditEventRecorder auditEventRecorder;
 
@@ -60,7 +55,6 @@ class ResolveGuardianLinkUseCaseTest {
         new ResolveGuardianLinkUseCase(
             personGuardianRepository,
             personRepository,
-            personRoleAssignmentRepository,
             assignPersonSystemRoleUseCase,
             auditEventRecorder);
     institution = Institution.builder().id(UUID.randomUUID()).build();
@@ -86,9 +80,6 @@ class ResolveGuardianLinkUseCaseTest {
   @DisplayName("Should activate the link, grant the applicant role and audit the approval")
   void approve_activatesLinkAndGrantsApplicantRole() {
     givenPendingLinkAndReviewer();
-    when(personRoleAssignmentRepository.findByPerson_IdAndInstitution_Id(
-            link.getDependentPerson().getId(), institution.getId()))
-        .thenReturn(List.of());
 
     final GuardianLinkReviewResponse response =
         useCase.approve(institution.getId(), reviewer.getId(), linkId);
@@ -97,7 +88,7 @@ class ResolveGuardianLinkUseCaseTest {
     assertThat(link.getResolvedBy()).isSameAs(reviewer);
     assertThat(response.status()).isEqualTo(GuardianLinkStatus.ACTIVE);
     verify(assignPersonSystemRoleUseCase)
-        .execute(link.getDependentPerson(), SystemRoleCode.APPLICANT, false);
+        .executePreservingRoles(link.getDependentPerson(), SystemRoleCode.APPLICANT);
     verify(auditEventRecorder)
         .record(
             institution,
@@ -109,20 +100,15 @@ class ResolveGuardianLinkUseCaseTest {
   }
 
   @Test
-  @DisplayName("Should keep the roles of a person that already has one")
-  void approve_doesNotReplaceExistingRoles() {
+  @DisplayName("Should delegate role preservation to the institution-locked assigner")
+  void approve_requestsRolePreservation() {
     givenPendingLinkAndReviewer();
-    when(personRoleAssignmentRepository.findByPerson_IdAndInstitution_Id(
-            link.getDependentPerson().getId(), institution.getId()))
-        .thenReturn(
-            List.of(
-                PersonRoleAssignment.builder()
-                    .role(Role.builder().name("Estudiante").build())
-                    .build()));
 
     useCase.approve(institution.getId(), reviewer.getId(), linkId);
 
     assertThat(link.getStatus()).isEqualTo(GuardianLinkStatus.ACTIVE);
+    verify(assignPersonSystemRoleUseCase)
+        .executePreservingRoles(link.getDependentPerson(), SystemRoleCode.APPLICANT);
     verify(assignPersonSystemRoleUseCase, never())
         .execute(any(Person.class), any(SystemRoleCode.class), anyBoolean());
   }

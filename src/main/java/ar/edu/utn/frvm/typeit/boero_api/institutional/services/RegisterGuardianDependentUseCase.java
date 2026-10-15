@@ -142,7 +142,9 @@ public class RegisterGuardianDependentUseCase {
                   tutor,
                   dependent,
                   request.relationship(),
-                  request.isPrimaryContact()));
+                  request.isPrimaryContact(),
+                  request.firstName(),
+                  request.lastName()));
       personGuardianRepository.flush();
 
       return link;

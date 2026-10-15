@@ -5,7 +5,7 @@ public final class AuthMessages {
   public static final String INVALID_CURRENT_PASSWORD = "La contraseña actual no es correcta.";
   public static final String USER_DISABLED = "El usuario se encuentra deshabilitado.";
   public static final String USER_ALREADY_EXISTS =
-      "Ya existe un usuario con este documento en la institución especificada.";
+      "Este documento ya está registrado en la institución. Para acceder, consultá con la institución.";
   public static final String INSTITUTION_NOT_FOUND = "La institución especificada no existe.";
   public static final String TOKEN_EXPIRED = "El token de acceso ha expirado.";
   public static final String TOKEN_INVALID = "El token de acceso es inválido.";

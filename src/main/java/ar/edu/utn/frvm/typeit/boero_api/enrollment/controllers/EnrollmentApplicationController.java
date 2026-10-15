@@ -193,7 +193,13 @@ public class EnrollmentApplicationController {
     final var principal = requireInstitutionalUser(authentication);
     return PaginatedResponse.from(
         listEnrollmentApplicationCoursesUseCase.execute(
-            principal.personId(), applicationId, search, studyPlanSpaceId, academicYear, pageable));
+            principal.institutionId(),
+            principal.personId(),
+            applicationId,
+            search,
+            studyPlanSpaceId,
+            academicYear,
+            pageable));
   }
 
   @GetMapping(

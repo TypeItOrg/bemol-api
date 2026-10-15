@@ -104,7 +104,13 @@ class CourseEnrollmentFlowPostgresIntegrationTest extends DatabaseMigrationTestS
     final var request = submitted(f, "00002001");
     final var courseOptions =
         catalog.execute(
-            request.personId(), request.applicationId(), null, null, null, PageRequest.of(0, 20));
+            f.institutionId(),
+            request.personId(),
+            request.applicationId(),
+            null,
+            null,
+            null,
+            PageRequest.of(0, 20));
     assertThat(courseOptions.getContent())
         .extracting(
             mappedEnrollmentCourseOptionResponse -> mappedEnrollmentCourseOptionResponse.courseId())
@@ -132,6 +138,7 @@ class CourseEnrollmentFlowPostgresIntegrationTest extends DatabaseMigrationTestS
       assertThat(
               catalog
                   .execute(
+                      f.institutionId(),
                       request.personId(),
                       request.applicationId(),
                       null,
@@ -151,7 +158,13 @@ class CourseEnrollmentFlowPostgresIntegrationTest extends DatabaseMigrationTestS
       statistics.clear();
       final var available =
           catalog.execute(
-              request.personId(), request.applicationId(), null, null, null, PageRequest.of(0, 20));
+              f.institutionId(),
+              request.personId(),
+              request.applicationId(),
+              null,
+              null,
+              null,
+              PageRequest.of(0, 20));
       assertThat(available.getContent())
           .hasSize(4)
           .allMatch(
@@ -165,7 +178,13 @@ class CourseEnrollmentFlowPostgresIntegrationTest extends DatabaseMigrationTestS
       enroll(individual, approved(individual, "00012003"));
       final var remaining =
           catalog.execute(
-              request.personId(), request.applicationId(), null, null, null, PageRequest.of(0, 20));
+              f.institutionId(),
+              request.personId(),
+              request.applicationId(),
+              null,
+              null,
+              null,
+              PageRequest.of(0, 20));
       assertThat(remaining.getContent())
           .filteredOn(value -> value.courseId().equals(f.courseId()))
           .allMatch(value -> !value.hasCapacity());
@@ -226,6 +245,7 @@ class CourseEnrollmentFlowPostgresIntegrationTest extends DatabaseMigrationTestS
     assertThat(
             catalog
                 .execute(
+                    f.institutionId(),
                     queued.personId(),
                     queued.applicationId(),
                     null,

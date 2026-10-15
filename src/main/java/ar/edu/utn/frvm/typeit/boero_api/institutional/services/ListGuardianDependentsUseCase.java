@@ -1,7 +1,9 @@
 package ar.edu.utn.frvm.typeit.boero_api.institutional.services;
 
 import ar.edu.utn.frvm.typeit.boero_api.authorization.interfaces.PersonRoleAssignmentRepository;
+import ar.edu.utn.frvm.typeit.boero_api.common.web.PaginatedResponse;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.entities.GuardianLinkStatus;
+import ar.edu.utn.frvm.typeit.boero_api.institutional.entities.GuardianRelationship;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.entities.PersonGuardian;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.interfaces.PersonGuardianRepository;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.payloads.guardian.GuardianDependentResponse;
@@ -10,6 +12,10 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
+import org.jspecify.annotations.Nullable;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -32,6 +38,43 @@ public class ListGuardianDependentsUseCase {
             .findByInstitution_IdAndTutorPerson_IdAndStatusInOrderByCreatedAtAsc(
                 institutionId, tutorPersonId, VISIBLE_STATUSES);
 
+    return responses(institutionId, links);
+  }
+
+  @Transactional(readOnly = true)
+  public PaginatedResponse<GuardianDependentResponse> page(
+      final UUID institutionId,
+      final UUID tutorPersonId,
+      final int page,
+      final int size,
+      final String search,
+      final @Nullable GuardianLinkStatus status,
+      final @Nullable GuardianRelationship relationship,
+      final @Nullable Boolean primaryContact,
+      final String sortField,
+      final String sortDirection) {
+    final Page<PersonGuardian> links =
+        personGuardianRepository.findAll(
+            GuardianDependentQuery.matching(
+                institutionId,
+                tutorPersonId,
+                search,
+                status,
+                relationship,
+                primaryContact,
+                sortField,
+                sortDirection),
+            PageRequest.of(page, size));
+
+    return PaginatedResponse.from(
+        new PageImpl<>(
+            responses(institutionId, links.getContent()),
+            links.getPageable(),
+            links.getTotalElements()));
+  }
+
+  private List<GuardianDependentResponse> responses(
+      final UUID institutionId, final List<PersonGuardian> links) {
     if (links.isEmpty()) {
       return List.of();
     }

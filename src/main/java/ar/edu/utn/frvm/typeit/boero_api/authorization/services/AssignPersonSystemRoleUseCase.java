@@ -36,16 +36,19 @@ public class AssignPersonSystemRoleUseCase {
 
   @Transactional
   public void execute(Person person, SystemRoleCode roleCode, boolean revokeSessions) {
-    execute(person, roleCode, revokeSessions, true);
+    execute(person, roleCode, revokeSessions, false);
   }
 
   @Transactional
   public void executePreservingRoles(Person person, SystemRoleCode roleCode) {
-    execute(person, roleCode, false, false);
+    execute(person, roleCode, false, true);
   }
 
   private void execute(
-      Person person, SystemRoleCode roleCode, boolean revokeSessions, boolean applyRolePolicy) {
+      Person person,
+      SystemRoleCode roleCode,
+      boolean revokeSessions,
+      boolean preserveExistingRoles) {
     Institution institution = person.getInstitution();
     institutionRepository
         .findByIdForUpdate(institution.getId())
@@ -57,7 +60,7 @@ public class AssignPersonSystemRoleUseCase {
             .orElseThrow(
                 () -> new IllegalStateException(String.format(SYSTEM_ROLE_NOT_SEEDED, roleCode)));
 
-    assign(person, role, roleCode, revokeSessions, applyRolePolicy);
+    assign(person, role, roleCode, revokeSessions, preserveExistingRoles);
     authorizationCacheInvalidator.evictPerson(person.getId(), institution.getId());
   }
 
@@ -68,7 +71,7 @@ public class AssignPersonSystemRoleUseCase {
         .orElseThrow(InstitutionNotFoundException::new);
     @Nullable SystemRoleCode technicalCode =
         role.isSystem() ? SystemRoleCode.valueOf(role.getCode()) : null;
-    assign(person, role, technicalCode, revokeSessions, true);
+    assign(person, role, technicalCode, revokeSessions, false);
     authorizationCacheInvalidator.evictPerson(person.getId(), person.getInstitution().getId());
   }
 
@@ -77,18 +80,22 @@ public class AssignPersonSystemRoleUseCase {
       Role role,
       @Nullable SystemRoleCode technicalCode,
       boolean revokeSessions,
-      boolean applyRolePolicy) {
+      boolean preserveExistingRoles) {
     Institution institution = person.getInstitution();
     List<PersonRoleAssignment> currentAssignments =
         personRoleAssignmentRepository.findByPerson_IdAndInstitution_Id(
             person.getId(), institution.getId());
+    if (preserveExistingRoles
+        && technicalCode == SystemRoleCode.APPLICANT
+        && !currentAssignments.isEmpty()) {
+      return;
+    }
+
     boolean alreadyAssigned =
         currentAssignments.stream()
             .anyMatch(assignment -> assignment.getRole().getId().equals(role.getId()));
 
-    if (applyRolePolicy) {
-      applyApplicantRolePolicy(currentAssignments, technicalCode);
-    }
+    applyApplicantRolePolicy(currentAssignments, technicalCode);
     if (alreadyAssigned) {
       return;
     }

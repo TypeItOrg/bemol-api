@@ -73,7 +73,7 @@ public class EnrollmentApplication extends SoftDeletable {
   /** Who physically submitted the application: the tutor when acting for a dependent. */
   @ManyToOne(fetch = FetchType.LAZY)
   @JoinColumn(name = "submitted_by_person_id")
-  private Person submittedByPerson;
+  private @Nullable Person submittedByPerson;
 
   @ManyToOne(fetch = FetchType.LAZY)
   @JoinColumn(name = "study_plan_id")

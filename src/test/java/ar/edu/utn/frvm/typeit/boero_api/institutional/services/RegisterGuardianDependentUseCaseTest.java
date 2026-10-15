@@ -161,15 +161,23 @@ class RegisterGuardianDependentUseCaseTest {
   @Test
   @DisplayName("Should not expose the stored data of the person while the link is pending")
   void execute_hidesPersonDataWhilePending() {
-    final Person existing = existingPerson("54123456", BIRTH_DATE);
+    final Person existing =
+        Person.builder()
+            .id(UUID.randomUUID())
+            .institution(institution)
+            .documentNumber("54123456")
+            .firstName("Nombre protegido")
+            .lastName("Apellido protegido")
+            .birthDate(BIRTH_DATE)
+            .build();
     when(personRepository.findByDocumentNumberAndInstitution_Id("54123456", institution.getId()))
         .thenReturn(Optional.of(existing));
 
     final GuardianDependentResponse response =
         useCase.execute(institution.getId(), tutor.getId(), request("54123456", BIRTH_DATE));
 
-    assertThat(response.firstName()).isNull();
-    assertThat(response.lastName()).isNull();
+    assertThat(response.firstName()).isEqualTo("Mateo");
+    assertThat(response.lastName()).isEqualTo("Gonzalez");
     assertThat(response.roles()).isEmpty();
     assertThat(response.activeApplicationsCount()).isZero();
   }

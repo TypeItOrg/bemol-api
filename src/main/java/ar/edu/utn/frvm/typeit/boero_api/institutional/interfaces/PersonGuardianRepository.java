@@ -7,13 +7,22 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
-public interface PersonGuardianRepository extends JpaRepository<PersonGuardian, UUID> {
+public interface PersonGuardianRepository
+    extends JpaRepository<PersonGuardian, UUID>, JpaSpecificationExecutor<PersonGuardian> {
+
+  @Override
+  @EntityGraph(attributePaths = "dependentPerson")
+  Page<PersonGuardian> findAll(Specification<PersonGuardian> specification, Pageable pageable);
 
   @EntityGraph(attributePaths = "dependentPerson")
   List<PersonGuardian> findByInstitution_IdAndTutorPerson_IdAndStatusInOrderByCreatedAtAsc(
@@ -26,6 +35,7 @@ public interface PersonGuardianRepository extends JpaRepository<PersonGuardian, 
   @EntityGraph(attributePaths = {"institution", "tutorPerson", "dependentPerson"})
   List<PersonGuardian> findByStatusOrderByCreatedAtAsc(GuardianLinkStatus status);
 
+  @Lock(LockModeType.PESSIMISTIC_WRITE)
   @EntityGraph(attributePaths = "dependentPerson")
   Optional<PersonGuardian> findByInstitution_IdAndTutorPerson_IdAndDependentPerson_IdAndStatus(
       UUID institutionId, UUID tutorPersonId, UUID dependentPersonId, GuardianLinkStatus status);

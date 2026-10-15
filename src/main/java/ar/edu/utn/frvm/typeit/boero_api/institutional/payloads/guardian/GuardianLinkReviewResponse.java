@@ -11,6 +11,17 @@ import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 
 /** A guardianship request as the institution sees it: who asks, for whom and with which tie. */
+@Schema(
+    requiredProperties = {
+      "personGuardianId",
+      "status",
+      "relationship",
+      "institution",
+      "tutor",
+      "dependent",
+      "createdAt",
+      "resolvedAt"
+    })
 public record GuardianLinkReviewResponse(
     UUID personGuardianId,
     GuardianLinkStatus status,
@@ -21,6 +32,7 @@ public record GuardianLinkReviewResponse(
     Instant createdAt,
     @Nullable @Schema(nullable = true) Instant resolvedAt) {
 
+  @Schema(requiredProperties = {"personId", "documentNumber", "firstName", "lastName", "birthDate"})
   public record PersonSummary(
       UUID personId,
       String documentNumber,
@@ -38,6 +50,7 @@ public record GuardianLinkReviewResponse(
     }
   }
 
+  @Schema(requiredProperties = {"institutionId", "name"})
   public record InstitutionSummary(UUID institutionId, String name) {
     static InstitutionSummary from(
         final ar.edu.utn.frvm.typeit.boero_api.institutional.entities.Institution institution) {

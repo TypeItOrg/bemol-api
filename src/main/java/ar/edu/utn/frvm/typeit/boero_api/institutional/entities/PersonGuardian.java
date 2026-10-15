@@ -47,6 +47,13 @@ public class PersonGuardian extends Auditable {
   @JoinColumn(name = "dependent_person_id", nullable = false)
   private Person dependentPerson;
 
+  // Requester-provided identity, never copied from an existing person's protected data.
+  @Column(name = "declared_first_name", length = 255)
+  private @Nullable String declaredFirstName;
+
+  @Column(name = "declared_last_name", length = 255)
+  private @Nullable String declaredLastName;
+
   @Enumerated(EnumType.STRING)
   @Column(nullable = false, length = 30)
   private GuardianRelationship relationship;
@@ -80,6 +87,21 @@ public class PersonGuardian extends Auditable {
         .relationship(relationship)
         .primaryContact(primaryContact)
         .build();
+  }
+
+  public static PersonGuardian request(
+      final Institution institution,
+      final Person tutor,
+      final Person dependent,
+      final GuardianRelationship relationship,
+      final boolean primaryContact,
+      final String declaredFirstName,
+      final String declaredLastName) {
+    final PersonGuardian link =
+        request(institution, tutor, dependent, relationship, primaryContact);
+    link.declaredFirstName = declaredFirstName.trim();
+    link.declaredLastName = declaredLastName.trim();
+    return link;
   }
 
   public boolean isActive() {

@@ -14,6 +14,7 @@ import ar.edu.utn.frvm.typeit.boero_api.academic.entities.TrainingPath;
 import ar.edu.utn.frvm.typeit.boero_api.academic.entities.TrainingPathDocumentRequirement;
 import ar.edu.utn.frvm.typeit.boero_api.academic.enums.AcademicSpaceFormat;
 import ar.edu.utn.frvm.typeit.boero_api.academic.enums.AcademicSpaceType;
+import ar.edu.utn.frvm.typeit.boero_api.academic.enums.AcademicYearStatus;
 import ar.edu.utn.frvm.typeit.boero_api.academic.enums.ApprovalMode;
 import ar.edu.utn.frvm.typeit.boero_api.academic.enums.RequirementType;
 import ar.edu.utn.frvm.typeit.boero_api.audit.entities.AuditEvent;
@@ -252,7 +253,7 @@ class EnrollmentApplicationGuardianshipPostgresIntegrationTest {
     entityManager.flush();
 
     assertThat(started.personId()).isEqualTo(dependent.dependentPersonId());
-    assertThat(started.submittedByPersonId()).isEqualTo(scenario.tutor().getId());
+    assertThat(started.submittedByPersonId()).isNull();
     final var startData = requireNonNull(started.data());
     final var startResp = requireNonNull(startData.getResponsible());
     assertThat(startResp.getFullName()).isEqualTo("Ana Garcia");
@@ -568,7 +569,7 @@ class EnrollmentApplicationGuardianshipPostgresIntegrationTest {
             scenario.institution().getId(), scenario.tutor().getId(), startRequest(scenario, null));
 
     assertThat(started.personId()).isEqualTo(scenario.tutor().getId());
-    assertThat(started.submittedByPersonId()).isEqualTo(scenario.tutor().getId());
+    assertThat(started.submittedByPersonId()).isNull();
     final var startData = requireNonNull(started.data());
     final var startResp = requireNonNull(startData.getResponsible());
     assertThat(startResp.getFullName()).isNull();
@@ -659,7 +660,13 @@ class EnrollmentApplicationGuardianshipPostgresIntegrationTest {
     final AcademicYear year =
         InstitutionalTestData.persist(
             entityManager,
-            AcademicYear.create(institution, 2026, null, null, LocalDate.of(2026, 1, 1)));
+            AcademicYear.create(
+                institution,
+                2026,
+                LocalDate.of(2026, 1, 1),
+                LocalDate.of(2026, 12, 31),
+                LocalDate.of(2026, 1, 1)));
+    year.transitionTo(AcademicYearStatus.ACTIVE);
     final EnrollmentPeriod period =
         InstitutionalTestData.persist(
             entityManager,

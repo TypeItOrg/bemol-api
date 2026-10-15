@@ -82,8 +82,8 @@ class AssignPersonSystemRoleUseCaseTest {
   }
 
   @Test
-  @DisplayName("Should preserve existing roles when assigning applicant explicitly")
-  void executePreservingRoles_keepsExistingRoles() {
+  @DisplayName("Should keep existing roles without adding the exclusive applicant role")
+  void executePreservingRoles_doesNotAddApplicantToExistingRoles() {
     Role applicant = roleWith(SystemRoleCode.APPLICANT);
     Role guardian = roleWith(SystemRoleCode.GUARDIAN);
     PersonRoleAssignment guardianAssignment = assignmentWith(guardian);
@@ -97,7 +97,14 @@ class AssignPersonSystemRoleUseCaseTest {
     assignPersonSystemRoleUseCase.executePreservingRoles(person, SystemRoleCode.APPLICANT);
 
     verify(personRoleAssignmentRepository, org.mockito.Mockito.never()).delete(guardianAssignment);
-    verify(personRoleAssignmentRepository).save(org.mockito.ArgumentMatchers.any());
+    verify(personRoleAssignmentRepository, org.mockito.Mockito.never())
+        .save(org.mockito.ArgumentMatchers.any());
+    final var order =
+        org.mockito.Mockito.inOrder(institutionRepository, personRoleAssignmentRepository);
+    order.verify(institutionRepository).findByIdForUpdate(institutionId);
+    order
+        .verify(personRoleAssignmentRepository)
+        .findByPerson_IdAndInstitution_Id(person.getId(), institutionId);
   }
 
   @Test

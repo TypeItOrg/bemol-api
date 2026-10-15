@@ -11,6 +11,21 @@ import java.util.List;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 
+@Schema(
+    requiredProperties = {
+      "personGuardianId",
+      "dependentPersonId",
+      "status",
+      "documentNumber",
+      "firstName",
+      "lastName",
+      "birthDate",
+      "relationship",
+      "isPrimaryContact",
+      "activeApplicationsCount",
+      "roles",
+      "createdAt"
+    })
 public record GuardianDependentResponse(
     UUID personGuardianId,
     UUID dependentPersonId,
@@ -40,8 +55,8 @@ public record GuardianDependentResponse(
         dependent.getId(),
         link.getStatus(),
         dependent.getDocumentNumber(),
-        visible ? dependent.getFirstName() : null,
-        visible ? dependent.getLastName() : null,
+        visible ? dependent.getFirstName() : link.getDeclaredFirstName(),
+        visible ? dependent.getLastName() : link.getDeclaredLastName(),
         dependent.getBirthDate(),
         link.getRelationship(),
         link.isPrimaryContact(),

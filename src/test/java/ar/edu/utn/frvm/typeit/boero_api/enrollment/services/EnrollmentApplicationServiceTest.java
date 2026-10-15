@@ -918,12 +918,27 @@ class EnrollmentApplicationServiceTest {
   }
 
   @Test
-  @DisplayName("Should reject a tutor submitting for an applicant who is already an adult")
-  void submitApplication_tutorForAdult_reportsError() {
-    assertBirthDateError(
-        UUID.randomUUID(),
-        LocalDate.now().minusYears(30),
-        EnrollmentMessages.DEPENDENT_MUST_BE_MINOR);
+  @DisplayName("Should not reject an adult applicant represented by a tutor because of their age")
+  void submitApplication_tutorForAdult_doesNotReportBirthDateError() {
+    Person person = Mockito.mock(Person.class);
+    when(person.getId()).thenReturn(UUID.randomUUID());
+    when(person.getBirthDate()).thenReturn(LocalDate.of(1990, 1, 1));
+
+    EnrollmentApplication application =
+        EnrollmentApplication.builder()
+            .id(applicationId)
+            .applicantPerson(person)
+            .status(EnrollmentApplicationStatus.DRAFT)
+            .build();
+    when(applicationRepository.findAccessibleForUpdate(applicationId, personId))
+        .thenReturn(Optional.of(application));
+
+    assertThatThrownBy(() -> service.submitApplication(personId, applicationId))
+        .isInstanceOf(EnrollmentValidationException.class)
+        .asInstanceOf(InstanceOfAssertFactories.type(EnrollmentValidationException.class))
+        .extracting(EnrollmentValidationException::fieldErrors)
+        .satisfies(
+            fieldErrors -> assertThat(fieldErrors).doesNotContainKey("personalData.birthDate"));
   }
 
   private void assertBirthDateError(

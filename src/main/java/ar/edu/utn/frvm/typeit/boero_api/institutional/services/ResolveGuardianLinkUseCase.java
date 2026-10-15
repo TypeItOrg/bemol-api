@@ -4,7 +4,6 @@ import ar.edu.utn.frvm.typeit.boero_api.audit.enums.AuditAction;
 import ar.edu.utn.frvm.typeit.boero_api.audit.enums.AuditEntityType;
 import ar.edu.utn.frvm.typeit.boero_api.audit.services.AuditEventRecorder;
 import ar.edu.utn.frvm.typeit.boero_api.authorization.enums.SystemRoleCode;
-import ar.edu.utn.frvm.typeit.boero_api.authorization.interfaces.PersonRoleAssignmentRepository;
 import ar.edu.utn.frvm.typeit.boero_api.authorization.services.AssignPersonSystemRoleUseCase;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.entities.Person;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.entities.PersonGuardian;
@@ -26,7 +25,6 @@ public class ResolveGuardianLinkUseCase {
 
   private final PersonGuardianRepository personGuardianRepository;
   private final PersonRepository personRepository;
-  private final PersonRoleAssignmentRepository personRoleAssignmentRepository;
   private final AssignPersonSystemRoleUseCase assignPersonSystemRoleUseCase;
   private final AuditEventRecorder auditEventRecorder;
 
@@ -37,7 +35,8 @@ public class ResolveGuardianLinkUseCase {
     final Person reviewer = findReviewer(institutionId, reviewerPersonId);
 
     link.approve(reviewer);
-    assignApplicantRoleIfUnassigned(institutionId, link.getDependentPerson());
+    assignPersonSystemRoleUseCase.executePreservingRoles(
+        link.getDependentPerson(), SystemRoleCode.APPLICANT);
     audit(link, reviewer, AuditAction.GUARDIAN_LINK_APPROVED);
 
     return GuardianLinkReviewResponse.from(link);
@@ -61,7 +60,8 @@ public class ResolveGuardianLinkUseCase {
     final PersonGuardian link = findLink(institutionId, linkId);
 
     link.approve(null);
-    assignApplicantRoleIfUnassigned(institutionId, link.getDependentPerson());
+    assignPersonSystemRoleUseCase.executePreservingRoles(
+        link.getDependentPerson(), SystemRoleCode.APPLICANT);
     audit(link, null, AuditAction.GUARDIAN_LINK_APPROVED);
 
     return GuardianLinkReviewResponse.from(link);
@@ -88,20 +88,6 @@ public class ResolveGuardianLinkUseCase {
     return personGuardianRepository
         .findForUpdate(linkId, institutionId)
         .orElseThrow(GuardianLinkNotFoundException::new);
-  }
-
-  /**
-   * Dependents apply like any other person, so they carry the applicant role. Assigning it replaces
-   * every other role, hence it is only granted to people that have none yet.
-   */
-  private void assignApplicantRoleIfUnassigned(final UUID institutionId, final Person dependent) {
-    if (!personRoleAssignmentRepository
-        .findByPerson_IdAndInstitution_Id(dependent.getId(), institutionId)
-        .isEmpty()) {
-      return;
-    }
-
-    assignPersonSystemRoleUseCase.execute(dependent, SystemRoleCode.APPLICANT, false);
   }
 
   private void audit(

@@ -72,8 +72,6 @@ public class EnrollmentSubmissionValidator {
               < PersonFieldConstraints.ADULT_AGE;
       if (selfService && minor) {
         errors.put("personalData.birthDate", EnrollmentMessages.APPLICANT_MUST_BE_ADULT);
-      } else if (!selfService && !minor) {
-        errors.put("personalData.birthDate", EnrollmentMessages.DEPENDENT_MUST_BE_MINOR);
       }
     }
     if (selfService) {
