@@ -15,7 +15,14 @@ class CourseEnrollmentGradeTest {
   @DisplayName("New grade starts as draft with trimmed evaluation")
   void create_startsAsDraft() {
     final var grade =
-        CourseEnrollmentGrade.create(null, null, "  Parcial 1  ", new BigDecimal("7.50"), null);
+        CourseEnrollmentGrade.create(
+            org.mockito.Mockito.mock(
+                ar.edu.utn.frvm.typeit.boero_api.institutional.entities.Institution.class),
+            org.mockito.Mockito.mock(
+                ar.edu.utn.frvm.typeit.boero_api.enrollment.entities.CourseEnrollment.class),
+            "  Parcial 1  ",
+            new BigDecimal("7.50"),
+            null);
 
     assertThat(grade.getEvaluation()).isEqualTo("Parcial 1");
     assertThat(grade.getValue()).isEqualByComparingTo("7.5");
@@ -29,7 +36,14 @@ class CourseEnrollmentGradeTest {
   @DisplayName("Publish copies working copy and clears pending state")
   void publish_copiesWorkingCopy() {
     final var grade =
-        CourseEnrollmentGrade.create(null, null, "Parcial 1", new BigDecimal("7"), null);
+        CourseEnrollmentGrade.create(
+            org.mockito.Mockito.mock(
+                ar.edu.utn.frvm.typeit.boero_api.institutional.entities.Institution.class),
+            org.mockito.Mockito.mock(
+                ar.edu.utn.frvm.typeit.boero_api.enrollment.entities.CourseEnrollment.class),
+            "Parcial 1",
+            new BigDecimal("7"),
+            null);
 
     grade.publish(java.util.UUID.randomUUID(), java.time.Instant.now());
 
@@ -42,7 +56,14 @@ class CourseEnrollmentGradeTest {
   @DisplayName("Modifying published grade keeps published snapshot")
   void updatePublished_keepsSnapshot() {
     final var grade =
-        CourseEnrollmentGrade.create(null, null, "Parcial 1", new BigDecimal("6"), null);
+        CourseEnrollmentGrade.create(
+            org.mockito.Mockito.mock(
+                ar.edu.utn.frvm.typeit.boero_api.institutional.entities.Institution.class),
+            org.mockito.Mockito.mock(
+                ar.edu.utn.frvm.typeit.boero_api.enrollment.entities.CourseEnrollment.class),
+            "Parcial 1",
+            new BigDecimal("6"),
+            null);
     grade.publish(java.util.UUID.randomUUID(), java.time.Instant.now());
 
     grade.updateWorkingCopy("Parcial 1", new BigDecimal("8"), null);
@@ -57,7 +78,14 @@ class CourseEnrollmentGradeTest {
   @DisplayName("Pending deletion blocks edition")
   void markForDeletion_blocksEdition() {
     final var grade =
-        CourseEnrollmentGrade.create(null, null, "Parcial 1", new BigDecimal("6"), null);
+        CourseEnrollmentGrade.create(
+            org.mockito.Mockito.mock(
+                ar.edu.utn.frvm.typeit.boero_api.institutional.entities.Institution.class),
+            org.mockito.Mockito.mock(
+                ar.edu.utn.frvm.typeit.boero_api.enrollment.entities.CourseEnrollment.class),
+            "Parcial 1",
+            new BigDecimal("6"),
+            null);
     grade.publish(java.util.UUID.randomUUID(), java.time.Instant.now());
     grade.markForDeletion(null);
 

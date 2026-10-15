@@ -3,6 +3,7 @@ package ar.edu.utn.frvm.typeit.boero_api.enrollment.services;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.when;
 
 import ar.edu.utn.frvm.typeit.boero_api.academic.entities.Course;
@@ -32,7 +33,6 @@ import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -52,21 +52,33 @@ class CourseEnrollmentGradeServiceTest {
   @Mock private CourseClassTeacherRepository courseClassTeacherRepository;
   @Mock private PersonRoleAssignmentRepository roleAssignments;
   @Mock private PersonRepository personRepository;
+  @Mock private ar.edu.utn.frvm.typeit.boero_api.enrollment.interfaces.CourseEnrollmentGradeHistoryRepository historyRepository;
 
   private final Clock clock = Clock.fixed(Instant.parse("2026-10-04T00:00:00Z"), ZoneId.of("UTC"));
 
-  @InjectMocks
-  private CourseEnrollmentGradeService service =
-      new CourseEnrollmentGradeService(
-          institutionRepository,
-          institutionEnrollmentLockRepository,
-          courseEnrollmentRepository,
-          gradeRepository,
-          courseClassRepository,
-          courseClassTeacherRepository,
-          roleAssignments,
-          personRepository,
-          clock);
+  private CourseEnrollmentGradeService service;
+
+  @org.junit.jupiter.api.BeforeEach
+  void setUp() {
+    final var store =
+        new CourseEnrollmentGradeStore(
+            institutionRepository,
+            institutionEnrollmentLockRepository,
+            courseEnrollmentRepository,
+            gradeRepository,
+            courseClassRepository,
+            clock);
+    final var mapper = new CourseEnrollmentGradeResponseMapper(personRepository);
+    final var historySupport = new CourseEnrollmentGradeHistorySupport(personRepository);
+    final var journal = new CourseEnrollmentGradeJournal(historyRepository, clock);
+    final var queries =
+        new CourseEnrollmentGradeQueries(store, gradeRepository, historyRepository, mapper, historySupport);
+    final var commands = new CourseEnrollmentGradeCommands(store, gradeRepository, mapper, journal);
+    final var publisher = new CourseEnrollmentGradePublish(store, gradeRepository, journal, clock);
+    final var access = new CourseEnrollmentGradeAccess(roleAssignments, courseClassTeacherRepository, store);
+
+    service = new CourseEnrollmentGradeService(queries, commands, publisher, access);
+  }
 
   @Test
   @DisplayName("Create rejects enrollment not ENROLLED")
@@ -222,9 +234,9 @@ class CourseEnrollmentGradeServiceTest {
     final var person = org.mockito.Mockito.mock(Person.class);
     final var course = org.mockito.Mockito.mock(Course.class);
     final var courseClass = org.mockito.Mockito.mock(CourseClass.class);
-    when(student.getPerson()).thenReturn(person);
-    when(person.getId()).thenReturn(PERSON_ID);
-    when(courseClass.getId()).thenReturn(CLASS_ID);
+    lenient().when(student.getPerson()).thenReturn(person);
+    lenient().when(person.getId()).thenReturn(PERSON_ID);
+    lenient().when(courseClass.getId()).thenReturn(CLASS_ID);
     final var otherEnrollment =
         CourseEnrollment.builder()
             .id(otherEnrollmentId)
@@ -275,9 +287,9 @@ class CourseEnrollmentGradeServiceTest {
     final var course = org.mockito.Mockito.mock(Course.class);
     final var courseClass = org.mockito.Mockito.mock(CourseClass.class);
 
-    when(student.getPerson()).thenReturn(person);
-    when(person.getId()).thenReturn(PERSON_ID);
-    when(courseClass.getId()).thenReturn(CLASS_ID);
+    lenient().when(student.getPerson()).thenReturn(person);
+    lenient().when(person.getId()).thenReturn(PERSON_ID);
+    lenient().when(courseClass.getId()).thenReturn(CLASS_ID);
 
     return CourseEnrollment.builder()
         .id(ENROLLMENT_ID)

@@ -11,7 +11,6 @@ import ar.edu.utn.frvm.typeit.boero_api.academic.entities.StudyPlan;
 import ar.edu.utn.frvm.typeit.boero_api.academic.entities.StudyPlanSpace;
 import ar.edu.utn.frvm.typeit.boero_api.academic.entities.TrainingPath;
 import ar.edu.utn.frvm.typeit.boero_api.academic.enums.AcademicSpaceFormat;
-import ar.edu.utn.frvm.typeit.boero_api.academic.enums.AcademicSpaceType;
 import ar.edu.utn.frvm.typeit.boero_api.academic.enums.AcademicYearStatus;
 import ar.edu.utn.frvm.typeit.boero_api.academic.enums.ApprovalMode;
 import ar.edu.utn.frvm.typeit.boero_api.academic.enums.RequirementType;

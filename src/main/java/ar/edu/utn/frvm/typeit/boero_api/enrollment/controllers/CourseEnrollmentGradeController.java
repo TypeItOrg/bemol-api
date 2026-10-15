@@ -7,6 +7,8 @@ import ar.edu.utn.frvm.typeit.boero_api.authorization.enums.PermissionCode;
 import ar.edu.utn.frvm.typeit.boero_api.authorization.enums.ScopedResource;
 import ar.edu.utn.frvm.typeit.boero_api.authorization.services.AcademicAccessGuard;
 import ar.edu.utn.frvm.typeit.boero_api.common.web.Version;
+import ar.edu.utn.frvm.typeit.boero_api.enrollment.payloads.CourseEnrollmentGradeArchivedResponse;
+import ar.edu.utn.frvm.typeit.boero_api.enrollment.payloads.CourseEnrollmentGradeHistoryResponse;
 import ar.edu.utn.frvm.typeit.boero_api.enrollment.payloads.CourseEnrollmentGradeResponse;
 import ar.edu.utn.frvm.typeit.boero_api.enrollment.payloads.CreateCourseEnrollmentGradeRequest;
 import ar.edu.utn.frvm.typeit.boero_api.enrollment.payloads.UpdateCourseEnrollmentGradeRequest;
@@ -17,6 +19,9 @@ import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.jspecify.annotations.Nullable;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
@@ -144,6 +149,35 @@ public class CourseEnrollmentGradeController {
 
     return gradeService.cancelDeletion(
         institutionId, enrollmentId, gradeId, currentPersonId(authentication));
+  }
+
+  @GetMapping(value = "/archived", version = Version.V1)
+  @RequiresPermission(PermissionCode.COURSE_ENROLLMENT_GRADE_READ)
+  public List<CourseEnrollmentGradeArchivedResponse> archived(
+      @PathVariable final UUID institutionId, @PathVariable final UUID enrollmentId) {
+    accessGuard.require(
+        PermissionCode.COURSE_ENROLLMENT_GRADE_READ,
+        institutionId,
+        ScopedResource.COURSE_ENROLLMENT,
+        enrollmentId);
+
+    return gradeService.archived(institutionId, enrollmentId);
+  }
+
+  @GetMapping(value = "/{gradeId}/history", version = Version.V1)
+  @RequiresPermission(PermissionCode.COURSE_ENROLLMENT_GRADE_READ)
+  public Page<CourseEnrollmentGradeHistoryResponse> history(
+      @PathVariable final UUID institutionId,
+      @PathVariable final UUID enrollmentId,
+      @PathVariable final UUID gradeId,
+      @PageableDefault(size = 50) final Pageable pageable) {
+    accessGuard.require(
+        PermissionCode.COURSE_ENROLLMENT_GRADE_READ,
+        institutionId,
+        ScopedResource.COURSE_ENROLLMENT,
+        enrollmentId);
+
+    return gradeService.history(institutionId, enrollmentId, gradeId, pageable);
   }
 
   private @Nullable UUID currentPersonId(final Authentication authentication) {
