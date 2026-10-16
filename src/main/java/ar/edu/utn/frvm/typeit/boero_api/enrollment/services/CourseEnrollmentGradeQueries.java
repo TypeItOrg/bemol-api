@@ -3,7 +3,6 @@ package ar.edu.utn.frvm.typeit.boero_api.enrollment.services;
 import ar.edu.utn.frvm.typeit.boero_api.enrollment.entities.CourseEnrollment;
 import ar.edu.utn.frvm.typeit.boero_api.enrollment.entities.CourseEnrollmentGrade;
 import ar.edu.utn.frvm.typeit.boero_api.enrollment.entities.CourseEnrollmentGradeHistory;
-import ar.edu.utn.frvm.typeit.boero_api.enrollment.enums.CourseEnrollmentGradeHistoryOperation;
 import ar.edu.utn.frvm.typeit.boero_api.enrollment.enums.CourseEnrollmentGradePublicationStatus;
 import ar.edu.utn.frvm.typeit.boero_api.enrollment.exceptions.EnrollmentValidationException;
 import ar.edu.utn.frvm.typeit.boero_api.enrollment.exceptions.GradeMessages;
@@ -18,7 +17,6 @@ import ar.edu.utn.frvm.typeit.boero_api.enrollment.payloads.PendingGradesSummary
 import ar.edu.utn.frvm.typeit.boero_api.institutional.entities.Person;
 import ar.edu.utn.frvm.typeit.boero_api.security.handlers.SecurityErrorMessages;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -156,7 +154,9 @@ public class CourseEnrollmentGradeQueries {
         historyRepository.findByGrade(
             institutionId, enrollment.getId(), gradeId, historySupport.withDefaultSort(pageable));
 
-    if (page.isEmpty() && !gradeExists(institutionId, enrollment, gradeId)) {
+    // An out-of-range page arrives empty with totalElements > 0; it is only missing when the
+    // current grade does not exist either.
+    if (page.getTotalElements() == 0 && !gradeExists(institutionId, enrollment, gradeId)) {
       throw new EnrollmentValidationException(GradeMessages.GRADE_NOT_FOUND);
     }
 
@@ -169,40 +169,23 @@ public class CourseEnrollmentGradeQueries {
   public List<CourseEnrollmentGradeArchivedResponse> archived(
       final UUID institutionId, final UUID enrollmentId) {
     final CourseEnrollment enrollment = store.findEnrollment(institutionId, enrollmentId);
-    final List<CourseEnrollmentGradeHistory> events =
-        historyRepository.findByEnrollmentOrdered(institutionId, enrollment.getId());
-
-    final Map<UUID, List<CourseEnrollmentGradeHistory>> byGrade = new HashMap<>();
-
-    for (final CourseEnrollmentGradeHistory event : events) {
-      byGrade.computeIfAbsent(event.getGradeId(), key -> new ArrayList<>()).add(event);
-    }
-
+    final List<CourseEnrollmentGradeHistory> latestDeletions =
+        historyRepository.findLatestArchivedByEnrollment(institutionId, enrollment.getId());
     final List<CourseEnrollmentGradeArchivedResponse> archived = new ArrayList<>();
 
-    for (final Map.Entry<UUID, List<CourseEnrollmentGradeHistory>> entry : byGrade.entrySet()) {
-      final List<CourseEnrollmentGradeHistory> gradeEvents = entry.getValue();
-      final CourseEnrollmentGradeHistory latest = gradeEvents.get(0);
-
-      if (latest.getOperation() == CourseEnrollmentGradeHistoryOperation.DELETED_DRAFT
-          || latest.getOperation() == CourseEnrollmentGradeHistoryOperation.DELETED_PUBLISHED) {
-        final String lastEvaluation =
-            latest.getEvaluationBefore() != null
-                ? latest.getEvaluationBefore()
-                : Objects.requireNonNullElse(latest.getEvaluationAfter(), "");
-        archived.add(
-            new CourseEnrollmentGradeArchivedResponse(
-                entry.getKey(),
-                lastEvaluation,
-                latest.getValueBefore() != null
-                    ? latest.getValueBefore()
-                    : latest.getValueAfter(),
-                latest.getChangedAt(),
-                latest.getOperation()));
-      }
+    for (final CourseEnrollmentGradeHistory latest : latestDeletions) {
+      final String lastEvaluation =
+          latest.getEvaluationBefore() != null
+              ? latest.getEvaluationBefore()
+              : Objects.requireNonNullElse(latest.getEvaluationAfter(), "");
+      archived.add(
+          new CourseEnrollmentGradeArchivedResponse(
+              latest.getGradeId(),
+              lastEvaluation,
+              latest.getValueBefore() != null ? latest.getValueBefore() : latest.getValueAfter(),
+              latest.getChangedAt(),
+              latest.getOperation()));
     }
-
-    archived.sort((left, right) -> right.deletedAt().compareTo(left.deletedAt()));
 
     return archived;
   }

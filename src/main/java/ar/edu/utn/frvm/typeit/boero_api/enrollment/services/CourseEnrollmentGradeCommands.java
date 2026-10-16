@@ -92,6 +92,8 @@ public class CourseEnrollmentGradeCommands {
       throw new EnrollmentValidationException(GradeMessages.EVALUATION_DUPLICATE);
     }
 
+    grade.requireEditable();
+
     final String evaluationBefore = grade.getEvaluation();
     final BigDecimal valueBefore = grade.getValue();
     final String publishedEvaluationBefore = grade.getPublishedEvaluation();

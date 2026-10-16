@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import ar.edu.utn.frvm.typeit.boero_api.enrollment.enums.CourseEnrollmentGradePublicationStatus;
 import ar.edu.utn.frvm.typeit.boero_api.enrollment.exceptions.EnrollmentValidationException;
+import ar.edu.utn.frvm.typeit.boero_api.enrollment.exceptions.GradeMessages;
 import java.math.BigDecimal;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -27,8 +28,7 @@ class CourseEnrollmentGradeTest {
     assertThat(grade.getEvaluation()).isEqualTo("Parcial 1");
     assertThat(grade.getValue()).isEqualByComparingTo("7.5");
     assertThat(grade.isDraft()).isTrue();
-    assertThat(grade.publicationStatus())
-        .isEqualTo(CourseEnrollmentGradePublicationStatus.DRAFT);
+    assertThat(grade.publicationStatus()).isEqualTo(CourseEnrollmentGradePublicationStatus.DRAFT);
     assertThat(grade.hasPendingChanges()).isTrue();
   }
 
@@ -94,6 +94,26 @@ class CourseEnrollmentGradeTest {
 
     assertThatThrownBy(() -> grade.updateWorkingCopy("Parcial 1", new BigDecimal("8"), null))
         .isInstanceOf(EnrollmentValidationException.class);
+  }
+
+  @Test
+  @DisplayName("Pending deletion rejects explicit editability requirement")
+  void requireEditable_rejectsPendingDeletion() {
+    final var grade =
+        CourseEnrollmentGrade.create(
+            org.mockito.Mockito.mock(
+                ar.edu.utn.frvm.typeit.boero_api.institutional.entities.Institution.class),
+            org.mockito.Mockito.mock(
+                ar.edu.utn.frvm.typeit.boero_api.enrollment.entities.CourseEnrollment.class),
+            "Parcial 1",
+            new BigDecimal("6"),
+            null);
+    grade.publish(java.util.UUID.randomUUID(), java.time.Instant.now());
+    grade.markForDeletion(null);
+
+    assertThatThrownBy(grade::requireEditable)
+        .isInstanceOf(EnrollmentValidationException.class)
+        .hasMessage(GradeMessages.GRADE_PENDING_DELETION_IMMUTABLE);
   }
 
   @Test

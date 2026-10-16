@@ -34,12 +34,22 @@ public interface CourseEnrollmentGradeHistoryRepository
       @Param("enrollmentId") UUID enrollmentId,
       @Param("gradeId") UUID gradeId);
 
+  // The newest event per grade first, then the deletion check: filtering deletion operations
+  // before choosing the newest event could return a stale archive.
   @Query(
-      "SELECT history FROM CourseEnrollmentGradeHistory history"
-          + " WHERE history.institution.id = :institutionId"
-          + " AND history.courseEnrollment.id = :enrollmentId"
-          + " ORDER BY history.changedAt DESC, history.id DESC")
-  List<CourseEnrollmentGradeHistory> findByEnrollmentOrdered(
+      value =
+          "SELECT * FROM ("
+              + " SELECT DISTINCT ON (history.course_enrollment_grade_id) history.*"
+              + " FROM course_enrollment_grade_histories history"
+              + " WHERE history.institution_id = :institutionId"
+              + " AND history.course_enrollment_id = :enrollmentId"
+              + " ORDER BY history.course_enrollment_grade_id,"
+              + " history.changed_at DESC, history.course_enrollment_grade_history_id DESC"
+              + ") latest"
+              + " WHERE latest.operation IN ('DELETED_DRAFT', 'DELETED_PUBLISHED')"
+              + " ORDER BY latest.changed_at DESC, latest.course_enrollment_grade_history_id DESC",
+      nativeQuery = true)
+  List<CourseEnrollmentGradeHistory> findLatestArchivedByEnrollment(
       @Param("institutionId") UUID institutionId, @Param("enrollmentId") UUID enrollmentId);
 
   @Query(

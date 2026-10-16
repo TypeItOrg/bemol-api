@@ -114,11 +114,15 @@ public class CourseEnrollmentGrade extends Auditable {
         .build();
   }
 
-  public void updateWorkingCopy(
-      final String evaluation, final BigDecimal value, final @Nullable UUID actorPersonId) {
+  public void requireEditable() {
     if (pendingDeletion) {
       throw new EnrollmentValidationException(GradeMessages.GRADE_PENDING_DELETION_IMMUTABLE);
     }
+  }
+
+  public void updateWorkingCopy(
+      final String evaluation, final BigDecimal value, final @Nullable UUID actorPersonId) {
+    requireEditable();
 
     this.evaluation = normalizeEvaluation(evaluation);
     this.value = normalizeValue(value);
