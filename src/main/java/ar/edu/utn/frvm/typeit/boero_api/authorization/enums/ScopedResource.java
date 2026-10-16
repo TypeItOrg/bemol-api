@@ -12,10 +12,14 @@ public enum ScopedResource {
   STUDY_PLAN_SPACE("StudyPlanSpace", "resource.studyPlan.trainingPath.id"),
   PREREQUISITE("Prerequisite", "resource.targetStudyPlanSpace.studyPlan.trainingPath.id"),
   COURSE("Course", "resource.studyPlanSpace.studyPlan.trainingPath.id"),
+  COURSE_CLASS("CourseClass", "resource.course.studyPlanSpace.studyPlan.trainingPath.id"),
   ENROLLMENT_APPLICATION("EnrollmentApplication", "resource.trainingPathId"),
   ENROLLMENT_APPLICATION_COURSE(
       "EnrollmentApplicationCourse", "resource.enrollmentApplication.trainingPathId"),
-  COURSE_ENROLLMENT("CourseEnrollment", "resource.course.studyPlanSpace.studyPlan.trainingPath.id");
+  COURSE_ENROLLMENT("CourseEnrollment", "resource.course.studyPlanSpace.studyPlan.trainingPath.id"),
+  COURSE_ENROLLMENT_GRADE(
+      "CourseEnrollmentGrade",
+      "resource.courseEnrollment.course.studyPlanSpace.studyPlan.trainingPath.id");
   private final String entity;
   private final String trainingPathExpression;
 }

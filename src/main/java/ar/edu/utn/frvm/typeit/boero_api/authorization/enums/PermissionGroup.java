@@ -8,7 +8,6 @@ import lombok.RequiredArgsConstructor;
 public enum PermissionGroup {
   PEOPLE("Personas", "Acceso a datos y operaciones sobre usuarios institucionales."),
   ROLES("Roles y permisos", "Administración y asignación de responsabilidades."),
-  GRADES("Calificaciones", "Carga y gestión de calificaciones académicas."),
   ACADEMIC("Académico", "Configuración de la estructura curricular institucional."),
   ENROLLMENT("Inscripciones", "Gestión de solicitudes de inscripción."),
   INSTITUTION("Institución", "Gestión y visualización de datos de la institución.");

@@ -61,16 +61,31 @@ public enum PermissionCode {
       PermissionScope.INSTITUTION,
       PermissionGroup.ROLES,
       "Eliminar roles"),
-  INSTITUTION_GRADES_ENTER(
-      "institution:grades:enter",
+  COURSE_ENROLLMENT_GRADE_READ(
+      "institution:course-enrollment-grade:read",
       PermissionScope.INSTITUTION,
-      PermissionGroup.GRADES,
-      "Cargar calificaciones"),
-  INSTITUTION_GRADES_ENTER_FINAL(
-      "institution:grades:enter-final",
+      PermissionGroup.ENROLLMENT,
+      "Consultar notas de estudiantes"),
+  COURSE_ENROLLMENT_GRADE_CREATE(
+      "institution:course-enrollment-grade:create",
       PermissionScope.INSTITUTION,
-      PermissionGroup.GRADES,
-      "Cargar calificaciones finales"),
+      PermissionGroup.ENROLLMENT,
+      "Añadir notas de estudiantes"),
+  COURSE_ENROLLMENT_GRADE_UPDATE(
+      "institution:course-enrollment-grade:update",
+      PermissionScope.INSTITUTION,
+      PermissionGroup.ENROLLMENT,
+      "Modificar notas de estudiantes"),
+  COURSE_ENROLLMENT_GRADE_DELETE(
+      "institution:course-enrollment-grade:delete",
+      PermissionScope.INSTITUTION,
+      PermissionGroup.ENROLLMENT,
+      "Eliminar notas de estudiantes"),
+  COURSE_ENROLLMENT_GRADE_PUBLISH(
+      "institution:course-enrollment-grade:publish",
+      PermissionScope.INSTITUTION,
+      PermissionGroup.ENROLLMENT,
+      "Publicar notas de estudiantes"),
   INSTITUTION_READ(
       "institution:read",
       PermissionScope.INSTITUTION,
@@ -422,127 +437,17 @@ public enum PermissionCode {
   private final PermissionGroup group;
   private final String description;
 
+  // Delegates to PermissionRequirements to keep the catalog under its size budget.
   public boolean supportsTrainingPaths() {
-    return switch (this) {
-      case TRAINING_PATH_READ,
-          TRAINING_PATH_UPDATE,
-          TRAINING_PATH_STATUS_UPDATE,
-          TRAINING_PATH_DELETE,
-          TRAINING_PATH_RESTORE,
-          STUDY_PLAN_READ,
-          STUDY_PLAN_CREATE,
-          STUDY_PLAN_UPDATE,
-          STUDY_PLAN_STATUS_UPDATE,
-          STUDY_PLAN_CURRICULUM_UPDATE,
-          STUDY_PLAN_DELETE,
-          STUDY_PLAN_RESTORE,
-          ACADEMIC_OFFER_READ,
-          COURSE_READ,
-          COURSE_CREATE,
-          COURSE_UPDATE,
-          COURSE_STATUS_UPDATE,
-          COURSE_DELETE,
-          COURSE_RESTORE,
-          ENROLLMENT_PERIOD_READ,
-          ENROLLMENT_PERIOD_CREATE,
-          ENROLLMENT_PERIOD_UPDATE,
-          ENROLLMENT_PERIOD_STATUS_UPDATE,
-          ENROLLMENT_PERIOD_DELETE,
-          ENROLLMENT_APPLICATION_READ,
-          ENROLLMENT_DOCUMENT_REQUEST_CREATE,
-          ENROLLMENT_ATTACHMENT_READ,
-          ENROLLMENT_ATTACHMENT_UPLOAD,
-          ENROLLMENT_ATTACHMENT_DELETE,
-          ENROLLMENT_ATTACHMENT_REVIEW,
-          ENROLLMENT_APPLICATION_APPROVE,
-          ENROLLMENT_APPLICATION_REJECT,
-          COURSE_ENROLLMENT_READ,
-          COURSE_ENROLLMENT_CREATE,
-          COURSE_ENROLLMENT_WITHDRAW,
-          COURSE_ENROLLMENT_ACADEMIC_STATUS_UPDATE,
-          ENROLLMENT_APPLICATION_COURSE_READ,
-          ENROLLMENT_APPLICATION_COURSE_ENROLL,
-          ENROLLMENT_APPLICATION_COURSE_REJECT,
-          COURSE_WAITLIST_READ ->
-          true;
-      default -> false;
-    };
+    return PermissionRequirements.supportsTrainingPaths(this);
   }
 
   public boolean isConfigurable() {
-    return group != PermissionGroup.GRADES;
+    return true;
   }
 
   public Set<PermissionCode> requiredPermissions() {
-    return switch (this) {
-      case INSTITUTION_PERSON_CREATE,
-          INSTITUTION_PERSON_UPDATE_ANY,
-          INSTITUTION_PERSON_DELETE,
-          INSTITUTION_USER_STATUS_UPDATE ->
-          Set.of(INSTITUTION_PERSON_READ_ANY);
-      case INSTITUTION_ROLE_ASSIGN, INSTITUTION_ROLE_REVOKE ->
-          Set.of(INSTITUTION_PERSON_READ_ANY, INSTITUTION_ROLE_READ);
-      case INSTITUTION_ROLE_CREATE, INSTITUTION_ROLE_UPDATE, INSTITUTION_ROLE_DELETE ->
-          Set.of(INSTITUTION_ROLE_READ);
-      case INSTITUTION_UPDATE -> Set.of(INSTITUTION_READ);
-      case ACADEMIC_YEAR_CREATE,
-          ACADEMIC_YEAR_UPDATE,
-          ACADEMIC_YEAR_STATUS_UPDATE,
-          ACADEMIC_YEAR_DELETE,
-          ACADEMIC_YEAR_RESTORE ->
-          Set.of(ACADEMIC_YEAR_READ);
-      case TRAINING_PATH_CREATE,
-          TRAINING_PATH_UPDATE,
-          TRAINING_PATH_STATUS_UPDATE,
-          TRAINING_PATH_DELETE,
-          TRAINING_PATH_RESTORE ->
-          Set.of(TRAINING_PATH_READ);
-      case STUDY_PLAN_CREATE,
-          STUDY_PLAN_UPDATE,
-          STUDY_PLAN_STATUS_UPDATE,
-          STUDY_PLAN_CURRICULUM_UPDATE,
-          STUDY_PLAN_DELETE,
-          STUDY_PLAN_RESTORE ->
-          Set.of(STUDY_PLAN_READ);
-      case ACADEMIC_SPACE_CREATE,
-          ACADEMIC_SPACE_UPDATE,
-          ACADEMIC_SPACE_STATUS_UPDATE,
-          ACADEMIC_SPACE_DELETE,
-          ACADEMIC_SPACE_RESTORE ->
-          Set.of(ACADEMIC_SPACE_READ);
-      case INSTRUMENT_CREATE,
-          INSTRUMENT_UPDATE,
-          INSTRUMENT_STATUS_UPDATE,
-          INSTRUMENT_DELETE,
-          INSTRUMENT_RESTORE ->
-          Set.of(INSTRUMENT_READ);
-      case ENROLLMENT_PERIOD_CREATE,
-          ENROLLMENT_PERIOD_UPDATE,
-          ENROLLMENT_PERIOD_STATUS_UPDATE,
-          ENROLLMENT_PERIOD_DELETE ->
-          Set.of(ENROLLMENT_PERIOD_READ);
-      case SHIFT_CREATE, SHIFT_UPDATE, SHIFT_STATUS_UPDATE, SHIFT_DELETE, SHIFT_RESTORE ->
-          Set.of(SHIFT_READ);
-      case COURSE_CREATE, COURSE_UPDATE, COURSE_STATUS_UPDATE, COURSE_DELETE, COURSE_RESTORE ->
-          Set.of(COURSE_READ);
-      case DOCUMENT_CATALOG_MANAGE -> Set.of(DOCUMENT_CATALOG_READ);
-      case ENROLLMENT_ATTACHMENT_READ -> Set.of(ENROLLMENT_APPLICATION_READ);
-      case ENROLLMENT_DOCUMENT_REQUEST_CREATE,
-          ENROLLMENT_ATTACHMENT_UPLOAD,
-          ENROLLMENT_ATTACHMENT_DELETE,
-          ENROLLMENT_ATTACHMENT_REVIEW ->
-          Set.of(ENROLLMENT_ATTACHMENT_READ);
-      case ENROLLMENT_APPLICATION_APPROVE, ENROLLMENT_APPLICATION_REJECT ->
-          Set.of(ENROLLMENT_APPLICATION_READ);
-      case COURSE_ENROLLMENT_CREATE,
-          COURSE_ENROLLMENT_WITHDRAW,
-          COURSE_ENROLLMENT_ACADEMIC_STATUS_UPDATE,
-          COURSE_WAITLIST_READ ->
-          Set.of(COURSE_ENROLLMENT_READ);
-      case ENROLLMENT_APPLICATION_COURSE_ENROLL, ENROLLMENT_APPLICATION_COURSE_REJECT ->
-          Set.of(ENROLLMENT_APPLICATION_COURSE_READ, ENROLLMENT_APPLICATION_READ);
-      default -> Set.of();
-    };
+    return PermissionRequirements.requiredPermissions(this);
   }
 
   public static Set<PermissionCode> withRequiredPermissions(Set<PermissionCode> permissions) {

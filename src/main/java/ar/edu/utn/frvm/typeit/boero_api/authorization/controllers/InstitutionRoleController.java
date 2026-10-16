@@ -75,7 +75,6 @@ public class InstitutionRoleController {
       @PathVariable UUID institutionId, Authentication authentication) {
     var actorPermissions = authorizationService.resolvePermissions(authentication);
     return Arrays.stream(PermissionGroup.values())
-        .filter(group -> group != PermissionGroup.GRADES)
         .map(group -> InstitutionPermissionGroupResponse.from(group, actorPermissions))
         .toList();
   }
