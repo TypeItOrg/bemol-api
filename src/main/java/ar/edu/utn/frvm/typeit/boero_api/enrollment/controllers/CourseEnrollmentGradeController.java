@@ -121,11 +121,7 @@ public class CourseEnrollmentGradeController {
 
     final var result =
         gradeService.delete(
-            institutionId,
-            enrollmentId,
-            gradeId,
-            expectedVersion,
-            currentPersonId(authentication));
+            institutionId, enrollmentId, gradeId, expectedVersion, currentPersonId(authentication));
 
     if (result.deletedImmediately()) {
       return ResponseEntity.noContent().build();

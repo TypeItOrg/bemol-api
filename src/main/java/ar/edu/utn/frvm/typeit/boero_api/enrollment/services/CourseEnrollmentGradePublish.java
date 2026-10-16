@@ -75,7 +75,11 @@ public class CourseEnrollmentGradePublish {
       published++;
 
       journal.recordPublished(
-          grade, publishedEvaluationBefore, publishedValueBefore, previousStatus, publisherPersonId);
+          grade,
+          publishedEvaluationBefore,
+          publishedValueBefore,
+          previousStatus,
+          publisherPersonId);
     }
 
     try {

@@ -52,7 +52,11 @@ class CourseEnrollmentGradeServiceTest {
   @Mock private CourseClassTeacherRepository courseClassTeacherRepository;
   @Mock private PersonRoleAssignmentRepository roleAssignments;
   @Mock private PersonRepository personRepository;
-  @Mock private ar.edu.utn.frvm.typeit.boero_api.enrollment.interfaces.CourseEnrollmentGradeHistoryRepository historyRepository;
+
+  @Mock
+  private ar.edu.utn.frvm.typeit.boero_api.enrollment.interfaces
+          .CourseEnrollmentGradeHistoryRepository
+      historyRepository;
 
   private final Clock clock = Clock.fixed(Instant.parse("2026-10-04T00:00:00Z"), ZoneId.of("UTC"));
 
@@ -72,10 +76,12 @@ class CourseEnrollmentGradeServiceTest {
     final var historySupport = new CourseEnrollmentGradeHistorySupport(personRepository);
     final var journal = new CourseEnrollmentGradeJournal(historyRepository, clock);
     final var queries =
-        new CourseEnrollmentGradeQueries(store, gradeRepository, historyRepository, mapper, historySupport);
+        new CourseEnrollmentGradeQueries(
+            store, gradeRepository, historyRepository, mapper, historySupport);
     final var commands = new CourseEnrollmentGradeCommands(store, gradeRepository, mapper, journal);
     final var publisher = new CourseEnrollmentGradePublish(store, gradeRepository, journal, clock);
-    final var access = new CourseEnrollmentGradeAccess(roleAssignments, courseClassTeacherRepository, store);
+    final var access =
+        new CourseEnrollmentGradeAccess(roleAssignments, courseClassTeacherRepository, store);
 
     service = new CourseEnrollmentGradeService(queries, commands, publisher, access);
   }
@@ -89,7 +95,8 @@ class CourseEnrollmentGradeServiceTest {
         .thenReturn(Optional.of(org.mockito.Mockito.mock(Institution.class)));
     when(institutionEnrollmentLockRepository.findByInstitutionId(INSTITUTION_ID))
         .thenReturn(Optional.of(org.mockito.Mockito.mock(InstitutionEnrollmentLock.class)));
-    when(courseEnrollmentRepository.findByIdAndInstitutionIdForUpdate(ENROLLMENT_ID, INSTITUTION_ID))
+    when(courseEnrollmentRepository.findByIdAndInstitutionIdForUpdate(
+            ENROLLMENT_ID, INSTITUTION_ID))
         .thenReturn(Optional.of(enrollment));
 
     assertThatThrownBy(
@@ -108,7 +115,8 @@ class CourseEnrollmentGradeServiceTest {
         .thenReturn(Optional.of(org.mockito.Mockito.mock(Institution.class)));
     when(institutionEnrollmentLockRepository.findByInstitutionId(INSTITUTION_ID))
         .thenReturn(Optional.of(org.mockito.Mockito.mock(InstitutionEnrollmentLock.class)));
-    when(courseEnrollmentRepository.findByIdAndInstitutionIdForUpdate(ENROLLMENT_ID, INSTITUTION_ID))
+    when(courseEnrollmentRepository.findByIdAndInstitutionIdForUpdate(
+            ENROLLMENT_ID, INSTITUTION_ID))
         .thenReturn(Optional.of(enrollment));
     when(gradeRepository.existsDuplicateEvaluation(any(), any(), any())).thenReturn(true);
 
@@ -138,7 +146,8 @@ class CourseEnrollmentGradeServiceTest {
         .thenReturn(Optional.of(org.mockito.Mockito.mock(Institution.class)));
     when(institutionEnrollmentLockRepository.findByInstitutionId(INSTITUTION_ID))
         .thenReturn(Optional.of(org.mockito.Mockito.mock(InstitutionEnrollmentLock.class)));
-    when(courseEnrollmentRepository.findByIdAndInstitutionIdForUpdate(ENROLLMENT_ID, INSTITUTION_ID))
+    when(courseEnrollmentRepository.findByIdAndInstitutionIdForUpdate(
+            ENROLLMENT_ID, INSTITUTION_ID))
         .thenReturn(Optional.of(enrollment));
     when(gradeRepository.findByIdAndInstitutionIdForUpdate(gradeId, INSTITUTION_ID))
         .thenReturn(Optional.of(grade));
@@ -168,7 +177,8 @@ class CourseEnrollmentGradeServiceTest {
         .thenReturn(Optional.of(org.mockito.Mockito.mock(Institution.class)));
     when(institutionEnrollmentLockRepository.findByInstitutionId(INSTITUTION_ID))
         .thenReturn(Optional.of(org.mockito.Mockito.mock(InstitutionEnrollmentLock.class)));
-    when(courseEnrollmentRepository.findByIdAndInstitutionIdForUpdate(ENROLLMENT_ID, INSTITUTION_ID))
+    when(courseEnrollmentRepository.findByIdAndInstitutionIdForUpdate(
+            ENROLLMENT_ID, INSTITUTION_ID))
         .thenReturn(Optional.of(enrollment));
     when(gradeRepository.findByIdAndInstitutionIdForUpdate(gradeId, INSTITUTION_ID))
         .thenReturn(Optional.of(grade));
@@ -262,7 +272,8 @@ class CourseEnrollmentGradeServiceTest {
         .thenReturn(Optional.of(org.mockito.Mockito.mock(Institution.class)));
     when(institutionEnrollmentLockRepository.findByInstitutionId(INSTITUTION_ID))
         .thenReturn(Optional.of(org.mockito.Mockito.mock(InstitutionEnrollmentLock.class)));
-    when(courseEnrollmentRepository.findByIdAndInstitutionIdForUpdate(ENROLLMENT_ID, INSTITUTION_ID))
+    when(courseEnrollmentRepository.findByIdAndInstitutionIdForUpdate(
+            ENROLLMENT_ID, INSTITUTION_ID))
         .thenReturn(Optional.of(enrollment));
     when(gradeRepository.findByIdAndInstitutionIdForUpdate(gradeId, INSTITUTION_ID))
         .thenReturn(Optional.of(grade));

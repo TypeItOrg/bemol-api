@@ -60,8 +60,7 @@ public class CourseEnrollmentGradeStore {
         .findByIdAndInstitutionId(enrollmentId, institutionId)
         .orElseThrow(
             () ->
-                new EnrollmentValidationException(
-                    EnrollmentMessages.COURSE_ENROLLMENT_NOT_FOUND));
+                new EnrollmentValidationException(EnrollmentMessages.COURSE_ENROLLMENT_NOT_FOUND));
   }
 
   @Transactional(propagation = Propagation.MANDATORY)
@@ -71,8 +70,7 @@ public class CourseEnrollmentGradeStore {
         .findByIdAndInstitutionIdForUpdate(enrollmentId, institutionId)
         .orElseThrow(
             () ->
-                new EnrollmentValidationException(
-                    EnrollmentMessages.COURSE_ENROLLMENT_NOT_FOUND));
+                new EnrollmentValidationException(EnrollmentMessages.COURSE_ENROLLMENT_NOT_FOUND));
   }
 
   @Transactional(propagation = Propagation.MANDATORY)

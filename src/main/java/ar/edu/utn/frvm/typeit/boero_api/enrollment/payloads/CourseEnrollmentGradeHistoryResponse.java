@@ -11,8 +11,7 @@ import java.util.Map;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 
-@Schema(
-    requiredProperties = {"historyId", "gradeId", "operation", "changedAt"})
+@Schema(requiredProperties = {"historyId", "gradeId", "operation", "changedAt"})
 public record CourseEnrollmentGradeHistoryResponse(
     UUID historyId,
     UUID gradeId,

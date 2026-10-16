@@ -66,8 +66,7 @@ final class PermissionRequirements {
           INSTITUTION_USER_STATUS_UPDATE ->
           Set.of(PermissionCode.INSTITUTION_PERSON_READ_ANY);
       case INSTITUTION_ROLE_ASSIGN, INSTITUTION_ROLE_REVOKE ->
-          Set.of(
-              PermissionCode.INSTITUTION_PERSON_READ_ANY, PermissionCode.INSTITUTION_ROLE_READ);
+          Set.of(PermissionCode.INSTITUTION_PERSON_READ_ANY, PermissionCode.INSTITUTION_ROLE_READ);
       case INSTITUTION_ROLE_CREATE, INSTITUTION_ROLE_UPDATE, INSTITUTION_ROLE_DELETE ->
           Set.of(PermissionCode.INSTITUTION_ROLE_READ);
       case INSTITUTION_UPDATE -> Set.of(PermissionCode.INSTITUTION_READ);

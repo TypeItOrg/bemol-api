@@ -11,7 +11,9 @@ public record CourseEnrollmentGradeStudentResponse(UUID id, String evaluation, B
   public static CourseEnrollmentGradeStudentResponse from(final CourseEnrollmentGrade grade) {
     return new CourseEnrollmentGradeStudentResponse(
         grade.getId(),
-        grade.getPublishedEvaluation() == null ? grade.getEvaluation() : grade.getPublishedEvaluation(),
+        grade.getPublishedEvaluation() == null
+            ? grade.getEvaluation()
+            : grade.getPublishedEvaluation(),
         grade.getPublishedValue() == null ? grade.getValue() : grade.getPublishedValue());
   }
 }

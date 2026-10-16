@@ -91,8 +91,7 @@ public class CourseEnrollmentGradeService {
   }
 
   @Transactional(readOnly = true)
-  public PendingGradesSummaryResponse pendingSummary(
-      final UUID institutionId, final UUID classId) {
+  public PendingGradesSummaryResponse pendingSummary(final UUID institutionId, final UUID classId) {
     return queries.pendingSummary(institutionId, classId);
   }
 

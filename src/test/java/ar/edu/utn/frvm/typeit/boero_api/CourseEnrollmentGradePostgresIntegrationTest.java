@@ -59,7 +59,11 @@ class CourseEnrollmentGradePostgresIntegrationTest extends DatabaseMigrationTest
             () ->
                 grades
                     .create(
-                        f.institutionId(), f.enrollmentA(), "Parcial 1", new BigDecimal("7.50"), f.teacher())
+                        f.institutionId(),
+                        f.enrollmentA(),
+                        "Parcial 1",
+                        new BigDecimal("7.50"),
+                        f.teacher())
                     .id());
 
     tx(
@@ -91,7 +95,8 @@ class CourseEnrollmentGradePostgresIntegrationTest extends DatabaseMigrationTest
 
     tx(
         () -> {
-          grades.create(f.institutionId(), f.enrollmentA(), "Parcial 1", new BigDecimal("6"), f.teacher());
+          grades.create(
+              f.institutionId(), f.enrollmentA(), "Parcial 1", new BigDecimal("6"), f.teacher());
           grades.publishClass(f.institutionId(), f.classId(), f.teacher());
           return null;
         });
@@ -101,8 +106,7 @@ class CourseEnrollmentGradePostgresIntegrationTest extends DatabaseMigrationTest
 
     tx(
         () -> {
-          final var current =
-              grades.listForManagement(f.institutionId(), f.enrollmentA()).get(0);
+          final var current = grades.listForManagement(f.institutionId(), f.enrollmentA()).get(0);
           grades.update(
               f.institutionId(),
               f.enrollmentA(),
@@ -138,16 +142,17 @@ class CourseEnrollmentGradePostgresIntegrationTest extends DatabaseMigrationTest
 
     tx(
         () -> {
-          grades.create(f.institutionId(), f.enrollmentA(), "Parcial 1", new BigDecimal("7"), f.teacher());
+          grades.create(
+              f.institutionId(), f.enrollmentA(), "Parcial 1", new BigDecimal("7"), f.teacher());
           grades.publishClass(f.institutionId(), f.classId(), f.teacher());
           return null;
         });
 
     tx(
         () -> {
-          final var current =
-              grades.listForManagement(f.institutionId(), f.enrollmentA()).get(0);
-          grades.delete(f.institutionId(), f.enrollmentA(), current.id(), current.version(), f.teacher());
+          final var current = grades.listForManagement(f.institutionId(), f.enrollmentA()).get(0);
+          grades.delete(
+              f.institutionId(), f.enrollmentA(), current.id(), current.version(), f.teacher());
           return null;
         });
 
@@ -174,10 +179,14 @@ class CourseEnrollmentGradePostgresIntegrationTest extends DatabaseMigrationTest
 
     tx(
         () -> {
-          grades.create(f.institutionId(), f.enrollmentA(), "Parcial 1", new BigDecimal("6"), f.teacher());
-          grades.create(f.institutionId(), f.enrollmentB(), "Parcial 1", new BigDecimal("6"), f.teacher());
-          grades.create(f.institutionId(), f.enrollmentC(), "Parcial 1", new BigDecimal("6"), f.teacher());
-          grades.create(f.institutionId(), f.enrollmentD(), "Parcial 1", new BigDecimal("6"), f.teacher());
+          grades.create(
+              f.institutionId(), f.enrollmentA(), "Parcial 1", new BigDecimal("6"), f.teacher());
+          grades.create(
+              f.institutionId(), f.enrollmentB(), "Parcial 1", new BigDecimal("6"), f.teacher());
+          grades.create(
+              f.institutionId(), f.enrollmentC(), "Parcial 1", new BigDecimal("6"), f.teacher());
+          grades.create(
+              f.institutionId(), f.enrollmentD(), "Parcial 1", new BigDecimal("6"), f.teacher());
           grades.publishClass(f.institutionId(), f.classId(), f.teacher());
           return null;
         });
@@ -185,12 +194,20 @@ class CourseEnrollmentGradePostgresIntegrationTest extends DatabaseMigrationTest
     tx(
         () -> {
           final var b = grades.listForManagement(f.institutionId(), f.enrollmentB()).get(0);
-          grades.update(f.institutionId(), f.enrollmentB(), b.id(), "Parcial 1", new BigDecimal("9"), b.version(), f.teacher());
+          grades.update(
+              f.institutionId(),
+              f.enrollmentB(),
+              b.id(),
+              "Parcial 1",
+              new BigDecimal("9"),
+              b.version(),
+              f.teacher());
 
           final var c = grades.listForManagement(f.institutionId(), f.enrollmentC()).get(0);
           grades.delete(f.institutionId(), f.enrollmentC(), c.id(), c.version(), f.teacher());
 
-          grades.create(f.institutionId(), f.enrollmentA(), "Parcial 2", new BigDecimal("8"), f.teacher());
+          grades.create(
+              f.institutionId(), f.enrollmentA(), "Parcial 2", new BigDecimal("8"), f.teacher());
           return null;
         });
 
@@ -216,7 +233,8 @@ class CourseEnrollmentGradePostgresIntegrationTest extends DatabaseMigrationTest
 
     tx(
         () -> {
-          grades.create(f.institutionId(), f.enrollmentA(), "Parcial 1", new BigDecimal("7"), f.teacher());
+          grades.create(
+              f.institutionId(), f.enrollmentA(), "Parcial 1", new BigDecimal("7"), f.teacher());
           return null;
         });
 
@@ -225,7 +243,11 @@ class CourseEnrollmentGradePostgresIntegrationTest extends DatabaseMigrationTest
                 tx(
                     () ->
                         grades.create(
-                            f.institutionId(), f.enrollmentA(), "  PARCIAL 1 ", new BigDecimal("8"), f.teacher())))
+                            f.institutionId(),
+                            f.enrollmentA(),
+                            "  PARCIAL 1 ",
+                            new BigDecimal("8"),
+                            f.teacher())))
         .isInstanceOf(EnrollmentValidationException.class);
   }
 
@@ -235,14 +257,17 @@ class CourseEnrollmentGradePostgresIntegrationTest extends DatabaseMigrationTest
 
     tx(
         () -> {
-          grades.create(f.institutionId(), f.enrollmentA(), "Parcial 1", new BigDecimal("7"), f.teacher());
+          grades.create(
+              f.institutionId(), f.enrollmentA(), "Parcial 1", new BigDecimal("7"), f.teacher());
           grades.publishClass(f.institutionId(), f.classId(), f.teacher());
           return null;
         });
 
-    final var before = tx(() -> grades.listForManagement(f.institutionId(), f.enrollmentA()).get(0));
+    final var before =
+        tx(() -> grades.listForManagement(f.institutionId(), f.enrollmentA()).get(0));
 
-    assertThatThrownBy(() -> tx(() -> grades.publishClass(f.institutionId(), f.classId(), f.teacher())))
+    assertThatThrownBy(
+            () -> tx(() -> grades.publishClass(f.institutionId(), f.classId(), f.teacher())))
         .isInstanceOf(EnrollmentValidationException.class);
 
     final var after = tx(() -> grades.listForManagement(f.institutionId(), f.enrollmentA()).get(0));
@@ -264,7 +289,11 @@ class CourseEnrollmentGradePostgresIntegrationTest extends DatabaseMigrationTest
                 return tx(
                     () ->
                         grades.create(
-                            f.institutionId(), f.enrollmentA(), "Parcial 1", new BigDecimal("7"), f.teacher()));
+                            f.institutionId(),
+                            f.enrollmentA(),
+                            "Parcial 1",
+                            new BigDecimal("7"),
+                            f.teacher()));
               });
       final var second =
           executor.submit(
@@ -273,7 +302,11 @@ class CourseEnrollmentGradePostgresIntegrationTest extends DatabaseMigrationTest
                 return tx(
                     () ->
                         grades.create(
-                            f.institutionId(), f.enrollmentA(), "  parcial 1 ", new BigDecimal("8"), f.teacher()));
+                            f.institutionId(),
+                            f.enrollmentA(),
+                            "  parcial 1 ",
+                            new BigDecimal("8"),
+                            f.teacher()));
               });
 
       latch.countDown();
@@ -310,11 +343,13 @@ class CourseEnrollmentGradePostgresIntegrationTest extends DatabaseMigrationTest
 
     tx(
         () -> {
-          grades.create(f.institutionId(), f.enrollmentA(), "Parcial 1", new BigDecimal("7"), f.teacher());
+          grades.create(
+              f.institutionId(), f.enrollmentA(), "Parcial 1", new BigDecimal("7"), f.teacher());
           return null;
         });
 
-    assertThat(tx(() -> grades.listOwnPublished(f.institutionId(), f.enrollmentA(), studentPerson))).isEmpty();
+    assertThat(tx(() -> grades.listOwnPublished(f.institutionId(), f.enrollmentA(), studentPerson)))
+        .isEmpty();
 
     tx(
         () -> {
@@ -329,7 +364,9 @@ class CourseEnrollmentGradePostgresIntegrationTest extends DatabaseMigrationTest
     assertThat(studentView.get(0).evaluation()).isEqualTo("Parcial 1");
 
     final var otherPerson = UUID.randomUUID();
-    assertThatThrownBy(() -> tx(() -> grades.listOwnPublished(f.institutionId(), f.enrollmentA(), otherPerson)))
+    assertThatThrownBy(
+            () ->
+                tx(() -> grades.listOwnPublished(f.institutionId(), f.enrollmentA(), otherPerson)))
         .isInstanceOf(org.springframework.security.access.AccessDeniedException.class);
   }
 
@@ -341,8 +378,10 @@ class CourseEnrollmentGradePostgresIntegrationTest extends DatabaseMigrationTest
 
     tx(
         () -> {
-          grades.create(f.institutionId(), f.enrollmentA(), "Parcial 1", new BigDecimal("7"), f.teacher());
-          grades.create(f.institutionId(), f.enrollmentB(), "Parcial 1", new BigDecimal("8"), f.teacher());
+          grades.create(
+              f.institutionId(), f.enrollmentA(), "Parcial 1", new BigDecimal("7"), f.teacher());
+          grades.create(
+              f.institutionId(), f.enrollmentB(), "Parcial 1", new BigDecimal("8"), f.teacher());
           return null;
         });
 
@@ -370,8 +409,7 @@ class CourseEnrollmentGradePostgresIntegrationTest extends DatabaseMigrationTest
 
           final var path = persist(TrainingPath.create(institution, "Trayecto", null));
           final var plan =
-              persist(
-                  StudyPlan.create(institution, path, "Plan", LocalDate.of(2026, 1, 1), null));
+              persist(StudyPlan.create(institution, path, "Plan", LocalDate.of(2026, 1, 1), null));
           plan.activate();
           final var space =
               persist(

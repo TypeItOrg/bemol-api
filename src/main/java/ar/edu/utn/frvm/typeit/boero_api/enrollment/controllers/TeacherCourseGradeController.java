@@ -148,9 +148,7 @@ public class TeacherCourseGradeController {
     return gradeService.pendingSummary(institutionId, classId);
   }
 
-  @GetMapping(
-      value = "/{classId}/enrollments/{enrollmentId}/grades/archived",
-      version = Version.V1)
+  @GetMapping(value = "/{classId}/enrollments/{enrollmentId}/grades/archived", version = Version.V1)
   public List<CourseEnrollmentGradeArchivedResponse> archived(
       @PathVariable final UUID institutionId,
       @PathVariable final UUID classId,

@@ -11,7 +11,8 @@ import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
-public interface CourseEnrollmentGradeRepository extends JpaRepository<CourseEnrollmentGrade, UUID> {
+public interface CourseEnrollmentGradeRepository
+    extends JpaRepository<CourseEnrollmentGrade, UUID> {
 
   @Query(
       "SELECT grade FROM CourseEnrollmentGrade grade WHERE grade.id = :id AND grade.institution.id = :institutionId")
@@ -79,8 +80,7 @@ public interface CourseEnrollmentGradeRepository extends JpaRepository<CourseEnr
           + " OR enrollment.course.studyPlanSpace.studyPlan.trainingPath.id IN :#{@scopedAuthorization.paths('COURSE_ENROLLMENT_GRADE_PUBLISH')})"
           + " AND (grade.pendingDeletion = true OR grade.publishedEvaluation IS NULL"
           + " OR grade.evaluation <> grade.publishedEvaluation OR grade.value <> grade.publishedValue)")
-  List<CourseEnrollmentGrade> findPendingDetails(
-      @Param("institutionId") UUID institutionId);
+  List<CourseEnrollmentGrade> findPendingDetails(@Param("institutionId") UUID institutionId);
 
   @Query(
       "SELECT COUNT(grade) > 0 FROM CourseEnrollmentGrade grade"

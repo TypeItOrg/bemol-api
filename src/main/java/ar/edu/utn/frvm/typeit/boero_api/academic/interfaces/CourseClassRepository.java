@@ -22,6 +22,7 @@ public interface CourseClassRepository extends JpaRepository<CourseClass, UUID> 
       "SELECT courseClass FROM CourseClass courseClass WHERE courseClass.id = :id AND courseClass.institution.id = :institutionId")
   Optional<CourseClass> findByIdAndInstitutionId(
       @Param("id") UUID id, @Param("institutionId") UUID institutionId);
+
   List<CourseClass> findByCourse_IdOrderByClassNumberAsc(UUID courseId);
 
   List<CourseClass> findByInstitution_IdAndCourse_IdIn(UUID institutionId, List<UUID> courseIds);

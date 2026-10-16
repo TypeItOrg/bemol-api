@@ -24,8 +24,7 @@ public class PendingClassGradesController {
 
   @GetMapping(value = "/pending-classes", version = Version.V1)
   @RequiresPermission(PermissionCode.COURSE_ENROLLMENT_GRADE_PUBLISH)
-  public List<PendingClassGradesResponse> pendingClasses(
-      @PathVariable final UUID institutionId) {
+  public List<PendingClassGradesResponse> pendingClasses(@PathVariable final UUID institutionId) {
     return gradeService.pendingClasses(institutionId);
   }
 }

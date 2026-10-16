@@ -12,4 +12,5 @@ import java.math.BigDecimal;
 @Schema(requiredProperties = {"evaluation", "value"})
 public record CreateCourseEnrollmentGradeRequest(
     @NotBlank @Size(max = 150) String evaluation,
-    @NotNull @DecimalMin("1") @DecimalMax("10") @Digits(integer = 2, fraction = 2) BigDecimal value) {}
+    @NotNull @DecimalMin("1") @DecimalMax("10") @Digits(integer = 2, fraction = 2)
+        BigDecimal value) {}

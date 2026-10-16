@@ -9,8 +9,7 @@ public final class GradeMessages {
       "Ya existe una nota con esa evaluación para esta cursada.";
   public static final String VALUE_REQUIRED = "La nota es obligatoria.";
   public static final String VALUE_OUT_OF_RANGE = "La nota debe estar entre 1 y 10.";
-  public static final String VALUE_TOO_MANY_DECIMALS =
-      "La nota admite como máximo dos decimales.";
+  public static final String VALUE_TOO_MANY_DECIMALS = "La nota admite como máximo dos decimales.";
   public static final String VALUE_INVALID = "La nota no es válida.";
   public static final String ENROLLMENT_NOT_ENROLLED =
       "Solo se pueden gestionar notas de cursadas en estado Cursando.";
@@ -27,8 +26,7 @@ public final class GradeMessages {
       "La nota fue modificada por otra operación. Actualizá los datos e intentá nuevamente.";
   public static final String PUBLISH_NO_CHANGES =
       "La clase no tiene cambios pendientes de notas para publicar.";
-  public static final String TEACHER_NOT_ASSIGNED =
-      "No tenés asignada esta clase como docente.";
+  public static final String TEACHER_NOT_ASSIGNED = "No tenés asignada esta clase como docente.";
 
   private GradeMessages() {}
 }
