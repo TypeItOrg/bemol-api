@@ -4,12 +4,13 @@ import ar.edu.utn.frvm.typeit.boero_api.enrollment.entities.CourseEnrollmentGrad
 import ar.edu.utn.frvm.typeit.boero_api.enrollment.payloads.CourseEnrollmentGradeResponse;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.entities.Person;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.interfaces.PersonRepository;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
-import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Propagation;
@@ -40,11 +41,7 @@ public class CourseEnrollmentGradeResponseMapper {
       }
     }
 
-    final Map<UUID, Person> people =
-        personIds.isEmpty()
-            ? Map.of()
-            : personRepository.findAllById(personIds).stream()
-                .collect(Collectors.toMap(Person::getId, person -> person));
+    final Map<UUID, Person> people = resolvePeople(personIds);
 
     return grades.stream().map(grade -> CourseEnrollmentGradeResponse.from(grade, people)).toList();
   }
@@ -55,7 +52,14 @@ public class CourseEnrollmentGradeResponseMapper {
       return Map.of();
     }
 
-    return personRepository.findAllById(personIds).stream()
-        .collect(Collectors.toMap(Person::getId, person -> person));
+    final Map<UUID, Person> people = new HashMap<>();
+
+    for (final Person person : personRepository.findAllById(personIds)) {
+      if (person.getId() != null) {
+        people.put(Objects.requireNonNull(person.getId()), person);
+      }
+    }
+
+    return people;
   }
 }
