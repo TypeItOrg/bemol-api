@@ -151,6 +151,20 @@ public class CourseEnrollmentGrade extends Auditable {
     this.updatedByPersonId = actorPersonId;
   }
 
+  public void revertToPublishedOnExit(final @Nullable UUID actorPersonId) {
+    final @Nullable String snapshotEvaluation = publishedEvaluation;
+    final @Nullable BigDecimal snapshotValue = publishedValue;
+
+    if (snapshotEvaluation == null || snapshotValue == null) {
+      throw new EnrollmentValidationException(GradeMessages.GRADE_WITHOUT_PUBLISHED_VERSION);
+    }
+
+    this.evaluation = snapshotEvaluation;
+    this.value = snapshotValue;
+    this.pendingDeletion = false;
+    this.updatedByPersonId = actorPersonId;
+  }
+
   public void publish(final UUID publisherPersonId, final Instant publishedAt) {
     if (pendingDeletion) {
       throw new EnrollmentValidationException(GradeMessages.GRADE_PENDING_DELETION_PUBLISH);
@@ -168,15 +182,7 @@ public class CourseEnrollmentGrade extends Auditable {
   }
 
   public boolean hasPendingChanges() {
-    if (pendingDeletion) {
-      return true;
-    }
-
-    if (publishedEvaluation == null || publishedValue == null) {
-      return true;
-    }
-
-    return !evaluation.equals(publishedEvaluation) || value.compareTo(publishedValue) != 0;
+    return publicationStatus() != CourseEnrollmentGradePublicationStatus.PUBLISHED;
   }
 
   public CourseEnrollmentGradePublicationStatus publicationStatus() {

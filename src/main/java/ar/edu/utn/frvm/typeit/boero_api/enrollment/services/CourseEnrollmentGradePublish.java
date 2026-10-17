@@ -51,6 +51,10 @@ public class CourseEnrollmentGradePublish {
       throw new EnrollmentValidationException(GradeMessages.PUBLISH_NO_CHANGES);
     }
 
+    for (final CourseEnrollmentGrade grade : pending) {
+      store.requireEnrolled(grade.getCourseEnrollment());
+    }
+
     final Instant now = clock.instant();
     final Set<UUID> affectedEnrollments = new HashSet<>();
     long published = 0;

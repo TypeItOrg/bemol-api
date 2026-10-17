@@ -32,6 +32,7 @@ public class CourseClosureService {
   private final CourseEnrollmentRepository enrollmentRepository;
   private final CourseEnrollmentScheduleRepository scheduleRepository;
   private final CourseEnrollmentHistoryRepository historyRepository;
+  private final CourseEnrollmentGradeFinalization gradeFinalization;
   private final Clock clock;
 
   private final EnrollmentInstitutionLock enrollmentInstitutionLock;
@@ -78,6 +79,8 @@ public class CourseClosureService {
           schedule.release(clock.instant());
         }
       }
+      gradeFinalization.reconcileOnEnrollmentExit(
+          course.getInstitution(), enrollment, authorityPersonId);
       histories.add(
           CourseEnrollmentHistory.create(
               course.getInstitution(),

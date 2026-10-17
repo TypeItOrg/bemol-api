@@ -117,6 +117,57 @@ class CourseEnrollmentGradeTest {
   }
 
   @Test
+  @DisplayName("Exit restore returns to published snapshot, clears deletion and stamps actor")
+  void revertToPublishedOnExit_restoresPublishedSnapshotAndClearsFlags() {
+    final var grade =
+        CourseEnrollmentGrade.create(
+            org.mockito.Mockito.mock(
+                ar.edu.utn.frvm.typeit.boero_api.institutional.entities.Institution.class),
+            org.mockito.Mockito.mock(
+                ar.edu.utn.frvm.typeit.boero_api.enrollment.entities.CourseEnrollment.class),
+            "Parcial 1",
+            new BigDecimal("6"),
+            null);
+    final var publisher = java.util.UUID.randomUUID();
+    final var publishedAt = java.time.Instant.now().minusSeconds(60);
+    final var exitActor = java.util.UUID.randomUUID();
+    grade.publish(publisher, publishedAt);
+    grade.updateWorkingCopy("Parcial 2", new BigDecimal("9"), null);
+    grade.markForDeletion(null);
+
+    grade.revertToPublishedOnExit(exitActor);
+
+    assertThat(grade.getEvaluation()).isEqualTo("Parcial 1");
+    assertThat(grade.getValue()).isEqualByComparingTo("6");
+    assertThat(grade.getPublishedEvaluation()).isEqualTo("Parcial 1");
+    assertThat(grade.getPublishedValue()).isEqualByComparingTo("6");
+    assertThat(grade.getPublishedAt()).isEqualTo(publishedAt);
+    assertThat(grade.getPublishedByPersonId()).isEqualTo(publisher);
+    assertThat(grade.getUpdatedByPersonId()).isEqualTo(exitActor);
+    assertThat(grade.publicationStatus())
+        .isEqualTo(CourseEnrollmentGradePublicationStatus.PUBLISHED);
+    assertThat(grade.hasPendingChanges()).isFalse();
+  }
+
+  @Test
+  @DisplayName("Exit restore rejects grades without a published snapshot")
+  void revertToPublishedOnExit_rejectsGradeWithoutPublishedSnapshot() {
+    final var grade =
+        CourseEnrollmentGrade.create(
+            org.mockito.Mockito.mock(
+                ar.edu.utn.frvm.typeit.boero_api.institutional.entities.Institution.class),
+            org.mockito.Mockito.mock(
+                ar.edu.utn.frvm.typeit.boero_api.enrollment.entities.CourseEnrollment.class),
+            "Parcial 1",
+            new BigDecimal("7"),
+            null);
+
+    assertThatThrownBy(() -> grade.revertToPublishedOnExit(null))
+        .isInstanceOf(EnrollmentValidationException.class)
+        .hasMessage(GradeMessages.GRADE_WITHOUT_PUBLISHED_VERSION);
+  }
+
+  @Test
   @DisplayName("Rejects out of range and too many decimals")
   void normalizeValue_rejectsInvalid() {
     assertThatThrownBy(() -> CourseEnrollmentGrade.normalizeValue(new BigDecimal("0.99")))

@@ -26,6 +26,10 @@ public final class GradeMessages {
       "La nota fue modificada por otra operación. Actualizá los datos e intentá nuevamente.";
   public static final String PUBLISH_NO_CHANGES =
       "La clase no tiene cambios pendientes de notas para publicar.";
+  public static final String GRADE_WITHOUT_PUBLISHED_VERSION =
+      "La nota no tiene una versión publicada para restaurar.";
+  public static final String EXIT_PUBLISHED_TITLE_CONFLICT =
+      "No se puede finalizar la cursada: dos notas publicadas quedarían con el mismo título. Corregí los títulos antes de continuar.";
   public static final String TEACHER_NOT_ASSIGNED = "No tenés asignada esta clase como docente.";
 
   private GradeMessages() {}

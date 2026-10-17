@@ -46,7 +46,7 @@ public interface CourseEnrollmentGradeHistoryRepository
               + " ORDER BY history.course_enrollment_grade_id,"
               + " history.changed_at DESC, history.course_enrollment_grade_history_id DESC"
               + ") latest"
-              + " WHERE latest.operation IN ('DELETED_DRAFT', 'DELETED_PUBLISHED')"
+              + " WHERE latest.operation IN ('DELETED_DRAFT', 'DELETED_PUBLISHED', 'DISCARDED_DRAFT_ON_EXIT')"
               + " ORDER BY latest.changed_at DESC, latest.course_enrollment_grade_history_id DESC",
       nativeQuery = true)
   List<CourseEnrollmentGradeHistory> findLatestArchivedByEnrollment(
