@@ -1,5 +1,7 @@
 package ar.edu.utn.frvm.typeit.boero_api.enrollment.controllers;
 
+import static java.util.Objects.requireNonNull;
+
 import ar.edu.utn.frvm.typeit.boero_api.auth.filters.JwtAuthenticatedUser;
 import ar.edu.utn.frvm.typeit.boero_api.authorization.RequiresPermission;
 import ar.edu.utn.frvm.typeit.boero_api.authorization.enums.PermissionCode;
@@ -24,7 +26,7 @@ public class EnrollmentApplicationController {
   @RequiresPermission(PermissionCode.ENROLLMENT_APPLICATION_READ)
   public EnrollmentApplicationResponse getApplication(
       Authentication authentication, @PathVariable UUID applicationId) {
-    final var actor = (JwtAuthenticatedUser) authentication.getPrincipal();
+    final var actor = (JwtAuthenticatedUser) requireNonNull(authentication.getPrincipal());
     return applicationService.getApplicationById(actor.institutionId(), null, applicationId);
   }
 }

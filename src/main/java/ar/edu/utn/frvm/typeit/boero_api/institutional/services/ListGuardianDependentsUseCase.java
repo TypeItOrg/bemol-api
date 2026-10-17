@@ -89,7 +89,7 @@ public class ListGuardianDependentsUseCase {
         ownAccess.statuses(
             institutionId,
             links.stream()
-                .filter(PersonGuardian::isActive)
+                .filter(link -> link.isActive())
                 .map(link -> link.getDependentPerson().getId())
                 .distinct()
                 .toList());

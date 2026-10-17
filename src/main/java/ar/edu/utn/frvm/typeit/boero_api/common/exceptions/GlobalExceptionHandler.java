@@ -51,10 +51,7 @@ public class GlobalExceptionHandler {
   @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
   public ExceptionPayload handleException(Exception ex) {
     log.error(UNHANDLED_EXCEPTION_MESSAGE, ex.getMessage(), ex);
-    return ExceptionPayload.builder()
-        .status(HttpStatus.INTERNAL_SERVER_ERROR.value())
-        .message(INTERNAL_SERVER_ERROR_MESSAGE)
-        .build();
+    return errorPayload(HttpStatus.INTERNAL_SERVER_ERROR, INTERNAL_SERVER_ERROR_MESSAGE);
   }
 
   @ExceptionHandler(ObjectOptimisticLockingFailureException.class)
@@ -179,10 +176,7 @@ public class GlobalExceptionHandler {
   @ExceptionHandler(HttpMessageNotReadableException.class)
   @ResponseStatus(HttpStatus.BAD_REQUEST)
   public ExceptionPayload handleHttpMessageNotReadable(HttpMessageNotReadableException ex) {
-    return ExceptionPayload.builder()
-        .status(HttpStatus.BAD_REQUEST.value())
-        .message(MALFORMED_REQUEST_BODY)
-        .build();
+    return errorPayload(HttpStatus.BAD_REQUEST, MALFORMED_REQUEST_BODY);
   }
 
   @ExceptionHandler({
@@ -191,19 +185,13 @@ public class GlobalExceptionHandler {
   })
   @ResponseStatus(HttpStatus.BAD_REQUEST)
   public ExceptionPayload handleInvalidRequestParameter(final Exception exception) {
-    return ExceptionPayload.builder()
-        .status(HttpStatus.BAD_REQUEST.value())
-        .message(ErrorMessages.INVALID_REQUEST_PARAMETER)
-        .build();
+    return errorPayload(HttpStatus.BAD_REQUEST, ErrorMessages.INVALID_REQUEST_PARAMETER);
   }
 
   @ExceptionHandler(NoResourceFoundException.class)
   @ResponseStatus(HttpStatus.NOT_FOUND)
   public ExceptionPayload handleNoResourceFound(NoResourceFoundException ex) {
-    return ExceptionPayload.builder()
-        .status(HttpStatus.NOT_FOUND.value())
-        .message(RESOURCE_NOT_FOUND_MESSAGE)
-        .build();
+    return errorPayload(HttpStatus.NOT_FOUND, RESOURCE_NOT_FOUND_MESSAGE);
   }
 
   @ExceptionHandler(ConstraintViolationException.class)
@@ -226,16 +214,17 @@ public class GlobalExceptionHandler {
         ex.getMessage() != null && !ex.getMessage().isBlank()
             ? ex.getMessage()
             : DEFAULT_FORBIDDEN_MESSAGE;
-    return ExceptionPayload.builder().status(HttpStatus.FORBIDDEN.value()).message(message).build();
+    return errorPayload(HttpStatus.FORBIDDEN, message);
   }
 
   @ExceptionHandler(DisabledException.class)
   @ResponseStatus(HttpStatus.FORBIDDEN)
   public ExceptionPayload handleDisabledException(DisabledException ex) {
-    return ExceptionPayload.builder()
-        .status(HttpStatus.FORBIDDEN.value())
-        .message(AuthMessages.USER_DISABLED)
-        .build();
+    return errorPayload(HttpStatus.FORBIDDEN, AuthMessages.USER_DISABLED);
+  }
+
+  private static ExceptionPayload errorPayload(HttpStatus status, String message) {
+    return ExceptionPayload.builder().status(status.value()).message(message).build();
   }
 
   private static ExceptionPayload validationErrorPayload(Map<String, String> fieldErrors) {

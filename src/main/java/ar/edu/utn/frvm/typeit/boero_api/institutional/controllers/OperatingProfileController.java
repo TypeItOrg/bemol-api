@@ -1,5 +1,7 @@
 package ar.edu.utn.frvm.typeit.boero_api.institutional.controllers;
 
+import static java.util.Objects.requireNonNull;
+
 import ar.edu.utn.frvm.typeit.boero_api.auth.filters.JwtAuthenticatedUser;
 import ar.edu.utn.frvm.typeit.boero_api.authorization.RequiresInstitutionAccess;
 import ar.edu.utn.frvm.typeit.boero_api.authorization.services.InstitutionalCallerGuard;
@@ -95,6 +97,6 @@ public class OperatingProfileController {
 
   private JwtAuthenticatedUser actor(Authentication authentication) {
     callers.ensureInstitutionalPrincipal(authentication);
-    return (JwtAuthenticatedUser) authentication.getPrincipal();
+    return (JwtAuthenticatedUser) requireNonNull(authentication.getPrincipal());
   }
 }

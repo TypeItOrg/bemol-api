@@ -11,7 +11,6 @@ import ar.edu.utn.frvm.typeit.boero_api.authorization.interfaces.PermissionRepos
 import ar.edu.utn.frvm.typeit.boero_api.authorization.interfaces.RolePermissionRepository;
 import ar.edu.utn.frvm.typeit.boero_api.authorization.interfaces.RoleRepository;
 import ar.edu.utn.frvm.typeit.boero_api.support.JpaAuditingTestConfig;
-import jakarta.persistence.EntityManager;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -35,7 +34,6 @@ class PermissionRoleSeedTest {
 
   @MockitoBean private org.springframework.cache.CacheManager cacheManager;
 
-  @Autowired private EntityManager entityManager;
   @Autowired private PermissionRoleSeed permissionRoleSeed;
   @Autowired private PermissionRepository permissionRepository;
   @Autowired private RoleRepository roleRepository;

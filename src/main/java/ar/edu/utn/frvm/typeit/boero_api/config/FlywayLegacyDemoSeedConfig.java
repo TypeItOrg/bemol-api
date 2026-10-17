@@ -4,7 +4,6 @@ import static java.util.Objects.requireNonNull;
 
 import java.util.Arrays;
 import java.util.stream.Stream;
-import org.flywaydb.core.api.Location;
 import org.flywaydb.core.api.configuration.FluentConfiguration;
 import org.springframework.boot.flyway.autoconfigure.FlywayConfigurationCustomizer;
 import org.springframework.context.annotation.Configuration;
@@ -16,7 +15,9 @@ public class FlywayLegacyDemoSeedConfig implements FlywayConfigurationCustomizer
   @Override
   public void customize(final FluentConfiguration configuration) {
     final var locations =
-        Arrays.stream(configuration.getLocations()).map(Location::getDescriptor).toList();
+        Arrays.stream(configuration.getLocations())
+            .map(location -> location.getDescriptor())
+            .toList();
     if (!locations.contains("classpath:db/dev")) {
       return;
     }

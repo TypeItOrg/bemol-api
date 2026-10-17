@@ -35,7 +35,8 @@ public class SearchService {
     final List<SearchDefinition> definitions = SearchDefinition.all();
     final var grouped =
         repository.platformSummary(definitions, SearchQuery.from(search), limit + 1);
-    return summary(definitions.stream().map(SearchDefinition::type).toList(), grouped, limit);
+    return summary(
+        definitions.stream().map(definition -> definition.type()).toList(), grouped, limit);
   }
 
   @Transactional(readOnly = true)
@@ -49,7 +50,8 @@ public class SearchService {
     final var grouped =
         repository.institutionalSummary(
             definitions, SearchQuery.from(search), institutionId, personId, limit + 1);
-    return summary(definitions.stream().map(SearchDefinition::type).toList(), grouped, limit);
+    return summary(
+        definitions.stream().map(definition -> definition.type()).toList(), grouped, limit);
   }
 
   @Transactional(readOnly = true)
