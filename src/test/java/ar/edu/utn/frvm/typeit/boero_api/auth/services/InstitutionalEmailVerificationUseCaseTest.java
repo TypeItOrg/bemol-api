@@ -10,6 +10,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+import ar.edu.utn.frvm.typeit.boero_api.audit.services.AuditEventRecorder;
 import ar.edu.utn.frvm.typeit.boero_api.auth.config.EmailVerificationProperties;
 import ar.edu.utn.frvm.typeit.boero_api.auth.entities.InstitutionalEmailVerificationToken;
 import ar.edu.utn.frvm.typeit.boero_api.auth.entities.User;
@@ -64,7 +65,8 @@ class InstitutionalEmailVerificationUseCaseTest {
           events,
           new EmailVerificationProperties(
               "http://localhost:3000", Duration.ofHours(24), Duration.ofMinutes(1)),
-          clock);
+          clock,
+          org.mockito.Mockito.mock(AuditEventRecorder.class));
   User user;
   InstitutionalEmailVerificationToken token;
 

@@ -4,6 +4,7 @@ import ar.edu.utn.frvm.typeit.boero_api.academic.entities.TrainingPathDocumentRe
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface TrainingPathDocumentRequirementRepository
@@ -14,6 +15,7 @@ public interface TrainingPathDocumentRequirementRepository
 
   long countByDocumentId(UUID documentId);
 
+  @EntityGraph(attributePaths = "trainingPath")
   List<TrainingPathDocumentRequirement> findByDocumentId(UUID documentId);
 
   Optional<TrainingPathDocumentRequirement> findByTrainingPathIdAndDocumentId(

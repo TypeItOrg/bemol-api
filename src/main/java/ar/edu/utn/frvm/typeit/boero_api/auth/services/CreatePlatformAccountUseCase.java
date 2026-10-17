@@ -2,6 +2,10 @@ package ar.edu.utn.frvm.typeit.boero_api.auth.services;
 
 import static java.util.Objects.requireNonNull;
 
+import ar.edu.utn.frvm.typeit.boero_api.audit.enums.AuditAction;
+import ar.edu.utn.frvm.typeit.boero_api.audit.enums.AuditEntityType;
+import ar.edu.utn.frvm.typeit.boero_api.audit.enums.AuditOrigin;
+import ar.edu.utn.frvm.typeit.boero_api.audit.services.AuditEventRecorder;
 import ar.edu.utn.frvm.typeit.boero_api.auth.entities.PlatformAccount;
 import ar.edu.utn.frvm.typeit.boero_api.auth.exceptions.PlatformAccountEmailAlreadyExistsException;
 import ar.edu.utn.frvm.typeit.boero_api.auth.interfaces.PlatformAccountRepository;
@@ -10,6 +14,7 @@ import ar.edu.utn.frvm.typeit.boero_api.auth.payloads.responses.PlatformAccountA
 import ar.edu.utn.frvm.typeit.boero_api.authorization.enums.PlatformRoleCode;
 import ar.edu.utn.frvm.typeit.boero_api.authorization.services.AssignPlatformRoleUseCase;
 import java.util.Locale;
+import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -24,6 +29,8 @@ public class CreatePlatformAccountUseCase {
   private final AssignPlatformRoleUseCase assignPlatformRoleUseCase;
   private final PasswordEncoder passwordEncoder;
 
+  private final AuditEventRecorder auditEventRecorder;
+
   @Transactional
   public PlatformAccountAdminResponse execute(final CreatePlatformAccountRequest request) {
     final String email = request.email().trim().toLowerCase(Locale.ROOT);
@@ -33,6 +40,15 @@ public class CreatePlatformAccountUseCase {
 
     final PlatformAccount account = saveAccount(request, email);
     assignPlatformRoleUseCase.execute(account, PlatformRoleCode.PLATFORM_ADMIN, false);
+
+    auditEventRecorder.recordCurrentActor(
+        null,
+        null,
+        AuditAction.PLATFORM_ACCOUNT_CREATED,
+        AuditEntityType.PLATFORM_ACCOUNT,
+        account.getId(),
+        AuditOrigin.PLATFORM_ADMINISTRATION,
+        Map.of("initialRole", PlatformRoleCode.PLATFORM_ADMIN.name()));
 
     return PlatformAccountAdminResponse.from(account);
   }

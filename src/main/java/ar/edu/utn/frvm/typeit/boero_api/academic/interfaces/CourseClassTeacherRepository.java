@@ -16,6 +16,10 @@ public interface CourseClassTeacherRepository extends JpaRepository<CourseClassT
   @EntityGraph(attributePaths = "person")
   List<CourseClassTeacher> findByCourseClass_IdIn(List<UUID> courseClassIds);
 
+  @EntityGraph(attributePaths = "courseClass")
+  List<CourseClassTeacher> findByInstitution_IdAndCourseClass_Course_IdIn(
+      UUID institutionId, List<UUID> courseIds);
+
   boolean existsByCourseClass_Course_IdAndPerson_Id(UUID courseId, UUID personId);
 
   @Query(

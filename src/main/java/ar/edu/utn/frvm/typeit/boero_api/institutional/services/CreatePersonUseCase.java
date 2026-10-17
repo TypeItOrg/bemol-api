@@ -2,6 +2,10 @@ package ar.edu.utn.frvm.typeit.boero_api.institutional.services;
 
 import static java.util.Objects.requireNonNull;
 
+import ar.edu.utn.frvm.typeit.boero_api.audit.enums.AuditAction;
+import ar.edu.utn.frvm.typeit.boero_api.audit.enums.AuditEntityType;
+import ar.edu.utn.frvm.typeit.boero_api.audit.enums.AuditOrigin;
+import ar.edu.utn.frvm.typeit.boero_api.audit.services.AuditEventRecorder;
 import ar.edu.utn.frvm.typeit.boero_api.auth.entities.User;
 import ar.edu.utn.frvm.typeit.boero_api.auth.interfaces.UserRepository;
 import ar.edu.utn.frvm.typeit.boero_api.authorization.enums.SystemRoleCode;
@@ -16,6 +20,7 @@ import ar.edu.utn.frvm.typeit.boero_api.institutional.payloads.person.CreatePers
 import ar.edu.utn.frvm.typeit.boero_api.institutional.payloads.person.PersonResponse;
 import jakarta.validation.ConstraintViolationException;
 import jakarta.validation.Validator;
+import java.util.Map;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -33,6 +38,8 @@ public class CreatePersonUseCase {
   private final PasswordEncoder passwordEncoder;
   private final Validator validator;
   private final AssignPersonSystemRoleUseCase assignPersonSystemRoleUseCase;
+
+  private final AuditEventRecorder auditEventRecorder;
 
   @Transactional
   public PersonResponse execute(final UUID institutionId, final CreatePersonRequest request) {
@@ -75,11 +82,28 @@ public class CreatePersonUseCase {
             .password(requireNonNull(passwordEncoder.encode(request.password())))
             .build();
 
-    userRepository.save(user);
+    user = userRepository.save(user);
 
     SystemRoleCode role =
         request.initialRole() != null ? request.initialRole() : SystemRoleCode.APPLICANT;
     assignPersonSystemRoleUseCase.execute(person, role);
+
+    auditEventRecorder.recordCurrentActor(
+        institution,
+        person.getId(),
+        AuditAction.INSTITUTIONAL_ACCOUNT_CREATED,
+        AuditEntityType.USER,
+        user.getId(),
+        AuditOrigin.administration(),
+        Map.of(
+            "initialRole",
+            role.name(),
+            "emailVerificationRequired",
+            false,
+            "emailVerificationStatus",
+            user.getEmailVerificationStatus().name(),
+            "personCreated",
+            true));
 
     return PersonResponse.from(person);
   }

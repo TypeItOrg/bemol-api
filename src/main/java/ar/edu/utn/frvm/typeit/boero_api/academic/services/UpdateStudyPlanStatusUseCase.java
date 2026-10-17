@@ -10,10 +10,15 @@ import ar.edu.utn.frvm.typeit.boero_api.academic.interfaces.CourseRepository;
 import ar.edu.utn.frvm.typeit.boero_api.academic.interfaces.StudyPlanRepository;
 import ar.edu.utn.frvm.typeit.boero_api.academic.interfaces.StudyPlanSpaceRepository;
 import ar.edu.utn.frvm.typeit.boero_api.academic.payloads.StudyPlanStatusRequest;
+import ar.edu.utn.frvm.typeit.boero_api.audit.enums.AuditAction;
+import ar.edu.utn.frvm.typeit.boero_api.audit.enums.AuditEntityType;
+import ar.edu.utn.frvm.typeit.boero_api.audit.enums.AuditOrigin;
+import ar.edu.utn.frvm.typeit.boero_api.audit.services.AuditEventRecorder;
 import ar.edu.utn.frvm.typeit.boero_api.authorization.enums.PermissionCode;
 import ar.edu.utn.frvm.typeit.boero_api.authorization.enums.ScopedResource;
 import ar.edu.utn.frvm.typeit.boero_api.authorization.services.AcademicAccessGuard;
 import ar.edu.utn.frvm.typeit.boero_api.common.time.BusinessDateProvider;
+import java.util.Map;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -22,6 +27,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @RequiredArgsConstructor
 public class UpdateStudyPlanStatusUseCase {
+  private final AuditEventRecorder auditRecorder;
   private final AcademicAccessGuard accessGuard;
   private final BusinessDateProvider businessDateProvider;
 
@@ -39,6 +45,7 @@ public class UpdateStudyPlanStatusUseCase {
         studyPlanRepository
             .findByIdAndInstitution_IdForUpdate(id, institutionId)
             .orElseThrow(StudyPlanNotFoundException::new);
+    final var before = AcademicAuditDetails.plan(plan);
     if (request.status() == StudyPlanStatus.ACTIVE) {
       if (plan.getEffectiveFrom() == null || !plan.getTrainingPath().isActive()) {
         throw new AcademicConflictException(
@@ -50,6 +57,7 @@ public class UpdateStudyPlanStatusUseCase {
       closePreviousVersion(plan);
       plan.activate();
       studyPlanRepository.flush();
+      recordStatusChange(plan, before);
       return;
     }
     if (request.status() == StudyPlanStatus.INACTIVE) {
@@ -67,10 +75,25 @@ public class UpdateStudyPlanStatusUseCase {
       requireAllCoursesClosed(institutionId, id);
       plan.deactivate(request.effectiveTo());
       studyPlanRepository.flush();
+      recordStatusChange(plan, before);
       return;
     }
     if (request.status() != StudyPlanStatus.DRAFT || plan.getStatus() != StudyPlanStatus.DRAFT) {
       throw new AcademicConflictException(AcademicMessages.STUDY_PLAN_STATUS_TRANSITION_INVALID);
+    }
+  }
+
+  private void recordStatusChange(final StudyPlan plan, final Map<String, Object> before) {
+    final var after = AcademicAuditDetails.plan(plan);
+    if (!before.equals(after)) {
+      auditRecorder.recordCurrentActor(
+          plan.getInstitution(),
+          null,
+          AuditAction.STUDY_PLAN_STATUS_CHANGED,
+          AuditEntityType.STUDY_PLAN,
+          plan.getId(),
+          AuditOrigin.administration(),
+          AcademicAuditDetails.change(plan.getName(), before, after));
     }
   }
 
@@ -96,8 +119,10 @@ public class UpdateStudyPlanStatusUseCase {
 
       final var newVersionEnd = plan.getEffectiveFrom().minusDays(1);
       final var previousEnd = lockedPrevious.getEffectiveTo();
+      final var before = AcademicAuditDetails.plan(lockedPrevious);
       lockedPrevious.deactivate(
           previousEnd != null && previousEnd.isBefore(newVersionEnd) ? previousEnd : newVersionEnd);
+      recordStatusChange(lockedPrevious, before);
       return;
     }
     if (lockedPrevious.getStatus() != StudyPlanStatus.INACTIVE

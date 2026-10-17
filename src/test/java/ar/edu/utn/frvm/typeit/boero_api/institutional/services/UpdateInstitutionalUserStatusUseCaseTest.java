@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import ar.edu.utn.frvm.typeit.boero_api.audit.services.AuditEventRecorder;
 import ar.edu.utn.frvm.typeit.boero_api.auth.entities.User;
 import ar.edu.utn.frvm.typeit.boero_api.auth.interfaces.UserRepository;
 import ar.edu.utn.frvm.typeit.boero_api.auth.services.SessionRevocationService;
@@ -24,6 +25,8 @@ class UpdateInstitutionalUserStatusUseCaseTest {
   @Mock private InstitutionRepository institutionRepository;
   @Mock private UserRepository userRepository;
   @Mock private SessionRevocationService sessionRevocationService;
+
+  @Mock private AuditEventRecorder auditEventRecorder;
 
   @InjectMocks private UpdateInstitutionalUserStatusUseCase useCase;
 

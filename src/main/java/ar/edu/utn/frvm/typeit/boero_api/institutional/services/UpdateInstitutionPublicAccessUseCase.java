@@ -1,11 +1,16 @@
 package ar.edu.utn.frvm.typeit.boero_api.institutional.services;
 
+import ar.edu.utn.frvm.typeit.boero_api.audit.enums.AuditAction;
+import ar.edu.utn.frvm.typeit.boero_api.audit.enums.AuditEntityType;
+import ar.edu.utn.frvm.typeit.boero_api.audit.enums.AuditOrigin;
+import ar.edu.utn.frvm.typeit.boero_api.audit.services.AuditEventRecorder;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.exceptions.InstitutionNotFoundException;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.exceptions.InvalidPublicSubdomainException;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.exceptions.PublicSubdomainAlreadyExistsException;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.interfaces.InstitutionRepository;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.payloads.InstitutionDetailResponse;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.validation.PublicSubdomainPolicy;
+import java.util.Map;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.hibernate.exception.ConstraintViolationException;
@@ -18,6 +23,7 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class UpdateInstitutionPublicAccessUseCase {
   private final InstitutionRepository institutions;
+  private final AuditEventRecorder auditEventRecorder;
 
   @Transactional
   public InstitutionDetailResponse execute(final UUID id, final @Nullable String name) {
@@ -27,6 +33,7 @@ public class UpdateInstitutionPublicAccessUseCase {
     if (name != null && institutions.existsByPublicSubdomainAndIdNot(name, id)) {
       throw new PublicSubdomainAlreadyExistsException();
     }
+    final var before = InstitutionAuditDetails.publicAccess(institution);
     institution.changePublicSubdomain(name);
     try {
       institutions.saveAndFlush(institution);
@@ -44,6 +51,17 @@ public class UpdateInstitutionPublicAccessUseCase {
         }
       }
       throw exception;
+    }
+    final var after = InstitutionAuditDetails.publicAccess(institution);
+    if (!before.equals(after)) {
+      auditEventRecorder.recordCurrentActor(
+          institution,
+          null,
+          AuditAction.INSTITUTION_PUBLIC_ACCESS_CHANGED,
+          AuditEntityType.INSTITUTION,
+          id,
+          AuditOrigin.administration(),
+          Map.of("entityName", institution.getName(), "before", before, "after", after));
     }
     return InstitutionDetailResponse.from(institution);
   }

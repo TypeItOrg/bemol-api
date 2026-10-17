@@ -7,9 +7,14 @@ import ar.edu.utn.frvm.typeit.boero_api.academic.interfaces.CourseRepository;
 import ar.edu.utn.frvm.typeit.boero_api.academic.interfaces.PrerequisiteRepository;
 import ar.edu.utn.frvm.typeit.boero_api.academic.interfaces.StudyPlanSpaceInstrumentRepository;
 import ar.edu.utn.frvm.typeit.boero_api.academic.interfaces.StudyPlanSpaceRepository;
+import ar.edu.utn.frvm.typeit.boero_api.audit.enums.AuditAction;
+import ar.edu.utn.frvm.typeit.boero_api.audit.enums.AuditEntityType;
+import ar.edu.utn.frvm.typeit.boero_api.audit.enums.AuditOrigin;
+import ar.edu.utn.frvm.typeit.boero_api.audit.services.AuditEventRecorder;
 import ar.edu.utn.frvm.typeit.boero_api.authorization.enums.PermissionCode;
 import ar.edu.utn.frvm.typeit.boero_api.authorization.enums.ScopedResource;
 import ar.edu.utn.frvm.typeit.boero_api.authorization.services.AcademicAccessGuard;
+import java.util.Map;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -19,6 +24,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @RequiredArgsConstructor
 public class DeleteStudyPlanSpaceUseCase {
+  private final AuditEventRecorder auditRecorder;
   private final AcademicAccessGuard accessGuard;
   private final StudyPlanSpaceRepository studyPlanSpaceRepository;
   private final PrerequisiteRepository prerequisiteRepository;
@@ -51,5 +57,17 @@ public class DeleteStudyPlanSpaceUseCase {
     studyPlanSpaceInstrumentRepository.deleteByStudyPlanSpace_Id(id);
     studyPlanSpaceInstrumentRepository.flush();
     studyPlanSpaceRepository.delete(existing);
+    auditRecorder.recordCurrentActor(
+        existing.getInstitution(),
+        null,
+        AuditAction.STUDY_PLAN_SPACE_DELETED,
+        AuditEntityType.STUDY_PLAN_SPACE,
+        id,
+        AuditOrigin.administration(),
+        Map.of(
+            "entityName",
+            existing.getAcademicSpace().getName(),
+            "studyPlanName",
+            existing.getStudyPlan().getName()));
   }
 }

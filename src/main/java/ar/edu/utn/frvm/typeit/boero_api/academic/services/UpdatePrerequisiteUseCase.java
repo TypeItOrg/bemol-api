@@ -10,6 +10,10 @@ import ar.edu.utn.frvm.typeit.boero_api.academic.interfaces.PrerequisiteReposito
 import ar.edu.utn.frvm.typeit.boero_api.academic.interfaces.StudyPlanSpaceRepository;
 import ar.edu.utn.frvm.typeit.boero_api.academic.payloads.PrerequisiteResponse;
 import ar.edu.utn.frvm.typeit.boero_api.academic.payloads.UpdatePrerequisiteRequest;
+import ar.edu.utn.frvm.typeit.boero_api.audit.enums.AuditAction;
+import ar.edu.utn.frvm.typeit.boero_api.audit.enums.AuditEntityType;
+import ar.edu.utn.frvm.typeit.boero_api.audit.enums.AuditOrigin;
+import ar.edu.utn.frvm.typeit.boero_api.audit.services.AuditEventRecorder;
 import ar.edu.utn.frvm.typeit.boero_api.authorization.enums.PermissionCode;
 import ar.edu.utn.frvm.typeit.boero_api.authorization.enums.ScopedResource;
 import ar.edu.utn.frvm.typeit.boero_api.authorization.services.AcademicAccessGuard;
@@ -22,6 +26,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @RequiredArgsConstructor
 public class UpdatePrerequisiteUseCase {
+  private final AuditEventRecorder auditRecorder;
   private final AcademicAccessGuard accessGuard;
   private final PrerequisiteRepository prerequisiteRepository;
   private final StudyPlanSpaceRepository studyPlanSpaceRepository;
@@ -46,11 +51,24 @@ public class UpdatePrerequisiteUseCase {
     final var required = requireSpace(institutionId, request.requiredStudyPlanSpaceId());
     validateSamePlan(target, required);
     prerequisiteCycleValidator.validate(plan.getId(), target.getId(), required.getId(), id);
+    final var before = AcademicAuditDetails.prerequisite(existing);
     existing.update(required, request.requirementStage(), request.requiredCondition());
     try {
       prerequisiteRepository.flush();
     } catch (DataIntegrityViolationException exception) {
       throw AcademicIntegrityViolationTranslator.translate(exception);
+    }
+    final var after = AcademicAuditDetails.prerequisite(existing);
+    if (!before.equals(after)) {
+      auditRecorder.recordCurrentActor(
+          plan.getInstitution(),
+          null,
+          AuditAction.STUDY_PLAN_PREREQUISITE_UPDATED,
+          AuditEntityType.PREREQUISITE,
+          id,
+          AuditOrigin.administration(),
+          AcademicAuditDetails.change(
+              AcademicAuditDetails.prerequisiteName(existing), before, after));
     }
     return PrerequisiteResponse.from(existing);
   }

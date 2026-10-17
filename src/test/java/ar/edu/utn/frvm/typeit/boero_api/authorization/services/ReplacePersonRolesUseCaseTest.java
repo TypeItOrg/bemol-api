@@ -49,6 +49,8 @@ class ReplacePersonRolesUseCaseTest {
   @Mock private SessionRevocationService sessionRevocationService;
   @Mock private AuthorizationCacheInvalidator authorizationCacheInvalidator;
 
+  @Mock private RoleAuditRecorder audit;
+
   @InjectMocks private ReplacePersonRolesUseCase replacePersonRolesUseCase;
 
   @Test

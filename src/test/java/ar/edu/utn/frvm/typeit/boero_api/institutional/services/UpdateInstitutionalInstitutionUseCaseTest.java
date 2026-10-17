@@ -6,6 +6,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import ar.edu.utn.frvm.typeit.boero_api.audit.services.AuditEventRecorder;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.entities.City;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.entities.Country;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.entities.Institution;
@@ -27,6 +28,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @ExtendWith(MockitoExtension.class)
 class UpdateInstitutionalInstitutionUseCaseTest {
 
+  @Mock private AuditEventRecorder auditEventRecorder;
   @Mock private CityRepository cityRepository;
   @Mock private InstitutionRepository institutionRepository;
 

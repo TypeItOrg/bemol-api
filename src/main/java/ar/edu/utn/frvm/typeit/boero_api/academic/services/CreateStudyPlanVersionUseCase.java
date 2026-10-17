@@ -71,7 +71,18 @@ public class CreateStudyPlanVersionUseCase {
       studyPlanRepository.flush();
       copyCurriculum(source, version);
       academicLifecycleService.recordStudyPlanVersionCreated(
-          version.getInstitution(), version.getId(), source.getId());
+          version.getInstitution(),
+          version.getId(),
+          source.getId(),
+          Map.of(
+              "entityName",
+              version.getName(),
+              "sourceVersionId",
+              source.getId().toString(),
+              "before",
+              AcademicAuditDetails.plan(source),
+              "after",
+              AcademicAuditDetails.plan(version)));
       return StudyPlanResponse.from(version);
     } catch (DataIntegrityViolationException exception) {
       throw AcademicIntegrityViolationTranslator.translate(exception);

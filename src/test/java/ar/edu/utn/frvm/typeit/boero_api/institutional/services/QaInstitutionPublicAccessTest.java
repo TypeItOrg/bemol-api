@@ -3,6 +3,7 @@ package ar.edu.utn.frvm.typeit.boero_api.institutional.services;
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
+import ar.edu.utn.frvm.typeit.boero_api.audit.services.AuditEventRecorder;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.entities.Institution;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.exceptions.*;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.interfaces.InstitutionRepository;
@@ -89,7 +90,7 @@ class QaInstitutionPublicAccessTest {
                     "institutions_public_subdomain_unique")));
     assertThatThrownBy(
             () ->
-                new UpdateInstitutionPublicAccessUseCase(repository)
+                new UpdateInstitutionPublicAccessUseCase(repository, mock(AuditEventRecorder.class))
                     .execute(institution.getId(), "cboero"))
         .isInstanceOf(PublicSubdomainAlreadyExistsException.class);
     doThrow(
@@ -101,7 +102,7 @@ class QaInstitutionPublicAccessTest {
         .saveAndFlush(institution);
     assertThatThrownBy(
             () ->
-                new UpdateInstitutionPublicAccessUseCase(repository)
+                new UpdateInstitutionPublicAccessUseCase(repository, mock(AuditEventRecorder.class))
                     .execute(institution.getId(), "different"))
         .isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
   }

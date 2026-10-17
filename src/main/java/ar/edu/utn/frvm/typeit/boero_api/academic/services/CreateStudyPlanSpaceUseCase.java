@@ -16,12 +16,17 @@ import ar.edu.utn.frvm.typeit.boero_api.academic.interfaces.StudyPlanSpaceReposi
 import ar.edu.utn.frvm.typeit.boero_api.academic.payloads.CreateStudyPlanSpaceRequest;
 import ar.edu.utn.frvm.typeit.boero_api.academic.payloads.StudyPlanSpaceInstrumentOptionResponse;
 import ar.edu.utn.frvm.typeit.boero_api.academic.payloads.StudyPlanSpaceResponse;
+import ar.edu.utn.frvm.typeit.boero_api.audit.enums.AuditAction;
+import ar.edu.utn.frvm.typeit.boero_api.audit.enums.AuditEntityType;
+import ar.edu.utn.frvm.typeit.boero_api.audit.enums.AuditOrigin;
+import ar.edu.utn.frvm.typeit.boero_api.audit.services.AuditEventRecorder;
 import ar.edu.utn.frvm.typeit.boero_api.authorization.enums.PermissionCode;
 import ar.edu.utn.frvm.typeit.boero_api.authorization.enums.ScopedResource;
 import ar.edu.utn.frvm.typeit.boero_api.authorization.services.AcademicAccessGuard;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.jspecify.annotations.Nullable;
@@ -32,6 +37,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @RequiredArgsConstructor
 public class CreateStudyPlanSpaceUseCase {
+  private final AuditEventRecorder auditRecorder;
   private final AcademicAccessGuard accessGuard;
   private final StudyPlanSpaceRepository studyPlanSpaceRepository;
   private final AcademicSpaceRepository academicSpaceRepository;
@@ -72,6 +78,21 @@ public class CreateStudyPlanSpaceUseCase {
       saveInstrumentRelations(saved, instruments);
       studyPlanSpaceRepository.flush();
 
+      auditRecorder.recordCurrentActor(
+          saved.getInstitution(),
+          null,
+          AuditAction.STUDY_PLAN_SPACE_CREATED,
+          AuditEntityType.STUDY_PLAN_SPACE,
+          saved.getId(),
+          AuditOrigin.administration(),
+          Map.of(
+              "entityName",
+              space.getName(),
+              "studyPlanName",
+              plan.getName(),
+              "after",
+              AcademicAuditDetails.space(
+                  saved, instruments.stream().map(instrument -> instrument.getId()).toList())));
       return StudyPlanSpaceResponse.from(saved, instrumentOptions(instruments));
     } catch (DataIntegrityViolationException exception) {
       throw AcademicIntegrityViolationTranslator.translate(exception);

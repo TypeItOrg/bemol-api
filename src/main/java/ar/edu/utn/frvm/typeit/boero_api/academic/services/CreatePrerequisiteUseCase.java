@@ -10,9 +10,14 @@ import ar.edu.utn.frvm.typeit.boero_api.academic.interfaces.PrerequisiteReposito
 import ar.edu.utn.frvm.typeit.boero_api.academic.interfaces.StudyPlanSpaceRepository;
 import ar.edu.utn.frvm.typeit.boero_api.academic.payloads.CreatePrerequisiteRequest;
 import ar.edu.utn.frvm.typeit.boero_api.academic.payloads.PrerequisiteResponse;
+import ar.edu.utn.frvm.typeit.boero_api.audit.enums.AuditAction;
+import ar.edu.utn.frvm.typeit.boero_api.audit.enums.AuditEntityType;
+import ar.edu.utn.frvm.typeit.boero_api.audit.enums.AuditOrigin;
+import ar.edu.utn.frvm.typeit.boero_api.audit.services.AuditEventRecorder;
 import ar.edu.utn.frvm.typeit.boero_api.authorization.enums.PermissionCode;
 import ar.edu.utn.frvm.typeit.boero_api.authorization.enums.ScopedResource;
 import ar.edu.utn.frvm.typeit.boero_api.authorization.services.AcademicAccessGuard;
+import java.util.Map;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -22,6 +27,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @RequiredArgsConstructor
 public class CreatePrerequisiteUseCase {
+  private final AuditEventRecorder auditRecorder;
   private final AcademicAccessGuard accessGuard;
   private final PrerequisiteRepository prerequisiteRepository;
   private final StudyPlanSpaceRepository studyPlanSpaceRepository;
@@ -48,6 +54,20 @@ public class CreatePrerequisiteUseCase {
               Prerequisite.create(
                   plan, target, required, request.requirementStage(), request.requiredCondition()));
       prerequisiteRepository.flush();
+      auditRecorder.recordCurrentActor(
+          plan.getInstitution(),
+          null,
+          AuditAction.STUDY_PLAN_PREREQUISITE_CREATED,
+          AuditEntityType.PREREQUISITE,
+          saved.getId(),
+          AuditOrigin.administration(),
+          Map.of(
+              "entityName",
+              AcademicAuditDetails.prerequisiteName(saved),
+              "studyPlanName",
+              plan.getName(),
+              "after",
+              AcademicAuditDetails.prerequisite(saved)));
       return PrerequisiteResponse.from(saved);
     } catch (DataIntegrityViolationException exception) {
       throw AcademicIntegrityViolationTranslator.translate(exception);

@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import ar.edu.utn.frvm.typeit.boero_api.audit.services.AuditEventRecorder;
 import ar.edu.utn.frvm.typeit.boero_api.authorization.entities.PersonRoleAssignment;
 import ar.edu.utn.frvm.typeit.boero_api.authorization.entities.Role;
 import ar.edu.utn.frvm.typeit.boero_api.authorization.enums.RoleScope;
@@ -27,6 +28,8 @@ class BootstrapInstitutionalAuthorityUseCaseTest {
   @Mock private InstitutionalSystemRoleResolver institutionalSystemRoleResolver;
   @Mock private PersonRoleAssignmentRepository personRoleAssignmentRepository;
   @Mock private AssignPersonSystemRoleUseCase assignPersonSystemRoleUseCase;
+
+  @Mock private AuditEventRecorder auditEventRecorder;
 
   @InjectMocks
   private BootstrapInstitutionalAuthorityUseCase bootstrapInstitutionalAuthorityUseCase;

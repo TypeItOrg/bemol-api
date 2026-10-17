@@ -17,6 +17,17 @@ import org.springframework.data.repository.query.Param;
 
 public interface CourseRepository
     extends JpaRepository<Course, UUID>, CourseLifecycleQueries, CourseEnrollmentQueries {
+  @Query(
+      """
+      SELECT course FROM Course course
+      JOIN FETCH course.studyPlanSpace placement
+      JOIN FETCH placement.academicSpace
+      JOIN FETCH placement.studyPlan
+      JOIN FETCH course.academicYear
+      WHERE course.id IN :ids
+      """)
+  List<Course> findAuditContextByIds(@Param("ids") List<UUID> ids);
+
   @EntityGraph(
       attributePaths = {
         "institution",

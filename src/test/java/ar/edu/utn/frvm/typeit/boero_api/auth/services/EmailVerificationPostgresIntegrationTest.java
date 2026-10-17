@@ -9,6 +9,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+import ar.edu.utn.frvm.typeit.boero_api.audit.services.AuditEventRecorder;
 import ar.edu.utn.frvm.typeit.boero_api.auth.config.EmailVerificationProperties;
 import ar.edu.utn.frvm.typeit.boero_api.auth.entities.InstitutionalEmailVerificationToken;
 import ar.edu.utn.frvm.typeit.boero_api.auth.entities.InstitutionalPasswordResetToken;
@@ -58,6 +59,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
 @Import({
   JpaAuditingTestConfig.class,
+  AuditEventRecorder.class,
   InstitutionalEmailVerificationUseCase.class,
   ResetInstitutionalPasswordUseCase.class
 })

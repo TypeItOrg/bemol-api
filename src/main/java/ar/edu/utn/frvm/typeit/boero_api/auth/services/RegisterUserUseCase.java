@@ -2,6 +2,10 @@ package ar.edu.utn.frvm.typeit.boero_api.auth.services;
 
 import static java.util.Objects.requireNonNull;
 
+import ar.edu.utn.frvm.typeit.boero_api.audit.enums.AuditAction;
+import ar.edu.utn.frvm.typeit.boero_api.audit.enums.AuditEntityType;
+import ar.edu.utn.frvm.typeit.boero_api.audit.enums.AuditOrigin;
+import ar.edu.utn.frvm.typeit.boero_api.audit.services.AuditEventRecorder;
 import ar.edu.utn.frvm.typeit.boero_api.auth.entities.User;
 import ar.edu.utn.frvm.typeit.boero_api.auth.enums.EmailVerificationStatus;
 import ar.edu.utn.frvm.typeit.boero_api.auth.exceptions.UserAlreadyExistsException;
@@ -19,6 +23,7 @@ import ar.edu.utn.frvm.typeit.boero_api.institutional.interfaces.PersonRepositor
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.ConstraintViolationException;
 import jakarta.validation.Validator;
+import java.util.Map;
 import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -38,6 +43,8 @@ public class RegisterUserUseCase {
   private final PasswordEncoder passwordEncoder;
   private final Validator validator;
   private final AssignPersonSystemRoleUseCase assignPersonSystemRoleUseCase;
+
+  private final AuditEventRecorder auditEventRecorder;
 
   @Transactional
   public UserRegisteredResponse execute(final RegisterRequest request) {
@@ -85,6 +92,22 @@ public class RegisterUserUseCase {
     user = userRepository.save(user);
     assignPersonSystemRoleUseCase.execute(person, roleCode, false);
     emailVerification.sendInitial(user);
+    auditEventRecorder.recordCurrentActor(
+        institution,
+        person.getId(),
+        AuditAction.INSTITUTIONAL_ACCOUNT_CREATED,
+        AuditEntityType.USER,
+        user.getId(),
+        AuditOrigin.SELF_REGISTRATION,
+        Map.of(
+            "initialRole",
+            roleCode.name(),
+            "emailVerificationRequired",
+            true,
+            "emailVerificationStatus",
+            user.getEmailVerificationStatus().name(),
+            "personCreated",
+            true));
     return UserRegisteredResponse.builder()
         .emailVerificationRequired(true)
         .userId(user.getId())

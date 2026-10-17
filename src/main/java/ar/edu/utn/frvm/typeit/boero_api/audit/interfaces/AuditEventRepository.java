@@ -8,15 +8,21 @@ import org.jspecify.annotations.Nullable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
-public interface AuditEventRepository extends JpaRepository<AuditEvent, UUID> {
+public interface AuditEventRepository
+    extends JpaRepository<AuditEvent, UUID>,
+        JpaSpecificationExecutor<AuditEvent>,
+        AuditEventOptionsQueries {
 
   @Query(
       """
       SELECT event FROM AuditEvent event
       WHERE event.institution.id = :institutionId
+        AND event.actorKind = ar.edu.utn.frvm.typeit.boero_api.audit.enums.AuditActorKind.INSTITUTION
+        AND event.actorPersonId IS NOT NULL AND event.subjectPersonId IS NOT NULL
         AND (:subjectPersonId IS NULL OR event.subjectPersonId = :subjectPersonId)
         AND (:actorPersonId IS NULL OR event.actorPersonId = :actorPersonId)
         AND (:entityId IS NULL OR event.entityId = :entityId)

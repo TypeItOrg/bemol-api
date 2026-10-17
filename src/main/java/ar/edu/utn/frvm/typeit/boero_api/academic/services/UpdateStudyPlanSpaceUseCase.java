@@ -17,6 +17,10 @@ import ar.edu.utn.frvm.typeit.boero_api.academic.interfaces.StudyPlanSpaceReposi
 import ar.edu.utn.frvm.typeit.boero_api.academic.payloads.StudyPlanSpaceInstrumentOptionResponse;
 import ar.edu.utn.frvm.typeit.boero_api.academic.payloads.StudyPlanSpaceResponse;
 import ar.edu.utn.frvm.typeit.boero_api.academic.payloads.UpdateStudyPlanSpaceRequest;
+import ar.edu.utn.frvm.typeit.boero_api.audit.enums.AuditAction;
+import ar.edu.utn.frvm.typeit.boero_api.audit.enums.AuditEntityType;
+import ar.edu.utn.frvm.typeit.boero_api.audit.enums.AuditOrigin;
+import ar.edu.utn.frvm.typeit.boero_api.audit.services.AuditEventRecorder;
 import ar.edu.utn.frvm.typeit.boero_api.authorization.enums.PermissionCode;
 import ar.edu.utn.frvm.typeit.boero_api.authorization.enums.ScopedResource;
 import ar.edu.utn.frvm.typeit.boero_api.authorization.services.AcademicAccessGuard;
@@ -34,6 +38,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @RequiredArgsConstructor
 public class UpdateStudyPlanSpaceUseCase {
+  private final AuditEventRecorder auditRecorder;
   private final AcademicAccessGuard accessGuard;
   private final StudyPlanSpaceRepository studyPlanSpaceRepository;
   private final AcademicSpaceRepository academicSpaceRepository;
@@ -75,6 +80,14 @@ public class UpdateStudyPlanSpaceUseCase {
       throw new AcademicConflictException(AcademicMessages.COURSE_SPACE_NOT_IN_PLAN);
     }
     final var instruments = resolveInstruments(institutionId, request.instrumentIds());
+    final var before =
+        AcademicAuditDetails.space(
+            existing,
+            studyPlanSpaceInstrumentRepository
+                .findByStudyPlanSpace_IdOrderByInstrument_Name(id)
+                .stream()
+                .map(relation -> relation.getInstrument().getId())
+                .toList());
     existing.update(
         space, level, request.requirementType(), request.displayOrder(), request.approvalMode());
 
@@ -87,6 +100,19 @@ public class UpdateStudyPlanSpaceUseCase {
       throw AcademicIntegrityViolationTranslator.translate(exception);
     }
 
+    final var after =
+        AcademicAuditDetails.space(
+            existing, instruments.stream().map(instrument -> instrument.getId()).toList());
+    if (!before.equals(after)) {
+      auditRecorder.recordCurrentActor(
+          existing.getInstitution(),
+          null,
+          AuditAction.STUDY_PLAN_SPACE_UPDATED,
+          AuditEntityType.STUDY_PLAN_SPACE,
+          id,
+          AuditOrigin.administration(),
+          AcademicAuditDetails.change(space.getName(), before, after));
+    }
     return StudyPlanSpaceResponse.from(existing, instrumentOptions(instruments));
   }
 

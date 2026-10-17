@@ -6,6 +6,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import ar.edu.utn.frvm.typeit.boero_api.academic.interfaces.TrainingPathRepository;
+import ar.edu.utn.frvm.typeit.boero_api.audit.services.AuditEventRecorder;
 import ar.edu.utn.frvm.typeit.boero_api.authorization.entities.PersonRoleAssignment;
 import ar.edu.utn.frvm.typeit.boero_api.authorization.entities.Role;
 import ar.edu.utn.frvm.typeit.boero_api.authorization.enums.AccessScope;
@@ -18,6 +19,7 @@ import ar.edu.utn.frvm.typeit.boero_api.authorization.interfaces.RoleRepository;
 import ar.edu.utn.frvm.typeit.boero_api.authorization.payloads.AssignRoleRequest;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.entities.Institution;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.entities.Person;
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -42,6 +44,8 @@ class AssignPersonRoleUseCaseTest {
   @Mock private PersonRoleAssignmentRepository personRoleAssignmentRepository;
   @Mock private AssignPersonSystemRoleUseCase assignPersonSystemRoleUseCase;
 
+  @Mock private AuditEventRecorder auditEventRecorder;
+
   @InjectMocks private AssignPersonRoleUseCase assignPersonRoleUseCase;
 
   @Test
@@ -61,6 +65,8 @@ class AssignPersonRoleUseCaseTest {
     when(personRoleAssignmentRepository.findByPerson_IdAndRole_IdAndInstitution_Id(
             personId, role.getId(), institutionId))
         .thenReturn(Optional.of(assignment));
+    when(personRoleAssignmentRepository.findByPerson_IdAndInstitution_Id(personId, institutionId))
+        .thenReturn(List.of(assignment));
 
     var response =
         assignPersonRoleUseCase.execute(

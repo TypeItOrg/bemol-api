@@ -4,6 +4,7 @@ import ar.edu.utn.frvm.typeit.boero_api.academic.enums.AcademicLifecycleAction;
 import ar.edu.utn.frvm.typeit.boero_api.academic.enums.AcademicLifecycleResource;
 import ar.edu.utn.frvm.typeit.boero_api.academic.payloads.AcademicLifecycleRequest;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.entities.Institution;
+import java.util.Map;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.jspecify.annotations.Nullable;
@@ -56,12 +57,22 @@ public class AcademicLifecycleService {
   @Transactional
   public void recordStudyPlanVersionCreated(
       final Institution institution, final UUID versionId, final UUID previousVersionId) {
+    recordStudyPlanVersionCreated(institution, versionId, previousVersionId, Map.of());
+  }
+
+  @Transactional
+  public void recordStudyPlanVersionCreated(
+      final Institution institution,
+      final UUID versionId,
+      final UUID previousVersionId,
+      final Map<String, Object> details) {
     journal.record(
         institution,
         AcademicLifecycleResource.STUDY_PLAN,
         versionId,
         AcademicLifecycleAction.CREATE_VERSION,
-        new AcademicLifecycleRequest("Versión creada a partir del plan " + previousVersionId));
+        new AcademicLifecycleRequest("Versión creada a partir del plan " + previousVersionId),
+        details);
   }
 
   @Transactional

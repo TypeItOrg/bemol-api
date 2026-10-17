@@ -22,6 +22,7 @@ import ar.edu.utn.frvm.typeit.boero_api.academic.interfaces.AcademicYearReposito
 import ar.edu.utn.frvm.typeit.boero_api.academic.interfaces.CourseRepository;
 import ar.edu.utn.frvm.typeit.boero_api.academic.interfaces.StudyPlanRepository;
 import ar.edu.utn.frvm.typeit.boero_api.academic.payloads.CourseStatusRequest;
+import ar.edu.utn.frvm.typeit.boero_api.audit.services.AuditEventRecorder;
 import ar.edu.utn.frvm.typeit.boero_api.authorization.services.AcademicAccessGuard;
 import ar.edu.utn.frvm.typeit.boero_api.enrollment.services.CourseClosureService;
 import ar.edu.utn.frvm.typeit.boero_api.enrollment.services.EnrollmentInstitutionLock;
@@ -42,6 +43,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
 class UpdateCourseStatusUseCaseTest {
+  @Mock private AuditEventRecorder auditRecorder;
+  @Mock private CourseTreeReader courseTreeReader;
   private static final UUID INSTITUTION_ID =
       UUID.fromString("00000000-0000-0000-0000-000000000001");
   private static final UUID COURSE_ID = UUID.fromString("00000000-0000-0000-0000-000000000002");

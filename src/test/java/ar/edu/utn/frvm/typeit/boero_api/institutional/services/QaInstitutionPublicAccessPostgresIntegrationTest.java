@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
+import ar.edu.utn.frvm.typeit.boero_api.audit.services.AuditEventRecorder;
 import ar.edu.utn.frvm.typeit.boero_api.auth.services.SessionRevocationService;
 import ar.edu.utn.frvm.typeit.boero_api.common.storage.StorageService;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.entities.Institution;
@@ -69,6 +70,7 @@ class QaInstitutionPublicAccessPostgresIntegrationTest {
   @Autowired InstitutionLogoUseCase logos;
   @Autowired UpdateInstitutionUseCase platformMetadata;
   @Autowired UpdateInstitutionalInstitutionUseCase tenantMetadata;
+  @MockitoBean AuditEventRecorder auditEventRecorder;
   @MockitoBean StorageService storage;
   @MockitoBean SessionRevocationService revocations;
   Map<String, byte[]> objects;

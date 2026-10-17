@@ -15,6 +15,7 @@ import ar.edu.utn.frvm.typeit.boero_api.academic.interfaces.CourseRepository;
 import ar.edu.utn.frvm.typeit.boero_api.academic.interfaces.StudyPlanRepository;
 import ar.edu.utn.frvm.typeit.boero_api.academic.interfaces.StudyPlanSpaceRepository;
 import ar.edu.utn.frvm.typeit.boero_api.academic.payloads.StudyPlanStatusRequest;
+import ar.edu.utn.frvm.typeit.boero_api.audit.services.AuditEventRecorder;
 import ar.edu.utn.frvm.typeit.boero_api.authorization.services.AcademicAccessGuard;
 import ar.edu.utn.frvm.typeit.boero_api.common.time.BusinessDateProvider;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.entities.Institution;
@@ -33,6 +34,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
 class UpdateStudyPlanStatusUseCaseTest {
+  @Mock private AuditEventRecorder auditRecorder;
   @Mock private AcademicAccessGuard accessGuard;
 
   private static final UUID INSTITUTION_ID =
@@ -49,6 +51,7 @@ class UpdateStudyPlanStatusUseCaseTest {
   void setUp() {
     useCase =
         new UpdateStudyPlanStatusUseCase(
+            auditRecorder,
             accessGuard,
             new BusinessDateProvider(
                 Clock.fixed(Instant.parse("2026-10-01T12:00:00Z"), ZoneOffset.UTC)),

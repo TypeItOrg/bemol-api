@@ -2,6 +2,7 @@ package ar.edu.utn.frvm.typeit.boero_api.institutional.services;
 
 import ar.edu.utn.frvm.typeit.boero_api.audit.enums.AuditAction;
 import ar.edu.utn.frvm.typeit.boero_api.audit.enums.AuditEntityType;
+import ar.edu.utn.frvm.typeit.boero_api.audit.enums.AuditOrigin;
 import ar.edu.utn.frvm.typeit.boero_api.audit.services.AuditEventRecorder;
 import ar.edu.utn.frvm.typeit.boero_api.auth.services.PersonOwnAccessService;
 import ar.edu.utn.frvm.typeit.boero_api.authorization.enums.SystemRoleCode;
@@ -15,6 +16,7 @@ import ar.edu.utn.frvm.typeit.boero_api.institutional.interfaces.InstitutionRepo
 import ar.edu.utn.frvm.typeit.boero_api.institutional.interfaces.PersonGuardianRepository;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.interfaces.PersonRepository;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.payloads.guardian.GuardianLinkReviewResponse;
+import java.util.Map;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.jspecify.annotations.Nullable;
@@ -103,16 +105,15 @@ public class ResolveGuardianLinkUseCase {
 
   private void audit(
       final PersonGuardian link, final @Nullable Person reviewer, final AuditAction action) {
-    if (reviewer == null) {
-      return;
-    }
-
-    auditEventRecorder.record(
+    auditEventRecorder.recordCurrentActor(
         link.getInstitution(),
-        reviewer.getId(),
         link.getDependentPerson().getId(),
         action,
         AuditEntityType.PERSON_GUARDIAN,
-        link.getId());
+        link.getId(),
+        reviewer == null
+            ? AuditOrigin.PLATFORM_ADMINISTRATION
+            : AuditOrigin.INSTITUTIONAL_ADMINISTRATION,
+        Map.of());
   }
 }

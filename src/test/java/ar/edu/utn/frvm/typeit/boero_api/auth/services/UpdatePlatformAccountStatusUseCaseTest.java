@@ -7,6 +7,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+import ar.edu.utn.frvm.typeit.boero_api.audit.services.AuditEventRecorder;
 import ar.edu.utn.frvm.typeit.boero_api.auth.entities.PlatformAccount;
 import ar.edu.utn.frvm.typeit.boero_api.auth.exceptions.LastPlatformAdminDisableException;
 import ar.edu.utn.frvm.typeit.boero_api.auth.exceptions.PlatformAccountSelfDisableException;
@@ -34,7 +35,10 @@ class UpdatePlatformAccountStatusUseCaseTest {
   void setUp() {
     useCase =
         new UpdatePlatformAccountStatusUseCase(
-            platformAccountRepository, platformAccountRoleRepository, sessionRevocationService);
+            platformAccountRepository,
+            platformAccountRoleRepository,
+            sessionRevocationService,
+            org.mockito.Mockito.mock(AuditEventRecorder.class));
   }
 
   @Test

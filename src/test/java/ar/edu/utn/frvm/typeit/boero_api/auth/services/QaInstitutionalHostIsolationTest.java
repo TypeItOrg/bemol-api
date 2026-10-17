@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
+import ar.edu.utn.frvm.typeit.boero_api.audit.services.AuditEventRecorder;
 import ar.edu.utn.frvm.typeit.boero_api.auth.config.*;
 import ar.edu.utn.frvm.typeit.boero_api.auth.entities.*;
 import ar.edu.utn.frvm.typeit.boero_api.auth.exceptions.*;
@@ -106,7 +107,8 @@ class QaInstitutionalHostIsolationTest {
             mock(jakarta.validation.Validator.class),
             mock(
                 ar.edu.utn.frvm.typeit.boero_api.authorization.services
-                    .AssignPersonSystemRoleUseCase.class));
+                    .AssignPersonSystemRoleUseCase.class),
+            org.mockito.Mockito.mock(AuditEventRecorder.class));
     assertThatThrownBy(
             () ->
                 registration.execute(
@@ -129,7 +131,8 @@ class QaInstitutionalHostIsolationTest {
             mock(ApplicationEventPublisher.class),
             new EmailVerificationProperties(
                 "http://localhost:3000", Duration.ofHours(24), Duration.ofMinutes(1)),
-            Clock.systemUTC());
+            Clock.systemUTC(),
+            org.mockito.Mockito.mock(AuditEventRecorder.class));
     assertThatThrownBy(
             () ->
                 verification.resend(new ResendEmailVerificationRequest("87654321", other.getId())))
@@ -255,7 +258,8 @@ class QaInstitutionalHostIsolationTest {
             events,
             new EmailVerificationProperties(
                 "http://localhost:3000", Duration.ofHours(24), Duration.ofMinutes(1)),
-            Clock.systemUTC());
+            Clock.systemUTC(),
+            org.mockito.Mockito.mock(AuditEventRecorder.class));
     assertThatThrownBy(
             () -> verification.confirm(new ConfirmEmailVerificationRequest("foreign-token")))
         .isInstanceOf(InstitutionalContextMismatchException.class);

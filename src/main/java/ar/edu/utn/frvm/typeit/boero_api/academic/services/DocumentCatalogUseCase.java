@@ -1,6 +1,7 @@
 package ar.edu.utn.frvm.typeit.boero_api.academic.services;
 
 import ar.edu.utn.frvm.typeit.boero_api.academic.entities.DocumentDefinition;
+import ar.edu.utn.frvm.typeit.boero_api.academic.entities.TrainingPathDocumentRequirement;
 import ar.edu.utn.frvm.typeit.boero_api.academic.exceptions.AcademicMessages;
 import ar.edu.utn.frvm.typeit.boero_api.academic.exceptions.DocumentCatalogException;
 import ar.edu.utn.frvm.typeit.boero_api.academic.interfaces.DocumentDefinitionRepository;
@@ -12,6 +13,8 @@ import ar.edu.utn.frvm.typeit.boero_api.academic.payloads.DocumentDefinitionResp
 import ar.edu.utn.frvm.typeit.boero_api.academic.payloads.DocumentRequirementRequest;
 import ar.edu.utn.frvm.typeit.boero_api.academic.payloads.DocumentRequirementResponse;
 import ar.edu.utn.frvm.typeit.boero_api.academic.payloads.PlatformDocumentDefinitionResponse;
+import ar.edu.utn.frvm.typeit.boero_api.audit.enums.AuditAction;
+import ar.edu.utn.frvm.typeit.boero_api.audit.services.AuditEventRecorder;
 import ar.edu.utn.frvm.typeit.boero_api.authorization.enums.PermissionCode;
 import ar.edu.utn.frvm.typeit.boero_api.authorization.enums.ScopedResource;
 import ar.edu.utn.frvm.typeit.boero_api.authorization.exceptions.ScopedResourceNotFoundException;
@@ -23,6 +26,7 @@ import ar.edu.utn.frvm.typeit.boero_api.enrollment.services.SynchronizeDraftDocu
 import ar.edu.utn.frvm.typeit.boero_api.institutional.interfaces.InstitutionRepository;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.UUID;
@@ -45,6 +49,7 @@ public class DocumentCatalogUseCase {
   private final SynchronizeDraftDocumentsUseCase synchronize;
   private final QueryDocumentCatalogUseCase queries;
   private final DocumentRequirementAssignments requirements;
+  private final AuditEventRecorder auditEventRecorder;
 
   @Transactional(readOnly = true)
   public Page<DocumentDefinitionResponse> list(
@@ -111,6 +116,14 @@ public class DocumentCatalogUseCase {
     if (id != null) {
       DocumentRequirementAssignments.requireRevision(value.getRevision(), request.revision());
     }
+    final var existingAssignments =
+        id == null
+            ? List.<TrainingPathDocumentRequirement>of()
+            : assignments.findByDocumentId(value.getId());
+    final var before =
+        id == null
+            ? Map.<String, Object>of()
+            : DocumentAuditDetails.snapshot(value, existingAssignments);
     if (transferring) {
       transfer(value, destinationId);
     }
@@ -124,7 +137,7 @@ public class DocumentCatalogUseCase {
         request.name(), request.instructions(), request.allowedFormats(), request.active());
     definitions.saveAndFlush(value);
     final var affected = new HashSet<UUID>();
-    for (final var assignment : assignments.findByDocumentId(value.getId())) {
+    for (final var assignment : existingAssignments) {
       affected.add(assignment.getTrainingPath().getId());
     }
     for (final var change : changes) {
@@ -133,6 +146,17 @@ public class DocumentCatalogUseCase {
     }
     assignments.flush();
     final int drafts = synchronize.execute(destinationId, affected);
+    final var after =
+        DocumentAuditDetails.snapshot(value, assignments.findByDocumentId(value.getId()));
+    final var action =
+        id == null
+            ? AuditAction.DOCUMENT_DEFINITION_CREATED
+            : transferring
+                ? AuditAction.DOCUMENT_DEFINITION_TRANSFERRED
+                : DocumentAuditDetails.definitionChanged(before, after)
+                    ? AuditAction.DOCUMENT_DEFINITION_UPDATED
+                    : AuditAction.DOCUMENT_REQUIREMENTS_CHANGED;
+    DocumentAuditDetails.recordChange(auditEventRecorder, value, action, before, after);
 
     return queries.result(destinationId, value.getId(), affected.size(), drafts);
   }
@@ -146,6 +170,7 @@ public class DocumentCatalogUseCase {
     lock.lock(institutionId);
     final var value = queries.definition(institutionId, id);
     requirements.validate(institutionId, value, changes);
+    final var before = DocumentAuditDetails.snapshot(value, assignments.findByDocumentId(id));
 
     final var affected = new HashSet<UUID>();
     for (final var change : changes) {
@@ -154,6 +179,9 @@ public class DocumentCatalogUseCase {
     }
     assignments.flush();
     final int drafts = synchronize.execute(institutionId, affected);
+    final var after = DocumentAuditDetails.snapshot(value, assignments.findByDocumentId(id));
+    DocumentAuditDetails.recordChange(
+        auditEventRecorder, value, AuditAction.DOCUMENT_REQUIREMENTS_CHANGED, before, after);
 
     return queries.result(institutionId, id, affected.size(), drafts);
   }
@@ -191,10 +219,16 @@ public class DocumentCatalogUseCase {
             request.specificInstructions());
     requirements.validate(institutionId, document, List.of(change));
 
+    final var before =
+        DocumentAuditDetails.snapshot(document, assignments.findByDocumentId(document.getId()));
     final var saved = requirements.apply(institutionId, document, change);
     assignments.flush();
     final var savedId = saved.getId();
     synchronize.execute(institutionId, Set.of(pathId));
+    final var after =
+        DocumentAuditDetails.snapshot(document, assignments.findByDocumentId(document.getId()));
+    DocumentAuditDetails.recordChange(
+        auditEventRecorder, document, AuditAction.DOCUMENT_REQUIREMENTS_CHANGED, before, after);
 
     return DocumentRequirementResponse.from(assignments.findById(savedId).orElseThrow());
   }

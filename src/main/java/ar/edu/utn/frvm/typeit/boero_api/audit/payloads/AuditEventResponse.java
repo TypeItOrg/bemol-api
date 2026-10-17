@@ -41,9 +41,9 @@ public record AuditEventResponse(
       @Nullable final String subjectName) {
     return new AuditEventResponse(
         event.getId(),
-        event.getActorPersonId(),
+        java.util.Objects.requireNonNull(event.getActorPersonId()),
         actorName,
-        event.getSubjectPersonId(),
+        java.util.Objects.requireNonNull(event.getSubjectPersonId()),
         subjectName,
         event.getAction(),
         event.getEntityType(),

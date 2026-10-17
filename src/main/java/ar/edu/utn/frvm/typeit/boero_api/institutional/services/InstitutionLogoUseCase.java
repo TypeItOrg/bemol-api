@@ -2,8 +2,13 @@ package ar.edu.utn.frvm.typeit.boero_api.institutional.services;
 
 import static java.util.Objects.requireNonNull;
 
+import ar.edu.utn.frvm.typeit.boero_api.audit.enums.AuditAction;
+import ar.edu.utn.frvm.typeit.boero_api.audit.enums.AuditEntityType;
+import ar.edu.utn.frvm.typeit.boero_api.audit.enums.AuditOrigin;
+import ar.edu.utn.frvm.typeit.boero_api.audit.services.AuditEventRecorder;
 import ar.edu.utn.frvm.typeit.boero_api.common.storage.StorageFileNotFoundException;
 import ar.edu.utn.frvm.typeit.boero_api.common.storage.StorageService;
+import ar.edu.utn.frvm.typeit.boero_api.institutional.entities.Institution;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.exceptions.InstitutionLogoNotFoundException;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.exceptions.InstitutionNotFoundException;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.interfaces.InstitutionRepository;
@@ -11,6 +16,7 @@ import ar.edu.utn.frvm.typeit.boero_api.institutional.payloads.InstitutionDetail
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.util.Map;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -31,12 +37,14 @@ public class InstitutionLogoUseCase {
 
   private final InstitutionRepository institutions;
   private final StorageService storage;
+  private final AuditEventRecorder auditEventRecorder;
 
   @Transactional
   public InstitutionDetailResponse replace(final UUID id, final MultipartFile file) {
     final var image = InstitutionLogoPolicy.prepare(file);
     final var institution =
         institutions.findByIdForUpdate(id).orElseThrow(InstitutionNotFoundException::new);
+    final var before = InstitutionAuditDetails.logo(institution);
     final String version = UUID.randomUUID().toString();
     final String key =
         "institutions/"
@@ -52,6 +60,7 @@ public class InstitutionLogoUseCase {
         () -> new ByteArrayInputStream(image.bytes()));
     institution.replaceLogo(key, image.contentType(), version, image.bytes().length);
     institutions.saveAndFlush(institution);
+    recordLogoChange(institution, before);
     return InstitutionDetailResponse.from(institution);
   }
 
@@ -59,9 +68,14 @@ public class InstitutionLogoUseCase {
   public void delete(final UUID id) {
     final var institution =
         institutions.findByIdForUpdate(id).orElseThrow(InstitutionNotFoundException::new);
+    if (institution.getLogoKey() == null) {
+      return;
+    }
+    final var before = InstitutionAuditDetails.logo(institution);
     cleanupAfterTransaction(null, institution.getLogoKey());
     institution.removeLogo();
     institutions.saveAndFlush(institution);
+    recordLogoChange(institution, before);
   }
 
   // PostgreSQL FOR SHARE needs a writable transaction; the read changes no entity state.
@@ -90,6 +104,20 @@ public class InstitutionLogoUseCase {
     } catch (IOException exception) {
       throw new UncheckedIOException(exception);
     }
+  }
+
+  private void recordLogoChange(final Institution institution, final Map<String, Object> before) {
+    auditEventRecorder.recordCurrentActor(
+        institution,
+        null,
+        AuditAction.INSTITUTION_LOGO_CHANGED,
+        AuditEntityType.INSTITUTION,
+        institution.getId(),
+        AuditOrigin.administration(),
+        Map.of(
+            "entityName", institution.getName(),
+            "before", before,
+            "after", InstitutionAuditDetails.logo(institution)));
   }
 
   private void cleanupAfterTransaction(

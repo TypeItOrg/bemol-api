@@ -2,6 +2,7 @@ package ar.edu.utn.frvm.typeit.boero_api.institutional.services;
 
 import ar.edu.utn.frvm.typeit.boero_api.audit.enums.AuditAction;
 import ar.edu.utn.frvm.typeit.boero_api.audit.enums.AuditEntityType;
+import ar.edu.utn.frvm.typeit.boero_api.audit.enums.AuditOrigin;
 import ar.edu.utn.frvm.typeit.boero_api.audit.services.AuditEventRecorder;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.entities.GuardianLinkStatus;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.entities.Institution;
@@ -23,6 +24,7 @@ import ar.edu.utn.frvm.typeit.boero_api.institutional.payloads.guardian.Guardian
 import jakarta.validation.ConstraintViolationException;
 import jakarta.validation.Validator;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -125,14 +127,23 @@ public class RegisterGuardianDependentUseCase {
       throw new ConstraintViolationException(violations);
     }
 
+    final Person saved;
     try {
-      final Person saved = personRepository.save(person);
+      saved = personRepository.save(person);
       personRepository.flush();
-
-      return saved;
     } catch (DataIntegrityViolationException exception) {
       throw new PersonAlreadyExistsException();
     }
+    auditEventRecorder.recordCurrentActor(
+        institution,
+        saved.getId(),
+        AuditAction.PERSON_CREATED,
+        AuditEntityType.PERSON,
+        saved.getId(),
+        AuditOrigin.SELF_SERVICE,
+        Map.of("hasAccount", false));
+
+    return saved;
   }
 
   private PersonGuardian requestLink(

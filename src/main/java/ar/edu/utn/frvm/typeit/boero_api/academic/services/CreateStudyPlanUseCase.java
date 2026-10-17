@@ -10,9 +10,14 @@ import ar.edu.utn.frvm.typeit.boero_api.academic.interfaces.TrainingPathReposito
 import ar.edu.utn.frvm.typeit.boero_api.academic.payloads.CreateStudyPlanRequest;
 import ar.edu.utn.frvm.typeit.boero_api.academic.payloads.StudyPlanResponse;
 import ar.edu.utn.frvm.typeit.boero_api.academic.validation.AcademicNameNormalizer;
+import ar.edu.utn.frvm.typeit.boero_api.audit.enums.AuditAction;
+import ar.edu.utn.frvm.typeit.boero_api.audit.enums.AuditEntityType;
+import ar.edu.utn.frvm.typeit.boero_api.audit.enums.AuditOrigin;
+import ar.edu.utn.frvm.typeit.boero_api.audit.services.AuditEventRecorder;
 import ar.edu.utn.frvm.typeit.boero_api.authorization.enums.PermissionCode;
 import ar.edu.utn.frvm.typeit.boero_api.authorization.enums.ScopedResource;
 import ar.edu.utn.frvm.typeit.boero_api.authorization.services.AcademicAccessGuard;
+import java.util.Map;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -22,6 +27,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @RequiredArgsConstructor
 public class CreateStudyPlanUseCase {
+  private final AuditEventRecorder auditRecorder;
   private final AcademicAccessGuard accessGuard;
   private final StudyPlanRepository studyPlanRepository;
   private final TrainingPathRepository trainingPathRepository;
@@ -53,6 +59,14 @@ public class CreateStudyPlanUseCase {
                   request.effectiveFrom(),
                   request.effectiveTo()));
       studyPlanRepository.flush();
+      auditRecorder.recordCurrentActor(
+          saved.getInstitution(),
+          null,
+          AuditAction.STUDY_PLAN_CREATED,
+          AuditEntityType.STUDY_PLAN,
+          saved.getId(),
+          AuditOrigin.administration(),
+          Map.of("entityName", saved.getName(), "after", AcademicAuditDetails.plan(saved)));
       return StudyPlanResponse.from(saved);
     } catch (DataIntegrityViolationException exception) {
       throw AcademicIntegrityViolationTranslator.translate(exception);

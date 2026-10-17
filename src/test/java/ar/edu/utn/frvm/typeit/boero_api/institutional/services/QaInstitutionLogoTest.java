@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
+import ar.edu.utn.frvm.typeit.boero_api.audit.services.AuditEventRecorder;
 import ar.edu.utn.frvm.typeit.boero_api.common.storage.StorageService;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.entities.Institution;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.exceptions.InstitutionLogoTooLargeException;
@@ -31,7 +32,7 @@ class QaInstitutionLogoTest {
   void setup() {
     institutions = mock(InstitutionRepository.class);
     storage = mock(StorageService.class);
-    logos = new InstitutionLogoUseCase(institutions, storage);
+    logos = new InstitutionLogoUseCase(institutions, storage, mock(AuditEventRecorder.class));
     institution = QaInstitutionPublicAccessTest.institution();
     institution.replaceLogo("old-key", "image/png", "old-version", 10);
     lenient()

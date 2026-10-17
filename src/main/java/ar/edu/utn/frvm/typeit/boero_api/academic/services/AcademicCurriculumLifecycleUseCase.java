@@ -1,6 +1,7 @@
 package ar.edu.utn.frvm.typeit.boero_api.academic.services;
 
 import ar.edu.utn.frvm.typeit.boero_api.academic.entities.AcademicYear;
+import ar.edu.utn.frvm.typeit.boero_api.academic.entities.Course;
 import ar.edu.utn.frvm.typeit.boero_api.academic.entities.StudyPlan;
 import ar.edu.utn.frvm.typeit.boero_api.academic.enums.AcademicLifecycleAction;
 import ar.edu.utn.frvm.typeit.boero_api.academic.enums.AcademicLifecycleResource;
@@ -22,6 +23,7 @@ import ar.edu.utn.frvm.typeit.boero_api.authorization.enums.ScopedResource;
 import ar.edu.utn.frvm.typeit.boero_api.authorization.services.AcademicAccessGuard;
 import ar.edu.utn.frvm.typeit.boero_api.enrollment.interfaces.CourseEnrollmentRepository;
 import java.time.Clock;
+import java.util.Map;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.jspecify.annotations.Nullable;
@@ -39,6 +41,7 @@ public class AcademicCurriculumLifecycleUseCase {
   private final CourseRepository courses;
   private final CourseEnrollmentRepository enrollments;
   private final AcademicLifecycleJournal journal;
+  private final CourseTreeReader courseTreeReader;
 
   @Transactional
   public void deleteTrainingPath(
@@ -92,7 +95,8 @@ public class AcademicCurriculumLifecycleUseCase {
           AcademicLifecycleResource.STUDY_PLAN,
           id,
           AcademicLifecycleAction.DELETE,
-          request);
+          request,
+          Map.of("entityName", plan.getName(), "before", AcademicAuditDetails.plan(plan)));
     }
   }
 
@@ -109,7 +113,13 @@ public class AcademicCurriculumLifecycleUseCase {
         && (plan.getTrainingPath().isDeleted() || !plan.getTrainingPath().isActive())) {
       throw new AcademicConflictException(AcademicMessages.RESTORE_PARENT_UNAVAILABLE);
     }
-    journal.restore(plan, plan.getInstitution(), AcademicLifecycleResource.STUDY_PLAN, id, request);
+    journal.restore(
+        plan,
+        plan.getInstitution(),
+        AcademicLifecycleResource.STUDY_PLAN,
+        id,
+        request,
+        Map.of("entityName", plan.getName(), "after", AcademicAuditDetails.plan(plan)));
   }
 
   @Transactional
@@ -131,7 +141,8 @@ public class AcademicCurriculumLifecycleUseCase {
           AcademicLifecycleResource.COURSE,
           id,
           AcademicLifecycleAction.DELETE,
-          request);
+          request,
+          courseDetails(course, "before"));
     }
   }
 
@@ -150,7 +161,23 @@ public class AcademicCurriculumLifecycleUseCase {
             || parents.academicYear().getStatus() != AcademicYearStatus.ACTIVE)) {
       throw new AcademicConflictException(AcademicMessages.RESTORE_PARENT_UNAVAILABLE);
     }
-    journal.restore(course, course.getInstitution(), AcademicLifecycleResource.COURSE, id, request);
+    journal.restore(
+        course,
+        course.getInstitution(),
+        AcademicLifecycleResource.COURSE,
+        id,
+        request,
+        courseDetails(course, "after"));
+  }
+
+  private Map<String, Object> courseDetails(final Course course, final String snapshotKey) {
+    return Map.of(
+        "entityName",
+        AcademicAuditDetails.courseName(course),
+        snapshotKey,
+        Map.of("status", course.getStatus().name()),
+        "relatedPersonIds",
+        AcademicAuditDetails.teacherIds(courseTreeReader.read(course.getId())));
   }
 
   private CourseParents lockCourseParents(final UUID institutionId, final UUID courseId) {

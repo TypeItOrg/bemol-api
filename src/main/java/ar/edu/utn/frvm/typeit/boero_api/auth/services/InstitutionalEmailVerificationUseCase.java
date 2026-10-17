@@ -1,5 +1,9 @@
 package ar.edu.utn.frvm.typeit.boero_api.auth.services;
 
+import ar.edu.utn.frvm.typeit.boero_api.audit.enums.AuditAction;
+import ar.edu.utn.frvm.typeit.boero_api.audit.enums.AuditEntityType;
+import ar.edu.utn.frvm.typeit.boero_api.audit.enums.AuditOrigin;
+import ar.edu.utn.frvm.typeit.boero_api.audit.services.AuditEventRecorder;
 import ar.edu.utn.frvm.typeit.boero_api.auth.config.EmailVerificationProperties;
 import ar.edu.utn.frvm.typeit.boero_api.auth.entities.InstitutionalEmailVerificationToken;
 import ar.edu.utn.frvm.typeit.boero_api.auth.entities.User;
@@ -18,6 +22,7 @@ import java.security.SecureRandom;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.Base64;
+import java.util.Map;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import org.hibernate.exception.ConstraintViolationException;
@@ -40,6 +45,8 @@ public class InstitutionalEmailVerificationUseCase {
   private final EmailVerificationProperties properties;
   private final Clock clock;
   private final SecureRandom random = new SecureRandom();
+
+  private final AuditEventRecorder auditEventRecorder;
 
   @Transactional(propagation = Propagation.MANDATORY)
   public void sendInitial(final User user) {
@@ -82,6 +89,14 @@ public class InstitutionalEmailVerificationUseCase {
     }
     token.consume(now);
     user.verifyEmail(now);
+    auditEventRecorder.recordCurrentActor(
+        user.getInstitution(),
+        user.getPerson().getId(),
+        AuditAction.INSTITUTIONAL_EMAIL_VERIFIED,
+        AuditEntityType.USER,
+        user.getId(),
+        AuditOrigin.EMAIL_VERIFICATION,
+        Map.of());
   }
 
   @Transactional

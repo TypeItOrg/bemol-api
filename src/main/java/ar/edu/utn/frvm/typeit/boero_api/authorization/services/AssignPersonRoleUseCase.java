@@ -1,5 +1,9 @@
 package ar.edu.utn.frvm.typeit.boero_api.authorization.services;
 
+import ar.edu.utn.frvm.typeit.boero_api.audit.enums.AuditAction;
+import ar.edu.utn.frvm.typeit.boero_api.audit.enums.AuditEntityType;
+import ar.edu.utn.frvm.typeit.boero_api.audit.enums.AuditOrigin;
+import ar.edu.utn.frvm.typeit.boero_api.audit.services.AuditEventRecorder;
 import ar.edu.utn.frvm.typeit.boero_api.authorization.entities.Role;
 import ar.edu.utn.frvm.typeit.boero_api.authorization.enums.PermissionCode;
 import ar.edu.utn.frvm.typeit.boero_api.authorization.enums.RoleScope;
@@ -10,6 +14,7 @@ import ar.edu.utn.frvm.typeit.boero_api.authorization.interfaces.RoleRepository;
 import ar.edu.utn.frvm.typeit.boero_api.authorization.payloads.AssignRoleRequest;
 import ar.edu.utn.frvm.typeit.boero_api.authorization.payloads.PersonRoleResponse;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.entities.Person;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -29,6 +34,8 @@ public class AssignPersonRoleUseCase {
   private final RoleRepository roleRepository;
   private final PersonRoleAssignmentRepository personRoleAssignmentRepository;
   private final AssignPersonSystemRoleUseCase assignPersonSystemRoleUseCase;
+
+  private final AuditEventRecorder auditEventRecorder;
 
   @Transactional
   public PersonRoleResponse execute(
@@ -62,9 +69,10 @@ public class AssignPersonRoleUseCase {
       scopeValidator.requireDelegation(
           role, request.accessScope(), request.selectedTrainingPathIds());
     }
+    final var current =
+        personRoleAssignmentRepository.findByPerson_IdAndInstitution_Id(personId, institutionId);
+    final var before = RoleAuditDetails.assignments(current);
     if (!allowAuthority) {
-      var current =
-          personRoleAssignmentRepository.findByPerson_IdAndInstitution_Id(personId, institutionId);
       for (var assignment : current) {
         if (role.isApplicant()
             ? !assignment.getRole().isApplicant()
@@ -80,9 +88,23 @@ public class AssignPersonRoleUseCase {
         .orElseThrow()
         .changeAccessScope(request.accessScope(), request.selectedTrainingPathIds());
 
+    final var finalAssignments =
+        personRoleAssignmentRepository.findByPerson_IdAndInstitution_Id(personId, institutionId);
+    final var after = RoleAuditDetails.assignments(finalAssignments);
+    if (!before.equals(after)) {
+      auditEventRecorder.recordCurrentActor(
+          person.getInstitution(),
+          personId,
+          AuditAction.PERSON_ROLES_CHANGED,
+          AuditEntityType.PERSON,
+          personId,
+          AuditOrigin.administration(),
+          Map.of("before", before, "after", after));
+    }
     PersonRoleResponse response =
-        personRoleAssignmentRepository
-            .findByPerson_IdAndRole_IdAndInstitution_Id(person.getId(), role.getId(), institutionId)
+        finalAssignments.stream()
+            .filter(assignment -> assignment.getRole().getId().equals(role.getId()))
+            .findFirst()
             .map(responseFactory::from)
             .orElseThrow();
 

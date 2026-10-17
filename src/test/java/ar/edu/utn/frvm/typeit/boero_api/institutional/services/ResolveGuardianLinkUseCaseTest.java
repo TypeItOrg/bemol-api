@@ -11,6 +11,7 @@ import static org.mockito.Mockito.when;
 
 import ar.edu.utn.frvm.typeit.boero_api.audit.enums.AuditAction;
 import ar.edu.utn.frvm.typeit.boero_api.audit.enums.AuditEntityType;
+import ar.edu.utn.frvm.typeit.boero_api.audit.enums.AuditOrigin;
 import ar.edu.utn.frvm.typeit.boero_api.audit.services.AuditEventRecorder;
 import ar.edu.utn.frvm.typeit.boero_api.authorization.enums.SystemRoleCode;
 import ar.edu.utn.frvm.typeit.boero_api.authorization.services.AssignPersonSystemRoleUseCase;
@@ -25,6 +26,7 @@ import ar.edu.utn.frvm.typeit.boero_api.institutional.exceptions.GuardianLinkNot
 import ar.edu.utn.frvm.typeit.boero_api.institutional.interfaces.PersonGuardianRepository;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.interfaces.PersonRepository;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.payloads.guardian.GuardianLinkReviewResponse;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
@@ -98,13 +100,14 @@ class ResolveGuardianLinkUseCaseTest {
     verify(assignPersonSystemRoleUseCase)
         .executePreservingRoles(link.getDependentPerson(), SystemRoleCode.APPLICANT);
     verify(auditEventRecorder)
-        .record(
+        .recordCurrentActor(
             institution,
-            reviewer.getId(),
             link.getDependentPerson().getId(),
             AuditAction.GUARDIAN_LINK_APPROVED,
             AuditEntityType.PERSON_GUARDIAN,
-            link.getId());
+            link.getId(),
+            AuditOrigin.INSTITUTIONAL_ADMINISTRATION,
+            Map.of());
   }
 
   @Test
@@ -133,13 +136,14 @@ class ResolveGuardianLinkUseCaseTest {
     assertThat(response.status()).isEqualTo(GuardianLinkStatus.REJECTED);
     verifyNoInteractions(assignPersonSystemRoleUseCase);
     verify(auditEventRecorder)
-        .record(
+        .recordCurrentActor(
             institution,
-            reviewer.getId(),
             link.getDependentPerson().getId(),
             AuditAction.GUARDIAN_LINK_REJECTED,
             AuditEntityType.PERSON_GUARDIAN,
-            link.getId());
+            link.getId(),
+            AuditOrigin.INSTITUTIONAL_ADMINISTRATION,
+            Map.of());
   }
 
   @Test

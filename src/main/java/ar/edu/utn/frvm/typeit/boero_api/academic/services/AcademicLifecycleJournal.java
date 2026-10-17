@@ -8,10 +8,15 @@ import ar.edu.utn.frvm.typeit.boero_api.academic.exceptions.AcademicIntegrityVio
 import ar.edu.utn.frvm.typeit.boero_api.academic.exceptions.AcademicMessages;
 import ar.edu.utn.frvm.typeit.boero_api.academic.interfaces.AcademicLifecycleEventRepository;
 import ar.edu.utn.frvm.typeit.boero_api.academic.payloads.AcademicLifecycleRequest;
+import ar.edu.utn.frvm.typeit.boero_api.audit.enums.AuditAction;
+import ar.edu.utn.frvm.typeit.boero_api.audit.enums.AuditEntityType;
+import ar.edu.utn.frvm.typeit.boero_api.audit.enums.AuditOrigin;
+import ar.edu.utn.frvm.typeit.boero_api.audit.services.AuditEventRecorder;
 import ar.edu.utn.frvm.typeit.boero_api.common.logging.RequestLoggingFilter;
 import ar.edu.utn.frvm.typeit.boero_api.common.persistence.SoftDeletable;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.entities.Institution;
 import java.time.Clock;
+import java.util.Map;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -26,6 +31,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Component
 @RequiredArgsConstructor
 public class AcademicLifecycleJournal {
+  private final AuditEventRecorder auditRecorder;
   private final Clock clock;
   private final AcademicLifecycleEventRepository events;
   private final AcademicLifecycleActorResolver actors;
@@ -37,8 +43,19 @@ public class AcademicLifecycleJournal {
       final AcademicLifecycleResource type,
       final UUID id,
       final @Nullable AcademicLifecycleRequest request) {
+    restore(resource, institution, type, id, request, Map.of());
+  }
+
+  @Transactional(propagation = Propagation.MANDATORY)
+  public void restore(
+      final SoftDeletable resource,
+      final Institution institution,
+      final AcademicLifecycleResource type,
+      final UUID id,
+      final @Nullable AcademicLifecycleRequest request,
+      final Map<String, Object> details) {
     if (resource.restore()) {
-      record(institution, type, id, AcademicLifecycleAction.RESTORE, request);
+      record(institution, type, id, AcademicLifecycleAction.RESTORE, request, details);
     }
   }
 
@@ -49,6 +66,17 @@ public class AcademicLifecycleJournal {
       final UUID id,
       final AcademicLifecycleAction action,
       final @Nullable AcademicLifecycleRequest request) {
+    record(institution, type, id, action, request, Map.of());
+  }
+
+  @Transactional(propagation = Propagation.MANDATORY)
+  public void record(
+      final Institution institution,
+      final AcademicLifecycleResource type,
+      final UUID id,
+      final AcademicLifecycleAction action,
+      final @Nullable AcademicLifecycleRequest request,
+      final Map<String, Object> details) {
     final var actor = actors.resolve();
     final var now = clock.instant();
     try {
@@ -64,6 +92,7 @@ public class AcademicLifecycleJournal {
               MDC.get(RequestLoggingFilter.MDC_REQUEST_ID_KEY),
               now));
       events.flush();
+      recordGlobal(institution, type, id, action, details);
       log.info(
           "[AcademicLifecycle] Transition recorded, resourceType: {}, resourceId: {}, action: {}, actorType: {}, actorId: {}",
           type,
@@ -77,6 +106,46 @@ public class AcademicLifecycleJournal {
       }
       throw AcademicIntegrityViolationTranslator.translate(exception);
     }
+  }
+
+  private void recordGlobal(
+      final Institution institution,
+      final AcademicLifecycleResource type,
+      final UUID id,
+      final AcademicLifecycleAction action,
+      final Map<String, Object> details) {
+    if (details.isEmpty()
+        || (type != AcademicLifecycleResource.COURSE
+            && type != AcademicLifecycleResource.STUDY_PLAN)) {
+      return;
+    }
+    final AuditAction auditAction =
+        switch (type) {
+          case COURSE ->
+              switch (action) {
+                case DELETE -> AuditAction.COURSE_DELETED;
+                case RESTORE -> AuditAction.COURSE_RESTORED;
+                default ->
+                    throw new IllegalArgumentException("Unsupported course lifecycle action");
+              };
+          case STUDY_PLAN ->
+              switch (action) {
+                case DELETE -> AuditAction.STUDY_PLAN_DELETED;
+                case RESTORE -> AuditAction.STUDY_PLAN_RESTORED;
+                case CREATE_VERSION -> AuditAction.STUDY_PLAN_VERSION_CREATED;
+              };
+          default -> throw new IllegalArgumentException("Unsupported audit resource");
+        };
+    auditRecorder.recordCurrentActor(
+        institution,
+        null,
+        auditAction,
+        type == AcademicLifecycleResource.COURSE
+            ? AuditEntityType.COURSE
+            : AuditEntityType.STUDY_PLAN,
+        id,
+        AuditOrigin.administration(),
+        details);
   }
 
   private static @Nullable String normalizeReason(

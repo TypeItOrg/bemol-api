@@ -1,5 +1,9 @@
 package ar.edu.utn.frvm.typeit.boero_api.institutional.services;
 
+import ar.edu.utn.frvm.typeit.boero_api.audit.enums.AuditAction;
+import ar.edu.utn.frvm.typeit.boero_api.audit.enums.AuditEntityType;
+import ar.edu.utn.frvm.typeit.boero_api.audit.enums.AuditOrigin;
+import ar.edu.utn.frvm.typeit.boero_api.audit.services.AuditEventRecorder;
 import ar.edu.utn.frvm.typeit.boero_api.auth.services.SessionRevocationService;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.exceptions.CityNotFoundException;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.exceptions.InstitutionNotFoundException;
@@ -21,6 +25,7 @@ public class UpdateInstitutionUseCase {
   private final CityRepository cityRepository;
   private final InstitutionRepository institutionRepository;
   private final SessionRevocationService sessionRevocationService;
+  private final AuditEventRecorder auditEventRecorder;
 
   @Transactional
   public InstitutionDetailResponse execute(UUID id, UpdateInstitutionRequest request) {
@@ -36,6 +41,8 @@ public class UpdateInstitutionUseCase {
     var city = cityRepository.findById(request.cityId()).orElseThrow(CityNotFoundException::new);
 
     boolean deactivating = institution.isActive() && !request.active();
+
+    final var before = InstitutionAuditDetails.snapshot(institution);
 
     institution.rename(request.name());
     institution.changeSlug(request.slug());
@@ -53,6 +60,18 @@ public class UpdateInstitutionUseCase {
 
     if (deactivating) {
       sessionRevocationService.revokeInstitutionalSessionsForInstitution(id);
+    }
+
+    final var after = InstitutionAuditDetails.snapshot(institution);
+    if (!before.equals(after)) {
+      auditEventRecorder.recordCurrentActor(
+          institution,
+          null,
+          AuditAction.INSTITUTION_UPDATED,
+          AuditEntityType.INSTITUTION,
+          id,
+          AuditOrigin.administration(),
+          InstitutionAuditDetails.changed(before, after));
     }
 
     return InstitutionDetailResponse.from(institution);

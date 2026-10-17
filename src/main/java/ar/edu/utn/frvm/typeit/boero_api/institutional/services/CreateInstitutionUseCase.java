@@ -1,5 +1,9 @@
 package ar.edu.utn.frvm.typeit.boero_api.institutional.services;
 
+import ar.edu.utn.frvm.typeit.boero_api.audit.enums.AuditAction;
+import ar.edu.utn.frvm.typeit.boero_api.audit.enums.AuditEntityType;
+import ar.edu.utn.frvm.typeit.boero_api.audit.enums.AuditOrigin;
+import ar.edu.utn.frvm.typeit.boero_api.audit.services.AuditEventRecorder;
 import ar.edu.utn.frvm.typeit.boero_api.authorization.services.InstitutionRoleProvisioner;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.entities.Institution;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.exceptions.CityNotFoundException;
@@ -22,6 +26,7 @@ public class CreateInstitutionUseCase {
   private final CityRepository cityRepository;
   private final InstitutionRepository institutionRepository;
   private final InstitutionRoleProvisioner institutionRoleProvisioner;
+  private final AuditEventRecorder auditEventRecorder;
 
   @Transactional
   public InstitutionDetailResponse execute(CreateInstitutionRequest request) {
@@ -59,6 +64,15 @@ public class CreateInstitutionUseCase {
             .findWithLocationById(saved.getId())
             .map(InstitutionDetailResponse::from)
             .orElseThrow();
+
+    auditEventRecorder.recordCurrentActor(
+        saved,
+        null,
+        AuditAction.INSTITUTION_CREATED,
+        AuditEntityType.INSTITUTION,
+        saved.getId(),
+        AuditOrigin.administration(),
+        InstitutionAuditDetails.created(saved));
 
     log.info("[Institution] Created successfully, institutionId: {}", saved.getId());
     return response;

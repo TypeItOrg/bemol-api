@@ -7,6 +7,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+import ar.edu.utn.frvm.typeit.boero_api.audit.services.AuditEventRecorder;
 import ar.edu.utn.frvm.typeit.boero_api.auth.services.SessionRevocationService;
 import ar.edu.utn.frvm.typeit.boero_api.authorization.entities.PersonRoleAssignment;
 import ar.edu.utn.frvm.typeit.boero_api.authorization.entities.Role;
@@ -39,6 +40,8 @@ class RevokePersonRoleUseCaseTest {
   @Mock private RoleRepository roleRepository;
   @Mock private PersonRoleAssignmentRepository personRoleAssignmentRepository;
   @Mock private AuthorizationCacheInvalidator authorizationCacheInvalidator;
+
+  @Mock private AuditEventRecorder auditEventRecorder;
 
   @InjectMocks private RevokePersonRoleUseCase revokePersonRoleUseCase;
 

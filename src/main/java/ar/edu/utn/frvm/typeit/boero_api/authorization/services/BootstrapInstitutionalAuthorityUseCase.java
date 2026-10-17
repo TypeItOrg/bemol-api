@@ -1,10 +1,15 @@
 package ar.edu.utn.frvm.typeit.boero_api.authorization.services;
 
+import ar.edu.utn.frvm.typeit.boero_api.audit.enums.AuditAction;
+import ar.edu.utn.frvm.typeit.boero_api.audit.enums.AuditEntityType;
+import ar.edu.utn.frvm.typeit.boero_api.audit.enums.AuditOrigin;
+import ar.edu.utn.frvm.typeit.boero_api.audit.services.AuditEventRecorder;
 import ar.edu.utn.frvm.typeit.boero_api.authorization.entities.Role;
 import ar.edu.utn.frvm.typeit.boero_api.authorization.enums.SystemRoleCode;
 import ar.edu.utn.frvm.typeit.boero_api.authorization.interfaces.PersonRoleAssignmentRepository;
 import ar.edu.utn.frvm.typeit.boero_api.authorization.payloads.PersonRoleResponse;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.entities.Person;
+import java.util.Map;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -19,6 +24,8 @@ public class BootstrapInstitutionalAuthorityUseCase {
   private final PersonRoleAssignmentRepository personRoleAssignmentRepository;
   private final AssignPersonSystemRoleUseCase assignPersonSystemRoleUseCase;
 
+  private final AuditEventRecorder auditEventRecorder;
+
   @Transactional
   public PersonRoleResponse execute(UUID institutionId, UUID personId) {
     Person person = institutionPersonResolver.requirePersonInInstitution(institutionId, personId);
@@ -26,7 +33,25 @@ public class BootstrapInstitutionalAuthorityUseCase {
         institutionalSystemRoleResolver.requireInstitutionalSystemRole(
             institutionId, SystemRoleCode.INSTITUTIONAL_AUTHORITY);
 
+    final var before =
+        RoleAuditDetails.assignments(
+            personRoleAssignmentRepository.findByPerson_IdAndInstitution_Id(
+                personId, institutionId));
     assignPersonSystemRoleUseCase.execute(person, SystemRoleCode.INSTITUTIONAL_AUTHORITY);
+    final var after =
+        RoleAuditDetails.assignments(
+            personRoleAssignmentRepository.findByPerson_IdAndInstitution_Id(
+                personId, institutionId));
+    if (!before.equals(after)) {
+      auditEventRecorder.recordCurrentActor(
+          person.getInstitution(),
+          personId,
+          AuditAction.PERSON_ROLES_CHANGED,
+          AuditEntityType.PERSON,
+          personId,
+          AuditOrigin.PLATFORM_ADMINISTRATION,
+          Map.of("before", before, "after", after));
+    }
 
     return personRoleAssignmentRepository
         .findByPerson_IdAndRole_IdAndInstitution_Id(person.getId(), role.getId(), institutionId)

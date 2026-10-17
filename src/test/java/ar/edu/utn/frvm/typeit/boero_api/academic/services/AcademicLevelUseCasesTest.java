@@ -13,6 +13,7 @@ import ar.edu.utn.frvm.typeit.boero_api.academic.exceptions.AcademicConflictExce
 import ar.edu.utn.frvm.typeit.boero_api.academic.interfaces.AcademicLevelRepository;
 import ar.edu.utn.frvm.typeit.boero_api.academic.payloads.CreateAcademicLevelRequest;
 import ar.edu.utn.frvm.typeit.boero_api.academic.payloads.UpdateAcademicLevelRequest;
+import ar.edu.utn.frvm.typeit.boero_api.audit.services.AuditEventRecorder;
 import ar.edu.utn.frvm.typeit.boero_api.authorization.services.AcademicAccessGuard;
 import java.util.Optional;
 import java.util.UUID;
@@ -29,6 +30,7 @@ import org.mockito.quality.Strictness;
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)
 class AcademicLevelUseCasesTest {
+  @Mock private AuditEventRecorder auditRecorder;
   @org.mockito.Mock private AcademicAccessGuard accessGuard;
 
   private static final UUID INSTITUTION_ID =
@@ -45,6 +47,7 @@ class AcademicLevelUseCasesTest {
   @DisplayName("Should derive the level name from the display order on creation")
   void createsLevelWithDerivedName() {
     final var plan = mock(StudyPlan.class);
+    given(plan.getName()).willReturn("Plan");
     given(plan.getId()).willReturn(PLAN_ID);
     given(studyPlanDraftGuard.lock(INSTITUTION_ID, PLAN_ID)).willReturn(plan);
     given(academicLevelRepository.existsByStudyPlan_IdAndDisplayOrder(PLAN_ID, 2))
@@ -65,6 +68,7 @@ class AcademicLevelUseCasesTest {
   @DisplayName("Should reject a duplicated display order on creation")
   void rejectsDuplicatedOrderOnCreation() {
     final var plan = mock(StudyPlan.class);
+    given(plan.getName()).willReturn("Plan");
     given(studyPlanDraftGuard.lock(INSTITUTION_ID, PLAN_ID)).willReturn(plan);
     given(academicLevelRepository.existsByStudyPlan_IdAndDisplayOrder(PLAN_ID, 1)).willReturn(true);
 
@@ -79,6 +83,7 @@ class AcademicLevelUseCasesTest {
   @DisplayName("Should rename the level when its display order changes")
   void renamesLevelOnOrderChange() {
     final var plan = mock(StudyPlan.class);
+    given(plan.getName()).willReturn("Plan");
     given(plan.getId()).willReturn(PLAN_ID);
     final var level = AcademicLevel.create(plan, "Nivel 1", 1, null);
     given(academicLevelRepository.findByIdAndStudyPlan_Institution_Id(LEVEL_ID, INSTITUTION_ID))
@@ -97,6 +102,7 @@ class AcademicLevelUseCasesTest {
   @DisplayName("Should reject a duplicated display order on update")
   void rejectsDuplicatedOrderOnUpdate() {
     final var plan = mock(StudyPlan.class);
+    given(plan.getName()).willReturn("Plan");
     given(plan.getId()).willReturn(PLAN_ID);
     final var level = AcademicLevel.create(plan, "Nivel 1", 1, null);
     given(academicLevelRepository.findByIdAndStudyPlan_Institution_Id(LEVEL_ID, INSTITUTION_ID))

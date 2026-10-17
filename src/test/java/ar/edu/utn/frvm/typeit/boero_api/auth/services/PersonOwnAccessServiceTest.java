@@ -8,26 +8,33 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
+import ar.edu.utn.frvm.typeit.boero_api.audit.services.AuditEventRecorder;
 import ar.edu.utn.frvm.typeit.boero_api.auth.entities.PersonAccessInvitation;
 import ar.edu.utn.frvm.typeit.boero_api.auth.entities.User;
 import ar.edu.utn.frvm.typeit.boero_api.auth.enums.EmailVerificationStatus;
 import ar.edu.utn.frvm.typeit.boero_api.auth.interfaces.PersonAccessInvitationRepository;
 import ar.edu.utn.frvm.typeit.boero_api.auth.interfaces.UserRepository;
 import ar.edu.utn.frvm.typeit.boero_api.authorization.interfaces.PersonRoleAssignmentRepository;
+import ar.edu.utn.frvm.typeit.boero_api.authorization.services.CachedAuthoritySnapshotResolver;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.entities.GuardianLinkStatus;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.entities.Institution;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.entities.Person;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.entities.PersonGuardian;
+import ar.edu.utn.frvm.typeit.boero_api.institutional.interfaces.InstitutionRepository;
+import ar.edu.utn.frvm.typeit.boero_api.institutional.interfaces.PersonGuardianRepository;
+import ar.edu.utn.frvm.typeit.boero_api.institutional.interfaces.PersonRepository;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 
 @ExtendWith(MockitoExtension.class)
 class PersonOwnAccessServiceTest {
@@ -38,7 +45,22 @@ class PersonOwnAccessServiceTest {
   @Mock private PersonRoleAssignmentRepository roles;
   @Mock private PersonAccessInvitationRepository invitations;
   @Mock private Clock clock;
-  @InjectMocks private PersonOwnAccessService service;
+  @Mock private InstitutionRepository institutions;
+  @Mock private PersonRepository people;
+  @Mock private CachedAuthoritySnapshotResolver authorities;
+  @Mock private ApplicationEventPublisher events;
+  @Mock private PersonGuardianRepository links;
+  @Mock private SessionRevocationService sessions;
+  @Mock private AuditEventRecorder audit;
+  @InjectMocks private PersonOwnAccessProvisioning provisioning;
+  private PersonOwnAccessService service;
+
+  @BeforeEach
+  void setUp() {
+    service =
+        new PersonOwnAccessService(
+            institutions, people, links, users, invitations, sessions, clock, audit, provisioning);
+  }
 
   @Test
   void emptyBatchDoesNotQueryRepositories() {

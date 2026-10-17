@@ -9,6 +9,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import ar.edu.utn.frvm.typeit.boero_api.audit.services.AuditEventRecorder;
 import ar.edu.utn.frvm.typeit.boero_api.auth.entities.User;
 import ar.edu.utn.frvm.typeit.boero_api.auth.interfaces.UserRepository;
 import ar.edu.utn.frvm.typeit.boero_api.authorization.enums.SystemRoleCode;
@@ -47,6 +48,8 @@ class CreatePersonUseCaseTest {
   @Mock private AssignPersonSystemRoleUseCase assignPersonSystemRoleUseCase;
 
   @Spy private final Validator validator = Validation.buildDefaultValidatorFactory().getValidator();
+
+  @Mock private AuditEventRecorder auditEventRecorder;
 
   @InjectMocks private CreatePersonUseCase createPersonUseCase;
 

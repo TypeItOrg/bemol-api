@@ -6,6 +6,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import ar.edu.utn.frvm.typeit.boero_api.audit.services.AuditEventRecorder;
 import ar.edu.utn.frvm.typeit.boero_api.auth.services.SessionRevocationService;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.entities.Institution;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.exceptions.InstitutionNotFoundException;
@@ -22,6 +23,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @ExtendWith(MockitoExtension.class)
 class UpdateInstitutionStatusUseCaseTest {
 
+  @Mock private AuditEventRecorder auditEventRecorder;
   @Mock private InstitutionRepository institutionRepository;
   @Mock private SessionRevocationService sessionRevocationService;
   @InjectMocks private UpdateInstitutionStatusUseCase useCase;
@@ -30,7 +32,8 @@ class UpdateInstitutionStatusUseCaseTest {
   @DisplayName("Should revoke all institutional sessions when deactivating an institution")
   void execute_revokesSessionsWhenDeactivating() {
     final UUID institutionId = UUID.randomUUID();
-    final Institution institution = Institution.builder().id(institutionId).active(true).build();
+    final Institution institution =
+        Institution.builder().id(institutionId).name("Institución de prueba").active(true).build();
     when(institutionRepository.findById(institutionId)).thenReturn(Optional.of(institution));
 
     useCase.execute(institutionId, false);
@@ -45,7 +48,8 @@ class UpdateInstitutionStatusUseCaseTest {
   @DisplayName("Should not revoke sessions when activating an institution")
   void execute_doesNotRevokeSessionsWhenActivating() {
     final UUID institutionId = UUID.randomUUID();
-    final Institution institution = Institution.builder().id(institutionId).active(false).build();
+    final Institution institution =
+        Institution.builder().id(institutionId).name("Institución de prueba").active(false).build();
     when(institutionRepository.findById(institutionId)).thenReturn(Optional.of(institution));
 
     useCase.execute(institutionId, true);

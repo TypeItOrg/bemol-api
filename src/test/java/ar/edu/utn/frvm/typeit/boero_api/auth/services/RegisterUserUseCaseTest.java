@@ -9,6 +9,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+import ar.edu.utn.frvm.typeit.boero_api.audit.services.AuditEventRecorder;
 import ar.edu.utn.frvm.typeit.boero_api.auth.entities.User;
 import ar.edu.utn.frvm.typeit.boero_api.auth.exceptions.UserAlreadyExistsException;
 import ar.edu.utn.frvm.typeit.boero_api.auth.interfaces.UserRepository;
@@ -64,7 +65,8 @@ class RegisterUserUseCaseTest {
             personRepository,
             passwordEncoder,
             validator,
-            assignPersonSystemRoleUseCase);
+            assignPersonSystemRoleUseCase,
+            org.mockito.Mockito.mock(AuditEventRecorder.class));
   }
 
   @Test

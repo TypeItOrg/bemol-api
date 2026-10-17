@@ -9,8 +9,10 @@ import ar.edu.utn.frvm.typeit.boero_api.academic.entities.AcademicYear;
 import ar.edu.utn.frvm.typeit.boero_api.academic.enums.AcademicYearStatus;
 import ar.edu.utn.frvm.typeit.boero_api.academic.exceptions.AcademicConflictException;
 import ar.edu.utn.frvm.typeit.boero_api.academic.interfaces.AcademicYearRepository;
+import ar.edu.utn.frvm.typeit.boero_api.academic.interfaces.CourseClassTeacherRepository;
 import ar.edu.utn.frvm.typeit.boero_api.academic.interfaces.CourseRepository;
 import ar.edu.utn.frvm.typeit.boero_api.academic.payloads.UpdateAcademicYearRequest;
+import ar.edu.utn.frvm.typeit.boero_api.audit.services.AuditEventRecorder;
 import ar.edu.utn.frvm.typeit.boero_api.common.time.BusinessDateProvider;
 import ar.edu.utn.frvm.typeit.boero_api.enrollment.services.CourseClosureService;
 import ar.edu.utn.frvm.typeit.boero_api.enrollment.services.EnrollmentInstitutionLock;
@@ -29,6 +31,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
 class UpdateAcademicYearUseCaseTest {
+  @Mock private AuditEventRecorder auditRecorder;
+  @Mock private CourseClassTeacherRepository courseClassTeacherRepository;
 
   @Mock private AcademicYearRepository academicYearRepository;
   @Mock private CourseRepository courseRepository;
@@ -40,7 +44,12 @@ class UpdateAcademicYearUseCaseTest {
   void setUp() {
     final var statusChanges =
         new UpdateAcademicYearStatusUseCase(
-            academicYearRepository, courseRepository, courseClosureService, institutionLock);
+            academicYearRepository,
+            courseRepository,
+            courseClosureService,
+            institutionLock,
+            auditRecorder,
+            courseClassTeacherRepository);
     service =
         new UpdateAcademicYearUseCase(
             academicYearRepository,

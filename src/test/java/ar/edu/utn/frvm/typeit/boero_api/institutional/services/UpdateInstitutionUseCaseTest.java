@@ -7,6 +7,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import ar.edu.utn.frvm.typeit.boero_api.audit.services.AuditEventRecorder;
 import ar.edu.utn.frvm.typeit.boero_api.auth.services.SessionRevocationService;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.entities.City;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.entities.Country;
@@ -30,6 +31,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @ExtendWith(MockitoExtension.class)
 class UpdateInstitutionUseCaseTest {
 
+  @Mock private AuditEventRecorder auditEventRecorder;
   @Mock private CityRepository cityRepository;
   @Mock private InstitutionRepository institutionRepository;
   @Mock private SessionRevocationService sessionRevocationService;

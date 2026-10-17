@@ -43,6 +43,8 @@ public class ReplacePersonRolesUseCase {
   private final SessionRevocationService sessionRevocationService;
   private final AuthorizationCacheInvalidator authorizationCacheInvalidator;
 
+  private final RoleAuditRecorder audit;
+
   @Transactional
   public List<PersonRoleResponse> execute(
       UUID institutionId,
@@ -120,6 +122,7 @@ public class ReplacePersonRolesUseCase {
         allowAuthority,
         allowAuthority ? actorPermissions : scopeValidator.freshPermissions());
 
+    final var before = RoleAuditDetails.assignments(current);
     replaceAssignments(person, current, desiredRoles, requested, currentIds);
 
     if (scopeChanged || !additions.isEmpty() || !removals.isEmpty()) {
@@ -127,9 +130,12 @@ public class ReplacePersonRolesUseCase {
       authorizationCacheInvalidator.evictPerson(personId, institutionId);
     }
 
-    return assignmentRepository.findByPerson_IdAndInstitution_Id(personId, institutionId).stream()
-        .map(responseFactory::from)
-        .toList();
+    final var finalAssignments =
+        assignmentRepository.findByPerson_IdAndInstitution_Id(personId, institutionId);
+    final var after = RoleAuditDetails.assignments(finalAssignments);
+    audit.assignments(person, before, after);
+
+    return finalAssignments.stream().map(responseFactory::from).toList();
   }
 
   private Map<UUID, AssignRoleRequest> requestedAssignments(

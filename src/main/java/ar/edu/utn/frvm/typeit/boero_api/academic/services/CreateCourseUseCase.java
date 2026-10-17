@@ -21,11 +21,16 @@ import ar.edu.utn.frvm.typeit.boero_api.academic.interfaces.StudyPlanRepository;
 import ar.edu.utn.frvm.typeit.boero_api.academic.interfaces.StudyPlanSpaceRepository;
 import ar.edu.utn.frvm.typeit.boero_api.academic.payloads.CourseResponse;
 import ar.edu.utn.frvm.typeit.boero_api.academic.payloads.CreateCourseRequest;
+import ar.edu.utn.frvm.typeit.boero_api.audit.enums.AuditAction;
+import ar.edu.utn.frvm.typeit.boero_api.audit.enums.AuditEntityType;
+import ar.edu.utn.frvm.typeit.boero_api.audit.enums.AuditOrigin;
+import ar.edu.utn.frvm.typeit.boero_api.audit.services.AuditEventRecorder;
 import ar.edu.utn.frvm.typeit.boero_api.authorization.enums.PermissionCode;
 import ar.edu.utn.frvm.typeit.boero_api.authorization.enums.ScopedResource;
 import ar.edu.utn.frvm.typeit.boero_api.authorization.services.AcademicAccessGuard;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.exceptions.InstitutionNotFoundException;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.interfaces.InstitutionRepository;
+import java.util.Map;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.jspecify.annotations.Nullable;
@@ -36,6 +41,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @RequiredArgsConstructor
 public class CreateCourseUseCase {
+  private final AuditEventRecorder auditRecorder;
   private final AcademicAccessGuard accessGuard;
   private final InstitutionRepository institutionRepository;
   private final StudyPlanRepository studyPlanRepository;
@@ -80,7 +86,22 @@ public class CreateCourseUseCase {
       courseRepository.save(course);
       courseClassAssembler.assemble(institution, course, space.getFormat(), request.classes());
       courseRepository.flush();
-      return CourseResponse.from(course, courseTreeReader.read(course.getId()));
+      final var classes = courseTreeReader.read(course.getId());
+      auditRecorder.recordCurrentActor(
+          institution,
+          null,
+          AuditAction.COURSE_CREATED,
+          AuditEntityType.COURSE,
+          course.getId(),
+          AuditOrigin.administration(),
+          Map.of(
+              "entityName",
+              AcademicAuditDetails.courseName(course),
+              "after",
+              AcademicAuditDetails.course(course, classes),
+              "relatedPersonIds",
+              AcademicAuditDetails.teacherIds(classes)));
+      return CourseResponse.from(course, classes);
     } catch (DataIntegrityViolationException exception) {
       throw AcademicIntegrityViolationTranslator.translate(exception);
     }

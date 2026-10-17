@@ -27,6 +27,7 @@ import ar.edu.utn.frvm.typeit.boero_api.academic.exceptions.AcademicConflictExce
 import ar.edu.utn.frvm.typeit.boero_api.academic.interfaces.AcademicLifecycleEventRepository;
 import ar.edu.utn.frvm.typeit.boero_api.academic.interfaces.AcademicSpaceRepository;
 import ar.edu.utn.frvm.typeit.boero_api.academic.interfaces.AcademicYearRepository;
+import ar.edu.utn.frvm.typeit.boero_api.academic.interfaces.CourseClassTeacherRepository;
 import ar.edu.utn.frvm.typeit.boero_api.academic.interfaces.CourseRepository;
 import ar.edu.utn.frvm.typeit.boero_api.academic.interfaces.InstrumentRepository;
 import ar.edu.utn.frvm.typeit.boero_api.academic.interfaces.ShiftRepository;
@@ -34,6 +35,7 @@ import ar.edu.utn.frvm.typeit.boero_api.academic.interfaces.StudyPlanRepository;
 import ar.edu.utn.frvm.typeit.boero_api.academic.interfaces.TrainingPathRepository;
 import ar.edu.utn.frvm.typeit.boero_api.academic.payloads.AcademicLifecycleRequest;
 import ar.edu.utn.frvm.typeit.boero_api.academic.payloads.AcademicYearStatusRequest;
+import ar.edu.utn.frvm.typeit.boero_api.audit.services.AuditEventRecorder;
 import ar.edu.utn.frvm.typeit.boero_api.authorization.enums.AccountType;
 import ar.edu.utn.frvm.typeit.boero_api.authorization.services.AcademicAccessGuard;
 import ar.edu.utn.frvm.typeit.boero_api.enrollment.interfaces.CourseEnrollmentRepository;
@@ -58,6 +60,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
 class AcademicLifecycleServiceTest {
+  @Mock private AuditEventRecorder auditRecorder;
+  @Mock private CourseTreeReader courseTreeReader;
   @org.mockito.Mock private AcademicAccessGuard accessGuard;
   @Spy private Clock clock = Clock.systemUTC();
 
@@ -75,7 +79,8 @@ class AcademicLifecycleServiceTest {
 
   @BeforeEach
   void setUp() {
-    final var journal = new AcademicLifecycleJournal(clock, eventRepository, actorResolver);
+    final var journal =
+        new AcademicLifecycleJournal(auditRecorder, clock, eventRepository, actorResolver);
     service =
         new AcademicLifecycleService(
             new AcademicCatalogLifecycleUseCase(
@@ -93,7 +98,8 @@ class AcademicLifecycleServiceTest {
                 studyPlanRepository,
                 courseRepository,
                 courseEnrollmentRepository,
-                journal),
+                journal,
+                courseTreeReader),
             journal);
   }
 
@@ -285,7 +291,9 @@ class AcademicLifecycleServiceTest {
             academicYearRepository,
             courseRepository,
             Mockito.mock(CourseClosureService.class),
-            Mockito.mock(EnrollmentInstitutionLock.class))
+            Mockito.mock(EnrollmentInstitutionLock.class),
+            auditRecorder,
+            Mockito.mock(CourseClassTeacherRepository.class))
         .execute(
             institutionId,
             academicYearId,
