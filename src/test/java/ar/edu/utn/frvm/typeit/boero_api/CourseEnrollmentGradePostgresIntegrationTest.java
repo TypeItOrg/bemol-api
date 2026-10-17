@@ -20,6 +20,9 @@ import ar.edu.utn.frvm.typeit.boero_api.enrollment.entities.CourseEnrollmentGrad
 import ar.edu.utn.frvm.typeit.boero_api.enrollment.enums.CourseEnrollmentGradePublicationStatus;
 import ar.edu.utn.frvm.typeit.boero_api.enrollment.enums.CourseEnrollmentSource;
 import ar.edu.utn.frvm.typeit.boero_api.enrollment.exceptions.EnrollmentValidationException;
+import ar.edu.utn.frvm.typeit.boero_api.enrollment.exceptions.GradeMessages;
+import ar.edu.utn.frvm.typeit.boero_api.enrollment.payloads.CourseEnrollmentGradeHistoryResponse;
+import ar.edu.utn.frvm.typeit.boero_api.enrollment.payloads.CourseEnrollmentGradeResponse;
 import ar.edu.utn.frvm.typeit.boero_api.enrollment.services.CourseEnrollmentGradeService;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.entities.Institution;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.entities.Person;
@@ -35,6 +38,8 @@ import java.util.function.Supplier;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
@@ -398,6 +403,175 @@ class CourseEnrollmentGradePostgresIntegrationTest extends DatabaseMigrationTest
         });
 
     assertThat(tx(() -> grades.pendingClasses(f.institutionId()))).isEmpty();
+  }
+
+  @Test
+  void noOpEditOfPublishedKeepsVersionAndHistory() {
+    final var f = fixture();
+
+    final var gradeId =
+        tx(
+            () -> {
+              final var created =
+                  grades.create(
+                      f.institutionId(),
+                      f.enrollmentA(),
+                      "Parcial 1",
+                      new BigDecimal("7"),
+                      f.teacher());
+              grades.publishClass(f.institutionId(), f.classId(), f.teacher());
+              return created.id();
+            });
+
+    final var before = gradeOf(f, gradeId);
+
+    tx(
+        () -> {
+          grades.update(
+              f.institutionId(),
+              f.enrollmentA(),
+              gradeId,
+              "  Parcial 1 ",
+              new BigDecimal("7.00"),
+              before.version(),
+              f.teacher());
+          return null;
+        });
+
+    final var after = gradeOf(f, gradeId);
+    assertThat(after.publicationStatus())
+        .isEqualTo(CourseEnrollmentGradePublicationStatus.PUBLISHED);
+    assertThat(after.evaluation()).isEqualTo("Parcial 1");
+    assertThat(after.value()).isEqualByComparingTo("7");
+    assertThat(after.version()).isEqualTo(before.version());
+    assertThat(after.updatedAt()).isEqualTo(before.updatedAt());
+    assertThat(after.publishedAt()).isEqualTo(before.publishedAt());
+
+    assertThat(historyOf(f, gradeId).getTotalElements()).isEqualTo(2);
+  }
+
+  @Test
+  void restoringBothFieldsToPublishedRemovesPendingChanges() {
+    final var f = fixture();
+
+    final var gradeId =
+        tx(
+            () -> {
+              final var created =
+                  grades.create(
+                      f.institutionId(),
+                      f.enrollmentA(),
+                      "Parcial 1",
+                      new BigDecimal("7"),
+                      f.teacher());
+              grades.publishClass(f.institutionId(), f.classId(), f.teacher());
+              return created.id();
+            });
+
+    tx(
+        () -> {
+          final var current = gradeOf(f, gradeId);
+          grades.update(
+              f.institutionId(),
+              f.enrollmentA(),
+              gradeId,
+              "Parcial 2",
+              new BigDecimal("9"),
+              current.version(),
+              f.teacher());
+          return null;
+        });
+
+    assertThat(gradeOf(f, gradeId).publicationStatus())
+        .isEqualTo(CourseEnrollmentGradePublicationStatus.PENDING_CHANGES);
+
+    tx(
+        () -> {
+          final var current = gradeOf(f, gradeId);
+          grades.update(
+              f.institutionId(),
+              f.enrollmentA(),
+              gradeId,
+              "Parcial 1",
+              new BigDecimal("7.00"),
+              current.version(),
+              f.teacher());
+          return null;
+        });
+
+    final var restored = gradeOf(f, gradeId);
+    assertThat(restored.publicationStatus())
+        .isEqualTo(CourseEnrollmentGradePublicationStatus.PUBLISHED);
+    assertThat(restored.value()).isEqualByComparingTo("7");
+
+    assertThat(tx(() -> grades.listPublished(f.institutionId(), f.enrollmentA()))).hasSize(1);
+    assertThat(historyOf(f, gradeId).getTotalElements()).isEqualTo(4);
+  }
+
+  @Test
+  void noOpEditOnPendingDeletionIsStillRejected() {
+    final var f = fixture();
+
+    final var gradeId =
+        tx(
+            () -> {
+              final var created =
+                  grades.create(
+                      f.institutionId(),
+                      f.enrollmentA(),
+                      "Parcial 1",
+                      new BigDecimal("7"),
+                      f.teacher());
+              grades.publishClass(f.institutionId(), f.classId(), f.teacher());
+              return created.id();
+            });
+
+    tx(
+        () -> {
+          final var current = gradeOf(f, gradeId);
+          grades.delete(
+              f.institutionId(), f.enrollmentA(), gradeId, current.version(), f.teacher());
+          return null;
+        });
+
+    final var pending = gradeOf(f, gradeId);
+    assertThat(pending.publicationStatus())
+        .isEqualTo(CourseEnrollmentGradePublicationStatus.PENDING_DELETION);
+
+    assertThatThrownBy(
+            () ->
+                tx(
+                    () -> {
+                      grades.update(
+                          f.institutionId(),
+                          f.enrollmentA(),
+                          gradeId,
+                          "Parcial 1",
+                          new BigDecimal("7"),
+                          pending.version(),
+                          f.teacher());
+                      return null;
+                    }))
+        .isInstanceOf(EnrollmentValidationException.class)
+        .hasMessage(GradeMessages.GRADE_PENDING_DELETION_IMMUTABLE);
+
+    assertThat(gradeOf(f, gradeId).publicationStatus())
+        .isEqualTo(CourseEnrollmentGradePublicationStatus.PENDING_DELETION);
+  }
+
+  private CourseEnrollmentGradeResponse gradeOf(final Fixture f, final UUID gradeId) {
+    return tx(
+        () ->
+            grades.listForManagement(f.institutionId(), f.enrollmentA()).stream()
+                .filter(grade -> grade.id().equals(gradeId))
+                .findFirst()
+                .orElseThrow());
+  }
+
+  private Page<CourseEnrollmentGradeHistoryResponse> historyOf(
+      final Fixture f, final UUID gradeId) {
+    return tx(
+        () -> grades.history(f.institutionId(), f.enrollmentA(), gradeId, PageRequest.of(0, 50)));
   }
 
   private Fixture fixture() {
