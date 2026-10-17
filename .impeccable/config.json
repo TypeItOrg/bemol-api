@@ -1,0 +1,26 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "broken-image",
+        "value": "*",
+        "files": [
+          "src/main/resources/templates/mail/person-access-invitation.html"
+        ],
+        "createdAt": "2026-10-16T19:11:38.981Z",
+        "reason": "Agent verified: Thymeleaf th:src resolves logoUrl through FrontendAccessUrls.boeroLogoUrl; isolated render assertion passed with the actual logo URL."
+      },
+      {
+        "rule": "overused-font",
+        "value": "arial",
+        "files": [
+          "src/main/resources/templates/mail/person-access-invitation.html"
+        ],
+        "createdAt": "2026-10-16T19:12:24.872Z",
+        "reason": "User requested the existing UI/mail standard; both institutional-email-verification.html and institutional-password-recovery.html use Arial, Helvetica, sans-serif. Preserve email consistency and compatibility."
+      }
+    ]
+  }
+}
