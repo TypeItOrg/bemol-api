@@ -4,6 +4,7 @@ import ar.edu.utn.frvm.typeit.boero_api.audit.entities.AuditEvent;
 import ar.edu.utn.frvm.typeit.boero_api.audit.enums.AuditAction;
 import ar.edu.utn.frvm.typeit.boero_api.audit.enums.AuditActorKind;
 import ar.edu.utn.frvm.typeit.boero_api.audit.enums.AuditEntityType;
+import ar.edu.utn.frvm.typeit.boero_api.audit.enums.AuditModule;
 import ar.edu.utn.frvm.typeit.boero_api.audit.enums.AuditScope;
 import ar.edu.utn.frvm.typeit.boero_api.audit.payloads.GlobalAuditEventFilter;
 import ar.edu.utn.frvm.typeit.boero_api.auth.entities.PlatformAccount;
@@ -33,6 +34,12 @@ final class GlobalAuditEventSpecification {
   static Specification<AuditEvent> from(final GlobalAuditEventFilter filter) {
     return (root, query, cb) -> {
       final List<Predicate> predicates = new ArrayList<>();
+      if (filter.module() != AuditModule.EMAILS) {
+        predicates.add(cb.notEqual(root.get("entityType"), AuditEntityType.EMAIL));
+      }
+      if (filter.mailType() != null) {
+        predicates.add(cb.equal(detailText(root, cb, "mailType"), filter.mailType().getLabel()));
+      }
       if (filter.scope() == AuditScope.PLATFORM) {
         predicates.add(cb.isNull(root.get("institution")));
       } else if (filter.scope() == AuditScope.INSTITUTION) {
@@ -185,33 +192,23 @@ final class GlobalAuditEventSpecification {
         cb.exists(accountQuery),
         cb.exists(roleQuery),
         containsWord(cb, institutionName, word),
-        containsWord(
-            cb,
-            cb.function(
-                "jsonb_extract_path_text",
-                String.class,
-                event.get("details"),
-                cb.literal("entityName")),
-            word),
+        containsWord(cb, detailText(event, cb, "entityName"), word),
         containsWord(cb, assignmentNames, word),
-        containsWord(
-            cb,
-            cb.function(
-                "jsonb_extract_path_text",
-                String.class,
-                event.get("details"),
-                cb.literal("before"),
-                cb.literal("name")),
-            word),
-        containsWord(
-            cb,
-            cb.function(
-                "jsonb_extract_path_text",
-                String.class,
-                event.get("details"),
-                cb.literal("after"),
-                cb.literal("name")),
-            word));
+        containsWord(cb, detailText(event, cb, "recipient"), word),
+        containsWord(cb, detailText(event, cb, "mailType"), word),
+        containsWord(cb, detailText(event, cb, "before", "name"), word),
+        containsWord(cb, detailText(event, cb, "after", "name"), word));
+  }
+
+  private static Expression<String> detailText(
+      final Root<AuditEvent> event, final CriteriaBuilder cb, final String... path) {
+    final List<Expression<?>> arguments = new ArrayList<>();
+    arguments.add(event.get("details"));
+    for (final String key : path) {
+      arguments.add(cb.literal(key));
+    }
+    return cb.function(
+        "jsonb_extract_path_text", String.class, arguments.toArray(Expression<?>[]::new));
   }
 
   private static Predicate containsWord(

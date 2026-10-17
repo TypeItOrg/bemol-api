@@ -13,7 +13,8 @@ public enum AuditModule {
   INSTITUTIONS("Instituciones"),
   COURSES("Cursos"),
   STUDY_PLANS("Planes de estudio"),
-  DOCUMENTATION("Documentación");
+  DOCUMENTATION("Documentación"),
+  EMAILS("Correos");
 
   private final String label;
 }

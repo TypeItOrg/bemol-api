@@ -10,6 +10,7 @@ import ar.edu.utn.frvm.typeit.boero_api.auth.config.EmailVerificationProperties;
 import ar.edu.utn.frvm.typeit.boero_api.auth.config.FrontendPublicProperties;
 import ar.edu.utn.frvm.typeit.boero_api.auth.events.InstitutionalEmailVerificationRequested;
 import ar.edu.utn.frvm.typeit.boero_api.auth.listeners.InstitutionalEmailVerificationMailListener;
+import ar.edu.utn.frvm.typeit.boero_api.common.mail.MailAuditContext;
 import ar.edu.utn.frvm.typeit.boero_api.common.mail.MailMessage;
 import ar.edu.utn.frvm.typeit.boero_api.common.mail.MailProperties;
 import ar.edu.utn.frvm.typeit.boero_api.common.mail.MailSender;
@@ -62,7 +63,8 @@ class InstitutionalEmailVerificationMailServiceTest {
             "ana@example.com",
             "Conservatorio Superior de Música Felipe Boero",
             "Ana García",
-            "token-123");
+            "token-123",
+            MailAuditContext.capture(UUID.randomUUID(), UUID.randomUUID()));
 
     new InstitutionalEmailVerificationMailListener(mailService).on(event);
 
@@ -94,7 +96,8 @@ class InstitutionalEmailVerificationMailServiceTest {
             "ana@example.com",
             "Conservatorio",
             "Ana García",
-            "token-123");
+            "token-123",
+            MailAuditContext.capture(UUID.randomUUID(), UUID.randomUUID()));
 
     assertThatCode(() -> new InstitutionalEmailVerificationMailListener(mailService).on(event))
         .doesNotThrowAnyException();

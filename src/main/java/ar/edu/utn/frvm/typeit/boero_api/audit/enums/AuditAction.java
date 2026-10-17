@@ -63,7 +63,9 @@ public enum AuditAction {
   DOCUMENT_DEFINITION_CREATED(AuditModule.DOCUMENTATION, "Documento del catálogo creado"),
   DOCUMENT_DEFINITION_UPDATED(AuditModule.DOCUMENTATION, "Documento del catálogo actualizado"),
   DOCUMENT_DEFINITION_TRANSFERRED(AuditModule.DOCUMENTATION, "Documento del catálogo transferido"),
-  DOCUMENT_REQUIREMENTS_CHANGED(AuditModule.DOCUMENTATION, "Requisitos documentales modificados");
+  DOCUMENT_REQUIREMENTS_CHANGED(AuditModule.DOCUMENTATION, "Requisitos documentales modificados"),
+  EMAIL_SENT(AuditModule.EMAILS, "Correo enviado"),
+  EMAIL_FAILED(AuditModule.EMAILS, "Envío de correo fallido");
 
   private final AuditModule module;
   private final String label;

@@ -106,7 +106,11 @@ public class GlobalAuditEventsUseCase {
     final var words = GlobalAuditEventSpecification.searchWords(search);
     final var options =
         Arrays.stream(AuditAction.values())
-            .filter(value -> module == null || value.getModule() == module)
+            .filter(
+                value ->
+                    module == null
+                        ? value.getModule() != AuditModule.EMAILS
+                        : value.getModule() == module)
             .filter(value -> action == null || value == action)
             .filter(
                 value ->

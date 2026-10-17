@@ -1,6 +1,7 @@
 package ar.edu.utn.frvm.typeit.boero_api.auth.events;
 
 import ar.edu.utn.frvm.typeit.boero_api.auth.entities.User;
+import ar.edu.utn.frvm.typeit.boero_api.common.mail.MailAuditContext;
 import java.util.UUID;
 import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;
@@ -12,14 +13,16 @@ public record InstitutionalEmailVerificationRequested(
     String institutionName,
     String fullName,
     String token,
-    @Nullable String publicSubdomain) {
+    @Nullable String publicSubdomain,
+    MailAuditContext auditContext) {
   public InstitutionalEmailVerificationRequested(
       final UUID userId,
       final String recipientEmail,
       final String institutionName,
       final String fullName,
-      final String token) {
-    this(userId, recipientEmail, institutionName, fullName, token, null);
+      final String token,
+      final MailAuditContext auditContext) {
+    this(userId, recipientEmail, institutionName, fullName, token, null, auditContext);
   }
 
   public static InstitutionalEmailVerificationRequested from(final User user, final String token) {
@@ -29,6 +32,7 @@ public record InstitutionalEmailVerificationRequested(
         user.getInstitution().getName(),
         user.getName() + " " + user.getLastName(),
         token,
-        user.getInstitution().getPublicSubdomain());
+        user.getInstitution().getPublicSubdomain(),
+        MailAuditContext.capture(user.getInstitution().getId(), user.getPerson().getId()));
   }
 }

@@ -21,6 +21,7 @@ public interface AuditEventRepository
       """
       SELECT event FROM AuditEvent event
       WHERE event.institution.id = :institutionId
+        AND event.entityType <> ar.edu.utn.frvm.typeit.boero_api.audit.enums.AuditEntityType.EMAIL
         AND event.actorKind = ar.edu.utn.frvm.typeit.boero_api.audit.enums.AuditActorKind.INSTITUTION
         AND event.actorPersonId IS NOT NULL AND event.subjectPersonId IS NOT NULL
         AND (:subjectPersonId IS NULL OR event.subjectPersonId = :subjectPersonId)

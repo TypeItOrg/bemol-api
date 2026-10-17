@@ -20,6 +20,7 @@ public interface AuditEventOptionsQueries {
       LEFT JOIN people person ON person.person_id = event.actor_person_id
       LEFT JOIN platform_accounts account ON account.platform_account_id = event.actor_platform_account_id
       WHERE event.actor_kind <> 'ANONYMOUS'
+          AND event.entity_type <> 'EMAIL'
           AND (CAST(:actorKind AS varchar) IS NULL OR event.actor_kind = :actorKind)
           AND (CAST(:institutionId AS uuid) IS NULL OR event.institution_id = :institutionId)
       """;
@@ -46,6 +47,7 @@ public interface AuditEventOptionsQueries {
 
   String OPTION_SCOPE_FILTER =
       """
+          AND event.entity_type <> 'EMAIL'
           AND (CAST(:scope AS varchar) IS NULL
               OR (:scope = 'PLATFORM' AND event.institution_id IS NULL)
               OR (:scope = 'INSTITUTION' AND event.institution_id IS NOT NULL))

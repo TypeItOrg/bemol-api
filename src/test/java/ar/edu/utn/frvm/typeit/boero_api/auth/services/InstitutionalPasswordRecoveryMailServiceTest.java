@@ -10,6 +10,7 @@ import ar.edu.utn.frvm.typeit.boero_api.auth.config.FrontendPublicProperties;
 import ar.edu.utn.frvm.typeit.boero_api.auth.config.PasswordRecoveryProperties;
 import ar.edu.utn.frvm.typeit.boero_api.auth.events.InstitutionalPasswordRecoveryRequested;
 import ar.edu.utn.frvm.typeit.boero_api.auth.listeners.InstitutionalPasswordRecoveryMailListener;
+import ar.edu.utn.frvm.typeit.boero_api.common.mail.MailAuditContext;
 import ar.edu.utn.frvm.typeit.boero_api.common.mail.MailMessage;
 import ar.edu.utn.frvm.typeit.boero_api.common.mail.MailProperties;
 import ar.edu.utn.frvm.typeit.boero_api.common.mail.MailSender;
@@ -61,7 +62,8 @@ class InstitutionalPasswordRecoveryMailServiceTest {
             "ana@example.com",
             "Conservatorio Superior de Música Felipe Boero",
             "Ana García",
-            "token-123");
+            "token-123",
+            MailAuditContext.capture(UUID.randomUUID(), UUID.randomUUID()));
 
     new InstitutionalPasswordRecoveryMailListener(mailService).on(event);
 
@@ -93,7 +95,8 @@ class InstitutionalPasswordRecoveryMailServiceTest {
             "ana@example.com",
             "Conservatorio",
             "Ana García",
-            "token-123");
+            "token-123",
+            MailAuditContext.capture(UUID.randomUUID(), UUID.randomUUID()));
 
     assertThatCode(() -> new InstitutionalPasswordRecoveryMailListener(mailService).on(event))
         .doesNotThrowAnyException();

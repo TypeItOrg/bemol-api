@@ -584,7 +584,13 @@ class GlobalAuditPostgresIntegrationTest extends DatabaseMigrationTestSupport {
           .get("items")
           .forEach(item -> actionModules.add(AuditModule.valueOf(item.get("module").asString())));
     }
-    assertThat(actionModules).isSorted().contains(AuditModule.values());
+    assertThat(actionModules)
+        .isSorted()
+        .doesNotContain(AuditModule.EMAILS)
+        .contains(
+            java.util.Arrays.stream(AuditModule.values())
+                .filter(module -> module != AuditModule.EMAILS)
+                .toArray(AuditModule[]::new));
     assertThat(
             asAdmin(get(BASE + "/actions").param("action", "ROLE_CREATED"))
                 .at("/items/0/module")

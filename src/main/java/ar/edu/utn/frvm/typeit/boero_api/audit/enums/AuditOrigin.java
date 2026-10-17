@@ -8,7 +8,8 @@ public enum AuditOrigin {
   EMAIL_VERIFICATION,
   INSTITUTIONAL_ADMINISTRATION,
   PLATFORM_ADMINISTRATION,
-  SELF_SERVICE;
+  SELF_SERVICE,
+  MAIL_DELIVERY;
 
   public static AuditOrigin administration() {
     final var authentication = SecurityContextHolder.getContext().getAuthentication();

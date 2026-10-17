@@ -10,6 +10,7 @@ import ar.edu.utn.frvm.typeit.boero_api.authorization.exceptions.PermissionDeleg
 import ar.edu.utn.frvm.typeit.boero_api.authorization.interfaces.PersonRoleAssignmentRepository;
 import ar.edu.utn.frvm.typeit.boero_api.authorization.services.CachedAuthoritySnapshotResolver;
 import ar.edu.utn.frvm.typeit.boero_api.authorization.services.PermissionAccess;
+import ar.edu.utn.frvm.typeit.boero_api.common.mail.MailAuditContext;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.entities.Person;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.entities.PersonGuardian;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.exceptions.InstitutionMessages;
@@ -147,7 +148,8 @@ class PersonOwnAccessProvisioning {
             person.getInstitution().getName(),
             person.getFirstName() + " " + person.getLastName(),
             raw,
-            person.getInstitution().getPublicSubdomain()));
+            person.getInstitution().getPublicSubdomain(),
+            MailAuditContext.capture(person.getInstitution().getId(), person.getId())));
     return invitation;
   }
 

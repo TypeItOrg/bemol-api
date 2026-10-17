@@ -7,6 +7,7 @@ import ar.edu.utn.frvm.typeit.boero_api.audit.enums.AuditModule;
 import ar.edu.utn.frvm.typeit.boero_api.audit.enums.AuditScope;
 import ar.edu.utn.frvm.typeit.boero_api.audit.exceptions.AuditMessages;
 import ar.edu.utn.frvm.typeit.boero_api.audit.exceptions.AuditValidationException;
+import ar.edu.utn.frvm.typeit.boero_api.common.mail.MailType;
 import java.time.Instant;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
@@ -25,7 +26,8 @@ public record GlobalAuditEventFilter(
     @Nullable Instant to,
     @Nullable AuditModule module,
     @Nullable String search,
-    @Nullable UUID personId) {
+    @Nullable UUID personId,
+    @Nullable MailType mailType) {
   public GlobalAuditEventFilter {
     if (from != null && to != null && !from.isBefore(to)) {
       throw new AuditValidationException(AuditMessages.INVALID_DATE_RANGE);

@@ -15,6 +15,7 @@ import ar.edu.utn.frvm.typeit.boero_api.audit.payloads.GlobalAuditEventResponse;
 import ar.edu.utn.frvm.typeit.boero_api.audit.services.GlobalAuditEventsUseCase;
 import ar.edu.utn.frvm.typeit.boero_api.authorization.RequiresPlatformRole;
 import ar.edu.utn.frvm.typeit.boero_api.authorization.enums.PlatformRoleCode;
+import ar.edu.utn.frvm.typeit.boero_api.common.mail.MailType;
 import ar.edu.utn.frvm.typeit.boero_api.common.web.PaginatedResponse;
 import ar.edu.utn.frvm.typeit.boero_api.common.web.Version;
 import jakarta.validation.constraints.Size;
@@ -58,6 +59,7 @@ public class PlatformAuditEventController {
       @RequestParam(required = false) @Nullable final AuditModule module,
       @RequestParam(required = false) @Size(max = 100) @Nullable final String search,
       @RequestParam(required = false) @Nullable final UUID personId,
+      @RequestParam(required = false) @Nullable final MailType mailType,
       @PageableDefault(size = 20) final Pageable pageable) {
     return PaginatedResponse.from(
         globalAuditEventsUseCase.list(
@@ -75,7 +77,8 @@ public class PlatformAuditEventController {
                 to,
                 module,
                 search,
-                personId),
+                personId,
+                mailType),
             pageable));
   }
 

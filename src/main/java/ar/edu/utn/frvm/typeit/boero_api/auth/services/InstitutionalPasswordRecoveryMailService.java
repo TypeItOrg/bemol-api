@@ -6,6 +6,7 @@ import ar.edu.utn.frvm.typeit.boero_api.common.mail.MailMessage;
 import ar.edu.utn.frvm.typeit.boero_api.common.mail.MailMessages;
 import ar.edu.utn.frvm.typeit.boero_api.common.mail.MailProperties;
 import ar.edu.utn.frvm.typeit.boero_api.common.mail.MailSender;
+import ar.edu.utn.frvm.typeit.boero_api.common.mail.MailType;
 import java.util.Locale;
 import lombok.RequiredArgsConstructor;
 import org.jspecify.annotations.NullMarked;
@@ -43,6 +44,8 @@ public class InstitutionalPasswordRecoveryMailService {
             mailProperties.from(),
             event.recipientEmail(),
             MailMessages.PASSWORD_RECOVERY_SUBJECT,
-            templateEngine.process(TEMPLATE_NAME, context)));
+            templateEngine.process(TEMPLATE_NAME, context),
+            MailType.PASSWORD_RECOVERY,
+            event.auditContext()));
   }
 }
