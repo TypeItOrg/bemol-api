@@ -52,7 +52,7 @@ Garantiza que el comportamiento del sistema y los contratos HTTP e institucional
   1. **Formato**: `./gradlew spotlessCheck` (Google Java Format).
   2. **Pruebas Rápidas**: `./gradlew fastTest` (tests unitarios y slices aislados con mocks).
   3. **Detección Inteligente de Persistencia**: Un script de bash analiza el diff contra la rama base:
-     - Si se modifican archivos en `src/main/resources/db/migration/`, entidades, repositorios, controladores, configuración o `build.gradle`, CI ejecuta automáticamente:
+     - Si se modifican archivos en `src/main/resources/db/migration/`, `application*.properties`, entidades, repositorios, controladores, configuración, tests `*IntegrationTest.java` o `build.gradle`, CI ejecuta automáticamente:
        ```bash
        ./gradlew --no-daemon integrationTest
        ```
@@ -64,6 +64,8 @@ Garantiza que el comportamiento del sistema y los contratos HTTP e institucional
     ```
 
 #### Fixtures y contratos de error
+
+- `FlywayBranchMigrationIntegrationTest` reproduce el historial de staging hasta `20261011033241` sin las cinco migraciones de responsables/auditoría integradas después. Verifica la actualización fuera de orden sobre PostgreSQL, la conservación de personas, alumnos, vínculos e historial previo, la equivalencia de columnas con una instalación nueva y el rechazo de checksums alterados. Es un caso de regresión versionado, no una copia de los datos reales de staging ni una garantía para cualquier historial futuro.
 
 - Las entidades creadas con fábricas de dominio no reciben un UUID hasta su persistencia. En tests unitarios que simulan entidades persistidas, usar un `spy` con `doReturn(id).when(entity).getId()` cuando el caso de uso consulta ese identificador; mantener los argumentos exactos de los mocks y la validación estricta de Mockito.
 - La validación de logos distingue archivos que superan los 2 MiB (`InstitutionLogoTooLargeException`) de contenido inválido, vacío, truncado o con dimensiones excesivas (`InvalidInstitutionLogoException`). Verificar estos contratos por separado.
