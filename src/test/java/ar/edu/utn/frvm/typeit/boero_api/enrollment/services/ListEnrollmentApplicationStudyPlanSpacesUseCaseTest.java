@@ -79,7 +79,12 @@ class ListEnrollmentApplicationStudyPlanSpacesUseCaseTest {
     given(persistedStudyPlanSpace.getApprovalMode()).willReturn(studyPlanSpace.getApprovalMode());
     final var useCase =
         new ListEnrollmentApplicationStudyPlanSpacesUseCase(
-            new ApplicantEnrollmentGuard(personRepository, personRoleAssignmentRepository),
+            new ApplicantEnrollmentGuard(
+                personRepository,
+                org.mockito.Mockito.mock(
+                    ar.edu.utn.frvm.typeit.boero_api.institutional.services.OperatingContextResolver
+                        .class),
+                personRoleAssignmentRepository),
             enrollmentApplicationRepository,
             new EnrollmentEffectiveStudyPlanResolver(),
             studyPlanSpaceRepository,

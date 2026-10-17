@@ -73,6 +73,14 @@ public class User extends Auditable implements UserDetails {
   @Builder.Default
   private boolean enabled = true;
 
+  @Column(name = "self_access_enabled", nullable = false)
+  @Builder.Default
+  private boolean selfAccessEnabled = true;
+
+  public void updateSelfAccess(final boolean enabled) {
+    selfAccessEnabled = enabled;
+  }
+
   @Enumerated(EnumType.STRING)
   @Column(name = "email_verification_status", nullable = false, length = 24)
   @Builder.Default
@@ -116,7 +124,7 @@ public class User extends Auditable implements UserDetails {
   }
 
   public boolean isAccountActive() {
-    return enabled && institution.isActive() && !person.isDeleted();
+    return enabled && selfAccessEnabled && institution.isActive() && !person.isDeleted();
   }
 
   public boolean requiresEmailVerification() {

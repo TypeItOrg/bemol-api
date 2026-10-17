@@ -40,4 +40,27 @@ public record CreateGuardianDependentRequest(
         LocalDate birthDate,
     @NotNull(message = ValidationMessages.GUARDIAN_RELATIONSHIP_REQUIRED)
         GuardianRelationship relationship,
-    boolean isPrimaryContact) {}
+    boolean isPrimaryContact,
+    @jakarta.validation.constraints.Email
+        @jakarta.validation.constraints.Size(max = 150)
+        @org.jspecify.annotations.Nullable
+        String email,
+    boolean ownAccessRequested) {
+  public CreateGuardianDependentRequest(
+      String documentNumber,
+      String firstName,
+      String lastName,
+      LocalDate birthDate,
+      GuardianRelationship relationship,
+      boolean isPrimaryContact) {
+    this(
+        documentNumber,
+        firstName,
+        lastName,
+        birthDate,
+        relationship,
+        isPrimaryContact,
+        null,
+        false);
+  }
+}

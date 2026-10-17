@@ -3,6 +3,7 @@ package ar.edu.utn.frvm.typeit.boero_api.institutional.controllers;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -18,7 +19,6 @@ import ar.edu.utn.frvm.typeit.boero_api.auth.services.IsPlatformSessionActiveUse
 import ar.edu.utn.frvm.typeit.boero_api.auth.services.IsSessionActiveUseCase;
 import ar.edu.utn.frvm.typeit.boero_api.auth.services.JwtService;
 import ar.edu.utn.frvm.typeit.boero_api.auth.services.TokenBlacklistService;
-import ar.edu.utn.frvm.typeit.boero_api.authorization.enums.PermissionCode;
 import ar.edu.utn.frvm.typeit.boero_api.authorization.security.InstitutionAccessAspect;
 import ar.edu.utn.frvm.typeit.boero_api.authorization.security.PermissionAuthorizationAspect;
 import ar.edu.utn.frvm.typeit.boero_api.authorization.security.RoleAuthorizationAspect;
@@ -80,8 +80,10 @@ class GuardianDependentControllerWebMvcTest {
   private static final UUID DEPENDENT_ID = UUID.randomUUID();
   private static final UUID LINK_ID = UUID.randomUUID();
   private static final UUID ATTACHMENT_ID = UUID.randomUUID();
-  private static final String BASE_PATH =
-      "/api/v1/institutions/{institutionId}/guardian/dependents";
+  private static final String BASE_PATH = "/api/v1/institutions/{institutionId}/representations";
+
+  @MockitoBean
+  private ar.edu.utn.frvm.typeit.boero_api.auth.services.PersonOwnAccessService ownAccess;
 
   @MockitoBean private InstitutionalCallerGuard institutionalCallerGuard;
   @MockitoBean private InitialRoleAssignmentGuard initialRoleAssignmentGuard;
@@ -111,7 +113,6 @@ class GuardianDependentControllerWebMvcTest {
   @DisplayName("Should list the dependents of the authenticated tutor")
   void list_returnsDependents() throws Exception {
     final var auth = authentication();
-    allowManagingDependents();
     when(listGuardianDependentsUseCase.execute(INSTITUTION_ID, TUTOR_ID))
         .thenReturn(List.of(response()));
 
@@ -126,18 +127,9 @@ class GuardianDependentControllerWebMvcTest {
   }
 
   @Test
-  @DisplayName("Should forbid managing dependents without the permission")
-  void list_isForbiddenWithoutPermission() throws Exception {
-    mockMvc
-        .perform(get(BASE_PATH, INSTITUTION_ID).principal(authentication()))
-        .andExpect(status().isForbidden());
-  }
-
-  @Test
   @DisplayName("Should register a dependent and return 201")
   void create_returnsCreated() throws Exception {
     final var auth = authentication();
-    allowManagingDependents();
     when(registerGuardianDependentUseCase.execute(
             eq(INSTITUTION_ID), eq(TUTOR_ID), any(CreateGuardianDependentRequest.class)))
         .thenReturn(response());
@@ -156,7 +148,6 @@ class GuardianDependentControllerWebMvcTest {
   @DisplayName("Should reject an invalid document number")
   void create_rejectsInvalidDocument() throws Exception {
     final var auth = authentication();
-    allowManagingDependents();
     final Map<String, Object> body = new java.util.HashMap<>(validBody());
     body.put("documentNumber", "123");
 
@@ -166,14 +157,15 @@ class GuardianDependentControllerWebMvcTest {
                 .principal(auth)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(body)))
-        .andExpect(status().isBadRequest());
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.fieldErrors.documentNumber").exists());
+    verifyNoInteractions(registerGuardianDependentUseCase);
   }
 
   @Test
   @DisplayName("Should reject a birth date in the future")
   void create_rejectsFutureBirthDate() throws Exception {
     final var auth = authentication();
-    allowManagingDependents();
     final Map<String, Object> body = new java.util.HashMap<>(validBody());
     body.put("birthDate", LocalDate.now().plusDays(1).toString());
 
@@ -183,14 +175,15 @@ class GuardianDependentControllerWebMvcTest {
                 .principal(auth)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(body)))
-        .andExpect(status().isBadRequest());
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.fieldErrors.birthDate").exists());
+    verifyNoInteractions(registerGuardianDependentUseCase);
   }
 
   @Test
   @DisplayName("Should answer 409 with the error code when the dependent is already linked")
   void create_returnsConflictWhenAlreadyLinked() throws Exception {
     final var auth = authentication();
-    allowManagingDependents();
     when(registerGuardianDependentUseCase.execute(
             eq(INSTITUTION_ID), eq(TUTOR_ID), any(CreateGuardianDependentRequest.class)))
         .thenThrow(new DependentAlreadyLinkedException());
@@ -209,7 +202,6 @@ class GuardianDependentControllerWebMvcTest {
   @DisplayName("Should unlink a dependent and return 204")
   void delete_returnsNoContent() throws Exception {
     final var auth = authentication();
-    allowManagingDependents();
 
     mockMvc
         .perform(
@@ -224,7 +216,6 @@ class GuardianDependentControllerWebMvcTest {
   @DisplayName("Should attach a supporting document to the tutor's request")
   void uploadAttachment_returnsCreated() throws Exception {
     final var auth = authentication();
-    allowManagingDependents();
     final var file =
         new MockMultipartFile("file", "partida.pdf", "application/pdf", "%PDF-1.4".getBytes());
     when(guardianLinkAttachmentService.upload(
@@ -245,7 +236,6 @@ class GuardianDependentControllerWebMvcTest {
   @DisplayName("Should list, download and delete the documents of the tutor's request")
   void attachments_listDownloadAndDelete() throws Exception {
     final var auth = authentication();
-    allowManagingDependents();
     when(guardianLinkAttachmentService.list(INSTITUTION_ID, TUTOR_ID, LINK_ID))
         .thenReturn(List.of(attachmentResponse()));
     when(guardianLinkAttachmentService.content(INSTITUTION_ID, TUTOR_ID, LINK_ID, ATTACHMENT_ID))
@@ -295,11 +285,6 @@ class GuardianDependentControllerWebMvcTest {
             .build());
   }
 
-  private void allowManagingDependents() {
-    when(authorizationService.hasPermission(any(), eq(PermissionCode.GUARDIAN_DEPENDENT_MANAGE)))
-        .thenReturn(true);
-  }
-
   private Map<String, Object> validBody() {
     return Map.of(
         "documentNumber", "54123456",
@@ -307,7 +292,8 @@ class GuardianDependentControllerWebMvcTest {
         "lastName", "Gonzalez",
         "birthDate", "2018-09-10",
         "relationship", "FATHER",
-        "isPrimaryContact", true);
+        "isPrimaryContact", true,
+        "ownAccessRequested", false);
   }
 
   private GuardianDependentResponse response() {
@@ -323,7 +309,8 @@ class GuardianDependentControllerWebMvcTest {
         true,
         1,
         List.of("Postulante"),
-        Instant.parse("2026-09-24T12:00:00Z"));
+        Instant.parse("2026-09-24T12:00:00Z"),
+        "UNAVAILABLE");
   }
 
   private TestingAuthenticationToken authentication() {

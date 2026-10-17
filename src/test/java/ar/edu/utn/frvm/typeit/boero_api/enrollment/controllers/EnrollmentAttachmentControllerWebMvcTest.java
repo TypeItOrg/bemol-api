@@ -29,6 +29,7 @@ import ar.edu.utn.frvm.typeit.boero_api.enrollment.services.EnrollmentAttachment
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -72,7 +73,14 @@ class EnrollmentAttachmentControllerWebMvcTest {
 
   @MockitoBean private EnrollmentAttachmentService attachmentService;
 
-  private static TestingAuthenticationToken applicantAuthentication() {
+  @BeforeEach
+  void allowStaff() {
+    when(authorizationService.hasPermission(
+            any(), any(ar.edu.utn.frvm.typeit.boero_api.authorization.enums.PermissionCode.class)))
+        .thenReturn(true);
+  }
+
+  private static TestingAuthenticationToken staffAuthentication() {
     JwtAuthenticatedUser principal =
         JwtAuthenticatedUser.builder()
             .userId(UUID.randomUUID())
@@ -117,7 +125,7 @@ class EnrollmentAttachmentControllerWebMvcTest {
             multipart("/api/v1/enrollment-applications/{applicationId}/attachments", APPLICATION_ID)
                 .file(file)
                 .param("requirementId", REQUIREMENT_ID.toString())
-                .principal(applicantAuthentication()))
+                .principal(staffAuthentication()))
         .andExpect(status().isCreated())
         .andExpect(jsonPath("$.id").value(ATTACHMENT_ID.toString()))
         .andExpect(jsonPath("$.requirementId").value(REQUIREMENT_ID.toString()))
@@ -149,7 +157,7 @@ class EnrollmentAttachmentControllerWebMvcTest {
                     "/api/v1/enrollment-applications/{applicationId}/attachments/{attachmentId}/content",
                     APPLICATION_ID,
                     ATTACHMENT_ID)
-                .principal(applicantAuthentication()))
+                .principal(staffAuthentication()))
         .andExpect(status().isOk())
         .andExpect(content().contentType(MediaType.APPLICATION_PDF))
         .andExpect(header().string(HttpHeaders.CONTENT_LENGTH, String.valueOf(fileBytes.length)))
@@ -166,7 +174,7 @@ class EnrollmentAttachmentControllerWebMvcTest {
                     "/api/v1/enrollment-applications/{applicationId}/attachments/{attachmentId}",
                     APPLICATION_ID,
                     ATTACHMENT_ID)
-                .principal(applicantAuthentication()))
+                .principal(staffAuthentication()))
         .andExpect(status().isNoContent());
 
     verify(attachmentService).deleteAttachment(eq(APPLICATION_ID), eq(ATTACHMENT_ID), any());
@@ -199,7 +207,7 @@ class EnrollmentAttachmentControllerWebMvcTest {
     mockMvc
         .perform(
             get("/api/v1/enrollment-applications/{applicationId}/attachments", APPLICATION_ID)
-                .principal(applicantAuthentication()))
+                .principal(staffAuthentication()))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$[0].id").value(ATTACHMENT_ID.toString()))
         .andExpect(jsonPath("$[0].requirementId").value(REQUIREMENT_ID.toString()));

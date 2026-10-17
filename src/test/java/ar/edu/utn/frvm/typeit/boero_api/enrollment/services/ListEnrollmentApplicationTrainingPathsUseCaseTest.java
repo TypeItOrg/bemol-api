@@ -73,7 +73,12 @@ class ListEnrollmentApplicationTrainingPathsUseCaseTest {
 
   private ListEnrollmentApplicationTrainingPathsUseCase useCase() {
     return new ListEnrollmentApplicationTrainingPathsUseCase(
-        new ApplicantEnrollmentGuard(personRepository, personRoleAssignmentRepository),
+        new ApplicantEnrollmentGuard(
+            personRepository,
+            org.mockito.Mockito.mock(
+                ar.edu.utn.frvm.typeit.boero_api.institutional.services.OperatingContextResolver
+                    .class),
+            personRoleAssignmentRepository),
         enrollmentApplicationRepository);
   }
 

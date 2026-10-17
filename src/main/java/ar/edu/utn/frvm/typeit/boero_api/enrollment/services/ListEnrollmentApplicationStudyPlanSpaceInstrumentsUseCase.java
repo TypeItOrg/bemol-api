@@ -31,11 +31,11 @@ public class ListEnrollmentApplicationStudyPlanSpaceInstrumentsUseCase {
   @Transactional(readOnly = true)
   public EnrollmentStudyPlanSpaceInstrumentOptionsResponse execute(
       final JwtAuthenticatedUser principal, final UUID applicationId, final UUID studyPlanSpaceId) {
-    applicantEnrollmentGuard.requireApplicant(principal);
+    final var applicant = applicantEnrollmentGuard.requireApplicant(principal);
     final var application =
         enrollmentApplicationRepository
             .findAccessibleByIdAndInstitutionId(
-                principal.institutionId(), principal.personId(), applicationId)
+                principal.institutionId(), applicant.getId(), applicationId)
             .orElseThrow(EnrollmentApplicationNotFoundException::new);
     final var effectiveStudyPlan =
         enrollmentEffectiveStudyPlanResolver.resolve(principal.institutionId(), application);

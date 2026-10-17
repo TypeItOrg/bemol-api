@@ -5,6 +5,7 @@ import ar.edu.utn.frvm.typeit.boero_api.auth.filters.JwtAuthenticatedUser;
 import ar.edu.utn.frvm.typeit.boero_api.auth.filters.JwtPrincipal;
 import ar.edu.utn.frvm.typeit.boero_api.authorization.enums.PermissionCode;
 import ar.edu.utn.frvm.typeit.boero_api.authorization.enums.PlatformRoleCode;
+import ar.edu.utn.frvm.typeit.boero_api.institutional.services.OperatingContextResolver;
 import java.util.Arrays;
 import java.util.Set;
 import lombok.RequiredArgsConstructor;
@@ -17,6 +18,7 @@ import org.springframework.stereotype.Service;
 public class AuthorizationService {
 
   private final AuthorityResolver authorityResolver;
+  private final OperatingContextResolver operatingContext;
 
   public boolean hasPermission(@Nullable Authentication authentication, PermissionCode permission) {
     return resolvePermissions(authentication).contains(permission);
@@ -48,6 +50,18 @@ public class AuthorizationService {
   }
 
   private Set<PermissionCode> resolveInstitutionalPermissions(JwtAuthenticatedUser principal) {
+    final var selected = operatingContext.currentPersonId();
+    if (selected.isPresent()) {
+      return authorityResolver.resolveForPerson(selected.get(), principal.institutionId()).stream()
+          .filter(
+              permission ->
+                  Set.of(
+                          PermissionCode.ACADEMIC_OFFER_READ,
+                          PermissionCode.STUDY_PLAN_READ,
+                          PermissionCode.ACADEMIC_YEAR_READ)
+                      .contains(permission))
+          .collect(java.util.stream.Collectors.toUnmodifiableSet());
+    }
     return authorityResolver.resolveForPerson(principal.personId(), principal.institutionId());
   }
 

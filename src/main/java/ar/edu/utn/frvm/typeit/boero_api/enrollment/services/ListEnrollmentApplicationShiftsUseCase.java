@@ -22,10 +22,10 @@ public class ListEnrollmentApplicationShiftsUseCase {
   @Transactional(readOnly = true)
   public List<ShiftResponse> execute(
       final JwtAuthenticatedUser principal, final UUID applicationId) {
-    applicantEnrollmentGuard.requireApplicant(principal);
+    final var applicant = applicantEnrollmentGuard.requireApplicant(principal);
     enrollmentApplicationRepository
         .findAccessibleByIdAndInstitutionId(
-            principal.institutionId(), principal.personId(), applicationId)
+            principal.institutionId(), applicant.getId(), applicationId)
         .orElseThrow(EnrollmentApplicationNotFoundException::new);
 
     return shiftRepository

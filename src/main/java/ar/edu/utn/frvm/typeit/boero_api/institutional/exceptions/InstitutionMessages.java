@@ -1,6 +1,19 @@
 package ar.edu.utn.frvm.typeit.boero_api.institutional.exceptions;
 
 public final class InstitutionMessages {
+  public static final String OWN_ACCESS_ACCOUNT_EXISTS =
+      "La persona ya tiene una cuenta. Gestioná su estado de acceso o la recuperación de contraseña.";
+  public static final String OWN_ACCESS_EMAIL_CHANGED =
+      "El correo no coincide con el registrado. Actualizá los datos de la persona antes de invitarla.";
+  public static final String OWN_ACCESS_INSTITUTION_REQUIRED =
+      "El alta inicial de cuentas con funciones administrativas o docentes debe realizarla la institución.";
+  public static final String OWN_ACCESS_EMAIL_REQUIRED =
+      "Indicá un correo propio de la persona para enviar la invitación.";
+  public static final String OWN_ACCESS_INSTITUTION_BLOCKED =
+      "El acceso está bloqueado por la institución. El representante no puede habilitarlo.";
+  public static final String OWN_ACCESS_TOKEN_INVALID =
+      "La invitación no es válida, venció o fue cancelada. Solicitá una nueva.";
+  public static final String OWN_ACCESS_PASSWORD_MISMATCH = "Las contraseñas no coinciden.";
 
   public static final String INSTITUTION_NOT_FOUND = "La institución especificada no existe.";
   public static final String INSTITUTION_INACTIVE = "La institución especificada no está activa.";

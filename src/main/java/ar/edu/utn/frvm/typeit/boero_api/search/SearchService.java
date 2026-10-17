@@ -20,11 +20,22 @@ public class SearchService {
   private final SearchRepository repository;
 
   @Transactional(readOnly = true)
+  public SearchSummaryResponse selfServiceSummary(
+      final UUID institutionId, final UUID personId, final String search, final int limit) {
+    final var grouped =
+        repository.selfServiceSummary(institutionId, personId, SearchQuery.from(search), limit + 1);
+    return summary(
+        List.of(SearchEntityType.ENROLLMENT_APPLICATION, SearchEntityType.COURSE_ENROLLMENT),
+        grouped,
+        limit);
+  }
+
+  @Transactional(readOnly = true)
   public SearchSummaryResponse platformSummary(final String search, final int limit) {
     final List<SearchDefinition> definitions = SearchDefinition.all();
     final var grouped =
         repository.platformSummary(definitions, SearchQuery.from(search), limit + 1);
-    return summary(definitions, grouped, limit);
+    return summary(definitions.stream().map(SearchDefinition::type).toList(), grouped, limit);
   }
 
   @Transactional(readOnly = true)
@@ -38,7 +49,7 @@ public class SearchService {
     final var grouped =
         repository.institutionalSummary(
             definitions, SearchQuery.from(search), institutionId, personId, limit + 1);
-    return summary(definitions, grouped, limit);
+    return summary(definitions.stream().map(SearchDefinition::type).toList(), grouped, limit);
   }
 
   @Transactional(readOnly = true)
@@ -53,20 +64,17 @@ public class SearchService {
   }
 
   private SearchSummaryResponse summary(
-      final List<SearchDefinition> definitions,
+      final List<SearchEntityType> types,
       final Map<SearchEntityType, List<SearchResultResponse>> grouped,
       final int limit) {
     final List<SearchGroupResponse> groups =
-        definitions.stream()
-            .filter(definition -> grouped.containsKey(definition.type()))
+        types.stream()
+            .filter(grouped::containsKey)
             .map(
-                definition -> {
-                  final List<SearchResultResponse> results =
-                      requireNonNull(grouped.get(definition.type()));
+                type -> {
+                  final List<SearchResultResponse> results = requireNonNull(grouped.get(type));
                   return new SearchGroupResponse(
-                      definition.type(),
-                      results.stream().limit(limit).toList(),
-                      results.size() > limit);
+                      type, results.stream().limit(limit).toList(), results.size() > limit);
                 })
             .toList();
     return new SearchSummaryResponse(groups);

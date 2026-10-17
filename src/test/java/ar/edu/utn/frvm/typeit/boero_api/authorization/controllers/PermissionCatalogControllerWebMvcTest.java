@@ -13,6 +13,7 @@ import ar.edu.utn.frvm.typeit.boero_api.auth.services.IsPlatformSessionActiveUse
 import ar.edu.utn.frvm.typeit.boero_api.auth.services.IsSessionActiveUseCase;
 import ar.edu.utn.frvm.typeit.boero_api.auth.services.JwtService;
 import ar.edu.utn.frvm.typeit.boero_api.auth.services.TokenBlacklistService;
+import ar.edu.utn.frvm.typeit.boero_api.authorization.enums.PermissionCode;
 import ar.edu.utn.frvm.typeit.boero_api.authorization.enums.PlatformRoleCode;
 import ar.edu.utn.frvm.typeit.boero_api.authorization.security.RoleAuthorizationAspect;
 import ar.edu.utn.frvm.typeit.boero_api.authorization.services.AuthorizationService;
@@ -81,7 +82,7 @@ class PermissionCatalogControllerWebMvcTest {
     mockMvc
         .perform(get("/api/v1/admin/permissions").principal(authentication))
         .andExpect(status().isOk())
-        .andExpect(jsonPath("$.length()").value(85))
+        .andExpect(jsonPath("$.length()").value(PermissionCode.values().length))
         .andExpect(jsonPath("$[0].scope").value("INSTITUTION"))
         .andExpect(jsonPath("$[?(@.code == 'institution:study-plan:delete')]").isNotEmpty())
         .andExpect(jsonPath("$[?(@.code == 'institution:study-plan:restore')]").isNotEmpty())

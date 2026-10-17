@@ -10,14 +10,12 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import ar.edu.utn.frvm.typeit.boero_api.auth.entities.User;
-import ar.edu.utn.frvm.typeit.boero_api.auth.exceptions.GuardianMustBeAdultException;
 import ar.edu.utn.frvm.typeit.boero_api.auth.exceptions.UserAlreadyExistsException;
 import ar.edu.utn.frvm.typeit.boero_api.auth.interfaces.UserRepository;
 import ar.edu.utn.frvm.typeit.boero_api.auth.payloads.requests.RegisterRequest;
 import ar.edu.utn.frvm.typeit.boero_api.auth.payloads.responses.UserRegisteredResponse;
 import ar.edu.utn.frvm.typeit.boero_api.authorization.enums.SystemRoleCode;
 import ar.edu.utn.frvm.typeit.boero_api.authorization.services.AssignPersonSystemRoleUseCase;
-import ar.edu.utn.frvm.typeit.boero_api.common.time.BusinessDateProvider;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.entities.City;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.entities.Institution;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.entities.Person;
@@ -28,7 +26,6 @@ import ar.edu.utn.frvm.typeit.boero_api.institutional.interfaces.PersonRepositor
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.ConstraintViolationException;
 import jakarta.validation.Validator;
-import java.time.Clock;
 import java.time.LocalDate;
 import java.util.Optional;
 import java.util.Set;
@@ -37,8 +34,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -69,8 +64,7 @@ class RegisterUserUseCaseTest {
             personRepository,
             passwordEncoder,
             validator,
-            assignPersonSystemRoleUseCase,
-            new BusinessDateProvider(Clock.systemUTC()));
+            assignPersonSystemRoleUseCase);
   }
 
   @Test
@@ -85,8 +79,7 @@ class RegisterUserUseCaseTest {
             "12345678",
             "ana@example.com",
             "password123",
-            institutionId,
-            null);
+            institutionId);
 
     stubSuccessfulRegistration(institutionId, "password123", "encoded-hash");
 
@@ -124,8 +117,7 @@ class RegisterUserUseCaseTest {
             "12345678",
             "ana@example.com",
             "password123",
-            institutionId,
-            null);
+            institutionId);
 
     stubSuccessfulRegistration(institutionId, "password123", "encoded-hash");
 
@@ -134,76 +126,6 @@ class RegisterUserUseCaseTest {
     var personCaptor = ArgumentCaptor.forClass(Person.class);
     verify(assignPersonSystemRoleUseCase)
         .execute(personCaptor.capture(), eq(SystemRoleCode.APPLICANT), eq(false));
-  }
-
-  @Test
-  @DisplayName("Should assign GUARDIAN instead of APPLICANT when registering as a guardian")
-  void execute_assignsGuardianRoleWhenRegisteringAsGuardian() {
-    UUID institutionId = UUID.randomUUID();
-    RegisterRequest request =
-        new RegisterRequest(
-            "Carlos",
-            "Gonzalez",
-            LocalDate.of(1988, 5, 14),
-            "12345678",
-            "carlos@example.com",
-            "password123",
-            institutionId,
-            true);
-
-    stubSuccessfulRegistration(institutionId, "password123", "encoded-hash");
-
-    registerUserUseCase.execute(request);
-
-    verify(assignPersonSystemRoleUseCase)
-        .execute(any(Person.class), eq(SystemRoleCode.GUARDIAN), eq(false));
-    verify(assignPersonSystemRoleUseCase, never())
-        .execute(any(Person.class), eq(SystemRoleCode.APPLICANT), eq(false));
-  }
-
-  @Test
-  @DisplayName("Should reject registering as a guardian while under age")
-  void execute_rejectsUnderageGuardian() {
-    UUID institutionId = UUID.randomUUID();
-    RegisterRequest request =
-        new RegisterRequest(
-            "Ana",
-            "Garcia",
-            LocalDate.now().minusYears(17),
-            "12345678",
-            "ana@example.com",
-            "password123",
-            institutionId,
-            true);
-
-    assertThatThrownBy(() -> registerUserUseCase.execute(request))
-        .isInstanceOfSatisfying(
-            GuardianMustBeAdultException.class,
-            exception -> assertThat(exception.fieldErrors()).containsKey("birthDate"));
-    verify(personRepository, never()).save(any(Person.class));
-  }
-
-  @Test
-  @DisplayName("Should keep APPLICANT when isGuardian is explicitly false")
-  void execute_assignsApplicantRoleWhenIsGuardianIsFalse() {
-    UUID institutionId = UUID.randomUUID();
-    RegisterRequest request =
-        new RegisterRequest(
-            "Ana",
-            "Garcia",
-            LocalDate.of(2000, 1, 1),
-            "12345678",
-            "ana@example.com",
-            "password123",
-            institutionId,
-            false);
-
-    stubSuccessfulRegistration(institutionId, "password123", "encoded-hash");
-
-    registerUserUseCase.execute(request);
-
-    verify(assignPersonSystemRoleUseCase)
-        .execute(any(Person.class), eq(SystemRoleCode.APPLICANT), eq(false));
   }
 
   @Test
@@ -218,8 +140,7 @@ class RegisterUserUseCaseTest {
             "12345678",
             "ana@example.com",
             "plaintext",
-            institutionId,
-            null);
+            institutionId);
 
     stubSuccessfulRegistration(institutionId, "plaintext", "bcrypt-hash");
 
@@ -248,8 +169,7 @@ class RegisterUserUseCaseTest {
             "12345678",
             "ana@example.com",
             "password123",
-            institutionId,
-            null);
+            institutionId);
 
     when(institutionRepository.findById(institutionId)).thenReturn(Optional.empty());
 
@@ -273,8 +193,7 @@ class RegisterUserUseCaseTest {
             "12345678",
             "ana@example.com",
             "password123",
-            institutionId,
-            null);
+            institutionId);
     final Institution institution = institutionWith(institutionId);
     institution.updateStatus(false);
     when(institutionRepository.findById(institutionId)).thenReturn(Optional.of(institution));
@@ -299,8 +218,7 @@ class RegisterUserUseCaseTest {
             "12345678",
             "ana@example.com",
             "password123",
-            institutionId,
-            null);
+            institutionId);
     Institution institution = institutionWith(institutionId);
 
     when(institutionRepository.findById(institutionId)).thenReturn(Optional.of(institution));
@@ -315,11 +233,10 @@ class RegisterUserUseCaseTest {
     verify(assignPersonSystemRoleUseCase, never()).execute(any(), any());
   }
 
-  @ParameterizedTest
-  @ValueSource(booleans = {false, true})
+  @Test
   @DisplayName(
       "Should reject public registration of an existing person without creating an account")
-  void execute_rejectsExistingPersonWithoutAccount(final boolean isGuardian) {
+  void execute_rejectsExistingPersonWithoutAccount() {
     UUID institutionId = UUID.randomUUID();
     RegisterRequest request =
         new RegisterRequest(
@@ -329,8 +246,7 @@ class RegisterUserUseCaseTest {
             "12345678",
             "new@example.com",
             "password123",
-            institutionId,
-            isGuardian);
+            institutionId);
     Institution institution = institutionWith(institutionId);
     when(institutionRepository.findById(institutionId)).thenReturn(Optional.of(institution));
     when(personRepository.existsByDocumentNumberAndInstitution_Id(
@@ -361,8 +277,7 @@ class RegisterUserUseCaseTest {
             "12345678",
             "new@example.com",
             "password123",
-            institutionId,
-            null);
+            institutionId);
     Institution institution = institutionWith(institutionId);
     when(institutionRepository.findById(institutionId)).thenReturn(Optional.of(institution));
     when(personRepository.existsByDocumentNumberAndInstitution_Id(
@@ -390,8 +305,7 @@ class RegisterUserUseCaseTest {
             "12345678",
             "ana@example.com",
             "password123",
-            institutionId,
-            null);
+            institutionId);
     Institution institution = institutionWith(institutionId);
     ConstraintViolation<Person> violation =
         (ConstraintViolation<Person>) org.mockito.Mockito.mock(ConstraintViolation.class);

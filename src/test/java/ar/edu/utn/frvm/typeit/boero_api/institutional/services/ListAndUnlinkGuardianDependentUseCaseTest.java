@@ -4,11 +4,13 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import ar.edu.utn.frvm.typeit.boero_api.audit.enums.AuditAction;
 import ar.edu.utn.frvm.typeit.boero_api.audit.enums.AuditEntityType;
 import ar.edu.utn.frvm.typeit.boero_api.audit.services.AuditEventRecorder;
+import ar.edu.utn.frvm.typeit.boero_api.auth.services.PersonOwnAccessService;
 import ar.edu.utn.frvm.typeit.boero_api.authorization.entities.PersonRoleAssignment;
 import ar.edu.utn.frvm.typeit.boero_api.authorization.entities.Role;
 import ar.edu.utn.frvm.typeit.boero_api.authorization.interfaces.PersonRoleAssignmentRepository;
@@ -19,12 +21,15 @@ import ar.edu.utn.frvm.typeit.boero_api.institutional.entities.Person;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.entities.PersonGuardian;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.exceptions.DependentNotFoundException;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.interfaces.DependentApplicationCount;
+import ar.edu.utn.frvm.typeit.boero_api.institutional.interfaces.InstitutionRepository;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.interfaces.PersonGuardianRepository;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.payloads.guardian.GuardianDependentResponse;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -38,6 +43,16 @@ class ListAndUnlinkGuardianDependentUseCaseTest {
   private static final UUID INSTITUTION_ID = UUID.randomUUID();
   private static final UUID TUTOR_ID = UUID.randomUUID();
 
+  @Mock private InstitutionRepository institutions;
+  @Mock private PersonOwnAccessService ownAccess;
+
+  @BeforeEach
+  void setup() {
+    org.mockito.Mockito.lenient()
+        .when(institutions.findByIdForUpdate(INSTITUTION_ID))
+        .thenReturn(Optional.of(Institution.builder().id(INSTITUTION_ID).build()));
+  }
+
   @Mock private PersonGuardianRepository personGuardianRepository;
   @Mock private PersonRoleAssignmentRepository personRoleAssignmentRepository;
   @Mock private AuditEventRecorder auditEventRecorder;
@@ -50,6 +65,15 @@ class ListAndUnlinkGuardianDependentUseCaseTest {
   void list_returnsDependentsWithCounts() {
     final PersonGuardian withApplication = link("Mateo", "54123456", GuardianLinkStatus.ACTIVE);
     final PersonGuardian withoutApplication = link("Lucia", "54123457", GuardianLinkStatus.ACTIVE);
+    when(ownAccess.statuses(
+            INSTITUTION_ID,
+            List.of(
+                withApplication.getDependentPerson().getId(),
+                withoutApplication.getDependentPerson().getId())))
+        .thenReturn(
+            Map.of(
+                withApplication.getDependentPerson().getId(), "NO_ACCOUNT",
+                withoutApplication.getDependentPerson().getId(), "NO_ACCOUNT"));
     when(personGuardianRepository
             .findByInstitution_IdAndTutorPerson_IdAndStatusInOrderByCreatedAtAsc(
                 INSTITUTION_ID, TUTOR_ID, VISIBLE_STATUSES))
@@ -73,17 +97,19 @@ class ListAndUnlinkGuardianDependentUseCaseTest {
                 assignment(withoutApplication.getDependentPerson(), "Postulante")));
 
     final List<GuardianDependentResponse> result =
-        new ListGuardianDependentsUseCase(personGuardianRepository, personRoleAssignmentRepository)
+        new ListGuardianDependentsUseCase(
+                personGuardianRepository, ownAccess, personRoleAssignmentRepository)
             .execute(INSTITUTION_ID, TUTOR_ID);
 
     assertThat(result)
         .extracting(
             GuardianDependentResponse::firstName,
             GuardianDependentResponse::activeApplicationsCount,
-            GuardianDependentResponse::roles)
+            GuardianDependentResponse::roles,
+            GuardianDependentResponse::ownAccessStatus)
         .containsExactly(
-            org.assertj.core.groups.Tuple.tuple("Mateo", 2L, List.of("Estudiante")),
-            org.assertj.core.groups.Tuple.tuple("Lucia", 0L, List.of("Postulante")));
+            org.assertj.core.groups.Tuple.tuple("Mateo", 2L, List.of("Estudiante"), "NO_ACCOUNT"),
+            org.assertj.core.groups.Tuple.tuple("Lucia", 0L, List.of("Postulante"), "NO_ACCOUNT"));
   }
 
   @Test
@@ -97,7 +123,8 @@ class ListAndUnlinkGuardianDependentUseCaseTest {
         .thenReturn(List.of(pending, rejected));
 
     final List<GuardianDependentResponse> result =
-        new ListGuardianDependentsUseCase(personGuardianRepository, personRoleAssignmentRepository)
+        new ListGuardianDependentsUseCase(
+                personGuardianRepository, ownAccess, personRoleAssignmentRepository)
             .execute(INSTITUTION_ID, TUTOR_ID);
 
     assertThat(result)
@@ -108,6 +135,38 @@ class ListAndUnlinkGuardianDependentUseCaseTest {
         .containsExactly(
             org.assertj.core.groups.Tuple.tuple(GuardianLinkStatus.PENDING, null, "54123456"),
             org.assertj.core.groups.Tuple.tuple(GuardianLinkStatus.REJECTED, null, "54123457"));
+    assertThat(result)
+        .extracting(GuardianDependentResponse::ownAccessStatus)
+        .containsOnly("UNAVAILABLE");
+    verify(ownAccess).statuses(INSTITUTION_ID, List.of());
+  }
+
+  @Test
+  void list_doesNotExposeActiveAccessThroughAnotherInactiveLink() {
+    final PersonGuardian active = link("Mateo", "54123456", GuardianLinkStatus.ACTIVE);
+    final PersonGuardian pending =
+        PersonGuardian.builder()
+            .id(UUID.randomUUID())
+            .dependentPerson(active.getDependentPerson())
+            .status(GuardianLinkStatus.PENDING)
+            .build();
+    final UUID personId = active.getDependentPerson().getId();
+    when(personGuardianRepository
+            .findByInstitution_IdAndTutorPerson_IdAndStatusInOrderByCreatedAtAsc(
+                INSTITUTION_ID, TUTOR_ID, VISIBLE_STATUSES))
+        .thenReturn(List.of(active, pending));
+    when(ownAccess.statuses(INSTITUTION_ID, List.of(personId)))
+        .thenReturn(Map.of(personId, "ENABLED"));
+
+    final var result =
+        new ListGuardianDependentsUseCase(
+                personGuardianRepository, ownAccess, personRoleAssignmentRepository)
+            .execute(INSTITUTION_ID, TUTOR_ID);
+
+    assertThat(result)
+        .extracting(GuardianDependentResponse::ownAccessStatus)
+        .containsExactly("ENABLED", "UNAVAILABLE");
+    verify(ownAccess).statuses(INSTITUTION_ID, List.of(personId));
   }
 
   @Test
@@ -120,12 +179,13 @@ class ListAndUnlinkGuardianDependentUseCaseTest {
 
     assertThat(
             new ListGuardianDependentsUseCase(
-                    personGuardianRepository, personRoleAssignmentRepository)
+                    personGuardianRepository, ownAccess, personRoleAssignmentRepository)
                 .execute(INSTITUTION_ID, TUTOR_ID))
         .isEmpty();
     verify(personGuardianRepository, never())
         .countActiveApplicationsByApplicant(
             org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyCollection());
+    verifyNoInteractions(ownAccess);
   }
 
   @Test
@@ -142,7 +202,7 @@ class ListAndUnlinkGuardianDependentUseCaseTest {
                 INSTITUTION_ID, TUTOR_ID, dependentId, GuardianLinkStatus.ACTIVE))
         .thenReturn(Optional.of(link));
 
-    new UnlinkGuardianDependentUseCase(personGuardianRepository, auditEventRecorder)
+    new UnlinkGuardianDependentUseCase(institutions, personGuardianRepository, auditEventRecorder)
         .execute(INSTITUTION_ID, TUTOR_ID, dependentId);
 
     assertThat(link.getStatus()).isEqualTo(GuardianLinkStatus.ENDED);
@@ -167,7 +227,7 @@ class ListAndUnlinkGuardianDependentUseCaseTest {
                 INSTITUTION_ID, TUTOR_ID, dependentId, GuardianLinkStatus.PENDING))
         .thenReturn(Optional.of(link));
 
-    new UnlinkGuardianDependentUseCase(personGuardianRepository, auditEventRecorder)
+    new UnlinkGuardianDependentUseCase(institutions, personGuardianRepository, auditEventRecorder)
         .execute(INSTITUTION_ID, TUTOR_ID, dependentId);
 
     assertThat(link.getStatus()).isEqualTo(GuardianLinkStatus.ENDED);
@@ -197,7 +257,8 @@ class ListAndUnlinkGuardianDependentUseCaseTest {
 
     assertThatThrownBy(
             () ->
-                new UnlinkGuardianDependentUseCase(personGuardianRepository, auditEventRecorder)
+                new UnlinkGuardianDependentUseCase(
+                        institutions, personGuardianRepository, auditEventRecorder)
                     .execute(INSTITUTION_ID, TUTOR_ID, dependentId))
         .isInstanceOfSatisfying(
             DependentNotFoundException.class,

@@ -41,7 +41,8 @@ import org.springframework.web.multipart.MultipartFile;
  * spoof.
  */
 @RestController
-@PreAuthorize("isAuthenticated()")
+@PreAuthorize(
+    "@authorizationService.hasPermission(authentication, T(ar.edu.utn.frvm.typeit.boero_api.authorization.enums.PermissionCode).ENROLLMENT_APPLICATION_READ)")
 @RequestMapping("/enrollment-applications/{applicationId}/attachments")
 @RequiredArgsConstructor
 @Tag(

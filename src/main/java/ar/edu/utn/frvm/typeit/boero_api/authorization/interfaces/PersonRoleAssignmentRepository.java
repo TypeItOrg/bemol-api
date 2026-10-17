@@ -5,6 +5,7 @@ import ar.edu.utn.frvm.typeit.boero_api.authorization.enums.AccessScope;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.entities.Person;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 import org.springframework.data.jpa.repository.EntityGraph;
@@ -109,6 +110,23 @@ public interface PersonRoleAssignmentRepository extends JpaRepository<PersonRole
       """)
   List<AuthorityRow> findAuthoritiesByPersonIdAndInstitutionId(
       @Param("personId") UUID personId, @Param("institutionId") UUID institutionId);
+
+  @Query(
+      """
+      SELECT DISTINCT assignment.person.id
+      FROM PersonRoleAssignment assignment
+      LEFT JOIN RolePermission rp ON rp.role.id = assignment.role.id
+      LEFT JOIN rp.permission permission
+      WHERE assignment.institution.id = :institutionId
+        AND assignment.person.id IN :personIds
+        AND (assignment.role.code IN :institutionalRoleCodes
+          OR permission.code NOT IN :academicPermissionCodes)
+      """)
+  List<UUID> findPersonIdsRequiringInstitutionalAccess(
+      @Param("personIds") List<UUID> personIds,
+      @Param("institutionId") UUID institutionId,
+      @Param("institutionalRoleCodes") Set<String> institutionalRoleCodes,
+      @Param("academicPermissionCodes") Set<String> academicPermissionCodes);
 
   @Query(
       """

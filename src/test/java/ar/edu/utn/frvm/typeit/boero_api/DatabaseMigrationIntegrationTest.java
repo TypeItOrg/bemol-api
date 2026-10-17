@@ -21,7 +21,7 @@ class DatabaseMigrationIntegrationTest extends DatabaseMigrationTestSupport {
     assertThat(flyway.validateWithResult().validationSuccessful).isTrue();
     assertThat(nonUtcEventTimestampColumnCount()).isZero();
     assertThat(utcEventTimestampColumnCount()).isPositive();
-    assertThat(tableCount()).isEqualTo(69);
+    assertThat(tableCount()).isEqualTo(70);
     assertThat(institutionCount()).isPositive();
     assertThat(tenantRelationshipConstraintCount()).isEqualTo(7);
     assertThat(activePersonDocumentIndexCount()).isEqualTo(1);

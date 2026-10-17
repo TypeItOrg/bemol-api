@@ -86,7 +86,12 @@ class EnrollmentAttachmentServiceTest {
   void setUp() {
     final var authorization =
         new EnrollmentDocumentAuthorization(
-            authorityResolver, authorizationService, audit, applicationRepository);
+            authorityResolver,
+            org.mockito.Mockito.mock(
+                ar.edu.utn.frvm.typeit.boero_api.institutional.services.OperatingContextResolver
+                    .class),
+            authorizationService,
+            audit);
     final var documents =
         new EnrollmentDocumentRequirementsService(
             definitions, attachmentRepository, authorization, periods);

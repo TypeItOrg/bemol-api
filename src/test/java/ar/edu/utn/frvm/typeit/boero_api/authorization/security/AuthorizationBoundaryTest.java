@@ -49,7 +49,12 @@ class AuthorizationBoundaryTest {
 
   @BeforeEach
   void setUp() {
-    authorization = new AuthorizationService(resolver);
+    authorization =
+        new AuthorizationService(
+            resolver,
+            org.mockito.Mockito.mock(
+                ar.edu.utn.frvm.typeit.boero_api.institutional.services.OperatingContextResolver
+                    .class));
     target = new SecuredOperations();
     operations = proxy(target);
     adminTarget = new AdministrativeOperations();

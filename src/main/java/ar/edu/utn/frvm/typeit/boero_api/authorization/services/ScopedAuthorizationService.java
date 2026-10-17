@@ -6,6 +6,7 @@ import ar.edu.utn.frvm.typeit.boero_api.authorization.enums.PermissionCode;
 import ar.edu.utn.frvm.typeit.boero_api.authorization.enums.PlatformRoleCode;
 import ar.edu.utn.frvm.typeit.boero_api.authorization.exceptions.PermissionDelegationNotAllowedException;
 import ar.edu.utn.frvm.typeit.boero_api.authorization.exceptions.ScopedResourceNotFoundException;
+import ar.edu.utn.frvm.typeit.boero_api.institutional.services.OperatingContextResolver;
 import java.util.Set;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -16,9 +17,13 @@ import org.springframework.stereotype.Service;
 @RequiredArgsConstructor
 public class ScopedAuthorizationService {
   private final AuthorityResolver authorityResolver;
+  private final OperatingContextResolver operatingContext;
   private final CachedAuthoritySnapshotResolver snapshotResolver;
 
   public PermissionAccess access(PermissionCode permission) {
+    if (operatingContext.currentPersonId().isPresent()) {
+      return PermissionAccess.none();
+    }
     var authentication = SecurityContextHolder.getContext().getAuthentication();
     if (authentication == null
         || !(authentication.getPrincipal() instanceof JwtAuthenticatedUser user)) {

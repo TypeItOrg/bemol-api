@@ -29,11 +29,11 @@ public class ListEnrollmentApplicationStudyPlanSpacesUseCase {
   @Transactional(readOnly = true)
   public List<StudyPlanSpaceResponse> execute(
       final JwtAuthenticatedUser principal, final UUID applicationId) {
-    applicantEnrollmentGuard.requireApplicant(principal);
+    final var applicant = applicantEnrollmentGuard.requireApplicant(principal);
     final var application =
         enrollmentApplicationRepository
             .findAccessibleByIdAndInstitutionId(
-                principal.institutionId(), principal.personId(), applicationId)
+                principal.institutionId(), applicant.getId(), applicationId)
             .orElseThrow(EnrollmentApplicationNotFoundException::new);
     final var effectiveStudyPlan =
         enrollmentEffectiveStudyPlanResolver.resolve(principal.institutionId(), application);

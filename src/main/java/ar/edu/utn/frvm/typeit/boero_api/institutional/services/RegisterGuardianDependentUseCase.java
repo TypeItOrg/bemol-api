@@ -10,7 +10,9 @@ import ar.edu.utn.frvm.typeit.boero_api.institutional.entities.PersonGuardian;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.exceptions.CannotGuardianSelfException;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.exceptions.DependentAlreadyLinkedException;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.exceptions.DependentBirthDateMismatchException;
+import ar.edu.utn.frvm.typeit.boero_api.institutional.exceptions.InstitutionMessages;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.exceptions.InstitutionNotFoundException;
+import ar.edu.utn.frvm.typeit.boero_api.institutional.exceptions.OwnAccessException;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.exceptions.PersonAlreadyExistsException;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.exceptions.PersonNotFoundException;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.interfaces.InstitutionRepository;
@@ -63,6 +65,10 @@ public class RegisterGuardianDependentUseCase {
             .orElseGet(() -> createDependent(institution, request));
 
     final PersonGuardian link = requestLink(institution, tutor, dependent, request);
+    link.requestOwnAccess(request.ownAccessRequested(), request.email());
+    if (request.ownAccessRequested() && (request.email() == null || request.email().isBlank())) {
+      throw new OwnAccessException(InstitutionMessages.OWN_ACCESS_EMAIL_REQUIRED);
+    }
     auditEventRecorder.record(
         institution,
         tutor.getId(),

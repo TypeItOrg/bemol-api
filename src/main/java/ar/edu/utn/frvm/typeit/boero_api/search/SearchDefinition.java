@@ -130,10 +130,7 @@ SELECT e.academic_space_id AS id, e.institution_id, i.name AS institution_name,
          AND boero_search_vector(e.name || ' ' || p.name) @@ to_tsquery('simple', :query)
        """),
   // Scoped to the caller's own dependents through :personId, so it is institutional-only.
-  GUARDIAN_DEPENDENT(
-      SearchEntityType.GUARDIAN_DEPENDENT,
-      PermissionCode.GUARDIAN_DEPENDENT_MANAGE,
-      guardianDependents());
+  GUARDIAN_DEPENDENT(SearchEntityType.GUARDIAN_DEPENDENT, null, guardianDependents());
 
   private final SearchEntityType type;
   private final @Nullable PermissionCode permission;
@@ -153,7 +150,7 @@ SELECT e.academic_space_id AS id, e.institution_id, i.name AS institution_name,
   }
 
   boolean isAvailableTo(final Set<PermissionCode> permissions) {
-    return permission != null && permissions.contains(permission);
+    return requiresPerson() || (permission != null && permissions.contains(permission));
   }
 
   boolean requiresPerson() {

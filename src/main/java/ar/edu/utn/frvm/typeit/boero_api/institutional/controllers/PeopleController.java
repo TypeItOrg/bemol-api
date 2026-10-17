@@ -3,13 +3,16 @@ package ar.edu.utn.frvm.typeit.boero_api.institutional.controllers;
 import static java.util.Objects.requireNonNull;
 
 import ar.edu.utn.frvm.typeit.boero_api.auth.filters.JwtAuthenticatedUser;
+import ar.edu.utn.frvm.typeit.boero_api.auth.services.PersonOwnAccessService;
 import ar.edu.utn.frvm.typeit.boero_api.authorization.RequiresInstitutionAccess;
 import ar.edu.utn.frvm.typeit.boero_api.authorization.RequiresPermission;
 import ar.edu.utn.frvm.typeit.boero_api.authorization.enums.PermissionCode;
 import ar.edu.utn.frvm.typeit.boero_api.authorization.services.InitialRoleAssignmentGuard;
 import ar.edu.utn.frvm.typeit.boero_api.common.web.PaginatedResponse;
 import ar.edu.utn.frvm.typeit.boero_api.common.web.Version;
+import ar.edu.utn.frvm.typeit.boero_api.institutional.payloads.OwnAccessResponse;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.payloads.person.CreatePersonRequest;
+import ar.edu.utn.frvm.typeit.boero_api.institutional.payloads.person.InvitePersonAccessRequest;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.payloads.person.PersonResponse;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.payloads.person.PersonSummaryResponse;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.payloads.person.UpdatePersonByAdminRequest;
@@ -20,6 +23,7 @@ import ar.edu.utn.frvm.typeit.boero_api.institutional.services.GetPersonByIdUseC
 import ar.edu.utn.frvm.typeit.boero_api.institutional.services.ListPeopleUseCase;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.services.UpdateInstitutionalUserStatusUseCase;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.services.UpdatePersonByAdminUseCase;
+import io.swagger.v3.oas.annotations.Operation;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Size;
 import java.util.UUID;
@@ -49,6 +53,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RequiresInstitutionAccess
 public class PeopleController {
 
+  private final PersonOwnAccessService ownAccess;
   private final ListPeopleUseCase listPeopleUseCase;
   private final GetPersonByIdUseCase getPersonByIdUseCase;
   private final CreatePersonUseCase createPersonUseCase;
@@ -107,6 +112,31 @@ public class PeopleController {
       @PathVariable final UUID personId,
       final Authentication authentication) {
     deletePersonUseCase.execute(institutionId, personId);
+  }
+
+  @PostMapping(value = "/{personId}/access-invitations", version = Version.V1)
+  @RequiresPermission(PermissionCode.INSTITUTION_USER_STATUS_UPDATE)
+  @Operation(summary = "Invitar a una persona existente sin cuenta a activar su acceso inicial")
+  public OwnAccessResponse inviteAccess(
+      @PathVariable final UUID institutionId,
+      @PathVariable final UUID personId,
+      @Valid @RequestBody final InvitePersonAccessRequest request,
+      final Authentication authentication) {
+    final var actor = (JwtAuthenticatedUser) requireNonNull(authentication.getPrincipal());
+    return ownAccess.inviteInstitutionally(
+        institutionId, actor.personId(), personId, request.email());
+  }
+
+  @DeleteMapping(value = "/{personId}/access-invitations", version = Version.V1)
+  @RequiresPermission(PermissionCode.INSTITUTION_USER_STATUS_UPDATE)
+  @ResponseStatus(HttpStatus.NO_CONTENT)
+  @Operation(summary = "Cancelar la invitación de acceso inicial sin afectar cuentas existentes")
+  public void cancelAccessInvitation(
+      @PathVariable final UUID institutionId,
+      @PathVariable final UUID personId,
+      final Authentication authentication) {
+    final var actor = (JwtAuthenticatedUser) requireNonNull(authentication.getPrincipal());
+    ownAccess.cancelInstitutionalInvitation(institutionId, actor.personId(), personId);
   }
 
   @PatchMapping(value = "/{personId}/status", version = Version.V1)

@@ -32,6 +32,7 @@ public interface UserSessionRepository extends JpaRepository<UserSession, UUID> 
         AND s.userId = u.id
         AND s.active = true
         AND u.enabled = true
+        AND u.selfAccessEnabled = true
         AND u.person.deleted = false
         AND u.institution.active = true
       """)

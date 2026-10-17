@@ -10,8 +10,6 @@ import ar.edu.utn.frvm.typeit.boero_api.authorization.enums.SystemRoleCode;
 import ar.edu.utn.frvm.typeit.boero_api.authorization.interfaces.PermissionRepository;
 import ar.edu.utn.frvm.typeit.boero_api.authorization.interfaces.RolePermissionRepository;
 import ar.edu.utn.frvm.typeit.boero_api.authorization.interfaces.RoleRepository;
-import ar.edu.utn.frvm.typeit.boero_api.institutional.entities.Institution;
-import ar.edu.utn.frvm.typeit.boero_api.support.InstitutionalTestData;
 import ar.edu.utn.frvm.typeit.boero_api.support.JpaAuditingTestConfig;
 import jakarta.persistence.EntityManager;
 import java.util.List;
@@ -167,44 +165,5 @@ class PermissionRoleSeedTest {
           .extracting(rolePermission -> rolePermission.getPermission().getCode())
           .contains(PermissionCode.GUARDIAN_LINK_REVIEW.getCode());
     }
-  }
-
-  @Test
-  @DisplayName("Should grant guardians the applicant permissions plus dependent management")
-  void run_assignsDependentManagementToGuardians() {
-    permissionRoleSeed.run(new org.springframework.boot.DefaultApplicationArguments());
-
-    final var guardianRole =
-        roleRepository
-            .findByScopeAndCodeAndInstitutionIsNull(
-                RoleScope.INSTITUTION, SystemRoleCode.GUARDIAN.name())
-            .orElseThrow();
-
-    assertThat(rolePermissionRepository.findByRole_Id(guardianRole.getId()))
-        .extracting(rolePermission -> rolePermission.getPermission().getCode())
-        .containsExactlyInAnyOrder(
-            PermissionCode.ACADEMIC_OFFER_READ.getCode(),
-            PermissionCode.STUDY_PLAN_READ.getCode(),
-            PermissionCode.ACADEMIC_YEAR_READ.getCode(),
-            PermissionCode.GUARDIAN_DEPENDENT_MANAGE.getCode());
-  }
-
-  @Test
-  @DisplayName("Should provision the guardian role in every institution")
-  void run_provisionsGuardianRoleForInstitutions() {
-    final Institution institution = InstitutionalTestData.createInstitution(entityManager, "boero");
-    entityManager.flush();
-
-    permissionRoleSeed.run(new org.springframework.boot.DefaultApplicationArguments());
-
-    final var guardianRole =
-        roleRepository
-            .findByScopeAndCodeAndInstitution_Id(
-                RoleScope.INSTITUTION, SystemRoleCode.GUARDIAN.name(), institution.getId())
-            .orElseThrow();
-
-    assertThat(rolePermissionRepository.findByRole_Id(guardianRole.getId()))
-        .extracting(rolePermission -> rolePermission.getPermission().getCode())
-        .contains(PermissionCode.GUARDIAN_DEPENDENT_MANAGE.getCode());
   }
 }

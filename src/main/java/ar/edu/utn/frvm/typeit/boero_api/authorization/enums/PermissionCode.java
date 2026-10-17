@@ -376,16 +376,11 @@ public enum PermissionCode {
       PermissionScope.INSTITUTION,
       PermissionGroup.ENROLLMENT,
       "Rechazar solicitudes de inscripción"),
-  GUARDIAN_DEPENDENT_MANAGE(
-      "institution:guardian-dependent:manage",
-      PermissionScope.INSTITUTION,
-      PermissionGroup.ENROLLMENT,
-      "Gestionar personas a cargo"),
   GUARDIAN_LINK_REVIEW(
       "institution:guardian-link:review",
       PermissionScope.INSTITUTION,
       PermissionGroup.ENROLLMENT,
-      "Validar vinculaciones entre tutores y estudiantes"),
+      "Validar representación de personas"),
   INSTITUTION_AUDIT_READ(
       "institution:audit:read",
       PermissionScope.INSTITUTION,

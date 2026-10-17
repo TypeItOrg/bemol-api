@@ -10,7 +10,7 @@ import ar.edu.utn.frvm.typeit.boero_api.authorization.services.PermissionAccess;
 import ar.edu.utn.frvm.typeit.boero_api.enrollment.entities.EnrollmentApplication;
 import ar.edu.utn.frvm.typeit.boero_api.enrollment.enums.EnrollmentDocumentAction;
 import ar.edu.utn.frvm.typeit.boero_api.enrollment.exceptions.EnrollmentMessages;
-import ar.edu.utn.frvm.typeit.boero_api.enrollment.interfaces.EnrollmentApplicationRepository;
+import ar.edu.utn.frvm.typeit.boero_api.institutional.services.OperatingContextResolver;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
@@ -24,14 +24,23 @@ import org.springframework.stereotype.Service;
 @RequiredArgsConstructor
 public class EnrollmentDocumentAuthorization {
   private final AuthorityResolver authorityResolver;
+  private final OperatingContextResolver operatingContext;
   private final AuthorizationService authorizationService;
   private final EnrollmentDocumentAudit audit;
-  private final EnrollmentApplicationRepository applications;
 
   public boolean canAccess(
       final EnrollmentApplication application,
       final @Nullable Authentication authentication,
       final PermissionCode permission) {
+    final var selected = operatingContext.currentPersonId();
+    if (selected.isPresent()) {
+      return selected.get().equals(application.getApplicantPerson().getId())
+          && Set.of(
+                  PermissionCode.ENROLLMENT_ATTACHMENT_READ,
+                  PermissionCode.ENROLLMENT_ATTACHMENT_UPLOAD,
+                  PermissionCode.ENROLLMENT_ATTACHMENT_DELETE)
+              .contains(permission);
+    }
     if (authentication == null || !authentication.isAuthenticated()) {
       return false;
     }
@@ -48,8 +57,7 @@ public class EnrollmentDocumentAuthorization {
                   PermissionCode.ENROLLMENT_ATTACHMENT_UPLOAD,
                   PermissionCode.ENROLLMENT_ATTACHMENT_DELETE)
               .contains(permission)
-          && (Objects.equals(user.personId(), application.getApplicantPerson().getId())
-              || applications.isAccessibleByPerson(application.getId(), user.personId()))) {
+          && Objects.equals(user.personId(), application.getApplicantPerson().getId())) {
         return true;
       }
       return authorityResolver

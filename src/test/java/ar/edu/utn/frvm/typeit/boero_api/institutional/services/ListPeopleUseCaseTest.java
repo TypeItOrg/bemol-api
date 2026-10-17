@@ -5,6 +5,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import ar.edu.utn.frvm.typeit.boero_api.auth.entities.User;
+import ar.edu.utn.frvm.typeit.boero_api.auth.interfaces.PersonAccessInvitationRepository;
 import ar.edu.utn.frvm.typeit.boero_api.auth.interfaces.UserRepository;
 import ar.edu.utn.frvm.typeit.boero_api.authorization.entities.PersonRoleAssignment;
 import ar.edu.utn.frvm.typeit.boero_api.authorization.entities.Role;
@@ -14,6 +15,7 @@ import ar.edu.utn.frvm.typeit.boero_api.institutional.entities.Institution;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.entities.Person;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.interfaces.PersonRepository;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.payloads.person.PersonSummaryResponse;
+import java.time.Clock;
 import java.util.List;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
@@ -38,6 +40,8 @@ class ListPeopleUseCaseTest {
   @Mock private PersonRepository personRepository;
   @Mock private PersonRoleAssignmentRepository assignments;
   @Mock private UserRepository users;
+  @Mock private PersonAccessInvitationRepository invitations;
+  @org.mockito.Spy private Clock clock = Clock.systemUTC();
   @InjectMocks private ListPeopleUseCase useCase;
 
   @Test
@@ -72,7 +76,9 @@ class ListPeopleUseCaseTest {
                         true,
                         List.of(
                             new PersonSummaryResponse.PersonRoleSummaryResponse(
-                                "TEACHER", "Docente"))),
+                                "TEACHER", "Docente")),
+                        true,
+                        false),
                     new PersonSummaryResponse(
                         LUIS_ID,
                         "Luis",
@@ -81,7 +87,9 @@ class ListPeopleUseCaseTest {
                         "luis@example.com",
                         "353-123",
                         false,
-                        List.of())),
+                        List.of(),
+                        true,
+                        false)),
                 1,
                 20,
                 22,

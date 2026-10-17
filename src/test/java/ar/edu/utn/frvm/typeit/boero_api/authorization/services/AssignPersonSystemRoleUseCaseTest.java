@@ -85,7 +85,7 @@ class AssignPersonSystemRoleUseCaseTest {
   @DisplayName("Should keep existing roles without adding the exclusive applicant role")
   void executePreservingRoles_doesNotAddApplicantToExistingRoles() {
     Role applicant = roleWith(SystemRoleCode.APPLICANT);
-    Role guardian = roleWith(SystemRoleCode.GUARDIAN);
+    Role guardian = roleWith(SystemRoleCode.STUDENT);
     PersonRoleAssignment guardianAssignment = assignmentWith(guardian);
     when(roleRepository.findByScopeAndCodeAndInstitution_Id(
             RoleScope.INSTITUTION, SystemRoleCode.APPLICANT.name(), institutionId))

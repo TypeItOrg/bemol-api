@@ -24,19 +24,9 @@ public interface EnrollmentApplicationRepository
   long countDraftsUsingDocument(@Param("documentId") UUID documentId);
 
   /**
-   * Applications a person may act on: their own, or the ones of a dependent they have an active
-   * guardianship link with. Any tutor of the applicant qualifies, not only whoever submitted it,
-   * and the access ends as soon as the link is no longer active. Expects the {@code application}
-   * alias and a {@code :personId} parameter.
+   * Every self-service query matches one validated operating subject, never a union of dependents.
    */
-  String ACCESSIBLE_BY_PERSON =
-      "(application.applicantPerson.id = :personId "
-          + "OR EXISTS (SELECT 1 FROM PersonGuardian guardianship "
-          + "WHERE guardianship.institution.id = application.institution.id "
-          + "AND guardianship.tutorPerson.id = :personId "
-          + "AND guardianship.status = "
-          + "ar.edu.utn.frvm.typeit.boero_api.institutional.entities.GuardianLinkStatus.ACTIVE "
-          + "AND guardianship.dependentPerson.id = application.applicantPerson.id))";
+  String ACCESSIBLE_BY_PERSON = "application.applicantPerson.id = :personId";
 
   @Lock(LockModeType.PESSIMISTIC_WRITE)
   Optional<EnrollmentApplication>

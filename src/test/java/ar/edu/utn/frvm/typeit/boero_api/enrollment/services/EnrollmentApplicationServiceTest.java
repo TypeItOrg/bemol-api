@@ -54,10 +54,8 @@ import ar.edu.utn.frvm.typeit.boero_api.enrollment.payloads.InstrumentSelectionD
 import ar.edu.utn.frvm.typeit.boero_api.enrollment.payloads.PersonalDataDto;
 import ar.edu.utn.frvm.typeit.boero_api.enrollment.payloads.StartEnrollmentApplicationRequest;
 import ar.edu.utn.frvm.typeit.boero_api.enrollment.payloads.UpdateEnrollmentDraftRequest;
-import ar.edu.utn.frvm.typeit.boero_api.institutional.entities.GuardianLinkStatus;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.entities.Institution;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.entities.Person;
-import ar.edu.utn.frvm.typeit.boero_api.institutional.exceptions.UnauthorizedGuardianshipException;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.interfaces.PersonGuardianRepository;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.interfaces.PersonRepository;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.interfaces.StudentRepository;
@@ -180,23 +178,10 @@ class EnrollmentApplicationServiceTest {
             admissionHistory,
             new QueryEnrollmentApplicationsUseCase(applicationRepository, responses, authorization),
             academicYearRepository,
-            personGuardianRepository,
-            personRoleAssignmentRepository,
-            auditEventRecorder);
-  }
-
-  @Test
-  @DisplayName("Should reject a guardian applying for themself")
-  void startOrGetApplication_guardianCannotApplyForSelf() {
-    when(personRoleAssignmentRepository.existsByPerson_IdAndInstitution_IdAndRole_Code(
-            personId, institutionId, "GUARDIAN"))
-        .thenReturn(true);
-    StartEnrollmentApplicationRequest request =
-        new StartEnrollmentApplicationRequest(studyPlanId, academicYearId);
-
-    assertThatThrownBy(() -> service.startOrGetApplication(institutionId, personId, request))
-        .isInstanceOf(EnrollmentValidationException.class)
-        .hasMessage(EnrollmentMessages.ENROLLMENT_APPLICATION_GUARDIAN_MUST_USE_DEPENDENT);
+            auditEventRecorder,
+            org.mockito.Mockito.mock(
+                ar.edu.utn.frvm.typeit.boero_api.institutional.services.OperatingContextResolver
+                    .class));
   }
 
   @Test
@@ -729,29 +714,6 @@ class EnrollmentApplicationServiceTest {
         .thenReturn(Optional.of(application));
     assertThatThrownBy(() -> service.submitApplication(personId, applicationId))
         .isInstanceOf(EnrollmentValidationException.class);
-  }
-
-  @Test
-  @DisplayName("Should forbid starting an application for a person the caller does not guard")
-  void startOrGetApplication_forUnguardedPerson_isForbidden() {
-    UUID dependentId = UUID.randomUUID();
-    when(personGuardianRepository
-            .existsByInstitution_IdAndTutorPerson_IdAndDependentPerson_IdAndStatusIn(
-                institutionId, personId, dependentId, List.of(GuardianLinkStatus.ACTIVE)))
-        .thenReturn(false);
-
-    assertThatThrownBy(
-            () ->
-                service.startOrGetApplication(
-                    institutionId,
-                    personId,
-                    StartEnrollmentApplicationRequest.builder()
-                        .studyPlanId(studyPlanId)
-                        .academicYearId(academicYearId)
-                        .applicantPersonId(dependentId)
-                        .build()))
-        .isInstanceOf(UnauthorizedGuardianshipException.class);
-    verify(applicationRepository, never()).saveAndFlush(any(EnrollmentApplication.class));
   }
 
   @Test

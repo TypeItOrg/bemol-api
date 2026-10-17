@@ -17,6 +17,8 @@ public enum SearchEntityType {
   INSTRUMENT("instrument"),
   SHIFT("shift"),
   COURSE("course"),
+  COURSE_ENROLLMENT("course-enrollment"),
+  ENROLLMENT_APPLICATION("enrollment-application"),
   GUARDIAN_DEPENDENT("guardian-dependent");
 
   private final String code;

@@ -168,8 +168,6 @@ public final class EnrollmentMessages {
       "Uno o mas instrumentos seleccionados no estan habilitados para inscripcion.";
   public static final String ENROLLMENT_APPLICATION_APPLICANT_REQUIRED =
       "Solo un postulante puede operar sobre solicitudes de inscripción.";
-  public static final String ENROLLMENT_APPLICATION_GUARDIAN_MUST_USE_DEPENDENT =
-      "Un tutor solo puede inscribir a personas a su cargo.";
   public static final String ENROLLMENT_APPLICATION_SPACES_REQUIRED =
       "Debe seleccionar al menos un curso para enviar la inscripción.";
   public static final String ENROLLMENT_APPLICATION_SPACES_DUPLICATED =

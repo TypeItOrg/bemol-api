@@ -3,12 +3,15 @@ package ar.edu.utn.frvm.typeit.boero_api.institutional.services;
 import ar.edu.utn.frvm.typeit.boero_api.audit.enums.AuditAction;
 import ar.edu.utn.frvm.typeit.boero_api.audit.enums.AuditEntityType;
 import ar.edu.utn.frvm.typeit.boero_api.audit.services.AuditEventRecorder;
+import ar.edu.utn.frvm.typeit.boero_api.auth.services.PersonOwnAccessService;
 import ar.edu.utn.frvm.typeit.boero_api.authorization.enums.SystemRoleCode;
 import ar.edu.utn.frvm.typeit.boero_api.authorization.services.AssignPersonSystemRoleUseCase;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.entities.Person;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.entities.PersonGuardian;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.exceptions.GuardianLinkNotFoundException;
+import ar.edu.utn.frvm.typeit.boero_api.institutional.exceptions.InstitutionNotFoundException;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.exceptions.PersonNotFoundException;
+import ar.edu.utn.frvm.typeit.boero_api.institutional.interfaces.InstitutionRepository;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.interfaces.PersonGuardianRepository;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.interfaces.PersonRepository;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.payloads.guardian.GuardianLinkReviewResponse;
@@ -24,6 +27,8 @@ import org.springframework.transaction.annotation.Transactional;
 public class ResolveGuardianLinkUseCase {
 
   private final PersonGuardianRepository personGuardianRepository;
+  private final InstitutionRepository institutions;
+  private final PersonOwnAccessService ownAccess;
   private final PersonRepository personRepository;
   private final AssignPersonSystemRoleUseCase assignPersonSystemRoleUseCase;
   private final AuditEventRecorder auditEventRecorder;
@@ -31,10 +36,12 @@ public class ResolveGuardianLinkUseCase {
   @Transactional
   public GuardianLinkReviewResponse approve(
       final UUID institutionId, final UUID reviewerPersonId, final UUID linkId) {
+    institutions.findByIdForUpdate(institutionId).orElseThrow(InstitutionNotFoundException::new);
     final PersonGuardian link = findLink(institutionId, linkId);
     final Person reviewer = findReviewer(institutionId, reviewerPersonId);
 
     link.approve(reviewer);
+    ownAccess.enableRequested(link);
     assignPersonSystemRoleUseCase.executePreservingRoles(
         link.getDependentPerson(), SystemRoleCode.APPLICANT);
     audit(link, reviewer, AuditAction.GUARDIAN_LINK_APPROVED);
@@ -45,6 +52,7 @@ public class ResolveGuardianLinkUseCase {
   @Transactional
   public GuardianLinkReviewResponse reject(
       final UUID institutionId, final UUID reviewerPersonId, final UUID linkId) {
+    institutions.findByIdForUpdate(institutionId).orElseThrow(InstitutionNotFoundException::new);
     final PersonGuardian link = findLink(institutionId, linkId);
     final Person reviewer = findReviewer(institutionId, reviewerPersonId);
 
@@ -57,9 +65,11 @@ public class ResolveGuardianLinkUseCase {
   @Transactional
   public GuardianLinkReviewResponse approveForPlatform(
       final UUID institutionId, final UUID linkId) {
+    institutions.findByIdForUpdate(institutionId).orElseThrow(InstitutionNotFoundException::new);
     final PersonGuardian link = findLink(institutionId, linkId);
 
     link.approve(null);
+    ownAccess.enableRequested(link);
     assignPersonSystemRoleUseCase.executePreservingRoles(
         link.getDependentPerson(), SystemRoleCode.APPLICANT);
     audit(link, null, AuditAction.GUARDIAN_LINK_APPROVED);
@@ -69,6 +79,7 @@ public class ResolveGuardianLinkUseCase {
 
   @Transactional
   public GuardianLinkReviewResponse rejectForPlatform(final UUID institutionId, final UUID linkId) {
+    institutions.findByIdForUpdate(institutionId).orElseThrow(InstitutionNotFoundException::new);
     final PersonGuardian link = findLink(institutionId, linkId);
 
     link.reject(null);

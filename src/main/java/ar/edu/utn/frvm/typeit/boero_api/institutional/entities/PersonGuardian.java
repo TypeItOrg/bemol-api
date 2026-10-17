@@ -58,6 +58,17 @@ public class PersonGuardian extends Auditable {
   @Column(nullable = false, length = 30)
   private GuardianRelationship relationship;
 
+  @Column(name = "own_access_requested", nullable = false)
+  private boolean ownAccessRequested;
+
+  @Column(name = "declared_email", length = 150)
+  private @Nullable String declaredEmail;
+
+  public void requestOwnAccess(final boolean requested, final @Nullable String email) {
+    ownAccessRequested = requested;
+    declaredEmail = email;
+  }
+
   @Column(name = "is_primary_contact", nullable = false)
   private boolean primaryContact;
 

@@ -1,5 +1,8 @@
 package ar.edu.utn.frvm.typeit.boero_api.institutional.services;
 
+import static java.util.Objects.requireNonNull;
+
+import ar.edu.utn.frvm.typeit.boero_api.auth.services.PersonOwnAccessService;
 import ar.edu.utn.frvm.typeit.boero_api.authorization.interfaces.PersonRoleAssignmentRepository;
 import ar.edu.utn.frvm.typeit.boero_api.common.web.PaginatedResponse;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.entities.GuardianLinkStatus;
@@ -28,6 +31,7 @@ public class ListGuardianDependentsUseCase {
       List.of(GuardianLinkStatus.PENDING, GuardianLinkStatus.ACTIVE, GuardianLinkStatus.REJECTED);
 
   private final PersonGuardianRepository personGuardianRepository;
+  private final PersonOwnAccessService ownAccess;
   private final PersonRoleAssignmentRepository personRoleAssignmentRepository;
 
   @Transactional(readOnly = true)
@@ -81,6 +85,14 @@ public class ListGuardianDependentsUseCase {
 
     final List<UUID> dependentIds =
         links.stream().map(link -> link.getDependentPerson().getId()).toList();
+    final Map<UUID, String> ownAccessStatuses =
+        ownAccess.statuses(
+            institutionId,
+            links.stream()
+                .filter(PersonGuardian::isActive)
+                .map(link -> link.getDependentPerson().getId())
+                .distinct()
+                .toList());
     final Map<UUID, Long> counts =
         personGuardianRepository
             .countActiveApplicationsByApplicant(institutionId, dependentIds)
@@ -105,7 +117,10 @@ public class ListGuardianDependentsUseCase {
               return GuardianDependentResponse.from(
                   link,
                   counts.getOrDefault(dependentId, 0L),
-                  roles.getOrDefault(dependentId, List.of()));
+                  roles.getOrDefault(dependentId, List.of()),
+                  link.isActive()
+                      ? requireNonNull(ownAccessStatuses.get(dependentId))
+                      : "UNAVAILABLE");
             })
         .toList();
   }

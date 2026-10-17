@@ -6,6 +6,7 @@ public final class PublicRoutes {
 
   private static final String[] AUTH_ROUTES = {
     "/api/v1/auth/register",
+    "/api/v1/auth/own-access/activate",
     "/api/v1/auth/email-verification/confirm",
     "/api/v1/auth/email-verification/resend",
     "/api/v1/auth/email-verification/change-email",

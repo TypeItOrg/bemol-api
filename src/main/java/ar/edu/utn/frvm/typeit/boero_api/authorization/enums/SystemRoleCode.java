@@ -9,7 +9,6 @@ public enum SystemRoleCode {
   INSTITUTIONAL_AUTHORITY("Administrador Institucional"),
   ADMINISTRATIVE("Administrativo"),
   TEACHER("Profesor"),
-  GUARDIAN("Tutor"),
   APPLICANT("Postulante"),
   STUDENT("Estudiante");
 

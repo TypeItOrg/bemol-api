@@ -21,7 +21,7 @@ public interface PersonGuardianRepository
     extends JpaRepository<PersonGuardian, UUID>, JpaSpecificationExecutor<PersonGuardian> {
 
   @Override
-  @EntityGraph(attributePaths = "dependentPerson")
+  @EntityGraph(attributePaths = {"institution", "tutorPerson", "dependentPerson"})
   Page<PersonGuardian> findAll(Specification<PersonGuardian> specification, Pageable pageable);
 
   @EntityGraph(attributePaths = "dependentPerson")

@@ -6,6 +6,8 @@ import ar.edu.utn.frvm.typeit.boero_api.audit.services.AuditEventRecorder;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.entities.GuardianLinkStatus;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.entities.PersonGuardian;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.exceptions.DependentNotFoundException;
+import ar.edu.utn.frvm.typeit.boero_api.institutional.exceptions.InstitutionNotFoundException;
+import ar.edu.utn.frvm.typeit.boero_api.institutional.interfaces.InstitutionRepository;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.interfaces.PersonGuardianRepository;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -16,6 +18,7 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class UnlinkGuardianDependentUseCase {
 
+  private final InstitutionRepository institutions;
   private final PersonGuardianRepository personGuardianRepository;
   private final AuditEventRecorder auditEventRecorder;
 
@@ -23,6 +26,7 @@ public class UnlinkGuardianDependentUseCase {
   @Transactional
   public void execute(
       final UUID institutionId, final UUID tutorPersonId, final UUID dependentPersonId) {
+    institutions.findByIdForUpdate(institutionId).orElseThrow(InstitutionNotFoundException::new);
     final PersonGuardian link =
         personGuardianRepository
             .findByInstitution_IdAndTutorPerson_IdAndDependentPerson_IdAndStatus(

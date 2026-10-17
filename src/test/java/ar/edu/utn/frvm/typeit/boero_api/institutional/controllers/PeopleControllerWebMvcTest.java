@@ -18,6 +18,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import ar.edu.utn.frvm.typeit.boero_api.auth.services.IsPlatformSessionActiveUseCase;
 import ar.edu.utn.frvm.typeit.boero_api.auth.services.IsSessionActiveUseCase;
 import ar.edu.utn.frvm.typeit.boero_api.auth.services.JwtService;
+import ar.edu.utn.frvm.typeit.boero_api.auth.services.PersonOwnAccessService;
 import ar.edu.utn.frvm.typeit.boero_api.auth.services.TokenBlacklistService;
 import ar.edu.utn.frvm.typeit.boero_api.authorization.enums.PermissionCode;
 import ar.edu.utn.frvm.typeit.boero_api.authorization.enums.PlatformRoleCode;
@@ -89,6 +90,7 @@ class PeopleControllerWebMvcTest {
 
   @Autowired private MockMvc mockMvc;
 
+  @MockitoBean PersonOwnAccessService ownAccess;
   @MockitoBean private PathMatcher pathMatcher;
   @MockitoBean private AuthenticationEntryPoint authenticationEntryPoint;
   @MockitoBean private JwtService jwtService;
@@ -487,7 +489,16 @@ class PeopleControllerWebMvcTest {
 
   private static PersonSummaryResponse personSummary() {
     return new PersonSummaryResponse(
-        PERSON_ID, "Ana", "García", "12345678", "ana@example.com", null, true, List.of());
+        PERSON_ID,
+        "Ana",
+        "García",
+        "12345678",
+        "ana@example.com",
+        null,
+        true,
+        List.of(),
+        true,
+        false);
   }
 
   private static PersonResponse personResponse() {

@@ -58,7 +58,12 @@ class ListAvailableEnrollmentTrainingPathsUseCaseTest {
     final var useCase =
         new ListAvailableEnrollmentTrainingPathsUseCase(
             Clock.fixed(Instant.parse("2026-09-26T12:00:00Z"), ZoneOffset.UTC),
-            new ApplicantEnrollmentGuard(personRepository, personRoleAssignmentRepository),
+            new ApplicantEnrollmentGuard(
+                personRepository,
+                org.mockito.Mockito.mock(
+                    ar.edu.utn.frvm.typeit.boero_api.institutional.services.OperatingContextResolver
+                        .class),
+                personRoleAssignmentRepository),
             trainingPathRepository);
 
     given(

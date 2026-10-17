@@ -22,11 +22,11 @@ public class ListEnrollmentApplicationTrainingPathsUseCase {
   @Transactional(readOnly = true)
   public List<TrainingPathResponse> execute(
       final JwtAuthenticatedUser principal, final UUID applicationId) {
-    applicantEnrollmentGuard.requireApplicant(principal);
+    final var applicant = applicantEnrollmentGuard.requireApplicant(principal);
     final var application =
         enrollmentApplicationRepository
             .findAccessibleByIdAndInstitutionId(
-                principal.institutionId(), principal.personId(), applicationId)
+                principal.institutionId(), applicant.getId(), applicationId)
             .orElseThrow(EnrollmentApplicationNotFoundException::new);
 
     if (application.getEnrollmentPeriod() == null) {

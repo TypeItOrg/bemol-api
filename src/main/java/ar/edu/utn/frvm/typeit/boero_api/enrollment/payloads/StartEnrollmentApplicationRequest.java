@@ -14,31 +14,22 @@ public record StartEnrollmentApplicationRequest(
         @Nullable UUID trainingPathId,
     @Schema(nullable = true) @Nullable UUID studyPlanId,
     @Schema(nullable = true) @Nullable UUID academicYearId,
-    @Schema(nullable = true) @Nullable UUID enrollmentPeriodId,
-    @Schema(
-            nullable = true,
-            description =
-                "Person the application is for. Omit to apply for yourself; when set, the caller must be a guardian of that person.")
-        @Nullable UUID applicantPersonId) {
+    @Schema(nullable = true) @Nullable UUID enrollmentPeriodId) {
   public StartEnrollmentApplicationRequest() {
-    this(null, null, null, null, null);
+    this(null, null, null, null);
   }
 
   public StartEnrollmentApplicationRequest(final UUID studyPlanId, final UUID academicYearId) {
-    this(null, studyPlanId, academicYearId, null, null);
+    this(null, studyPlanId, academicYearId, null);
   }
 
   public StartEnrollmentApplicationRequest(
       @Nullable UUID trainingPathId, @Nullable UUID studyPlanId, @Nullable UUID academicYearId) {
-    this(trainingPathId, studyPlanId, academicYearId, null, null);
+    this(trainingPathId, studyPlanId, academicYearId, null);
   }
 
   public @Nullable UUID getTrainingPathId() {
     return trainingPathId;
-  }
-
-  public @Nullable UUID getApplicantPersonId() {
-    return applicantPersonId;
   }
 
   public @Nullable UUID getStudyPlanId() {

@@ -27,6 +27,48 @@ class SearchServiceTest {
   @InjectMocks private SearchService searchService;
 
   @Test
+  void selfServiceSummaryPreservesGroupOrderAndLimitsResults() {
+    final UUID institutionId = UUID.randomUUID();
+    final UUID personId = UUID.randomUUID();
+    final var application =
+        new SearchResultResponse(
+            UUID.randomUUID(), institutionId, null, null, "Solicitud", null, null, null, null);
+    final var course =
+        new SearchResultResponse(
+            UUID.randomUUID(), institutionId, null, null, "Curso", null, null, null, null);
+    when(repository.selfServiceSummary(eq(institutionId), eq(personId), any(), eq(2)))
+        .thenReturn(
+            Map.of(
+                SearchEntityType.COURSE_ENROLLMENT, List.of(course),
+                SearchEntityType.ENROLLMENT_APPLICATION, List.of(application, application)));
+
+    final var result = searchService.selfServiceSummary(institutionId, personId, "mateo", 1);
+
+    assertThat(result.groups())
+        .containsExactly(
+            new SearchGroupResponse(
+                SearchEntityType.ENROLLMENT_APPLICATION, List.of(application), true),
+            new SearchGroupResponse(SearchEntityType.COURSE_ENROLLMENT, List.of(course), false));
+  }
+
+  @Test
+  void selfServiceSummaryOmitsGroupsWithoutResults() {
+    final UUID institutionId = UUID.randomUUID();
+    final UUID personId = UUID.randomUUID();
+    final var course =
+        new SearchResultResponse(
+            UUID.randomUUID(), institutionId, null, null, "Curso", null, null, null, null);
+    when(repository.selfServiceSummary(eq(institutionId), eq(personId), any(), eq(2)))
+        .thenReturn(Map.of(SearchEntityType.COURSE_ENROLLMENT, List.of(course)));
+
+    final var result = searchService.selfServiceSummary(institutionId, personId, "mateo", 1);
+
+    assertThat(result.groups())
+        .containsExactly(
+            new SearchGroupResponse(SearchEntityType.COURSE_ENROLLMENT, List.of(course), false));
+  }
+
+  @Test
   void institutionalSummaryIncludesOnlyEntitiesGrantedByReadPermissions() {
     final UUID institutionId = UUID.randomUUID();
     final UUID personId = UUID.randomUUID();
@@ -46,18 +88,20 @@ class SearchServiceTest {
         .institutionalSummary(definitions.capture(), any(), eq(institutionId), eq(personId), eq(6));
     assertThat(definitions.getValue())
         .extracting(mappedSearchDefinition -> mappedSearchDefinition.type())
-        .containsExactly(SearchEntityType.USER, SearchEntityType.STUDY_PLAN);
+        .containsExactly(
+            SearchEntityType.USER,
+            SearchEntityType.STUDY_PLAN,
+            SearchEntityType.GUARDIAN_DEPENDENT);
   }
 
   @Test
-  void institutionalSummaryIncludesGuardianDependentsForGuardianDependentManagers() {
+  void institutionalSummaryIncludesOwnRepresentationsWithoutSpecialPermissions() {
     final UUID institutionId = UUID.randomUUID();
     final UUID personId = UUID.randomUUID();
     when(repository.institutionalSummary(any(), any(), eq(institutionId), eq(personId), anyInt()))
         .thenReturn(Map.of());
 
-    searchService.institutionalSummary(
-        institutionId, personId, "mateo", 5, Set.of(PermissionCode.GUARDIAN_DEPENDENT_MANAGE));
+    searchService.institutionalSummary(institutionId, personId, "mateo", 5, Set.of());
 
     @SuppressWarnings("unchecked")
     final ArgumentCaptor<List<SearchDefinition>> definitions = ArgumentCaptor.forClass(List.class);

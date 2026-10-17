@@ -106,8 +106,7 @@ class QaInstitutionalHostIsolationTest {
             mock(jakarta.validation.Validator.class),
             mock(
                 ar.edu.utn.frvm.typeit.boero_api.authorization.services
-                    .AssignPersonSystemRoleUseCase.class),
-            mock(ar.edu.utn.frvm.typeit.boero_api.common.time.BusinessDateProvider.class));
+                    .AssignPersonSystemRoleUseCase.class));
     assertThatThrownBy(
             () ->
                 registration.execute(
@@ -118,8 +117,7 @@ class QaInstitutionalHostIsolationTest {
                         "87654321",
                         "ana@example.com",
                         "long-password",
-                        other.getId(),
-                        false)))
+                        other.getId())))
         .isInstanceOf(InstitutionalContextMismatchException.class);
     final var verification =
         new InstitutionalEmailVerificationUseCase(

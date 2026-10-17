@@ -24,7 +24,8 @@ import org.jspecify.annotations.Nullable;
       "isPrimaryContact",
       "activeApplicationsCount",
       "roles",
-      "createdAt"
+      "createdAt",
+      "ownAccessStatus"
     })
 public record GuardianDependentResponse(
     UUID personGuardianId,
@@ -38,7 +39,13 @@ public record GuardianDependentResponse(
     boolean isPrimaryContact,
     long activeApplicationsCount,
     List<String> roles,
-    Instant createdAt) {
+    Instant createdAt,
+    String ownAccessStatus) {
+
+  public static GuardianDependentResponse from(
+      final PersonGuardian link, final long activeApplicationsCount, final List<String> roles) {
+    return from(link, activeApplicationsCount, roles, "UNAVAILABLE");
+  }
 
   /**
    * Until the institution approves the link the tutor only gets back what they declared: the stored
@@ -46,7 +53,10 @@ public record GuardianDependentResponse(
    * registered under a document number.
    */
   public static GuardianDependentResponse from(
-      final PersonGuardian link, final long activeApplicationsCount, final List<String> roles) {
+      final PersonGuardian link,
+      final long activeApplicationsCount,
+      final List<String> roles,
+      final String ownAccessStatus) {
     final Person dependent = link.getDependentPerson();
     final boolean visible = link.isActive();
 
@@ -57,11 +67,12 @@ public record GuardianDependentResponse(
         dependent.getDocumentNumber(),
         visible ? dependent.getFirstName() : link.getDeclaredFirstName(),
         visible ? dependent.getLastName() : link.getDeclaredLastName(),
-        dependent.getBirthDate(),
+        visible ? dependent.getBirthDate() : null,
         link.getRelationship(),
         link.isPrimaryContact(),
         visible ? activeApplicationsCount : 0,
         visible ? roles : List.of(),
-        link.getCreatedAt());
+        link.getCreatedAt(),
+        ownAccessStatus);
   }
 }

@@ -15,6 +15,8 @@ import ar.edu.utn.frvm.typeit.boero_api.auth.exceptions.AuthMessages;
 import ar.edu.utn.frvm.typeit.boero_api.authorization.exceptions.InvalidAccessScopeException;
 import ar.edu.utn.frvm.typeit.boero_api.enrollment.exceptions.EnrollmentMessages;
 import ar.edu.utn.frvm.typeit.boero_api.enrollment.exceptions.EnrollmentValidationException;
+import ar.edu.utn.frvm.typeit.boero_api.institutional.exceptions.InstitutionMessages;
+import ar.edu.utn.frvm.typeit.boero_api.institutional.exceptions.OwnAccessException;
 import jakarta.validation.ConstraintViolationException;
 import jakarta.validation.Path;
 import java.util.Map;
@@ -82,6 +84,15 @@ public class GlobalExceptionHandler {
     for (Throwable cause = exception; cause != null; cause = cause.getCause()) {
       if (cause instanceof org.hibernate.exception.ConstraintViolationException violation) {
         final String constraint = Objects.toString(violation.getConstraintName(), "");
+        if (Set.of(
+                "person_access_invitation_origin_check",
+                "person_access_invitation_institutional_subject_fk",
+                "person_access_invitation_institutional_issuer_fk",
+                "person_access_invitation_pending_unique")
+            .contains(constraint)) {
+          return handleApplicationException(
+              new OwnAccessException(InstitutionMessages.OWN_ACCESS_TOKEN_INVALID));
+        }
         if (Set.of(
                 "document_definition_institution_change_check",
                 "document_definition_usage_immutable_check")

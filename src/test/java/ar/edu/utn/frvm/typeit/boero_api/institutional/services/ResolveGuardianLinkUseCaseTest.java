@@ -37,6 +37,10 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @ExtendWith(MockitoExtension.class)
 class ResolveGuardianLinkUseCaseTest {
 
+  @Mock
+  private ar.edu.utn.frvm.typeit.boero_api.institutional.interfaces.InstitutionRepository
+      institutions;
+
   @Mock private PersonGuardianRepository personGuardianRepository;
   @Mock private PersonRepository personRepository;
   @Mock private AssignPersonSystemRoleUseCase assignPersonSystemRoleUseCase;
@@ -54,10 +58,14 @@ class ResolveGuardianLinkUseCaseTest {
     useCase =
         new ResolveGuardianLinkUseCase(
             personGuardianRepository,
+            institutions,
+            org.mockito.Mockito.mock(
+                ar.edu.utn.frvm.typeit.boero_api.auth.services.PersonOwnAccessService.class),
             personRepository,
             assignPersonSystemRoleUseCase,
             auditEventRecorder);
     institution = Institution.builder().id(UUID.randomUUID()).build();
+    when(institutions.findByIdForUpdate(institution.getId())).thenReturn(Optional.of(institution));
     reviewer = Person.builder().id(UUID.randomUUID()).institution(institution).build();
     final Person tutor = Person.builder().id(UUID.randomUUID()).institution(institution).build();
     final Person dependent =

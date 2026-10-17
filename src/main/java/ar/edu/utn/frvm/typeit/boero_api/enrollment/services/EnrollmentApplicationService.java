@@ -8,8 +8,6 @@ import ar.edu.utn.frvm.typeit.boero_api.academic.interfaces.TrainingPathReposito
 import ar.edu.utn.frvm.typeit.boero_api.audit.enums.AuditAction;
 import ar.edu.utn.frvm.typeit.boero_api.audit.enums.AuditEntityType;
 import ar.edu.utn.frvm.typeit.boero_api.audit.services.AuditEventRecorder;
-import ar.edu.utn.frvm.typeit.boero_api.authorization.enums.SystemRoleCode;
-import ar.edu.utn.frvm.typeit.boero_api.authorization.interfaces.PersonRoleAssignmentRepository;
 import ar.edu.utn.frvm.typeit.boero_api.common.web.PaginatedResponse;
 import ar.edu.utn.frvm.typeit.boero_api.enrollment.entities.ApplicantResponsible;
 import ar.edu.utn.frvm.typeit.boero_api.enrollment.entities.EnrollmentApplication;
@@ -25,13 +23,10 @@ import ar.edu.utn.frvm.typeit.boero_api.enrollment.payloads.CourseSelectionDto;
 import ar.edu.utn.frvm.typeit.boero_api.enrollment.payloads.EnrollmentApplicationResponse;
 import ar.edu.utn.frvm.typeit.boero_api.enrollment.payloads.StartEnrollmentApplicationRequest;
 import ar.edu.utn.frvm.typeit.boero_api.enrollment.payloads.UpdateEnrollmentDraftRequest;
-import ar.edu.utn.frvm.typeit.boero_api.institutional.entities.GuardianLinkStatus;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.entities.Person;
-import ar.edu.utn.frvm.typeit.boero_api.institutional.exceptions.UnauthorizedGuardianshipException;
-import ar.edu.utn.frvm.typeit.boero_api.institutional.interfaces.PersonGuardianRepository;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.interfaces.PersonRepository;
+import ar.edu.utn.frvm.typeit.boero_api.institutional.services.OperatingContextResolver;
 import java.time.Clock;
-import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.jspecify.annotations.Nullable;
@@ -58,38 +53,19 @@ public class EnrollmentApplicationService {
   private final EnrollmentAdmissionHistory history;
   private final QueryEnrollmentApplicationsUseCase queries;
   private final AcademicYearRepository academicYears;
-  private final PersonGuardianRepository personGuardianRepository;
-  private final PersonRoleAssignmentRepository personRoleAssignmentRepository;
   private final AuditEventRecorder auditEventRecorder;
+  private final OperatingContextResolver operatingContext;
 
   @Transactional
   public EnrollmentApplicationResponse startOrGetApplication(
       final UUID institutionId,
       final UUID personId,
       final StartEnrollmentApplicationRequest request) {
-    // Without applicantPersonId the caller applies for themself. Otherwise they act as a tutor of
-    // that person, which must be backed by an existing guardianship link. No application exists
-    // yet here, so the link is checked per person pair; afterwards the same person_guardians rows
-    // back EnrollmentApplicationRepository.ACCESSIBLE_BY_PERSON.
-    final UUID applicantPersonId =
-        request.getApplicantPersonId() != null ? request.getApplicantPersonId() : personId;
+    final UUID applicantPersonId = operatingContext.currentPersonId().orElse(personId);
     final boolean actingForDependent = !applicantPersonId.equals(personId);
 
-    if (!actingForDependent
-        && personRoleAssignmentRepository.existsByPerson_IdAndInstitution_IdAndRole_Code(
-            personId, institutionId, SystemRoleCode.GUARDIAN.name())) {
-      throw new EnrollmentValidationException(
-          EnrollmentMessages.ENROLLMENT_APPLICATION_GUARDIAN_MUST_USE_DEPENDENT);
-    }
-
-    if (actingForDependent
-        && !personGuardianRepository
-            .existsByInstitution_IdAndTutorPerson_IdAndDependentPerson_IdAndStatusIn(
-                institutionId, personId, applicantPersonId, List.of(GuardianLinkStatus.ACTIVE))) {
-      throw new UnauthorizedGuardianshipException();
-    }
-
     institutionLock.lock(institutionId);
+    operatingContext.currentPersonId();
     final var person =
         people
             .findByIdAndInstitution_Id(applicantPersonId, institutionId)
@@ -263,12 +239,14 @@ public class EnrollmentApplicationService {
       final UUID personId, final UUID applicationId) {
     final var institutionId =
         applications
-            .findOwnedInstitutionId(applicationId, personId)
+            .findOwnedInstitutionId(
+                applicationId, operatingContext.currentPersonId().orElse(personId))
             .orElseThrow(() -> new EnrollmentApplicationNotFoundException(applicationId));
     institutionLock.lock(institutionId);
 
+    final UUID subjectId = operatingContext.currentPersonId().orElse(personId);
     return applications
-        .findAccessibleForUpdate(applicationId, personId)
+        .findAccessibleForUpdate(applicationId, subjectId)
         .orElseThrow(() -> new EnrollmentApplicationNotFoundException(applicationId));
   }
 
