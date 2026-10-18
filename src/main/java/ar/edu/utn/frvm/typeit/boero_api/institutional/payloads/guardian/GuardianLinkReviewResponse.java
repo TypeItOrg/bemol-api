@@ -30,7 +30,10 @@ public record GuardianLinkReviewResponse(
     PersonSummary tutor,
     PersonSummary dependent,
     Instant createdAt,
-    @Nullable @Schema(nullable = true) Instant resolvedAt) {
+    @Nullable @Schema(nullable = true) Instant resolvedAt,
+    @Nullable String declaredFirstName,
+    @Nullable String declaredLastName,
+    @Nullable LocalDate declaredBirthDate) {
 
   @Schema(requiredProperties = {"personId", "documentNumber", "firstName", "lastName", "birthDate"})
   public record PersonSummary(
@@ -67,6 +70,9 @@ public record GuardianLinkReviewResponse(
         PersonSummary.from(link.getTutorPerson()),
         PersonSummary.from(link.getDependentPerson()),
         link.getCreatedAt(),
-        link.getResolvedAt());
+        link.getResolvedAt(),
+        link.getDeclaredFirstName(),
+        link.getDeclaredLastName(),
+        link.getDeclaredBirthDate());
   }
 }

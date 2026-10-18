@@ -11,6 +11,7 @@ import ar.edu.utn.frvm.typeit.boero_api.institutional.entities.PersonGuardian;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.exceptions.CannotGuardianSelfException;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.exceptions.DependentAlreadyLinkedException;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.exceptions.DependentBirthDateMismatchException;
+import ar.edu.utn.frvm.typeit.boero_api.institutional.exceptions.GuardianLinkRequestException;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.exceptions.InstitutionMessages;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.exceptions.InstitutionNotFoundException;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.exceptions.OwnAccessException;
@@ -20,6 +21,7 @@ import ar.edu.utn.frvm.typeit.boero_api.institutional.interfaces.InstitutionRepo
 import ar.edu.utn.frvm.typeit.boero_api.institutional.interfaces.PersonGuardianRepository;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.interfaces.PersonRepository;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.payloads.guardian.CreateGuardianDependentRequest;
+import ar.edu.utn.frvm.typeit.boero_api.institutional.payloads.guardian.GuardianDependentRequestMode;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.payloads.guardian.GuardianDependentResponse;
 import jakarta.validation.ConstraintViolationException;
 import jakarta.validation.Validator;
@@ -44,13 +46,18 @@ public class RegisterGuardianDependentUseCase {
   /**
    * Requests the link between the tutor and a person, creating the person when the document is not
    * registered yet. The link stays pending until the institution validates it, so knowing a
-   * document number and birth date is not enough to represent someone.
+   * document number is not enough to represent someone.
    */
   @Transactional
   public GuardianDependentResponse execute(
       final UUID institutionId,
       final UUID tutorPersonId,
       final CreateGuardianDependentRequest request) {
+    final var requestViolations = validator.validate(request);
+    if (!requestViolations.isEmpty()) {
+      throw new ConstraintViolationException(requestViolations);
+    }
+
     final Institution institution =
         institutionRepository
             .findById(institutionId)
@@ -64,7 +71,13 @@ public class RegisterGuardianDependentUseCase {
         personRepository
             .findByDocumentNumberAndInstitution_Id(request.documentNumber(), institutionId)
             .map(existing -> requireLinkable(institutionId, tutor, existing, request))
-            .orElseGet(() -> createDependent(institution, request));
+            .orElseGet(
+                () -> {
+                  if (request.requestMode() == GuardianDependentRequestMode.EXISTING) {
+                    throw new GuardianLinkRequestException();
+                  }
+                  return createDependent(institution, request);
+                });
 
     final PersonGuardian link = requestLink(institution, tutor, dependent, request);
     link.requestOwnAccess(request.ownAccessRequested(), request.email());
@@ -83,8 +96,7 @@ public class RegisterGuardianDependentUseCase {
   }
 
   /**
-   * An existing person can only be requested when the tutor knows its birth date and no request is
-   * already open. Approval is the institution's call, not this check's.
+   * Existing identity is never overwritten; the institution reviews declared data before approval.
    */
   private Person requireLinkable(
       final UUID institutionId,
@@ -104,7 +116,9 @@ public class RegisterGuardianDependentUseCase {
       throw new DependentAlreadyLinkedException();
     }
 
-    if (!request.birthDate().equals(existing.getBirthDate())) {
+    // Legacy clients still verify birth date; the explicit modes leave identity review to the
+    // institution.
+    if (request.requestMode() == null && !request.birthDate().equals(existing.getBirthDate())) {
       throw new DependentBirthDateMismatchException();
     }
 
@@ -160,8 +174,15 @@ public class RegisterGuardianDependentUseCase {
                   dependent,
                   request.relationship(),
                   request.isPrimaryContact(),
-                  request.firstName(),
-                  request.lastName()));
+                  request.requestMode() == GuardianDependentRequestMode.EXISTING
+                      ? null
+                      : request.firstName(),
+                  request.requestMode() == GuardianDependentRequestMode.EXISTING
+                      ? null
+                      : request.lastName(),
+                  request.requestMode() == GuardianDependentRequestMode.EXISTING
+                      ? null
+                      : request.birthDate()));
       personGuardianRepository.flush();
 
       return link;

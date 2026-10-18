@@ -13,6 +13,7 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.UUID;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
@@ -53,6 +54,9 @@ public class PersonGuardian extends Auditable {
 
   @Column(name = "declared_last_name", length = 255)
   private @Nullable String declaredLastName;
+
+  @Column(name = "declared_birth_date")
+  private @Nullable LocalDate declaredBirthDate;
 
   @Enumerated(EnumType.STRING)
   @Column(nullable = false, length = 30)
@@ -108,10 +112,31 @@ public class PersonGuardian extends Auditable {
       final boolean primaryContact,
       final String declaredFirstName,
       final String declaredLastName) {
+    return request(
+        institution,
+        tutor,
+        dependent,
+        relationship,
+        primaryContact,
+        declaredFirstName,
+        declaredLastName,
+        null);
+  }
+
+  public static PersonGuardian request(
+      final Institution institution,
+      final Person tutor,
+      final Person dependent,
+      final GuardianRelationship relationship,
+      final boolean primaryContact,
+      final @Nullable String declaredFirstName,
+      final @Nullable String declaredLastName,
+      final @Nullable LocalDate declaredBirthDate) {
     final PersonGuardian link =
         request(institution, tutor, dependent, relationship, primaryContact);
-    link.declaredFirstName = declaredFirstName.trim();
-    link.declaredLastName = declaredLastName.trim();
+    link.declaredFirstName = declaredFirstName == null ? null : declaredFirstName.trim();
+    link.declaredLastName = declaredLastName == null ? null : declaredLastName.trim();
+    link.declaredBirthDate = declaredBirthDate;
     return link;
   }
 

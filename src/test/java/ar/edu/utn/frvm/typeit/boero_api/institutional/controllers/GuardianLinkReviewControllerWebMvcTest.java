@@ -234,6 +234,9 @@ class GuardianLinkReviewControllerWebMvcTest {
         new PersonSummary(
             UUID.randomUUID(), "54123456", "Mateo", "Gonzalez", LocalDate.of(2018, 9, 10)),
         Instant.parse("2026-09-24T12:00:00Z"),
+        null,
+        null,
+        null,
         null);
   }
 

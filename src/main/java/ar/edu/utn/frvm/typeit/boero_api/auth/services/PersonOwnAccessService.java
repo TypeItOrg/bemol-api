@@ -40,7 +40,6 @@ public class PersonOwnAccessService {
   private final PersonGuardianRepository links;
   private final UserRepository users;
   private final PersonAccessInvitationRepository invitations;
-  private final SessionRevocationService sessions;
   private final Clock clock;
   private final AuditEventRecorder audit;
   private final PersonOwnAccessProvisioning provisioning;
@@ -178,13 +177,12 @@ public class PersonOwnAccessService {
     if (!link.isOwnAccessRequested()) {
       return;
     }
-    // Approval grants representation even when an institutional login block must remain in force.
+    // Representation never changes an existing account's access, including legacy requests.
     final var user =
         users.findByPerson_IdAndInstitution_Id(
             link.getDependentPerson().getId(), link.getInstitution().getId());
-    if (user.filter(value -> !value.isAccessEnabled()).isPresent()
-        || (user.isEmpty()
-            && provisioning.requiresInstitutionalAccountCreation(link.getDependentPerson()))) {
+    if (user.isPresent()
+        || provisioning.requiresInstitutionalAccountCreation(link.getDependentPerson())) {
       return;
     }
     change(link, true, link.getDeclaredEmail());
@@ -194,18 +192,11 @@ public class PersonOwnAccessService {
     final var person = link.getDependentPerson();
     final var user =
         users.findByPerson_IdAndInstitution_Id(person.getId(), link.getInstitution().getId());
-    if (enabled && user.isPresent() && !user.get().isAccessEnabled()) {
-      throw new OwnAccessException(InstitutionMessages.OWN_ACCESS_INSTITUTION_BLOCKED);
+    if (user.isPresent()) {
+      throw new OwnAccessException(
+          "El acceso de una cuenta existente debe gestionarlo la institución.");
     }
     provisioning.cancelInvitations(person.getId());
-    if (user.isPresent()) {
-      user.get().updateSelfAccess(enabled);
-      if (!enabled) {
-        users.flush();
-        sessions.revokeInstitutionalSessionsForUser(user.get().getId());
-      }
-      return;
-    }
     if (!enabled) {
       return;
     }

@@ -50,7 +50,6 @@ class PersonOwnAccessServiceTest {
   @Mock private CachedAuthoritySnapshotResolver authorities;
   @Mock private ApplicationEventPublisher events;
   @Mock private PersonGuardianRepository links;
-  @Mock private SessionRevocationService sessions;
   @Mock private AuditEventRecorder audit;
   @InjectMocks private PersonOwnAccessProvisioning provisioning;
   private PersonOwnAccessService service;
@@ -59,7 +58,7 @@ class PersonOwnAccessServiceTest {
   void setUp() {
     service =
         new PersonOwnAccessService(
-            institutions, people, links, users, invitations, sessions, clock, audit, provisioning);
+            institutions, people, links, users, invitations, clock, audit, provisioning);
   }
 
   @Test

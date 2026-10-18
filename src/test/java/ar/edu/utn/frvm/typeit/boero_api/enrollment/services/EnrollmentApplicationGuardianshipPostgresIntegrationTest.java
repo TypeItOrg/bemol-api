@@ -580,7 +580,7 @@ class EnrollmentApplicationGuardianshipPostgresIntegrationTest {
   }
 
   @Test
-  void activatesDisablesAndReenablesOwnAccessWithoutLiftingInstitutionBlock() throws Exception {
+  void activatesOwnAccessAndPreservesExistingAccountAndInstitutionBlock() throws Exception {
     final var s = setup();
     final var link = represent(s, true);
     final String person = link.get("dependentPersonId").asString();
@@ -681,35 +681,11 @@ class EnrollmentApplicationGuardianshipPostgresIntegrationTest {
         });
     final var login = login(s, document);
     final String token = login.get("tokens").get("accessToken").asString();
-    final String refresh = login.get("tokens").get("refreshToken").asString();
-    request(s, body(patch(access), Map.of("enabled", false)), 200);
-    final var disabledAttempt =
-        mvc.perform(
-                body(
-                    post("/api/v1/auth/login/identify"),
-                    Map.of("institutionId", s.institution().getId(), "documentNumber", document)))
-            .andExpect(status().isOk())
-            .andReturn()
-            .getResponse();
-    mvc.perform(
-            body(
-                post("/api/v1/auth/login/password"),
-                Map.of(
-                    "loginAttemptId",
-                    json.readTree(disabledAttempt.getContentAsString())
-                        .get("loginAttemptId")
-                        .asString(),
-                    "password",
-                    PASSWORD,
-                    "rememberMe",
-                    false)))
-        .andExpect(status().isUnauthorized());
+    request(s, body(patch(access), Map.of("enabled", false)), 400);
+    request(s, body(patch(access), Map.of("enabled", true)), 400);
     mvc.perform(get("/api/v1/auth/me").header("Authorization", "Bearer " + token))
-        .andExpect(status().isUnauthorized());
-    mvc.perform(body(post("/api/v1/auth/refresh"), Map.of("refreshToken", refresh)))
-        .andExpect(status().isUnauthorized());
+        .andExpect(status().isOk());
     request(s, get(profile(s, person)), 200);
-    request(s, body(patch(access), Map.of("enabled", true)), 200);
     login(s, document);
     tx(
         () -> {

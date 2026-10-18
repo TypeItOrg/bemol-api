@@ -67,7 +67,7 @@ public record GuardianDependentResponse(
         dependent.getDocumentNumber(),
         visible ? dependent.getFirstName() : link.getDeclaredFirstName(),
         visible ? dependent.getLastName() : link.getDeclaredLastName(),
-        visible ? dependent.getBirthDate() : null,
+        visible ? dependent.getBirthDate() : link.getDeclaredBirthDate(),
         link.getRelationship(),
         link.isPrimaryContact(),
         visible ? activeApplicationsCount : 0,
