@@ -34,6 +34,21 @@ class AuthenticationDomainTest {
   }
 
   @Test
+  @DisplayName("Should select a delegated identity and clear it to restore own identity")
+  void sessionCanSelectAndClearActiveIdentity() {
+    final UserSession session = UserSession.builder().userId(UUID.randomUUID()).build();
+    final UUID personId = UUID.randomUUID();
+
+    assertThat(session.getActivePersonId()).isNull();
+
+    session.selectIdentity(personId);
+    assertThat(session.getActivePersonId()).isEqualTo(personId);
+
+    session.selectIdentity(null);
+    assertThat(session.getActivePersonId()).isNull();
+  }
+
+  @Test
   @DisplayName("Should end an active session only once")
   void sessionEndsOnlyOnce() {
     final UserSession session = UserSession.builder().userId(UUID.randomUUID()).build();

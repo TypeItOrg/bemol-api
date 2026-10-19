@@ -16,6 +16,7 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.jspecify.annotations.Nullable;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
@@ -64,9 +65,9 @@ public class UserSession {
   private boolean rememberMe = false;
 
   @Column(name = "active_person_id")
-  private UUID activePersonId;
+  private @Nullable UUID activePersonId;
 
-  public void selectIdentity(final UUID personId) {
+  public void selectIdentity(final @Nullable UUID personId) {
     activePersonId = personId;
   }
 
