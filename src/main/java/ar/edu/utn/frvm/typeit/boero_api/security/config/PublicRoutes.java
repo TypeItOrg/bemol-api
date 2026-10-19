@@ -12,7 +12,7 @@ public final class PublicRoutes {
     "/api/v1/auth/email-verification/change-email",
     "/api/v1/auth/login/identify",
     "/api/v1/auth/login/password",
-    "/api/v1/auth/login/staging",
+    "/api/v1/auth/login/auto",
     "/api/v1/auth/passkeys/authentication/options",
     "/api/v1/auth/passkeys/authentication/verify",
     "/api/v1/auth/passkeys/authentication/discoverable/options",

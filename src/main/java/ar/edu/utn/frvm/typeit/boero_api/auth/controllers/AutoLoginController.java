@@ -1,8 +1,8 @@
 package ar.edu.utn.frvm.typeit.boero_api.auth.controllers;
 
-import ar.edu.utn.frvm.typeit.boero_api.auth.config.StagingAutoLoginProperties;
+import ar.edu.utn.frvm.typeit.boero_api.auth.config.AutoLoginProperties;
 import ar.edu.utn.frvm.typeit.boero_api.auth.payloads.responses.AuthResponse;
-import ar.edu.utn.frvm.typeit.boero_api.auth.services.StagingAutoLoginUseCase;
+import ar.edu.utn.frvm.typeit.boero_api.auth.services.AutoLoginUseCase;
 import ar.edu.utn.frvm.typeit.boero_api.common.web.Version;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
@@ -14,13 +14,13 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/auth/login")
-@Profile(StagingAutoLoginProperties.PROFILE)
+@Profile(AutoLoginProperties.NON_PRODUCTION_PROFILE)
 @ConditionalOnProperty(prefix = "app.auto-login", name = "enabled", havingValue = "true")
 @RequiredArgsConstructor
-public class StagingAutoLoginController {
-  private final StagingAutoLoginUseCase useCase;
+public class AutoLoginController {
+  private final AutoLoginUseCase useCase;
 
-  @PostMapping(version = Version.V1, path = "/staging")
+  @PostMapping(version = Version.V1, path = "/auto")
   public AuthResponse login(final HttpServletRequest request) {
     return useCase.execute(request);
   }

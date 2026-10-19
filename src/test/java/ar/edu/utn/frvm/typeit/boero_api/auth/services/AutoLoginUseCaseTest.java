@@ -4,7 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.*;
 
-import ar.edu.utn.frvm.typeit.boero_api.auth.config.StagingAutoLoginProperties;
+import ar.edu.utn.frvm.typeit.boero_api.auth.config.AutoLoginProperties;
 import ar.edu.utn.frvm.typeit.boero_api.auth.entities.User;
 import ar.edu.utn.frvm.typeit.boero_api.auth.exceptions.InstitutionalContextMismatchException;
 import ar.edu.utn.frvm.typeit.boero_api.auth.exceptions.InvalidCredentialsException;
@@ -25,7 +25,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.mock.env.MockEnvironment;
 
 @ExtendWith(MockitoExtension.class)
-class StagingAutoLoginUseCaseTest {
+class AutoLoginUseCaseTest {
   @Mock private UserRepository users;
   @Mock private InstitutionalHostContext hostContext;
   @Mock private AuthenticationSessionIssuer issuer;
@@ -57,8 +57,7 @@ class StagingAutoLoginUseCaseTest {
     when(request.getHeader("User-Agent")).thenReturn("Browser");
     when(issuer.issue(user, "127.0.0.1", "Browser", false, "AUTO_LOGIN")).thenReturn(response);
 
-    assertThat(
-            useCase(new StagingAutoLoginProperties(true, userId, institutionId)).execute(request))
+    assertThat(useCase(new AutoLoginProperties(true, userId, institutionId)).execute(request))
         .isSameAs(response);
     verify(hostContext).requireInstitution(institutionId);
   }
@@ -66,18 +65,26 @@ class StagingAutoLoginUseCaseTest {
   @Test
   void refusesTheDisabledFlag() {
     assertThatThrownBy(
-            () ->
-                useCase(new StagingAutoLoginProperties(false, userId, institutionId))
-                    .execute(request))
+            () -> useCase(new AutoLoginProperties(false, userId, institutionId)).execute(request))
         .isInstanceOf(InvalidCredentialsException.class);
     verifyNoInteractions(users, issuer);
+  }
+
+  @ParameterizedTest
+  @ValueSource(strings = {"prod", "production", "staging,prod", "qa,production"})
+  void refusesProductionEvenWhenCalledDirectly(final String profiles) {
+    environment.setActiveProfiles(profiles.split(","));
+    assertThatThrownBy(
+            () -> useCase(new AutoLoginProperties(true, userId, institutionId)).execute(request))
+        .isInstanceOf(InvalidCredentialsException.class);
+    verifyNoInteractions(users, hostContext, issuer);
   }
 
   @ParameterizedTest
   @ValueSource(strings = {"user", "institution"})
   void requiresBothConfiguredIds(final String missing) {
     final var properties =
-        new StagingAutoLoginProperties(
+        new AutoLoginProperties(
             true,
             missing.equals("user") ? null : userId,
             missing.equals("institution") ? null : institutionId);
@@ -91,8 +98,7 @@ class StagingAutoLoginUseCaseTest {
     when(users.findWithPersonAndInstitutionById(userId)).thenReturn(Optional.of(user));
     assertThatThrownBy(
             () ->
-                useCase(new StagingAutoLoginProperties(true, userId, UUID.randomUUID()))
-                    .execute(request))
+                useCase(new AutoLoginProperties(true, userId, UUID.randomUUID())).execute(request))
         .isInstanceOf(InvalidCredentialsException.class);
     verifyNoInteractions(issuer);
   }
@@ -102,9 +108,7 @@ class StagingAutoLoginUseCaseTest {
     user.updateAccess(false);
     when(users.findWithPersonAndInstitutionById(userId)).thenReturn(Optional.of(user));
     assertThatThrownBy(
-            () ->
-                useCase(new StagingAutoLoginProperties(true, userId, institutionId))
-                    .execute(request))
+            () -> useCase(new AutoLoginProperties(true, userId, institutionId)).execute(request))
         .isInstanceOf(InvalidCredentialsException.class);
     verifyNoInteractions(issuer);
   }
@@ -116,14 +120,12 @@ class StagingAutoLoginUseCaseTest {
         .when(hostContext)
         .requireInstitution(institutionId);
     assertThatThrownBy(
-            () ->
-                useCase(new StagingAutoLoginProperties(true, userId, institutionId))
-                    .execute(request))
+            () -> useCase(new AutoLoginProperties(true, userId, institutionId)).execute(request))
         .isInstanceOf(InstitutionalContextMismatchException.class);
     verifyNoInteractions(issuer);
   }
 
-  private StagingAutoLoginUseCase useCase(final StagingAutoLoginProperties properties) {
-    return new StagingAutoLoginUseCase(properties, environment, users, hostContext, issuer);
+  private AutoLoginUseCase useCase(final AutoLoginProperties properties) {
+    return new AutoLoginUseCase(properties, environment, users, hostContext, issuer);
   }
 }

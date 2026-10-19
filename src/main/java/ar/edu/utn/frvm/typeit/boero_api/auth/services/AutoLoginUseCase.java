@@ -1,6 +1,6 @@
 package ar.edu.utn.frvm.typeit.boero_api.auth.services;
 
-import ar.edu.utn.frvm.typeit.boero_api.auth.config.StagingAutoLoginProperties;
+import ar.edu.utn.frvm.typeit.boero_api.auth.config.AutoLoginProperties;
 import ar.edu.utn.frvm.typeit.boero_api.auth.exceptions.InvalidCredentialsException;
 import ar.edu.utn.frvm.typeit.boero_api.auth.interfaces.UserRepository;
 import ar.edu.utn.frvm.typeit.boero_api.auth.payloads.responses.AuthResponse;
@@ -13,8 +13,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
-public class StagingAutoLoginUseCase {
-  private final StagingAutoLoginProperties properties;
+public class AutoLoginUseCase {
+  private final AutoLoginProperties properties;
   private final Environment environment;
   private final UserRepository users;
   private final InstitutionalHostContext hostContext;
@@ -25,7 +25,7 @@ public class StagingAutoLoginUseCase {
     final UUID userId = properties.userId();
     final UUID institutionId = properties.institutionId();
     if (!properties.enabled()
-        || !environment.matchesProfiles(StagingAutoLoginProperties.PROFILE)
+        || !environment.matchesProfiles(AutoLoginProperties.NON_PRODUCTION_PROFILE)
         || userId == null
         || institutionId == null) {
       throw new InvalidCredentialsException();
