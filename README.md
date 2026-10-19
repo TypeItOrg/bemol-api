@@ -1,12 +1,8 @@
 
 <!-- Banner -->
 <p align="center">
-  <img
-    src="https://github.com/user-attachments/assets/4b9303aa-7c33-4866-a2c7-8e73fe7c1c80"
-    alt="Boero - Plataforma de gestión académica"
-    width="2170"
-    height="725"
-  />
+  <img width="2164" height="727" alt="Gestioná procesos académicos fácilmente" src="https://github.com/user-attachments/assets/f32fb5e3-d026-4fd3-a21c-7d07319efa8f" />
+
 </p>
 
 <!-- Tecnologías: Backend & Data -->
