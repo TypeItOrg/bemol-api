@@ -18,6 +18,7 @@ public class AuthenticationSessionIssuer {
 
   public static final String METHOD_PASSWORD = "PASSWORD";
   public static final String METHOD_PASSKEY = "PASSKEY";
+  public static final String METHOD_AUTO_LOGIN = "AUTO_LOGIN";
 
   private final LoginSessionPersistenceService loginSessionPersistenceService;
   private final JwtService jwtService;
@@ -75,7 +76,10 @@ public class AuthenticationSessionIssuer {
                 .documentNumber(user.getDocumentNumber())
                 .sessionId(session.sessionId())
                 .build());
-    recentAuthService.mark(session.sessionId(), user.getId(), method);
+    // Public automatic access is not proof of credentials for sensitive account changes.
+    if (!METHOD_AUTO_LOGIN.equals(method)) {
+      recentAuthService.mark(session.sessionId(), user.getId(), method);
+    }
     log.info(
         "[Auth] Login succeeded, userId: {}, institutionId: {}",
         user.getId(),

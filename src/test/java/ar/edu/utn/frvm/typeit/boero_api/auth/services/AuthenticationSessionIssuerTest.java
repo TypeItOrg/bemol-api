@@ -111,6 +111,22 @@ class AuthenticationSessionIssuerTest {
     verifyNoInteractions(persistence, jwt, authorities, recentAuth);
   }
 
+  @Test
+  void automaticPublicLoginDoesNotSatisfyRecentAuthentication() {
+    final var user = realUser("hash");
+    final UUID sessionId = UUID.randomUUID();
+    when(persistence.create(userId, "ip", "agent", false))
+        .thenReturn(new LoginSessionPersistenceService.Result(sessionId, "refresh"));
+    when(jwt.generateAccessToken(any())).thenReturn("access");
+
+    final var response =
+        issuer.issue(user, "ip", "agent", false, AuthenticationSessionIssuer.METHOD_AUTO_LOGIN);
+
+    assertThat(response.tokens().accessToken()).isEqualTo("access");
+    assertThat(response.tokens().refreshToken()).isEqualTo("refresh");
+    verifyNoInteractions(recentAuth);
+  }
+
   private User realUser(String password) {
     Institution institution = Institution.builder().id(institutionId).build();
     Person person =
