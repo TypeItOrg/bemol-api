@@ -63,6 +63,13 @@ public class UserSession {
   @Builder.Default
   private boolean rememberMe = false;
 
+  @Column(name = "active_person_id")
+  private UUID activePersonId;
+
+  public void selectIdentity(final UUID personId) {
+    activePersonId = personId;
+  }
+
   public boolean end(final Instant endedAt) {
     if (!active) {
       return false;

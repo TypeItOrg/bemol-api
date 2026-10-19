@@ -9,8 +9,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import ar.edu.utn.frvm.typeit.boero_api.auth.config.JwtProperties;
 import ar.edu.utn.frvm.typeit.boero_api.auth.config.WebAuthnProperties;
+import ar.edu.utn.frvm.typeit.boero_api.auth.filters.JwtAuthenticatedUser;
 import ar.edu.utn.frvm.typeit.boero_api.auth.filters.JwtAuthenticationFilter;
 import ar.edu.utn.frvm.typeit.boero_api.auth.payloads.responses.PasskeyResponse;
+import ar.edu.utn.frvm.typeit.boero_api.auth.services.ActiveIdentityService;
 import ar.edu.utn.frvm.typeit.boero_api.auth.services.DiscoverablePasskeyLoginUseCase;
 import ar.edu.utn.frvm.typeit.boero_api.auth.services.InstitutionalAccessTokenInput;
 import ar.edu.utn.frvm.typeit.boero_api.auth.services.InstitutionalHostContext;
@@ -112,12 +114,15 @@ class PasskeyControllerSecurityWebMvcTest {
   @MockitoBean private ReAuthenticateUseCase reAuthenticateUseCase;
   @MockitoBean private AuthorizationService authorizationService;
   @MockitoBean private IsSessionActiveUseCase isSessionActiveUseCase;
+  @MockitoBean private ActiveIdentityService activeIdentityService;
   @MockitoBean private IsPlatformSessionActiveUseCase isPlatformSessionActiveUseCase;
   @MockitoBean private TokenBlacklistService tokenBlacklistService;
   @MockitoBean private WebAuthnProperties webAuthnProperties;
 
   @BeforeEach
   void stubTokenInfrastructure() {
+    when(activeIdentityService.resolve(any(JwtAuthenticatedUser.class)))
+        .thenAnswer(invocation -> invocation.getArgument(0));
     when(tokenBlacklistService.isBlacklisted(any())).thenReturn(false);
     when(isSessionActiveUseCase.execute(any())).thenReturn(true);
     when(isPlatformSessionActiveUseCase.execute(any())).thenReturn(true);

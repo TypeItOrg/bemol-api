@@ -16,6 +16,7 @@ import ar.edu.utn.frvm.typeit.boero_api.authorization.services.AuthorityResolver
 import ar.edu.utn.frvm.typeit.boero_api.authorization.services.InstitutionalAuthoritySnapshot;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.entities.Institution;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.entities.Person;
+import ar.edu.utn.frvm.typeit.boero_api.institutional.interfaces.PersonRepository;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -33,12 +34,13 @@ class GetCurrentUserUseCaseTest {
 
   @Mock private UserRepository userRepository;
   @Mock private AuthorityResolver authorityResolver;
+  @Mock private PersonRepository people;
 
   private GetCurrentUserUseCase getCurrentUserUseCase;
 
   @BeforeEach
   void setUp() {
-    getCurrentUserUseCase = new GetCurrentUserUseCase(userRepository, authorityResolver);
+    getCurrentUserUseCase = new GetCurrentUserUseCase(userRepository, authorityResolver, people);
   }
 
   @Test

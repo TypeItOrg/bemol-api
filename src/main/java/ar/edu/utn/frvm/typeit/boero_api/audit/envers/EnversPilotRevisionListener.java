@@ -17,7 +17,7 @@ public class EnversPilotRevisionListener implements RevisionListener {
     final Object principal = authentication == null ? null : authentication.getPrincipal();
     final var requestId = MDC.get(RequestLoggingFilter.MDC_REQUEST_ID_KEY);
     if (principal instanceof JwtAuthenticatedUser user) {
-      revision.identifyActor(AuditActorKind.INSTITUTION, user.personId(), null, requestId);
+      revision.identifyActor(AuditActorKind.INSTITUTION, user.actorPersonId(), null, requestId);
     } else if (principal instanceof JwtAuthenticatedPlatformAccount account) {
       revision.identifyActor(AuditActorKind.PLATFORM, null, account.platformAccountId(), requestId);
     } else {

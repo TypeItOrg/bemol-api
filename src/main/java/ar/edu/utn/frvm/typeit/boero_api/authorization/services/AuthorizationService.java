@@ -51,18 +51,8 @@ public class AuthorizationService {
 
   private Set<PermissionCode> resolveInstitutionalPermissions(JwtAuthenticatedUser principal) {
     final var selected = operatingContext.currentPersonId();
-    if (selected.isPresent()) {
-      return authorityResolver.resolveForPerson(selected.get(), principal.institutionId()).stream()
-          .filter(
-              permission ->
-                  Set.of(
-                          PermissionCode.ACADEMIC_OFFER_READ,
-                          PermissionCode.STUDY_PLAN_READ,
-                          PermissionCode.ACADEMIC_YEAR_READ)
-                      .contains(permission))
-          .collect(java.util.stream.Collectors.toUnmodifiableSet());
-    }
-    return authorityResolver.resolveForPerson(principal.personId(), principal.institutionId());
+    return authorityResolver.resolveForPerson(
+        selected.orElse(principal.personId()), principal.institutionId());
   }
 
   private Set<PermissionCode> resolvePlatformPermissions(

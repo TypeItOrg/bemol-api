@@ -21,6 +21,7 @@ import ar.edu.utn.frvm.typeit.boero_api.auth.payloads.responses.TokenResponse;
 import ar.edu.utn.frvm.typeit.boero_api.auth.payloads.responses.UserPayload;
 import ar.edu.utn.frvm.typeit.boero_api.auth.payloads.responses.UserRegisteredResponse;
 import ar.edu.utn.frvm.typeit.boero_api.auth.payloads.responses.UserResponse;
+import ar.edu.utn.frvm.typeit.boero_api.auth.services.ActiveIdentityService;
 import ar.edu.utn.frvm.typeit.boero_api.auth.services.GetActiveSessionsUseCase;
 import ar.edu.utn.frvm.typeit.boero_api.auth.services.GetCurrentUserUseCase;
 import ar.edu.utn.frvm.typeit.boero_api.auth.services.IdentifyLoginUseCase;
@@ -89,6 +90,7 @@ class AuthControllerWebMvcTest {
   @MockitoBean private LogoutUseCase logoutUseCase;
   @MockitoBean private GetActiveSessionsUseCase getActiveSessionsUseCase;
   @MockitoBean private GetCurrentUserUseCase getCurrentUserUseCase;
+  @MockitoBean private ActiveIdentityService activeIdentityService;
   @MockitoBean private JwtService jwtService;
   @MockitoBean private InstitutionalCallerGuard institutionalCallerGuard;
   @MockitoBean private TokenBlacklistService tokenBlacklistService;

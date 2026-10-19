@@ -24,7 +24,8 @@ import lombok.Builder;
       "permissionScopes"
     })
 public record UserPayload(
-    UUID userId,
+    @io.swagger.v3.oas.annotations.media.Schema(nullable = true) @org.jspecify.annotations.Nullable
+        UUID userId,
     UUID personId,
     String name,
     String lastName,

@@ -39,7 +39,7 @@ public class EnrollmentDocumentAudit {
       final String requestId = MDC.get("requestId");
       if (authentication != null
           && authentication.getPrincipal() instanceof JwtAuthenticatedUser user) {
-        return new Actor(user.personId(), "INSTITUTION", requestId);
+        return new Actor(user.actorPersonId(), "INSTITUTION", requestId);
       }
       if (authentication != null
           && authentication.getPrincipal() instanceof JwtAuthenticatedPlatformAccount account) {

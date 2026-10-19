@@ -9,11 +9,13 @@ import ar.edu.utn.frvm.typeit.boero_api.auth.payloads.requests.PasswordRecoveryR
 import ar.edu.utn.frvm.typeit.boero_api.auth.payloads.requests.RefreshTokenRequest;
 import ar.edu.utn.frvm.typeit.boero_api.auth.payloads.requests.RegisterRequest;
 import ar.edu.utn.frvm.typeit.boero_api.auth.payloads.requests.ResetPasswordRequest;
+import ar.edu.utn.frvm.typeit.boero_api.auth.payloads.requests.SelectActiveIdentityRequest;
 import ar.edu.utn.frvm.typeit.boero_api.auth.payloads.responses.ActiveSessionResponse;
 import ar.edu.utn.frvm.typeit.boero_api.auth.payloads.responses.AuthResponse;
 import ar.edu.utn.frvm.typeit.boero_api.auth.payloads.responses.IdentifyLoginResponse;
 import ar.edu.utn.frvm.typeit.boero_api.auth.payloads.responses.UserRegisteredResponse;
 import ar.edu.utn.frvm.typeit.boero_api.auth.payloads.responses.UserResponse;
+import ar.edu.utn.frvm.typeit.boero_api.auth.services.ActiveIdentityService;
 import ar.edu.utn.frvm.typeit.boero_api.auth.services.GetActiveSessionsUseCase;
 import ar.edu.utn.frvm.typeit.boero_api.auth.services.GetCurrentUserUseCase;
 import ar.edu.utn.frvm.typeit.boero_api.auth.services.IdentifyLoginUseCase;
@@ -51,6 +53,7 @@ public class AuthController {
 
   private final GetActiveSessionsUseCase getActiveSessionsUseCase;
   private final GetCurrentUserUseCase getCurrentUserUseCase;
+  private final ActiveIdentityService activeIdentityService;
   private final IdentifyLoginUseCase identifyLoginUseCase;
   private final LogoutUseCase logoutUseCase;
   private final PasswordLoginWithAttemptUseCase passwordLoginWithAttemptUseCase;
@@ -116,6 +119,22 @@ public class AuthController {
     JwtAuthenticatedUser principal =
         (JwtAuthenticatedUser) requireNonNull(authentication.getPrincipal());
     return getActiveSessionsUseCase.execute(principal, pageable);
+  }
+
+  @PostMapping(version = Version.V1, path = "/active-identity")
+  @ResponseStatus(HttpStatus.NO_CONTENT)
+  public void selectIdentity(
+      @Valid @RequestBody SelectActiveIdentityRequest request, Authentication authentication) {
+    institutionalCallerGuard.ensureInstitutionalPrincipal(authentication);
+    activeIdentityService.select(
+        (JwtAuthenticatedUser) requireNonNull(authentication.getPrincipal()), request.personId());
+  }
+
+  @GetMapping(version = Version.V1, path = "/session")
+  public UserResponse session(Authentication authentication) {
+    institutionalCallerGuard.ensureInstitutionalPrincipal(authentication);
+    return getCurrentUserUseCase.execute(
+        (JwtAuthenticatedUser) requireNonNull(authentication.getPrincipal()));
   }
 
   @GetMapping(version = Version.V1, path = "/me")

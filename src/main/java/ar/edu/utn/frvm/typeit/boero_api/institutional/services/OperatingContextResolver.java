@@ -31,6 +31,15 @@ public class OperatingContextResolver {
   @Transactional(readOnly = true)
   public Person require(
       final UUID institutionId, final UUID selectedPersonId, final JwtAuthenticatedUser actor) {
+    if (!selectedPersonId.equals(actor.personId())) {
+      throw new UnauthorizedGuardianshipException();
+    }
+    return requireAccessible(institutionId, selectedPersonId, actor);
+  }
+
+  @Transactional(readOnly = true)
+  public Person requireAccessible(
+      final UUID institutionId, final UUID selectedPersonId, final JwtAuthenticatedUser actor) {
     if (!actor.institutionId().equals(institutionId)) {
       throw new UnauthorizedGuardianshipException();
     }
@@ -39,10 +48,10 @@ public class OperatingContextResolver {
             .findByIdAndInstitution_Id(selectedPersonId, institutionId)
             .filter(value -> !value.isDeleted())
             .orElseThrow(UnauthorizedGuardianshipException::new);
-    if (!selectedPersonId.equals(actor.personId())
+    if (!selectedPersonId.equals(actor.actorPersonId())
         && !links.existsByInstitution_IdAndTutorPerson_IdAndDependentPerson_IdAndStatusIn(
             institutionId,
-            actor.personId(),
+            actor.actorPersonId(),
             selectedPersonId,
             List.of(GuardianLinkStatus.ACTIVE))) {
       throw new UnauthorizedGuardianshipException();
@@ -54,17 +63,23 @@ public class OperatingContextResolver {
   public OperatingProfileResponse profile(
       final UUID institutionId, final UUID personId, final JwtAuthenticatedUser actor) {
     final var person = require(institutionId, personId, actor);
+    return response(institutionId, person, actor);
+  }
+
+  private OperatingProfileResponse response(
+      final UUID institutionId, final Person person, final JwtAuthenticatedUser actor) {
+    final UUID personId = person.getId();
     final var assignments = roles.findByPerson_IdAndInstitution_Id(personId, institutionId);
     final boolean canEnroll =
         assignments.stream()
             .anyMatch(a -> List.of("APPLICANT", "STUDENT").contains(a.getRole().getCode()));
     return new OperatingProfileResponse(
-        actor.personId(),
+        actor.actorPersonId(),
         personId,
         person.getFirstName(),
         person.getLastName(),
         person.getDocumentNumber(),
-        actor.personId().equals(personId),
+        actor.actorPersonId().equals(personId),
         canEnroll,
         assignments.stream().map(a -> a.getRole().getName()).toList());
   }
@@ -73,18 +88,27 @@ public class OperatingContextResolver {
   public List<OperatingProfileResponse> profiles(
       final UUID institutionId, final JwtAuthenticatedUser actor) {
     final var result = new java.util.ArrayList<OperatingProfileResponse>();
-    result.add(profile(institutionId, actor.personId(), actor));
+    result.add(
+        response(
+            institutionId, requireAccessible(institutionId, actor.actorPersonId(), actor), actor));
     links
         .findByInstitution_IdAndTutorPerson_IdAndStatusInOrderByCreatedAtAsc(
-            institutionId, actor.personId(), List.of(GuardianLinkStatus.ACTIVE))
+            institutionId, actor.actorPersonId(), List.of(GuardianLinkStatus.ACTIVE))
         .stream()
         .filter(link -> !link.getDependentPerson().isDeleted())
-        .forEach(
-            link -> result.add(profile(institutionId, link.getDependentPerson().getId(), actor)));
+        .forEach(link -> result.add(response(institutionId, link.getDependentPerson(), actor)));
     return result;
   }
 
-  /** Only explicit self-service routes select a different subject; the JWT is never changed. */
+  /** The route subject must match the session identity; the JWT retains its real actor. */
+  public Optional<UUID> currentActorPersonId() {
+    final var authentication = SecurityContextHolder.getContext().getAuthentication();
+    return authentication != null
+            && authentication.getPrincipal() instanceof JwtAuthenticatedUser user
+        ? Optional.of(user.actorPersonId())
+        : Optional.empty();
+  }
+
   public Optional<UUID> currentPersonId() {
     if (!(RequestContextHolder.getRequestAttributes()
         instanceof ServletRequestAttributes attributes)) {

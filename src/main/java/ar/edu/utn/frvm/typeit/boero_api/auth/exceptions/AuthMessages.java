@@ -94,5 +94,8 @@ public final class AuthMessages {
   public static final String INSTITUTIONAL_CONTEXT_MISMATCH =
       "Este acceso pertenece a otra institución.";
 
+  public static final String ACTIVE_IDENTITY_WITHOUT_ACCOUNT =
+      "Esta identidad todavía no tiene una cuenta con credenciales propias.";
+
   private AuthMessages() {}
 }

@@ -10,6 +10,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import ar.edu.utn.frvm.typeit.boero_api.auth.exceptions.EmailVerificationCooldownException;
 import ar.edu.utn.frvm.typeit.boero_api.auth.exceptions.InvalidEmailVerificationTokenException;
 import ar.edu.utn.frvm.typeit.boero_api.auth.filters.JwtAuthenticationFilter;
+import ar.edu.utn.frvm.typeit.boero_api.auth.services.ActiveIdentityService;
 import ar.edu.utn.frvm.typeit.boero_api.auth.services.InstitutionalEmailVerificationUseCase;
 import ar.edu.utn.frvm.typeit.boero_api.auth.services.InstitutionalHostContext;
 import ar.edu.utn.frvm.typeit.boero_api.auth.services.IsPlatformSessionActiveUseCase;
@@ -64,6 +65,7 @@ class EmailVerificationControllerWebMvcTest {
   @MockitoBean AuthorizationService authorization;
   @MockitoBean TokenBlacklistService blacklist;
   @MockitoBean IsSessionActiveUseCase sessions;
+  @MockitoBean ActiveIdentityService activeIdentityService;
   @MockitoBean IsPlatformSessionActiveUseCase platformSessions;
   final String identity =
       "\"institutionId\":\"22222222-2222-2222-2222-222222222222\",\"documentNumber\":\"12345678\"";

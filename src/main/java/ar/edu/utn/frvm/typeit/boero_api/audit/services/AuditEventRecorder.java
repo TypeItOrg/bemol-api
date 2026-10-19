@@ -12,6 +12,7 @@ import ar.edu.utn.frvm.typeit.boero_api.auth.filters.JwtAuthenticatedUser;
 import ar.edu.utn.frvm.typeit.boero_api.common.logging.RequestLoggingFilter;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.entities.Institution;
 import java.time.Clock;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -41,20 +42,22 @@ public class AuditEventRecorder {
       final AuditAction action,
       final AuditEntityType entityType,
       final UUID entityId) {
+    final var actor = currentInstitutionalActor();
+    final UUID realActor = actor == null ? actorPersonId : actor.actorPersonId();
     auditEventRepository.save(
         AuditEvent.record(
             institution,
             AuditActorKind.INSTITUTION,
-            actorPersonId,
+            realActor,
             null,
             subjectPersonId,
             action,
             entityType,
             entityId,
-            !actorPersonId.equals(subjectPersonId),
+            (actor != null && actor.delegated()) || !realActor.equals(subjectPersonId),
             MDC.get(RequestLoggingFilter.MDC_REQUEST_ID_KEY),
             null,
-            Map.of(),
+            identityDetails(Map.of()),
             clock.instant(),
             EnversAuditTransaction.currentId()));
   }
@@ -97,7 +100,7 @@ public class AuditEventRecorder {
     final UUID platformAccountId;
     if (principal instanceof JwtAuthenticatedUser user) {
       actorKind = AuditActorKind.INSTITUTION;
-      actorPersonId = user.personId();
+      actorPersonId = user.actorPersonId();
       platformAccountId = null;
     } else if (principal instanceof JwtAuthenticatedPlatformAccount account) {
       actorKind = AuditActorKind.PLATFORM;
@@ -118,14 +121,33 @@ public class AuditEventRecorder {
             action,
             entityType,
             entityId,
-            origin == AuditOrigin.SELF_SERVICE
+            ((principal instanceof JwtAuthenticatedUser user && user.delegated())
+                    || origin == AuditOrigin.SELF_SERVICE)
                 && actorPersonId != null
                 && subjectPersonId != null
                 && !actorPersonId.equals(subjectPersonId),
             MDC.get(RequestLoggingFilter.MDC_REQUEST_ID_KEY),
             origin,
-            details,
+            identityDetails(details),
             clock.instant(),
             EnversAuditTransaction.currentId()));
+  }
+
+  private static @Nullable JwtAuthenticatedUser currentInstitutionalActor() {
+    final var authentication = SecurityContextHolder.getContext().getAuthentication();
+    return authentication != null
+            && authentication.getPrincipal() instanceof JwtAuthenticatedUser user
+        ? user
+        : null;
+  }
+
+  private static Map<String, Object> identityDetails(final Map<String, Object> details) {
+    final var actor = currentInstitutionalActor();
+    if (actor == null || !actor.delegated()) {
+      return details;
+    }
+    final var result = new HashMap<String, Object>(details);
+    result.put("activePersonId", actor.personId());
+    return result;
   }
 }

@@ -35,7 +35,7 @@ public class LogoutUseCase {
               userSessionRepository.save(s);
               log.info(
                   "[Auth] Session ended successfully, userId: {}, sessionId: {}",
-                  principal.userId(),
+                  principal.actorUserId(),
                   principal.sessionId());
             });
   }

@@ -17,7 +17,7 @@ class AcademicLifecycleActorResolver {
       throw new AccessDeniedException(ACADEMIC_LIFECYCLE_ACTOR_NOT_FOUND);
     }
     if (authentication.getPrincipal() instanceof JwtAuthenticatedUser user) {
-      return new AcademicLifecycleActor(user.accountType(), user.userId());
+      return new AcademicLifecycleActor(user.accountType(), user.actorUserId());
     }
     if (authentication.getPrincipal() instanceof JwtAuthenticatedPlatformAccount platform) {
       return new AcademicLifecycleActor(platform.accountType(), platform.platformAccountId());

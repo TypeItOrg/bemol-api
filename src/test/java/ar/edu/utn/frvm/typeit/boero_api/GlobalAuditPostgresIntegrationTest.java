@@ -3,6 +3,7 @@ package ar.edu.utn.frvm.typeit.boero_api;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.anonymous;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -733,12 +734,23 @@ class GlobalAuditPostgresIntegrationTest extends DatabaseMigrationTestSupport {
         "GUARDIAN_LINK_APPROVED",
         "PERSON_GUARDIAN",
         "compat-audit");
+    authenticatePlatformAdministrator();
+    final var accountInstitution = fixtures.firstInstitutionId();
+    final var person = createPerson.execute(accountInstitution, personRequest());
+    final var user = userId(person.personId());
+    final var session = UUID.randomUUID();
+    jdbcTemplate.update(
+        "INSERT INTO user_sessions (user_session_id, user_id, started_at, active, remember_me) VALUES (?, ?, now(), true, false)",
+        session,
+        user);
+    SecurityContextHolder.clearContext();
     final Authentication institutional =
         new TestingAuthenticationToken(
             JwtAuthenticatedUser.builder()
-                .userId(UUID.randomUUID())
-                .personId(actor)
-                .institutionId(institution)
+                .userId(user)
+                .sessionId(session)
+                .personId(person.personId())
+                .institutionId(accountInstitution)
                 .build(),
             "",
             "ROLE_USER");
@@ -747,7 +759,7 @@ class GlobalAuditPostgresIntegrationTest extends DatabaseMigrationTestSupport {
             AuthTestData.platformPrincipal(UUID.randomUUID()), "", "ROLE_USER");
     for (final String path :
         List.of(BASE, BASE + "/actors", BASE + "/people", BASE + "/actions", BASE + "/" + legacy)) {
-      mvc.perform(get(path)).andExpect(status().isUnauthorized());
+      mvc.perform(get(path).with(anonymous())).andExpect(status().isUnauthorized());
       mvc.perform(get(path).with(authentication(institutional))).andExpect(status().isForbidden());
       mvc.perform(get(path).with(authentication(withoutRole))).andExpect(status().isForbidden());
     }

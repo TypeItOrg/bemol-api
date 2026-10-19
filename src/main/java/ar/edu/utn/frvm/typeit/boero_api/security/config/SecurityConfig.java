@@ -3,8 +3,10 @@ package ar.edu.utn.frvm.typeit.boero_api.security.config;
 import static ar.edu.utn.frvm.typeit.boero_api.security.config.PublicRoutes.GET_ONLY_ROUTES;
 import static ar.edu.utn.frvm.typeit.boero_api.security.config.PublicRoutes.PUBLIC_ROUTES;
 
+import ar.edu.utn.frvm.typeit.boero_api.auth.filters.ActiveIdentityFilter;
 import ar.edu.utn.frvm.typeit.boero_api.auth.filters.InstitutionalHostFilter;
 import ar.edu.utn.frvm.typeit.boero_api.auth.filters.JwtAuthenticationFilter;
+import ar.edu.utn.frvm.typeit.boero_api.auth.services.ActiveIdentityService;
 import ar.edu.utn.frvm.typeit.boero_api.auth.services.InstitutionalHostContext;
 import ar.edu.utn.frvm.typeit.boero_api.authorization.enums.PlatformRoleCode;
 import ar.edu.utn.frvm.typeit.boero_api.authorization.services.AuthorizationService;
@@ -35,6 +37,7 @@ public class SecurityConfig {
   private final AuthorizationService authorizationService;
   private final JwtAuthenticationFilter jwtAuthenticationFilter;
   private final InstitutionalHostContext institutionalHostContext;
+  private final ActiveIdentityService activeIdentityService;
 
   @Bean
   PasswordEncoder passwordEncoder() {
@@ -65,6 +68,9 @@ public class SecurityConfig {
     http.addFilterAfter(
         new InstitutionalHostFilter(institutionalHostContext, handlerExceptionResolver),
         JwtAuthenticationFilter.class);
+    http.addFilterAfter(
+        new ActiveIdentityFilter(activeIdentityService, handlerExceptionResolver),
+        InstitutionalHostFilter.class);
 
     http.exceptionHandling(
         exception ->

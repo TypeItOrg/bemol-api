@@ -64,7 +64,8 @@ public class EnrollmentApplicationService {
       final UUID personId,
       final StartEnrollmentApplicationRequest request) {
     final UUID applicantPersonId = operatingContext.currentPersonId().orElse(personId);
-    final boolean actingForDependent = !applicantPersonId.equals(personId);
+    final UUID actorPersonId = operatingContext.currentActorPersonId().orElse(personId);
+    final boolean actingForDependent = !applicantPersonId.equals(actorPersonId);
 
     institutionLock.lock(institutionId);
     operatingContext.currentPersonId();
@@ -115,7 +116,7 @@ public class EnrollmentApplicationService {
     if (actingForDependent) {
       final var submitter =
           people
-              .findByIdAndInstitution_Id(personId, institutionId)
+              .findByIdAndInstitution_Id(actorPersonId, institutionId)
               .orElseThrow(
                   () ->
                       new EnrollmentValidationException(
@@ -187,7 +188,8 @@ public class EnrollmentApplicationService {
       final UUID personId, final UUID applicationId) {
     final var application = lockOwnedApplication(personId, applicationId);
     requireOpenDraft(application);
-    submissionValidator.validate(application, personId);
+    final UUID actorPersonId = operatingContext.currentActorPersonId().orElse(personId);
+    submissionValidator.validate(application, actorPersonId);
 
     if (application.getCourseSelections() != null && !application.getCourseSelections().isEmpty()) {
       courses.update(
@@ -207,7 +209,7 @@ public class EnrollmentApplicationService {
     documents.requireSubmission(application);
     application.assignSubmitter(
         people
-            .findByIdAndInstitution_Id(personId, application.getInstitution().getId())
+            .findByIdAndInstitution_Id(actorPersonId, application.getInstitution().getId())
             .orElseThrow(
                 () ->
                     new EnrollmentValidationException(
