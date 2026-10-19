@@ -1,5 +1,7 @@
 package ar.edu.utn.frvm.typeit.boero_api.institutional.services;
 
+import static java.util.Objects.requireNonNull;
+
 import ar.edu.utn.frvm.typeit.boero_api.audit.enums.AuditAction;
 import ar.edu.utn.frvm.typeit.boero_api.audit.enums.AuditEntityType;
 import ar.edu.utn.frvm.typeit.boero_api.audit.enums.AuditOrigin;
@@ -118,7 +120,8 @@ public class RegisterGuardianDependentUseCase {
 
     // Legacy clients still verify birth date; the explicit modes leave identity review to the
     // institution.
-    if (request.requestMode() == null && !request.birthDate().equals(existing.getBirthDate())) {
+    if (request.requestMode() == null
+        && !requireNonNull(request.birthDate()).equals(existing.getBirthDate())) {
       throw new DependentBirthDateMismatchException();
     }
 
@@ -127,13 +130,14 @@ public class RegisterGuardianDependentUseCase {
 
   private Person createDependent(
       final Institution institution, final CreateGuardianDependentRequest request) {
+    // Request validation requires identity fields on the creation path.
     final Person person =
         Person.builder()
             .institution(institution)
-            .firstName(request.firstName())
-            .lastName(request.lastName())
+            .firstName(requireNonNull(request.firstName()))
+            .lastName(requireNonNull(request.lastName()))
             .documentNumber(request.documentNumber())
-            .birthDate(request.birthDate())
+            .birthDate(requireNonNull(request.birthDate()))
             .build();
 
     final var violations = validator.validate(person);
