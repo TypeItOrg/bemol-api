@@ -1,8 +1,7 @@
 
 <!-- Banner -->
 <p align="center">
-  <img width="2164" height="727" alt="Gestioná procesos académicos fácilmente" src="https://github.com/user-attachments/assets/f32fb5e3-d026-4fd3-a21c-7d07319efa8f" />
-
+  <img width="2172" height="724" alt="Plataforma de gestión académica" src="https://github.com/user-attachments/assets/9f69092c-f001-492b-b829-226dafb0e441" />
 </p>
 
 <!-- Tecnologías: Backend & Data -->
