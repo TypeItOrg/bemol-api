@@ -8,6 +8,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import ar.edu.utn.frvm.typeit.boero_api.audit.services.AuditEventRecorder;
 import ar.edu.utn.frvm.typeit.boero_api.auth.config.WebAuthnProperties;
 import ar.edu.utn.frvm.typeit.boero_api.auth.entities.PasskeyCredential;
 import ar.edu.utn.frvm.typeit.boero_api.auth.entities.User;
@@ -130,6 +131,7 @@ class RecentAuthCeremonyIntegrationTest {
     when(codec.decodeAttestationCredential(any())).thenReturn(attestationCredential());
     final VerifyPasskeyRegistrationUseCase useCase =
         new VerifyPasskeyRegistrationUseCase(
+            org.mockito.Mockito.mock(AuditEventRecorder.class),
             userRepository,
             passkeyCredentialRepository,
             mapper,
@@ -193,6 +195,7 @@ class RecentAuthCeremonyIntegrationTest {
 
     final VerifyPasskeyRegistrationUseCase useCase =
         new VerifyPasskeyRegistrationUseCase(
+            org.mockito.Mockito.mock(AuditEventRecorder.class),
             Mockito.mock(UserRepository.class),
             Mockito.mock(PasskeyCredentialRepository.class),
             Mockito.mock(PasskeyCredentialMapper.class),
@@ -218,7 +221,11 @@ class RecentAuthCeremonyIntegrationTest {
     final PasskeyCredentialRepository passkeyCredentialRepository =
         Mockito.mock(PasskeyCredentialRepository.class);
     final RevokePasskeyUseCase useCase =
-        new RevokePasskeyUseCase(Clock.systemUTC(), passkeyCredentialRepository, recentAuthService);
+        new RevokePasskeyUseCase(
+            org.mockito.Mockito.mock(AuditEventRecorder.class),
+            Clock.systemUTC(),
+            passkeyCredentialRepository,
+            recentAuthService);
 
     assertThatThrownBy(() -> useCase.execute(principal, UUID.randomUUID()))
         .isInstanceOf(RecentAuthRequiredException.class);

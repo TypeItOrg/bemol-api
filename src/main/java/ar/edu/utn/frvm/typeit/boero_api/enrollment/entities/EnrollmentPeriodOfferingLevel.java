@@ -12,6 +12,8 @@ import jakarta.persistence.Table;
 import java.util.UUID;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.hibernate.envers.Audited;
+import org.hibernate.envers.RelationTargetAuditMode;
 import org.jspecify.annotations.Nullable;
 
 @Entity
@@ -26,10 +28,12 @@ public class EnrollmentPeriodOfferingLevel {
 
   @ManyToOne(fetch = FetchType.LAZY, optional = false)
   @JoinColumn(name = "offering_id", nullable = false)
+  @Audited(targetAuditMode = RelationTargetAuditMode.NOT_AUDITED)
   private EnrollmentPeriodOffering offering;
 
   @ManyToOne(fetch = FetchType.LAZY)
   @JoinColumn(name = "academic_level_id")
+  @Audited(targetAuditMode = RelationTargetAuditMode.NOT_AUDITED)
   private @Nullable AcademicLevel academicLevel;
 
   public static EnrollmentPeriodOfferingLevel create(

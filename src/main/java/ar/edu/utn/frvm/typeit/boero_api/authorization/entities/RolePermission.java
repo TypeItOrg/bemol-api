@@ -12,6 +12,8 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.hibernate.envers.Audited;
+import org.hibernate.envers.RelationTargetAuditMode;
 
 @Entity
 @Table(name = "role_permissions")
@@ -26,11 +28,13 @@ public class RolePermission {
   @MapsId("roleId")
   @ManyToOne(fetch = FetchType.LAZY, optional = false)
   @JoinColumn(name = "role_id", nullable = false)
+  @Audited(targetAuditMode = RelationTargetAuditMode.NOT_AUDITED)
   private Role role;
 
   @MapsId("permissionId")
   @ManyToOne(fetch = FetchType.LAZY, optional = false)
   @JoinColumn(name = "permission_id", nullable = false)
+  @Audited(targetAuditMode = RelationTargetAuditMode.NOT_AUDITED)
   private Permission permission;
 
   public static RolePermission of(Role role, Permission permission) {

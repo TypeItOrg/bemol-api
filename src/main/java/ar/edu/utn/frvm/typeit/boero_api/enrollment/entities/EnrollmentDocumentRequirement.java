@@ -24,6 +24,8 @@ import java.util.UUID;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.envers.Audited;
+import org.hibernate.envers.RelationTargetAuditMode;
 import org.hibernate.type.SqlTypes;
 import org.jspecify.annotations.Nullable;
 
@@ -36,12 +38,15 @@ public class EnrollmentDocumentRequirement {
 
   @ManyToOne(fetch = FetchType.LAZY, optional = false)
   @JoinColumn(name = "application_id")
+  @Audited(targetAuditMode = RelationTargetAuditMode.NOT_AUDITED)
   private EnrollmentApplication application;
 
   @Column(name = "source_requirement_id")
+  @Audited
   private @Nullable UUID sourceRequirementId;
 
   @Column(nullable = false, length = 150)
+  @Audited
   private String name;
 
   @Column(nullable = false, length = 1000)
@@ -49,32 +54,40 @@ public class EnrollmentDocumentRequirement {
 
   @Enumerated(EnumType.STRING)
   @Column(nullable = false)
+  @Audited
   private DocumentRequirementLevel level;
 
   @JdbcTypeCode(SqlTypes.JSON)
   @Column(name = "allowed_formats", nullable = false, columnDefinition = "jsonb")
+  @Audited
   private List<String> allowedFormats;
 
   @Column(name = "display_order", nullable = false)
+  @Audited
   private int displayOrder;
 
   @ManyToOne(fetch = FetchType.LAZY, optional = false)
   @JoinColumn(name = "document_id")
+  @Audited(targetAuditMode = RelationTargetAuditMode.NOT_AUDITED)
   private DocumentDefinition document;
 
   @Column(name = "institution_id", nullable = false)
+  @Audited
   private UUID institutionId;
 
   @Column(name = "definition_revision")
+  @Audited
   private @Nullable Long definitionRevision;
 
   @Column(name = "assignment_revision")
+  @Audited
   private @Nullable Long assignmentRevision;
 
   @Column(name = "specific_instructions", length = 1000)
   private @Nullable String specificInstructions;
 
   @Column(nullable = false)
+  @Audited
   private boolean active = true;
 
   @OneToMany(mappedBy = "requirement", cascade = CascadeType.ALL)
@@ -82,10 +95,12 @@ public class EnrollmentDocumentRequirement {
 
   @Enumerated(EnumType.STRING)
   @Column(nullable = false)
+  @Audited
   private DocumentRequirementOrigin origin = DocumentRequirementOrigin.ORIGINAL;
 
   @ManyToOne(fetch = FetchType.LAZY)
   @JoinColumn(name = "request_id")
+  @Audited(targetAuditMode = RelationTargetAuditMode.NOT_AUDITED)
   private @Nullable EnrollmentDocumentRequest request;
 
   public static EnrollmentDocumentRequirement additional(

@@ -3,6 +3,10 @@ package ar.edu.utn.frvm.typeit.boero_api.enrollment.services;
 import ar.edu.utn.frvm.typeit.boero_api.academic.entities.DocumentDefinition;
 import ar.edu.utn.frvm.typeit.boero_api.academic.exceptions.DocumentCatalogException;
 import ar.edu.utn.frvm.typeit.boero_api.academic.interfaces.DocumentDefinitionRepository;
+import ar.edu.utn.frvm.typeit.boero_api.audit.enums.AuditAction;
+import ar.edu.utn.frvm.typeit.boero_api.audit.enums.AuditEntityType;
+import ar.edu.utn.frvm.typeit.boero_api.audit.enums.AuditOrigin;
+import ar.edu.utn.frvm.typeit.boero_api.audit.services.AuditEventRecorder;
 import ar.edu.utn.frvm.typeit.boero_api.auth.interfaces.PlatformAccountRepository;
 import ar.edu.utn.frvm.typeit.boero_api.authorization.enums.PermissionCode;
 import ar.edu.utn.frvm.typeit.boero_api.authorization.services.ScopedAuthorizationService;
@@ -15,6 +19,7 @@ import ar.edu.utn.frvm.typeit.boero_api.enrollment.payloads.*;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.interfaces.PersonRepository;
 import java.time.Clock;
 import java.util.*;
+import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -23,6 +28,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @RequiredArgsConstructor
 public class RequestEnrollmentDocumentsUseCase {
+  private final AuditEventRecorder auditRecorder;
   private final EnrollmentInstitutionLock lock;
   private final EnrollmentApplicationRepository applications;
   private final DocumentDefinitionRepository definitions;
@@ -113,6 +119,14 @@ public class RequestEnrollmentDocumentsUseCase {
               (int) Math.min(Integer.MAX_VALUE, order + i)));
     }
     applications.flush();
+    auditRecorder.recordCurrentActor(
+        application.getInstitution(),
+        application.getApplicantPerson().getId(),
+        AuditAction.ENROLLMENT_DOCUMENTS_REQUESTED,
+        AuditEntityType.ENROLLMENT_APPLICATION,
+        application.getId(),
+        AuditOrigin.administration(),
+        Map.of("after", Map.of("requirementCount", selected.size())));
     return EnrollmentDocumentRequestResponse.from(request);
   }
 }

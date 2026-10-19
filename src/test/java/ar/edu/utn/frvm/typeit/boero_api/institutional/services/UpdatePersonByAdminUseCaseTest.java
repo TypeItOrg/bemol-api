@@ -6,6 +6,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import ar.edu.utn.frvm.typeit.boero_api.audit.services.AuditEventRecorder;
 import ar.edu.utn.frvm.typeit.boero_api.authorization.exceptions.PersonNotFoundInInstitutionException;
 import ar.edu.utn.frvm.typeit.boero_api.authorization.services.InstitutionPersonResolver;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.entities.Institution;
@@ -29,6 +30,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
 class UpdatePersonByAdminUseCaseTest {
+  @org.mockito.Mock private AuditEventRecorder auditAuditEventRecorder;
 
   @Mock private InstitutionPersonResolver institutionPersonResolver;
   @Mock private PersonRepository personRepository;

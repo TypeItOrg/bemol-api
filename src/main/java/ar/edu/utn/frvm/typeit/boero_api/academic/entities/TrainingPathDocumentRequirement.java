@@ -6,6 +6,8 @@ import jakarta.persistence.*;
 import java.util.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.hibernate.envers.Audited;
+import org.hibernate.envers.RelationTargetAuditMode;
 import org.jspecify.annotations.Nullable;
 
 @Entity
@@ -17,23 +19,29 @@ public class TrainingPathDocumentRequirement {
 
   @ManyToOne(fetch = FetchType.LAZY, optional = false)
   @JoinColumn(name = "training_path_id")
+  @Audited(targetAuditMode = RelationTargetAuditMode.NOT_AUDITED)
   private TrainingPath trainingPath;
 
   @ManyToOne(fetch = FetchType.LAZY, optional = false)
   @JoinColumn(name = "document_id")
+  @Audited(targetAuditMode = RelationTargetAuditMode.NOT_AUDITED)
   private DocumentDefinition document;
 
   @Column(name = "institution_id", nullable = false)
+  @Audited
   private UUID institutionId;
 
   @Enumerated(EnumType.STRING)
   @Column(nullable = false)
+  @Audited
   private DocumentRequirementLevel level;
 
   @Column(name = "display_order", nullable = false)
+  @Audited
   private int displayOrder;
 
   @Column(nullable = false)
+  @Audited
   private boolean active;
 
   @Column(name = "specific_instructions", length = 1000)

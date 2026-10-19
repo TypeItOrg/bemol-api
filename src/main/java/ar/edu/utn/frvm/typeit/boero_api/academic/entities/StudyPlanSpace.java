@@ -21,6 +21,8 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.hibernate.envers.Audited;
+import org.hibernate.envers.RelationTargetAuditMode;
 import org.jspecify.annotations.Nullable;
 
 @Entity
@@ -47,29 +49,36 @@ public class StudyPlanSpace extends Auditable {
 
   @ManyToOne(fetch = FetchType.LAZY, optional = false)
   @JoinColumn(name = "institution_id", nullable = false)
+  @Audited(targetAuditMode = RelationTargetAuditMode.NOT_AUDITED)
   private Institution institution;
 
   @ManyToOne(fetch = FetchType.LAZY, optional = false)
   @JoinColumn(name = "study_plan_id", nullable = false)
+  @Audited(targetAuditMode = RelationTargetAuditMode.NOT_AUDITED)
   private StudyPlan studyPlan;
 
   @ManyToOne(fetch = FetchType.LAZY, optional = false)
   @JoinColumn(name = "academic_space_id", nullable = false)
+  @Audited(targetAuditMode = RelationTargetAuditMode.NOT_AUDITED)
   private AcademicSpace academicSpace;
 
   @ManyToOne(fetch = FetchType.LAZY)
   @JoinColumn(name = "academic_level_id")
+  @Audited(targetAuditMode = RelationTargetAuditMode.NOT_AUDITED)
   private @Nullable AcademicLevel academicLevel;
 
   @Enumerated(EnumType.STRING)
   @Column(name = "requirement_type", nullable = false, length = 20)
+  @Audited
   private RequirementType requirementType;
 
   @Column(name = "display_order", nullable = false)
+  @Audited
   private int displayOrder;
 
   @Enumerated(EnumType.STRING)
   @Column(name = "approval_mode", nullable = false, length = 30)
+  @Audited
   private ApprovalMode approvalMode;
 
   public static StudyPlanSpace create(

@@ -27,9 +27,13 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.hibernate.envers.AuditOverride;
+import org.hibernate.envers.Audited;
+import org.hibernate.envers.RelationTargetAuditMode;
 import org.jspecify.annotations.Nullable;
 
 @Entity
+@AuditOverride(forClass = SoftDeletable.class, name = "deletedAt", isAudited = true)
 @Table(
     name = "study_plans",
     uniqueConstraints =
@@ -49,31 +53,39 @@ public class StudyPlan extends SoftDeletable {
 
   @ManyToOne(fetch = FetchType.LAZY, optional = false)
   @JoinColumn(name = "institution_id", nullable = false)
+  @Audited(targetAuditMode = RelationTargetAuditMode.NOT_AUDITED)
   private Institution institution;
 
   @ManyToOne(fetch = FetchType.LAZY, optional = false)
   @JoinColumn(name = "training_path_id", nullable = false)
+  @Audited(targetAuditMode = RelationTargetAuditMode.NOT_AUDITED)
   private TrainingPath trainingPath;
 
   @ManyToOne(fetch = FetchType.LAZY)
   @JoinColumn(name = "previous_version_id")
+  @Audited(targetAuditMode = RelationTargetAuditMode.NOT_AUDITED)
   private StudyPlan previousVersion;
 
   @Column(name = "version_number", nullable = false)
   @Builder.Default
+  @Audited
   private int versionNumber = 1;
 
   @Column(nullable = false, length = 150)
+  @Audited
   private String name;
 
   @Column(name = "effective_from")
+  @Audited
   private @Nullable LocalDate effectiveFrom;
 
   @Column(name = "effective_to")
+  @Audited
   private @Nullable LocalDate effectiveTo;
 
   @Enumerated(EnumType.STRING)
   @Column(nullable = false, length = 20)
+  @Audited
   private StudyPlanStatus status;
 
   public static StudyPlan create(

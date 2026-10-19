@@ -19,6 +19,8 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.hibernate.envers.Audited;
+import org.hibernate.envers.RelationTargetAuditMode;
 import org.jspecify.annotations.Nullable;
 
 @Entity
@@ -36,19 +38,23 @@ public class CourseClassDay extends Auditable {
 
   @ManyToOne(fetch = FetchType.LAZY, optional = false)
   @JoinColumn(name = "institution_id", nullable = false)
+  @Audited(targetAuditMode = RelationTargetAuditMode.NOT_AUDITED)
   private Institution institution;
 
   @ManyToOne(fetch = FetchType.LAZY, optional = false)
   @JoinColumn(name = "course_class_id", nullable = false)
+  @Audited
   private CourseClass courseClass;
 
   @Enumerated(EnumType.STRING)
   @Column(name = "day_of_week", nullable = false, length = 20)
+  @Audited
   private CourseDay dayOfWeek;
 
-  @Column private @Nullable Integer capacity;
+  @Column @Audited private @Nullable Integer capacity;
 
   @Column(name = "period_duration_minutes")
+  @Audited
   private @Nullable Integer periodDurationMinutes;
 
   public static CourseClassDay create(

@@ -16,8 +16,12 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import org.hibernate.envers.AuditOverride;
+import org.hibernate.envers.Audited;
+import org.hibernate.envers.RelationTargetAuditMode;
 
 @Entity
+@AuditOverride(forClass = SoftDeletable.class, name = "deletedAt", isAudited = true)
 @Table(name = "applicant_preferences")
 @Getter
 @Setter
@@ -33,6 +37,7 @@ public class ApplicantPreference extends SoftDeletable {
 
   @OneToOne(fetch = FetchType.LAZY, optional = false)
   @JoinColumn(name = "enrollment_application_id", nullable = false)
+  @Audited(targetAuditMode = RelationTargetAuditMode.NOT_AUDITED)
   private EnrollmentApplication enrollmentApplication;
 
   // Un DRAFT es parcial por definición: submitApplication() exige este campo
@@ -42,10 +47,12 @@ public class ApplicantPreference extends SoftDeletable {
 
   @Column(name = "allows_image_use", nullable = false)
   @Builder.Default
+  @Audited
   private boolean allowsImageUse = false;
 
   @Column(name = "is_reenrolling", nullable = false)
   @Builder.Default
+  @Audited
   private boolean isReenrolling = false;
 
   @Column(name = "previous_teacher", length = 150)

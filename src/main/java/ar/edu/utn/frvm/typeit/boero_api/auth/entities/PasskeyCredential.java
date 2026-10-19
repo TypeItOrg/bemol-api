@@ -23,6 +23,8 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.hibernate.envers.Audited;
+import org.hibernate.envers.RelationTargetAuditMode;
 import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;
 
@@ -51,6 +53,7 @@ public class PasskeyCredential extends Auditable {
 
   @ManyToOne(fetch = FetchType.LAZY, optional = false)
   @JoinColumn(name = "user_id", nullable = false)
+  @Audited(targetAuditMode = RelationTargetAuditMode.NOT_AUDITED)
   private User user;
 
   @Column(name = "credential_id", nullable = false, columnDefinition = "TEXT")
@@ -94,6 +97,7 @@ public class PasskeyCredential extends Auditable {
   private @Nullable Instant lastUsedAt;
 
   @Column(name = "revoked_at")
+  @Audited
   private @Nullable Instant revokedAt;
 
   public boolean isActive() {

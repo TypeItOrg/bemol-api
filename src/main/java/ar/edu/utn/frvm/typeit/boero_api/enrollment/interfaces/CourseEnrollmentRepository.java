@@ -95,6 +95,7 @@ public interface CourseEnrollmentRepository extends JpaRepository<CourseEnrollme
 
   @Query(
       "SELECT enrollment FROM CourseEnrollment enrollment WHERE enrollment.institution.id = :institutionId AND enrollment.course.id = :courseId AND enrollment.status = :status")
+  @EntityGraph(attributePaths = {"student", "student.person"})
   List<CourseEnrollment> findByCourseAndStatus(
       @Param("institutionId") UUID institutionId,
       @Param("courseId") UUID courseId,

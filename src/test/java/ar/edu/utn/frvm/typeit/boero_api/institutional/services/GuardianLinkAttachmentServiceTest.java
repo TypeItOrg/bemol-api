@@ -8,6 +8,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+import ar.edu.utn.frvm.typeit.boero_api.audit.services.AuditEventRecorder;
 import ar.edu.utn.frvm.typeit.boero_api.common.storage.StorageService;
 import ar.edu.utn.frvm.typeit.boero_api.enrollment.exceptions.InvalidFileException;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.entities.GuardianRelationship;
@@ -56,7 +57,11 @@ class GuardianLinkAttachmentServiceTest {
     TransactionSynchronizationManager.initSynchronization();
     file = EnrollmentDocumentTestData.pdf("partida.pdf");
     service =
-        new GuardianLinkAttachmentService(personGuardianRepository, attachmentRepository, storage);
+        new GuardianLinkAttachmentService(
+            personGuardianRepository,
+            attachmentRepository,
+            storage,
+            org.mockito.Mockito.mock(AuditEventRecorder.class));
     institution = Institution.builder().id(UUID.randomUUID()).build();
     tutor = Person.builder().id(UUID.randomUUID()).institution(institution).build();
     link =

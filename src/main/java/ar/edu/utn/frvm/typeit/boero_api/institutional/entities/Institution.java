@@ -18,6 +18,8 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import org.hibernate.annotations.DynamicUpdate;
+import org.hibernate.envers.Audited;
+import org.hibernate.envers.RelationTargetAuditMode;
 import org.jspecify.annotations.Nullable;
 
 @DynamicUpdate
@@ -38,27 +40,34 @@ public class Institution extends Auditable {
 
   @ManyToOne(fetch = FetchType.LAZY, optional = false)
   @JoinColumn(name = "city_id", nullable = false)
+  @Audited(targetAuditMode = RelationTargetAuditMode.NOT_AUDITED)
   private City city;
 
   @Column(nullable = false)
+  @Audited
   private String name;
 
   @Column(nullable = false, length = 100)
+  @Audited
   private String slug;
 
   @Column(name = "public_subdomain", length = 63)
+  @Audited
   private @Nullable String publicSubdomain;
 
   @Column(name = "logo_key")
   private @Nullable String logoKey;
 
   @Column(name = "logo_content_type", length = 32)
+  @Audited
   private @Nullable String logoContentType;
 
   @Column(name = "logo_version", length = 36)
+  @Audited
   private @Nullable String logoVersion;
 
   @Column(name = "logo_size")
+  @Audited
   private @Nullable Long logoSize;
 
   private @Nullable String street;
@@ -79,6 +88,7 @@ public class Institution extends Auditable {
 
   @Column(nullable = false)
   @Builder.Default
+  @Audited
   private boolean active = true;
 
   public void changePublicSubdomain(final @Nullable String publicSubdomain) {

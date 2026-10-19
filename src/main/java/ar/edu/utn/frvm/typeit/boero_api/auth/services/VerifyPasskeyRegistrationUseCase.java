@@ -1,5 +1,9 @@
 package ar.edu.utn.frvm.typeit.boero_api.auth.services;
 
+import ar.edu.utn.frvm.typeit.boero_api.audit.enums.AuditAction;
+import ar.edu.utn.frvm.typeit.boero_api.audit.enums.AuditEntityType;
+import ar.edu.utn.frvm.typeit.boero_api.audit.enums.AuditOrigin;
+import ar.edu.utn.frvm.typeit.boero_api.audit.services.AuditEventRecorder;
 import ar.edu.utn.frvm.typeit.boero_api.auth.config.WebAuthnProperties;
 import ar.edu.utn.frvm.typeit.boero_api.auth.entities.PasskeyCredential;
 import ar.edu.utn.frvm.typeit.boero_api.auth.entities.User;
@@ -15,6 +19,7 @@ import ar.edu.utn.frvm.typeit.boero_api.auth.payloads.responses.PasskeyResponse;
 import ar.edu.utn.frvm.typeit.boero_api.auth.webauthn.WebAuthnOptionsCodec;
 import com.webauthn4j.verifier.exception.MaliciousCounterValueException;
 import com.webauthn4j.verifier.exception.VerificationException;
+import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.hibernate.exception.ConstraintViolationException;
@@ -34,6 +39,7 @@ import tools.jackson.databind.JsonNode;
 @Service
 @RequiredArgsConstructor
 public class VerifyPasskeyRegistrationUseCase {
+  private final AuditEventRecorder auditRecorder;
 
   private final UserRepository userRepository;
   private final PasskeyCredentialRepository passkeyCredentialRepository;
@@ -99,6 +105,14 @@ public class VerifyPasskeyRegistrationUseCase {
       }
       throw exception;
     }
+    auditRecorder.recordCurrentActor(
+        locked.getInstitution(),
+        principal.personId(),
+        AuditAction.PASSKEY_CREATED,
+        AuditEntityType.PASSKEY,
+        saved.getId(),
+        AuditOrigin.SELF_SERVICE,
+        Map.of());
     log.info("[Auth] Passkey registered, userId: {}", principal.userId());
     return PasskeyResponse.from(saved);
   }

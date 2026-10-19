@@ -11,6 +11,8 @@ import java.util.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.envers.Audited;
+import org.hibernate.envers.RelationTargetAuditMode;
 import org.hibernate.type.SqlTypes;
 import org.jspecify.annotations.Nullable;
 
@@ -23,9 +25,11 @@ public class DocumentDefinition {
 
   @ManyToOne(fetch = FetchType.LAZY, optional = false)
   @JoinColumn(name = "institution_id")
+  @Audited(targetAuditMode = RelationTargetAuditMode.NOT_AUDITED)
   private Institution institution;
 
   @Column(nullable = false, length = 150)
+  @Audited
   private String name;
 
   @Column(nullable = false, length = 1000)
@@ -33,9 +37,11 @@ public class DocumentDefinition {
 
   @JdbcTypeCode(SqlTypes.JSON)
   @Column(name = "allowed_formats", nullable = false, columnDefinition = "jsonb")
+  @Audited
   private List<String> allowedFormats;
 
   @Column(nullable = false)
+  @Audited
   private boolean active;
 
   @Version private long revision;

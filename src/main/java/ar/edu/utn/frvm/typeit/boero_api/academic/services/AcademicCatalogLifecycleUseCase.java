@@ -41,7 +41,8 @@ public class AcademicCatalogLifecycleUseCase {
           AcademicLifecycleResource.ACADEMIC_YEAR,
           id,
           AcademicLifecycleAction.DELETE,
-          request);
+          request,
+          AcademicCatalogAuditDetails.lifecycle(String.valueOf(year.getYear()), true));
     }
   }
 
@@ -53,7 +54,12 @@ public class AcademicCatalogLifecycleUseCase {
             .findByIdAndInstitution_IdForLifecycle(id, institutionId)
             .orElseThrow(AcademicYearNotFoundException::new);
     journal.restore(
-        year, year.getInstitution(), AcademicLifecycleResource.ACADEMIC_YEAR, id, request);
+        year,
+        year.getInstitution(),
+        AcademicLifecycleResource.ACADEMIC_YEAR,
+        id,
+        request,
+        AcademicCatalogAuditDetails.lifecycle(String.valueOf(year.getYear()), false));
   }
 
   @Transactional
@@ -69,7 +75,8 @@ public class AcademicCatalogLifecycleUseCase {
           AcademicLifecycleResource.ACADEMIC_SPACE,
           id,
           AcademicLifecycleAction.DELETE,
-          request);
+          request,
+          AcademicCatalogAuditDetails.lifecycle(space.getName(), true));
     }
   }
 
@@ -81,7 +88,12 @@ public class AcademicCatalogLifecycleUseCase {
             .findByIdAndInstitution_IdForLifecycle(id, institutionId)
             .orElseThrow(AcademicSpaceNotFoundException::new);
     journal.restore(
-        space, space.getInstitution(), AcademicLifecycleResource.ACADEMIC_SPACE, id, request);
+        space,
+        space.getInstitution(),
+        AcademicLifecycleResource.ACADEMIC_SPACE,
+        id,
+        request,
+        AcademicCatalogAuditDetails.lifecycle(space.getName(), false));
   }
 
   @Transactional
@@ -97,7 +109,8 @@ public class AcademicCatalogLifecycleUseCase {
           AcademicLifecycleResource.INSTRUMENT,
           id,
           AcademicLifecycleAction.DELETE,
-          request);
+          request,
+          AcademicCatalogAuditDetails.lifecycle(instrument.getName(), true));
     }
   }
 
@@ -109,7 +122,12 @@ public class AcademicCatalogLifecycleUseCase {
             .findByIdAndInstitution_IdForLifecycle(id, institutionId)
             .orElseThrow(InstrumentNotFoundException::new);
     journal.restore(
-        instrument, instrument.getInstitution(), AcademicLifecycleResource.INSTRUMENT, id, request);
+        instrument,
+        instrument.getInstitution(),
+        AcademicLifecycleResource.INSTRUMENT,
+        id,
+        request,
+        AcademicCatalogAuditDetails.lifecycle(instrument.getName(), false));
   }
 
   @Transactional
@@ -125,7 +143,8 @@ public class AcademicCatalogLifecycleUseCase {
           AcademicLifecycleResource.SHIFT,
           id,
           AcademicLifecycleAction.DELETE,
-          request);
+          request,
+          AcademicCatalogAuditDetails.lifecycle(shift.getName(), true));
     }
   }
 
@@ -136,6 +155,12 @@ public class AcademicCatalogLifecycleUseCase {
         shifts
             .findByIdAndInstitution_IdForLifecycle(id, institutionId)
             .orElseThrow(ShiftNotFoundException::new);
-    journal.restore(shift, shift.getInstitution(), AcademicLifecycleResource.SHIFT, id, request);
+    journal.restore(
+        shift,
+        shift.getInstitution(),
+        AcademicLifecycleResource.SHIFT,
+        id,
+        request,
+        AcademicCatalogAuditDetails.lifecycle(shift.getName(), false));
   }
 }

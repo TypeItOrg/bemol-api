@@ -27,6 +27,7 @@ public class ChangeCourseEnrollmentStatusUseCase {
   private final CourseEnrollmentRepository enrollments;
   private final CourseEnrollmentSchedules schedules;
   private final CourseEnrollmentJournal journal;
+  private final CourseEnrollmentAudit audit;
   private final CourseEnrollmentResponseFactory responses;
   private final Clock clock;
 
@@ -92,6 +93,7 @@ public class ChangeCourseEnrollmentStatusUseCase {
 
     final var previousStatus = enrollment.getStatus();
     final var previousAcademicStatus = enrollment.getAcademicStatus();
+    final var previousReason = enrollment.getActionReason();
     enrollment.recordAcademicResult(request.status(), clock.instant(), request.reason());
     if (previousStatus == CourseEnrollmentStatus.ENROLLED) {
       schedules.release(enrollment);
@@ -106,6 +108,10 @@ public class ChangeCourseEnrollmentStatusUseCase {
         "ACADEMIC_STATUS_UPDATE",
         request.reason(),
         authorityPersonId);
+    if (previousStatus == enrollment.getStatus()
+        && previousAcademicStatus == enrollment.getAcademicStatus()) {
+      audit.recordReasonChange(enrollment, previousReason);
+    }
     journal.flush();
 
     return responses.from(enrollment);

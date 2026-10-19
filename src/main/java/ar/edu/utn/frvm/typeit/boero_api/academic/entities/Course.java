@@ -27,9 +27,13 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.hibernate.envers.AuditOverride;
+import org.hibernate.envers.Audited;
+import org.hibernate.envers.RelationTargetAuditMode;
 import org.jspecify.annotations.Nullable;
 
 @Entity
+@AuditOverride(forClass = SoftDeletable.class, name = "deletedAt", isAudited = true)
 @Table(
     name = "courses",
     uniqueConstraints =
@@ -49,10 +53,12 @@ public class Course extends SoftDeletable {
 
   @ManyToOne(fetch = FetchType.LAZY, optional = false)
   @JoinColumn(name = "institution_id", nullable = false)
+  @Audited(targetAuditMode = RelationTargetAuditMode.NOT_AUDITED)
   private Institution institution;
 
   @ManyToOne(fetch = FetchType.LAZY, optional = false)
   @JoinColumn(name = "study_plan_space_id", nullable = false)
+  @Audited(targetAuditMode = RelationTargetAuditMode.NOT_AUDITED)
   private StudyPlanSpace studyPlanSpace;
 
   @Column(name = "training_path_id", nullable = false, updatable = false)
@@ -66,14 +72,17 @@ public class Course extends SoftDeletable {
 
   @ManyToOne(fetch = FetchType.LAZY)
   @JoinColumn(name = "instrument_id")
+  @Audited(targetAuditMode = RelationTargetAuditMode.NOT_AUDITED)
   private @Nullable Instrument instrument;
 
   @ManyToOne(fetch = FetchType.LAZY, optional = false)
   @JoinColumn(name = "academic_year_id", nullable = false)
+  @Audited(targetAuditMode = RelationTargetAuditMode.NOT_AUDITED)
   private AcademicYear academicYear;
 
   @Enumerated(EnumType.STRING)
   @Column(nullable = false, length = 20)
+  @Audited(withModifiedFlag = true)
   private CourseStatus status;
 
   @Transient private StudyPlan legacyStudyPlan;

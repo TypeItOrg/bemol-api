@@ -23,9 +23,13 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import org.hibernate.envers.AuditOverride;
+import org.hibernate.envers.Audited;
+import org.hibernate.envers.RelationTargetAuditMode;
 import org.jspecify.annotations.Nullable;
 
 @Entity
+@AuditOverride(forClass = SoftDeletable.class, name = "deletedAt", isAudited = true)
 @Table(name = "enrollment_attachments")
 @Getter
 @NoArgsConstructor
@@ -41,30 +45,35 @@ public class EnrollmentAttachment extends SoftDeletable {
   @ManyToOne(fetch = FetchType.LAZY, optional = false)
   @JoinColumn(name = "enrollment_application_id", nullable = false)
   @Setter
+  @Audited(targetAuditMode = RelationTargetAuditMode.NOT_AUDITED)
   private EnrollmentApplication enrollmentApplication;
 
   @ManyToOne(fetch = FetchType.LAZY, optional = false)
   @JoinColumn(name = "requirement_id", nullable = false)
+  @Audited(targetAuditMode = RelationTargetAuditMode.NOT_AUDITED)
   private EnrollmentDocumentRequirement requirement;
 
   @Enumerated(EnumType.STRING)
   @Column(name = "version_status", nullable = false)
   @Builder.Default
+  @Audited
   private DocumentVersionStatus versionStatus = DocumentVersionStatus.CURRENT;
 
   @Enumerated(EnumType.STRING)
   @Column(name = "review_status", nullable = false)
   @Builder.Default
+  @Audited
   private DocumentReviewStatus reviewStatus = DocumentReviewStatus.PENDING_REVIEW;
 
-  private UUID uploadedBy;
+  @Audited private UUID uploadedBy;
 
   @Column(nullable = false)
+  @Audited
   private String uploaderType;
 
-  private @Nullable UUID reviewedBy;
-  private @Nullable String reviewerType;
-  private @Nullable Instant reviewedAt;
+  @Audited private @Nullable UUID reviewedBy;
+  @Audited private @Nullable String reviewerType;
+  @Audited private @Nullable Instant reviewedAt;
 
   @Column(length = 2000)
   private @Nullable String observation;
@@ -113,9 +122,11 @@ public class EnrollmentAttachment extends SoftDeletable {
   private String storagePath;
 
   @Column(name = "content_type", nullable = false, length = 100)
+  @Audited
   private String contentType;
 
   @Column(name = "file_size", nullable = false)
+  @Audited
   private Long fileSize;
 
   public boolean markDeleted(final Instant now) {

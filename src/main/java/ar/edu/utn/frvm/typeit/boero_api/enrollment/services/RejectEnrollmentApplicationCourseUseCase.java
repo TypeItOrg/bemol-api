@@ -1,5 +1,9 @@
 package ar.edu.utn.frvm.typeit.boero_api.enrollment.services;
 
+import ar.edu.utn.frvm.typeit.boero_api.audit.enums.AuditAction;
+import ar.edu.utn.frvm.typeit.boero_api.audit.enums.AuditEntityType;
+import ar.edu.utn.frvm.typeit.boero_api.audit.enums.AuditOrigin;
+import ar.edu.utn.frvm.typeit.boero_api.audit.services.AuditEventRecorder;
 import ar.edu.utn.frvm.typeit.boero_api.authorization.enums.PermissionCode;
 import ar.edu.utn.frvm.typeit.boero_api.authorization.enums.ScopedResource;
 import ar.edu.utn.frvm.typeit.boero_api.authorization.services.AcademicAccessGuard;
@@ -11,6 +15,7 @@ import ar.edu.utn.frvm.typeit.boero_api.enrollment.interfaces.EnrollmentApplicat
 import ar.edu.utn.frvm.typeit.boero_api.enrollment.payloads.EnrollmentApplicationCourseResponse;
 import ar.edu.utn.frvm.typeit.boero_api.enrollment.payloads.RejectEnrollmentApplicationCourseRequest;
 import java.time.Clock;
+import java.util.Map;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.jspecify.annotations.Nullable;
@@ -20,6 +25,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @RequiredArgsConstructor
 public class RejectEnrollmentApplicationCourseUseCase {
+  private final AuditEventRecorder auditRecorder;
   private final AcademicAccessGuard accessGuard;
 
   private final EnrollmentApplicationCourseRepository applicationCourseRepository;
@@ -64,6 +70,20 @@ public class RejectEnrollmentApplicationCourseUseCase {
     }
 
     selection.reject("ADMIN_REJECTED", request.reason(), clock.instant(), resolvedByPersonId);
+    auditRecorder.recordCurrentActor(
+        selection.getEnrollmentApplication().getInstitution(),
+        selection.getEnrollmentApplication().getApplicantPerson().getId(),
+        AuditAction.ENROLLMENT_APPLICATION_COURSE_REJECTED,
+        AuditEntityType.ENROLLMENT_APPLICATION,
+        applicationId,
+        AuditOrigin.administration(),
+        Map.of(
+            "after",
+            Map.of(
+                "courseId",
+                selection.getCourse().getId().toString(),
+                "status",
+                selection.getStatus().name())));
     return EnrollmentApplicationCourseResponse.from(selection);
   }
 }

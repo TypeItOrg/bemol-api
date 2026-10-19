@@ -26,6 +26,7 @@ public class EnrollmentApplicationCourseApprovalService {
   private final CourseWaitlistSequenceRepository waitlistSequenceRepository;
   private final Clock clock;
   private final CourseCapacityService capacityService;
+  private final CourseEnrollmentAudit audit;
 
   @Transactional
   public void process(final EnrollmentApplication application) {
@@ -72,10 +73,12 @@ public class EnrollmentApplicationCourseApprovalService {
 
   private void evaluate(
       final EnrollmentApplicationCourse selection, final @Nullable Boolean capacityOverride) {
+    final var previousStatus = selection.getStatus();
     final Course course = selection.getCourse();
     if (course.isClosed()) {
       selection.reject(
           "COURSE_FINISHED", EnrollmentMessages.COURSE_NOT_ACTIVE, clock.instant(), null);
+      audit.recordSelection(selection, previousStatus, false);
       return;
     }
     if (!course.isActive()) {
@@ -107,5 +110,6 @@ public class EnrollmentApplicationCourseApprovalService {
             ? WaitlistReason.NO_CAPACITY_AT_PARENT_APPROVAL
             : WaitlistReason.CAPACITY_EXHAUSTED_AFTER_APPROVAL,
         clock.instant());
+    audit.recordSelection(selection, previousStatus, false);
   }
 }

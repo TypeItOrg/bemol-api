@@ -13,10 +13,12 @@ import ar.edu.utn.frvm.typeit.boero_api.auth.filters.JwtAuthenticatedUser;
 import ar.edu.utn.frvm.typeit.boero_api.auth.payloads.requests.ConfirmEmailVerificationRequest;
 import ar.edu.utn.frvm.typeit.boero_api.auth.payloads.requests.CreatePlatformAccountRequest;
 import ar.edu.utn.frvm.typeit.boero_api.auth.payloads.requests.RegisterRequest;
+import ar.edu.utn.frvm.typeit.boero_api.auth.payloads.requests.UpdatePlatformAccountRequest;
 import ar.edu.utn.frvm.typeit.boero_api.auth.services.CreatePlatformAccountUseCase;
 import ar.edu.utn.frvm.typeit.boero_api.auth.services.InstitutionalEmailVerificationUseCase;
 import ar.edu.utn.frvm.typeit.boero_api.auth.services.RegisterUserUseCase;
 import ar.edu.utn.frvm.typeit.boero_api.auth.services.UpdatePlatformAccountStatusUseCase;
+import ar.edu.utn.frvm.typeit.boero_api.auth.services.UpdatePlatformAccountUseCase;
 import ar.edu.utn.frvm.typeit.boero_api.authorization.enums.AccessScope;
 import ar.edu.utn.frvm.typeit.boero_api.authorization.enums.PermissionCode;
 import ar.edu.utn.frvm.typeit.boero_api.authorization.payloads.AssignRoleRequest;
@@ -26,8 +28,13 @@ import ar.edu.utn.frvm.typeit.boero_api.authorization.services.InstitutionRoleMa
 import ar.edu.utn.frvm.typeit.boero_api.authorization.services.ReplacePersonRolesUseCase;
 import ar.edu.utn.frvm.typeit.boero_api.common.mail.MailSender;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.payloads.person.CreatePersonRequest;
+import ar.edu.utn.frvm.typeit.boero_api.institutional.payloads.person.UpdatePersonByAdminRequest;
+import ar.edu.utn.frvm.typeit.boero_api.institutional.payloads.person.UpdatePersonRequest;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.services.CreatePersonUseCase;
+import ar.edu.utn.frvm.typeit.boero_api.institutional.services.DeletePersonUseCase;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.services.UpdateInstitutionalUserStatusUseCase;
+import ar.edu.utn.frvm.typeit.boero_api.institutional.services.UpdatePersonByAdminUseCase;
+import ar.edu.utn.frvm.typeit.boero_api.institutional.services.UpdatePersonUseCase;
 import ar.edu.utn.frvm.typeit.boero_api.support.AuthTestData;
 import ar.edu.utn.frvm.typeit.boero_api.support.IntegrationTest;
 import java.sql.Timestamp;
@@ -68,6 +75,10 @@ class GlobalAuditPostgresIntegrationTest extends DatabaseMigrationTestSupport {
   @Autowired ObjectMapper json;
   @Autowired CreatePlatformAccountUseCase createPlatformAccount;
   @Autowired CreatePersonUseCase createPerson;
+  @Autowired UpdatePersonByAdminUseCase updatePerson;
+  @Autowired UpdatePersonUseCase updateSelf;
+  @Autowired DeletePersonUseCase deletePerson;
+  @Autowired UpdatePlatformAccountUseCase updatePlatform;
   @Autowired RegisterUserUseCase register;
   @Autowired InstitutionalEmailVerificationUseCase verification;
   @Autowired InstitutionRoleManagementService roles;
@@ -77,6 +88,78 @@ class GlobalAuditPostgresIntegrationTest extends DatabaseMigrationTestSupport {
   @Autowired TransactionTemplate transaction;
   @Autowired ApplicationEvents events;
   @MockitoBean MailSender mailSender;
+
+  @Test
+  void auditsPersonalChangesAndPasswordsWithoutPrivateSnapshotsOrNoopEvents() throws Exception {
+    authenticatePlatformAdministrator();
+    final UUID institution = fixtures.firstInstitutionId();
+    final UUID person = createPerson.execute(institution, personRequest()).personId();
+    final UUID user = userId(person);
+    final var change = new UpdatePersonByAdminRequest("Nombre Privado", null, null, "3515551212");
+    updatePerson.execute(institution, person, change);
+    updatePerson.execute(institution, person, change);
+    assertThat(countForEntity(person, "PERSON_UPDATED")).isEqualTo(1);
+    final String details =
+        requireNonNull(event(person, "PERSON_UPDATED").get("details")).toString();
+    assertThat(details)
+        .contains("firstName", "phoneNumber")
+        .doesNotContain("Nombre Privado", "3515551212");
+    final var passwordChange =
+        new UpdatePersonByAdminRequest(null, null, null, null, "OtherPassword123!");
+    updatePerson.execute(institution, person, passwordChange);
+    assertThat(event(user, "PASSWORD_CHANGED").get("actor_platform_account_id"))
+        .isEqualTo(adminId());
+    assertThat(countForEntity(person, "PERSON_UPDATED")).isEqualTo(1);
+    final var principal =
+        new JwtAuthenticatedUser(user, person, "12345678", institution, UUID.randomUUID(), "test");
+    SecurityContextHolder.getContext()
+        .setAuthentication(
+            new TestingAuthenticationToken(principal, "", "ROLE_INSTITUTIONAL_USER"));
+    updateSelf.execute(
+        principal,
+        new UpdatePersonRequest(null, "Apellido Privado", null, null, null, null, null, null));
+    final var self =
+        jdbcTemplate.queryForMap(
+            "SELECT * FROM audit_events WHERE entity_id = ? AND origin = 'SELF_SERVICE' AND action = 'PERSON_UPDATED'",
+            person);
+    assertThat(self.get("actor_person_id")).isEqualTo(person);
+    assertThat(self.get("subject_person_id")).isEqualTo(person);
+    assertThat(requireNonNull(self.get("details")).toString())
+        .contains("lastName")
+        .doesNotContain("Apellido Privado");
+    authenticatePlatformAdministrator();
+    transaction.executeWithoutResult(
+        state -> {
+          updatePerson.execute(
+              institution, person, new UpdatePersonByAdminRequest("Rollback", null, null, null));
+          state.setRollbackOnly();
+        });
+    assertThat(countForEntity(person, "PERSON_UPDATED")).isEqualTo(2);
+    assertThat(
+            jdbcTemplate.queryForObject(
+                "SELECT first_name FROM people WHERE person_id = ?", String.class, person))
+        .isEqualTo("Nombre Privado");
+    final UUID account = createPlatformAccount.execute(accountRequest()).platformAccountId();
+    updatePlatform.execute(
+        account,
+        new UpdatePlatformAccountRequest(
+            "Perfil", "Privado", UUID.randomUUID() + "@example.test", PASSWORD));
+    assertThat(countForEntity(account, "PLATFORM_ACCOUNT_UPDATED")).isEqualTo(1);
+    assertThat(countForEntity(account, "PASSWORD_CHANGED")).isEqualTo(1);
+    deletePerson.execute(institution, person);
+    deletePerson.execute(institution, person);
+    assertThat(countForEntity(person, "PERSON_DELETED")).isEqualTo(1);
+    final var result = asAdmin(get(BASE).param("personId", person.toString()).param("size", "1"));
+    assertThat(result.path("totalItems").asLong()).isGreaterThanOrEqualTo(5);
+    assertThat(result.path("items").size()).isEqualTo(1);
+    assertThat(
+            jdbcTemplate.queryForObject(
+                "SELECT string_agg(details::text, '') FROM audit_events WHERE subject_person_id = ?",
+                String.class,
+                person))
+        .doesNotContain(
+            PASSWORD, "OtherPassword123!", "Nombre Privado", "Apellido Privado", "3515551212");
+  }
 
   @Test
   void recordsAccountLifecyclesWithRealAndAnonymousActors() {

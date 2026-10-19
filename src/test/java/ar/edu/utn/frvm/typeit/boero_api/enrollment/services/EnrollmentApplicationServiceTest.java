@@ -430,13 +430,14 @@ class EnrollmentApplicationServiceTest {
         .isEqualTo("Colegio Nacional");
     verify(applicationRepository).saveAndFlush(application);
     verify(auditEventRecorder)
-        .record(
-            institution,
-            personId,
-            personId,
-            AuditAction.ENROLLMENT_APPLICATION_DRAFT_UPDATED,
-            AuditEntityType.ENROLLMENT_APPLICATION,
-            applicationId);
+        .recordCurrentActor(
+            eq(institution),
+            eq(personId),
+            eq(AuditAction.ENROLLMENT_APPLICATION_DRAFT_UPDATED),
+            eq(AuditEntityType.ENROLLMENT_APPLICATION),
+            eq(applicationId),
+            eq(ar.edu.utn.frvm.typeit.boero_api.audit.enums.AuditOrigin.SELF_SERVICE),
+            any());
   }
 
   @Test

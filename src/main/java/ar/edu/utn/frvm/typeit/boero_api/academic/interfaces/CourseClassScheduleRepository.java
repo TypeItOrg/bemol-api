@@ -7,4 +7,6 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface CourseClassScheduleRepository extends JpaRepository<CourseClassSchedule, UUID> {
   List<CourseClassSchedule> findByDay_IdIn(List<UUID> dayIds);
+
+  void deleteByDay_CourseClass_Course_Id(UUID courseId);
 }

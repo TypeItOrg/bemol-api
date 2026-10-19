@@ -26,6 +26,8 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.hibernate.envers.Audited;
+import org.hibernate.envers.RelationTargetAuditMode;
 import org.jspecify.annotations.Nullable;
 
 @Entity
@@ -43,18 +45,22 @@ public class EnrollmentApplicationCourse extends Auditable {
 
   @ManyToOne(fetch = FetchType.LAZY, optional = false)
   @JoinColumn(name = "institution_id", nullable = false)
+  @Audited(targetAuditMode = RelationTargetAuditMode.NOT_AUDITED)
   private Institution institution;
 
   @ManyToOne(fetch = FetchType.LAZY, optional = false)
   @JoinColumn(name = "enrollment_application_id", nullable = false)
+  @Audited(targetAuditMode = RelationTargetAuditMode.NOT_AUDITED)
   private EnrollmentApplication enrollmentApplication;
 
   @ManyToOne(fetch = FetchType.LAZY, optional = false)
   @JoinColumn(name = "course_id", nullable = false)
+  @Audited(targetAuditMode = RelationTargetAuditMode.NOT_AUDITED)
   private Course course;
 
   @ManyToOne(fetch = FetchType.LAZY, optional = false)
   @JoinColumn(name = "enrollment_period_id", nullable = false)
+  @Audited(targetAuditMode = RelationTargetAuditMode.NOT_AUDITED)
   private @Nullable EnrollmentPeriod enrollmentPeriod;
 
   public void assignPeriod(final EnrollmentPeriod period) {
@@ -66,36 +72,46 @@ public class EnrollmentApplicationCourse extends Auditable {
 
   @ManyToOne(fetch = FetchType.LAZY)
   @JoinColumn(name = "preferred_teacher_id")
+  @Audited(targetAuditMode = RelationTargetAuditMode.NOT_AUDITED)
   private @Nullable Person preferredTeacher;
 
   @Enumerated(EnumType.STRING)
   @Column(nullable = false, length = 20)
   @Builder.Default
+  @Audited
   private EnrollmentApplicationCourseStatus status = EnrollmentApplicationCourseStatus.PENDING;
 
   @Column(name = "requested_at")
+  @Audited
   private Instant requestedAt;
 
   @Column(name = "submitted_with_capacity")
+  @Audited
   private Boolean submittedWithCapacity;
 
   @Column(name = "waitlist_number")
+  @Audited
   private Integer waitlistNumber;
 
   @Column(name = "waitlisted_at")
+  @Audited
   private Instant waitlistedAt;
 
   @Enumerated(EnumType.STRING)
   @Column(name = "waitlist_reason", length = 80)
+  @Audited
   private WaitlistReason waitlistReason;
 
   @Column(name = "resolved_at")
+  @Audited
   private Instant resolvedAt;
 
   @Column(name = "resolved_by_person_id")
+  @Audited
   private @Nullable UUID resolvedByPersonId;
 
   @Column(name = "resolution_reason_code", length = 80)
+  @Audited
   private String resolutionReasonCode;
 
   @Column(name = "resolution_reason_text")

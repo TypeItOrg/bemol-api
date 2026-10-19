@@ -2,6 +2,11 @@ package ar.edu.utn.frvm.typeit.boero_api.institutional.services;
 
 import static java.util.Objects.requireNonNull;
 
+import ar.edu.utn.frvm.typeit.boero_api.audit.enums.AuditAction;
+import ar.edu.utn.frvm.typeit.boero_api.audit.enums.AuditEntityType;
+import ar.edu.utn.frvm.typeit.boero_api.audit.enums.AuditOrigin;
+import ar.edu.utn.frvm.typeit.boero_api.audit.services.AuditChangeDetails;
+import ar.edu.utn.frvm.typeit.boero_api.audit.services.AuditEventRecorder;
 import ar.edu.utn.frvm.typeit.boero_api.auth.entities.User;
 import ar.edu.utn.frvm.typeit.boero_api.auth.exceptions.InvalidCredentialsException;
 import ar.edu.utn.frvm.typeit.boero_api.auth.exceptions.InvalidCurrentPasswordException;
@@ -21,6 +26,7 @@ import ar.edu.utn.frvm.typeit.boero_api.institutional.payloads.person.PersonResp
 import ar.edu.utn.frvm.typeit.boero_api.institutional.payloads.person.UpdatePersonRequest;
 import jakarta.validation.ConstraintViolationException;
 import jakarta.validation.Validator;
+import java.util.Map;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -30,6 +36,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @RequiredArgsConstructor
 public class UpdatePersonUseCase {
+  private final AuditEventRecorder auditRecorder;
 
   private final PersonRepository personRepository;
   private final UserRepository userRepository;
@@ -46,6 +53,7 @@ public class UpdatePersonUseCase {
         personRepository
             .findByIdAndInstitution_Id(principal.personId(), principal.institutionId())
             .orElseThrow(PersonNotFoundException::new);
+    final var before = PersonAuditDetails.snapshot(person);
     final String password = request.password();
     final Optional<User> passwordUser = verifyCurrentPassword(principal, request);
 
@@ -107,11 +115,30 @@ public class UpdatePersonUseCase {
 
     assertPersonValid(person);
     personRepository.save(person);
+    final var after = PersonAuditDetails.snapshot(person);
+    if (!before.equals(after)) {
+      auditRecorder.recordCurrentActor(
+          person.getInstitution(),
+          person.getId(),
+          AuditAction.PERSON_UPDATED,
+          AuditEntityType.PERSON,
+          person.getId(),
+          AuditOrigin.SELF_SERVICE,
+          AuditChangeDetails.change("Persona", before, after));
+    }
 
     passwordUser.ifPresent(
         user -> {
           user.changePassword(requireNonNull(passwordEncoder.encode(password)));
           userRepository.save(user);
+          auditRecorder.recordCurrentActor(
+              user.getInstitution(),
+              person.getId(),
+              AuditAction.PASSWORD_CHANGED,
+              AuditEntityType.USER,
+              user.getId(),
+              AuditOrigin.SELF_SERVICE,
+              Map.of());
           sessionRevocationService.revokeInstitutionalSessionsForUser(user.getId());
         });
 

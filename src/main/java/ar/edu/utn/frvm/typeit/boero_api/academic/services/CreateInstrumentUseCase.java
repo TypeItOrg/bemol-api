@@ -8,8 +8,12 @@ import ar.edu.utn.frvm.typeit.boero_api.academic.interfaces.InstrumentRepository
 import ar.edu.utn.frvm.typeit.boero_api.academic.payloads.CreateInstrumentRequest;
 import ar.edu.utn.frvm.typeit.boero_api.academic.payloads.InstrumentResponse;
 import ar.edu.utn.frvm.typeit.boero_api.academic.validation.AcademicNameNormalizer;
+import ar.edu.utn.frvm.typeit.boero_api.audit.enums.AuditAction;
+import ar.edu.utn.frvm.typeit.boero_api.audit.enums.AuditEntityType;
+import ar.edu.utn.frvm.typeit.boero_api.audit.services.AuditEventRecorder;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.exceptions.InstitutionNotFoundException;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.interfaces.InstitutionRepository;
+import java.util.Map;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -19,6 +23,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @RequiredArgsConstructor
 public class CreateInstrumentUseCase {
+  private final AuditEventRecorder auditRecorder;
   private final InstrumentRepository instrumentRepository;
   private final InstitutionRepository institutionRepository;
 
@@ -37,6 +42,15 @@ public class CreateInstrumentUseCase {
       final var saved =
           instrumentRepository.save(Instrument.create(institution, name, request.description()));
       instrumentRepository.flush();
+      auditRecorder.recordChange(
+          saved.getInstitution(),
+          null,
+          AuditAction.INSTRUMENT_CREATED,
+          AuditEntityType.INSTRUMENT,
+          saved.getId(),
+          saved.getName(),
+          Map.of(),
+          AcademicCatalogAuditDetails.snapshot(saved));
       return InstrumentResponse.from(saved);
     } catch (DataIntegrityViolationException exception) {
       throw AcademicIntegrityViolationTranslator.translate(exception);

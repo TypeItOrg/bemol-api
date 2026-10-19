@@ -265,7 +265,13 @@ class QaInstitutionalHostIsolationTest {
         .isInstanceOf(InstitutionalContextMismatchException.class);
     final var reset =
         new ResetInstitutionalPasswordUseCase(
-            host, Clock.systemUTC(), users, resetTokens, encoder, sessions);
+            org.mockito.Mockito.mock(AuditEventRecorder.class),
+            host,
+            Clock.systemUTC(),
+            users,
+            resetTokens,
+            encoder,
+            sessions);
     assertThatThrownBy(
             () ->
                 reset.execute(

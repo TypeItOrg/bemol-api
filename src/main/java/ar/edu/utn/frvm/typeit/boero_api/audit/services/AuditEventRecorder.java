@@ -5,6 +5,7 @@ import ar.edu.utn.frvm.typeit.boero_api.audit.enums.AuditAction;
 import ar.edu.utn.frvm.typeit.boero_api.audit.enums.AuditActorKind;
 import ar.edu.utn.frvm.typeit.boero_api.audit.enums.AuditEntityType;
 import ar.edu.utn.frvm.typeit.boero_api.audit.enums.AuditOrigin;
+import ar.edu.utn.frvm.typeit.boero_api.audit.envers.EnversAuditTransaction;
 import ar.edu.utn.frvm.typeit.boero_api.audit.interfaces.AuditEventRepository;
 import ar.edu.utn.frvm.typeit.boero_api.auth.filters.JwtAuthenticatedPlatformAccount;
 import ar.edu.utn.frvm.typeit.boero_api.auth.filters.JwtAuthenticatedUser;
@@ -43,13 +44,41 @@ public class AuditEventRecorder {
     auditEventRepository.save(
         AuditEvent.record(
             institution,
+            AuditActorKind.INSTITUTION,
             actorPersonId,
+            null,
             subjectPersonId,
             action,
             entityType,
             entityId,
+            !actorPersonId.equals(subjectPersonId),
             MDC.get(RequestLoggingFilter.MDC_REQUEST_ID_KEY),
-            clock.instant()));
+            null,
+            Map.of(),
+            clock.instant(),
+            EnversAuditTransaction.currentId()));
+  }
+
+  @Transactional(propagation = Propagation.MANDATORY)
+  public void recordChange(
+      @Nullable final Institution institution,
+      @Nullable final UUID subjectPersonId,
+      final AuditAction action,
+      final AuditEntityType entityType,
+      final UUID entityId,
+      final String name,
+      final Map<String, Object> before,
+      final Map<String, Object> after) {
+    if (!before.equals(after)) {
+      recordCurrentActor(
+          institution,
+          subjectPersonId,
+          action,
+          entityType,
+          entityId,
+          AuditOrigin.administration(),
+          AuditChangeDetails.change(name, before, after));
+    }
   }
 
   @Transactional(propagation = Propagation.MANDATORY)
@@ -89,10 +118,14 @@ public class AuditEventRecorder {
             action,
             entityType,
             entityId,
-            false,
+            origin == AuditOrigin.SELF_SERVICE
+                && actorPersonId != null
+                && subjectPersonId != null
+                && !actorPersonId.equals(subjectPersonId),
             MDC.get(RequestLoggingFilter.MDC_REQUEST_ID_KEY),
             origin,
             details,
-            clock.instant()));
+            clock.instant(),
+            EnversAuditTransaction.currentId()));
   }
 }

@@ -3,6 +3,7 @@ package ar.edu.utn.frvm.typeit.boero_api.auth.services;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.verifyNoInteractions;
 
+import ar.edu.utn.frvm.typeit.boero_api.audit.services.AuditEventRecorder;
 import ar.edu.utn.frvm.typeit.boero_api.auth.exceptions.PasswordConfirmationMismatchException;
 import ar.edu.utn.frvm.typeit.boero_api.auth.interfaces.InstitutionalPasswordResetTokenRepository;
 import ar.edu.utn.frvm.typeit.boero_api.auth.interfaces.UserRepository;
@@ -26,6 +27,7 @@ class ResetInstitutionalPasswordUseCaseTest {
         Mockito.mock(SessionRevocationService.class);
     final ResetInstitutionalPasswordUseCase useCase =
         new ResetInstitutionalPasswordUseCase(
+            org.mockito.Mockito.mock(AuditEventRecorder.class),
             org.mockito.Mockito.mock(InstitutionalHostContext.class),
             Clock.systemUTC(),
             Mockito.mock(UserRepository.class),

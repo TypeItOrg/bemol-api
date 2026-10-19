@@ -8,6 +8,9 @@ import ar.edu.utn.frvm.typeit.boero_api.academic.interfaces.InstrumentRepository
 import ar.edu.utn.frvm.typeit.boero_api.academic.payloads.InstrumentResponse;
 import ar.edu.utn.frvm.typeit.boero_api.academic.payloads.UpdateInstrumentRequest;
 import ar.edu.utn.frvm.typeit.boero_api.academic.validation.AcademicNameNormalizer;
+import ar.edu.utn.frvm.typeit.boero_api.audit.enums.AuditAction;
+import ar.edu.utn.frvm.typeit.boero_api.audit.enums.AuditEntityType;
+import ar.edu.utn.frvm.typeit.boero_api.audit.services.AuditEventRecorder;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -17,6 +20,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @RequiredArgsConstructor
 public class UpdateInstrumentUseCase {
+  private final AuditEventRecorder auditRecorder;
   private final InstrumentRepository instrumentRepository;
 
   @Transactional
@@ -30,12 +34,22 @@ public class UpdateInstrumentUseCase {
     if (instrumentRepository.existsByNormalizedNameAndIdNot(institutionId, name, id)) {
       throw AcademicConflictException.forField("name", AcademicMessages.DUPLICATE_NAME);
     }
+    final var before = AcademicCatalogAuditDetails.snapshot(instrument);
     instrument.update(name, request.description());
     try {
       instrumentRepository.flush();
     } catch (DataIntegrityViolationException exception) {
       throw AcademicIntegrityViolationTranslator.translate(exception);
     }
+    auditRecorder.recordChange(
+        instrument.getInstitution(),
+        null,
+        AuditAction.INSTRUMENT_UPDATED,
+        AuditEntityType.INSTRUMENT,
+        instrument.getId(),
+        instrument.getName(),
+        before,
+        AcademicCatalogAuditDetails.snapshot(instrument));
     return InstrumentResponse.from(instrument);
   }
 }

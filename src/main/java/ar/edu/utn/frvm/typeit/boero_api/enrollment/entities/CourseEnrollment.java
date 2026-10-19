@@ -28,6 +28,8 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.hibernate.envers.Audited;
+import org.hibernate.envers.RelationTargetAuditMode;
 import org.jspecify.annotations.Nullable;
 
 @Entity
@@ -45,52 +47,65 @@ public class CourseEnrollment extends Auditable {
 
   @ManyToOne(fetch = FetchType.LAZY, optional = false)
   @JoinColumn(name = "institution_id", nullable = false)
+  @Audited(targetAuditMode = RelationTargetAuditMode.NOT_AUDITED)
   private Institution institution;
 
   @ManyToOne(fetch = FetchType.LAZY, optional = false)
   @JoinColumn(name = "student_id", nullable = false)
+  @Audited(targetAuditMode = RelationTargetAuditMode.NOT_AUDITED)
   private Student student;
 
   @ManyToOne(fetch = FetchType.LAZY, optional = false)
   @JoinColumn(name = "course_id", nullable = false)
+  @Audited(targetAuditMode = RelationTargetAuditMode.NOT_AUDITED)
   private Course course;
 
   @ManyToOne(fetch = FetchType.LAZY, optional = false)
   @JoinColumn(name = "course_class_id", nullable = false)
+  @Audited(targetAuditMode = RelationTargetAuditMode.NOT_AUDITED)
   private CourseClass courseClass;
 
   @Enumerated(EnumType.STRING)
   @Column(nullable = false, length = 20)
+  @Audited
   private CourseEnrollmentSource source;
 
   @ManyToOne(fetch = FetchType.LAZY)
   @JoinColumn(name = "enrollment_application_id")
+  @Audited(targetAuditMode = RelationTargetAuditMode.NOT_AUDITED)
   private @Nullable EnrollmentApplication enrollmentApplication;
 
   @ManyToOne(fetch = FetchType.LAZY)
   @JoinColumn(name = "enrollment_application_course_id")
+  @Audited(targetAuditMode = RelationTargetAuditMode.NOT_AUDITED)
   private EnrollmentApplicationCourse applicationCourse;
 
   @Enumerated(EnumType.STRING)
   @Column(nullable = false, length = 40)
   @Builder.Default
+  @Audited
   private CourseEnrollmentStatus status = CourseEnrollmentStatus.ENROLLED;
 
   @Enumerated(EnumType.STRING)
   @Column(name = "academic_status", nullable = false, length = 30)
   @Builder.Default
+  @Audited
   private AcademicEnrollmentStatus academicStatus = AcademicEnrollmentStatus.IN_PROGRESS;
 
   @Column(name = "enrolled_at", nullable = false)
+  @Audited
   private Instant enrolledAt;
 
   @Column(name = "completed_at")
+  @Audited
   private Instant completedAt;
 
   @Column(name = "withdrawn_at")
+  @Audited
   private Instant withdrawnAt;
 
   @Column(name = "action_authority_person_id")
+  @Audited
   private @Nullable UUID actionAuthorityPersonId;
 
   @Column(name = "action_reason")

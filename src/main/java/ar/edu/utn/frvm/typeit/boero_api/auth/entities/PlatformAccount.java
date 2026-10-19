@@ -24,6 +24,7 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.hibernate.envers.Audited;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
@@ -71,6 +72,7 @@ public class PlatformAccount extends Auditable implements UserDetails {
 
   @Column(nullable = false)
   @Builder.Default
+  @Audited
   private boolean enabled = true;
 
   @Override

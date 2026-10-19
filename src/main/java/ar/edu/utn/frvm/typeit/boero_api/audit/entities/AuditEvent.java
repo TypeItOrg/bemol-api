@@ -91,6 +91,9 @@ public class AuditEvent {
   @Column(name = "occurred_at", nullable = false, updatable = false)
   private Instant occurredAt;
 
+  @Column(name = "transaction_id", updatable = false)
+  private @Nullable UUID transactionId;
+
   public static AuditEvent record(
       final Institution institution,
       final UUID actorPersonId,
@@ -113,7 +116,8 @@ public class AuditEvent {
         requestId,
         null,
         Map.of(),
-        occurredAt);
+        occurredAt,
+        null);
   }
 
   public static AuditEvent record(
@@ -129,7 +133,8 @@ public class AuditEvent {
       @Nullable final String requestId,
       @Nullable final AuditOrigin origin,
       final Map<String, Object> details,
-      final Instant occurredAt) {
+      final Instant occurredAt,
+      @Nullable final UUID transactionId) {
     final boolean validActor =
         switch (actorKind) {
           case INSTITUTION ->
@@ -159,6 +164,7 @@ public class AuditEvent {
         .requestId(requestId)
         .origin(origin)
         .details(Map.copyOf(details))
+        .transactionId(transactionId)
         .occurredAt(occurredAt)
         .build();
   }

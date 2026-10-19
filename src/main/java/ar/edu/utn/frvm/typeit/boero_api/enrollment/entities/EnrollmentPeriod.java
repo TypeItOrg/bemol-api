@@ -19,6 +19,7 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -28,8 +29,12 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.hibernate.envers.AuditOverride;
+import org.hibernate.envers.Audited;
+import org.hibernate.envers.RelationTargetAuditMode;
 
 @Entity
+@AuditOverride(forClass = SoftDeletable.class, name = "deletedAt", isAudited = true)
 @Table(name = "enrollment_periods")
 @Getter
 @NoArgsConstructor
@@ -44,23 +49,29 @@ public class EnrollmentPeriod extends SoftDeletable {
 
   @ManyToOne(fetch = FetchType.LAZY, optional = false)
   @JoinColumn(name = "institution_id", nullable = false)
+  @Audited(targetAuditMode = RelationTargetAuditMode.NOT_AUDITED)
   private Institution institution;
 
   @ManyToOne(fetch = FetchType.LAZY, optional = false)
   @JoinColumn(name = "academic_year_id", nullable = false)
+  @Audited(targetAuditMode = RelationTargetAuditMode.NOT_AUDITED)
   private AcademicYear academicYear;
 
   @Column(name = "name", nullable = false, length = 150)
+  @Audited
   private String name;
 
   @Column(name = "start_date", nullable = false)
+  @Audited
   private Instant startDate;
 
   @Column(name = "end_date", nullable = false)
+  @Audited
   private Instant endDate;
 
   @Enumerated(EnumType.STRING)
   @Column(name = "status", nullable = false, length = 20)
+  @Audited
   private EnrollmentPeriodStatus status;
 
   @OneToMany(mappedBy = "period", cascade = CascadeType.ALL, orphanRemoval = true)
@@ -69,6 +80,7 @@ public class EnrollmentPeriod extends SoftDeletable {
   private List<EnrollmentPeriodOffering> offerings = new ArrayList<>();
 
   @Column(name = "scope_configured", nullable = false)
+  @Audited
   private boolean scopeConfigured;
 
   public void markScopeConfigured() {
@@ -101,8 +113,9 @@ public class EnrollmentPeriod extends SoftDeletable {
     }
 
     this.name = name.trim();
-    this.startDate = startDate;
-    this.endDate = endDate;
+    // Match PostgreSQL/JDBC precision so equal dates do not create false Envers revisions.
+    this.startDate = startDate.plusNanos(500).truncatedTo(ChronoUnit.MICROS);
+    this.endDate = endDate.plusNanos(500).truncatedTo(ChronoUnit.MICROS);
   }
 
   public void changeStatus(final EnrollmentPeriodStatus status) {

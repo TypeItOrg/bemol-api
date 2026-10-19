@@ -2,6 +2,10 @@ package ar.edu.utn.frvm.typeit.boero_api.institutional.services;
 
 import static java.util.Objects.requireNonNull;
 
+import ar.edu.utn.frvm.typeit.boero_api.audit.enums.AuditAction;
+import ar.edu.utn.frvm.typeit.boero_api.audit.enums.AuditEntityType;
+import ar.edu.utn.frvm.typeit.boero_api.audit.enums.AuditOrigin;
+import ar.edu.utn.frvm.typeit.boero_api.audit.services.AuditEventRecorder;
 import ar.edu.utn.frvm.typeit.boero_api.auth.entities.User;
 import ar.edu.utn.frvm.typeit.boero_api.auth.interfaces.UserRepository;
 import ar.edu.utn.frvm.typeit.boero_api.auth.services.SessionRevocationService;
@@ -13,6 +17,7 @@ import ar.edu.utn.frvm.typeit.boero_api.institutional.payloads.person.PersonResp
 import ar.edu.utn.frvm.typeit.boero_api.institutional.payloads.person.UpdatePersonByAdminRequest;
 import jakarta.validation.ConstraintViolationException;
 import jakarta.validation.Validator;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -23,6 +28,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @RequiredArgsConstructor
 public class UpdatePersonByAdminUseCase {
+  private final AuditEventRecorder auditRecorder;
 
   private final InstitutionPersonResolver institutionPersonResolver;
   private final PersonRepository personRepository;
@@ -35,6 +41,7 @@ public class UpdatePersonByAdminUseCase {
   public PersonResponse execute(
       final UUID institutionId, final UUID personId, final UpdatePersonByAdminRequest request) {
     Person person = institutionPersonResolver.requirePersonInInstitution(institutionId, personId);
+    final var before = PersonAuditDetails.snapshot(person);
     if (request.isEmpty()) {
       throw new ConstraintViolationException(Set.of());
     }
@@ -53,6 +60,15 @@ public class UpdatePersonByAdminUseCase {
       throw new ConstraintViolationException(violations);
     }
     personRepository.save(person);
+    auditRecorder.recordChange(
+        person.getInstitution(),
+        person.getId(),
+        AuditAction.PERSON_UPDATED,
+        AuditEntityType.PERSON,
+        person.getId(),
+        "Persona",
+        before,
+        PersonAuditDetails.snapshot(person));
 
     if (request.hasPassword()) {
       User user =
@@ -61,6 +77,14 @@ public class UpdatePersonByAdminUseCase {
               .orElseThrow(PersonNotFoundException::new);
       user.changePassword(requireNonNull(passwordEncoder.encode(request.password())));
       userRepository.save(user);
+      auditRecorder.recordCurrentActor(
+          user.getInstitution(),
+          person.getId(),
+          AuditAction.PASSWORD_CHANGED,
+          AuditEntityType.USER,
+          user.getId(),
+          AuditOrigin.administration(),
+          Map.of());
       sessionRevocationService.revokeInstitutionalSessionsForUser(user.getId());
     }
 

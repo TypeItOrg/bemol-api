@@ -15,6 +15,8 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.hibernate.envers.Audited;
+import org.hibernate.envers.RelationTargetAuditMode;
 
 /** A supporting document a tutor attaches to a pending guardianship request. */
 @Entity
@@ -32,10 +34,12 @@ public class PersonGuardianAttachment extends Auditable {
 
   @ManyToOne(fetch = FetchType.LAZY, optional = false)
   @JoinColumn(name = "institution_id", nullable = false)
+  @Audited(targetAuditMode = RelationTargetAuditMode.NOT_AUDITED)
   private Institution institution;
 
   @ManyToOne(fetch = FetchType.LAZY, optional = false)
   @JoinColumn(name = "person_guardian_id", nullable = false)
+  @Audited(targetAuditMode = RelationTargetAuditMode.NOT_AUDITED)
   private PersonGuardian personGuardian;
 
   @Column(name = "original_file_name", nullable = false, length = 255)
@@ -45,8 +49,10 @@ public class PersonGuardianAttachment extends Auditable {
   private String storagePath;
 
   @Column(name = "content_type", nullable = false, length = 100)
+  @Audited
   private String contentType;
 
   @Column(name = "file_size", nullable = false)
+  @Audited
   private long fileSize;
 }

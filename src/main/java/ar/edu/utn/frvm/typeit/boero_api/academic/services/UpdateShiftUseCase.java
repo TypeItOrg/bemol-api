@@ -8,6 +8,9 @@ import ar.edu.utn.frvm.typeit.boero_api.academic.interfaces.ShiftRepository;
 import ar.edu.utn.frvm.typeit.boero_api.academic.payloads.ShiftResponse;
 import ar.edu.utn.frvm.typeit.boero_api.academic.payloads.UpdateShiftRequest;
 import ar.edu.utn.frvm.typeit.boero_api.academic.validation.AcademicNameNormalizer;
+import ar.edu.utn.frvm.typeit.boero_api.audit.enums.AuditAction;
+import ar.edu.utn.frvm.typeit.boero_api.audit.enums.AuditEntityType;
+import ar.edu.utn.frvm.typeit.boero_api.audit.services.AuditEventRecorder;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -17,6 +20,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @RequiredArgsConstructor
 public class UpdateShiftUseCase {
+  private final AuditEventRecorder auditRecorder;
   private final ShiftRepository shiftRepository;
 
   @Transactional
@@ -30,12 +34,22 @@ public class UpdateShiftUseCase {
     if (shiftRepository.existsByNormalizedNameAndIdNot(institutionId, name, id)) {
       throw AcademicConflictException.forField("name", AcademicMessages.DUPLICATE_NAME);
     }
+    final var before = AcademicCatalogAuditDetails.snapshot(shift);
     shift.update(name, request.description());
     try {
       shiftRepository.flush();
     } catch (DataIntegrityViolationException exception) {
       throw AcademicIntegrityViolationTranslator.translate(exception);
     }
+    auditRecorder.recordChange(
+        shift.getInstitution(),
+        null,
+        AuditAction.SHIFT_UPDATED,
+        AuditEntityType.SHIFT,
+        shift.getId(),
+        shift.getName(),
+        before,
+        AcademicCatalogAuditDetails.snapshot(shift));
     return ShiftResponse.from(shift);
   }
 }

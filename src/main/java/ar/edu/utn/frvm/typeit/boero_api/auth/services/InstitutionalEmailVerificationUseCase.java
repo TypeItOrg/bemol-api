@@ -117,7 +117,18 @@ public class InstitutionalEmailVerificationUseCase {
     if (!canResend(existingToken, now)) {
       throw new EmailVerificationCooldownException();
     }
+    final var previousEmail = user.getPerson().getEmail();
     user.getPerson().updateContact(request.email(), user.getPerson().getPhoneNumber());
+    if (!previousEmail.equals(user.getPerson().getEmail())) {
+      auditEventRecorder.recordCurrentActor(
+          user.getInstitution(),
+          user.getPerson().getId(),
+          AuditAction.INSTITUTIONAL_EMAIL_CHANGED,
+          AuditEntityType.USER,
+          user.getId(),
+          AuditOrigin.SELF_SERVICE,
+          Map.of("changedFields", java.util.List.of("email")));
+    }
     passwordResetTokens.deleteByUserId(user.getId());
     issue(user, now, existingToken);
   }

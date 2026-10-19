@@ -42,9 +42,13 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import org.hibernate.annotations.BatchSize;
+import org.hibernate.envers.AuditOverride;
+import org.hibernate.envers.Audited;
+import org.hibernate.envers.RelationTargetAuditMode;
 import org.jspecify.annotations.Nullable;
 
 @Entity
+@AuditOverride(forClass = SoftDeletable.class, name = "deletedAt", isAudited = true)
 @Table(
     name = "enrollment_applications",
     uniqueConstraints =
@@ -64,19 +68,23 @@ public class EnrollmentApplication extends SoftDeletable {
 
   @ManyToOne(fetch = FetchType.LAZY, optional = false)
   @JoinColumn(name = "institution_id", nullable = false)
+  @Audited(targetAuditMode = RelationTargetAuditMode.NOT_AUDITED)
   private Institution institution;
 
   @ManyToOne(fetch = FetchType.LAZY, optional = false)
   @JoinColumn(name = "applicant_person_id", nullable = false)
+  @Audited(targetAuditMode = RelationTargetAuditMode.NOT_AUDITED)
   private Person applicantPerson;
 
   /** Who physically submitted the application: the tutor when acting for a dependent. */
   @ManyToOne(fetch = FetchType.LAZY)
   @JoinColumn(name = "submitted_by_person_id")
+  @Audited(targetAuditMode = RelationTargetAuditMode.NOT_AUDITED)
   private @Nullable Person submittedByPerson;
 
   @ManyToOne(fetch = FetchType.LAZY)
   @JoinColumn(name = "study_plan_id")
+  @Audited(targetAuditMode = RelationTargetAuditMode.NOT_AUDITED)
   private @Nullable StudyPlan studyPlan;
 
   @Column(name = "study_plan_id", insertable = false, updatable = false)
@@ -95,6 +103,7 @@ public class EnrollmentApplication extends SoftDeletable {
 
   @Setter(AccessLevel.NONE)
   @Column(name = "training_path_id", nullable = false)
+  @Audited
   private UUID trainingPathId;
 
   @ManyToOne(fetch = FetchType.LAZY)
@@ -111,23 +120,28 @@ public class EnrollmentApplication extends SoftDeletable {
 
   @ManyToOne(fetch = FetchType.LAZY)
   @JoinColumn(name = "academic_year_id")
+  @Audited(targetAuditMode = RelationTargetAuditMode.NOT_AUDITED)
   private @Nullable AcademicYear academicYear;
 
   @ManyToOne(fetch = FetchType.LAZY)
   @JoinColumn(name = "enrollment_period_id")
+  @Audited(targetAuditMode = RelationTargetAuditMode.NOT_AUDITED)
   private @Nullable EnrollmentPeriod enrollmentPeriod;
 
   @Enumerated(EnumType.STRING)
   @Column(name = "status", nullable = false, length = 40)
+  @Audited
   private EnrollmentApplicationStatus status;
 
   @Column(name = "rejection_reason", columnDefinition = "text")
   private @Nullable String rejectionReason;
 
   @Column(name = "resolved_at")
+  @Audited
   private @Nullable Instant resolvedAt;
 
   @Column(name = "resolved_by_person_id")
+  @Audited
   private @Nullable UUID resolvedByPersonId;
 
   @OneToOne(
@@ -306,14 +320,7 @@ public class EnrollmentApplication extends SoftDeletable {
       throw new EnrollmentValidationException(EnrollmentMessages.APPLICATION_ACADEMIC_YEAR_INVALID);
     }
 
-    return EnrollmentApplication.builder()
-        .institution(institution)
-        .applicantPerson(applicantPerson)
-        .trainingPathId(trainingPath.getId())
-        .trainingPath(trainingPath)
-        .academicYear(academicYear)
-        .status(EnrollmentApplicationStatus.DRAFT)
-        .build();
+    return createForTrainingPath(institution, applicantPerson, trainingPath, academicYear, null);
   }
 
   public static EnrollmentApplication createForTrainingPath(
@@ -321,7 +328,7 @@ public class EnrollmentApplication extends SoftDeletable {
       final Person applicantPerson,
       final TrainingPath trainingPath,
       final AcademicYear academicYear,
-      final EnrollmentPeriod enrollmentPeriod) {
+      final @Nullable EnrollmentPeriod enrollmentPeriod) {
     return EnrollmentApplication.builder()
         .institution(institution)
         .applicantPerson(applicantPerson)
@@ -334,14 +341,11 @@ public class EnrollmentApplication extends SoftDeletable {
   }
 
   public void submit() {
-    if (isEditable()) {
-      status = EnrollmentApplicationStatus.SUBMITTED;
-
-      return;
+    if (!isEditable()) {
+      throw new InvalidEnrollmentApplicationStateException(
+          EnrollmentMessages.APPLICATION_CANNOT_SUBMIT);
     }
-
-    throw new InvalidEnrollmentApplicationStateException(
-        EnrollmentMessages.APPLICATION_CANNOT_SUBMIT);
+    status = EnrollmentApplicationStatus.SUBMITTED;
   }
 
   public void cancel() {
@@ -364,7 +368,6 @@ public class EnrollmentApplication extends SoftDeletable {
               .enrollmentApplication(this)
               .secondarySchool(secondarySchool)
               .build();
-
       return;
     }
 

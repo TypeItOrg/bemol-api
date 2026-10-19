@@ -8,6 +8,9 @@ import ar.edu.utn.frvm.typeit.boero_api.academic.interfaces.TrainingPathReposito
 import ar.edu.utn.frvm.typeit.boero_api.academic.payloads.TrainingPathResponse;
 import ar.edu.utn.frvm.typeit.boero_api.academic.payloads.UpdateTrainingPathRequest;
 import ar.edu.utn.frvm.typeit.boero_api.academic.validation.AcademicNameNormalizer;
+import ar.edu.utn.frvm.typeit.boero_api.audit.enums.AuditAction;
+import ar.edu.utn.frvm.typeit.boero_api.audit.enums.AuditEntityType;
+import ar.edu.utn.frvm.typeit.boero_api.audit.services.AuditEventRecorder;
 import ar.edu.utn.frvm.typeit.boero_api.authorization.enums.PermissionCode;
 import ar.edu.utn.frvm.typeit.boero_api.authorization.enums.ScopedResource;
 import ar.edu.utn.frvm.typeit.boero_api.authorization.services.AcademicAccessGuard;
@@ -20,6 +23,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @RequiredArgsConstructor
 public class UpdateTrainingPathUseCase {
+  private final AuditEventRecorder auditRecorder;
   private final AcademicAccessGuard accessGuard;
   private final TrainingPathRepository trainingPathRepository;
 
@@ -37,12 +41,22 @@ public class UpdateTrainingPathUseCase {
     if (trainingPathRepository.existsByNormalizedNameAndIdNot(institutionId, name, id)) {
       throw AcademicConflictException.forField("name", AcademicMessages.DUPLICATE_NAME);
     }
+    final var before = AcademicCatalogAuditDetails.snapshot(path);
     path.update(name, request.description());
     try {
       trainingPathRepository.flush();
     } catch (DataIntegrityViolationException exception) {
       throw AcademicIntegrityViolationTranslator.translate(exception);
     }
+    auditRecorder.recordChange(
+        path.getInstitution(),
+        null,
+        AuditAction.TRAINING_PATH_UPDATED,
+        AuditEntityType.TRAINING_PATH,
+        path.getId(),
+        path.getName(),
+        before,
+        AcademicCatalogAuditDetails.snapshot(path));
     return TrainingPathResponse.from(path);
   }
 }

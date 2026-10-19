@@ -8,6 +8,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+import ar.edu.utn.frvm.typeit.boero_api.audit.services.AuditEventRecorder;
 import ar.edu.utn.frvm.typeit.boero_api.auth.entities.User;
 import ar.edu.utn.frvm.typeit.boero_api.auth.exceptions.InvalidCurrentPasswordException;
 import ar.edu.utn.frvm.typeit.boero_api.auth.filters.JwtAuthenticatedUser;
@@ -100,6 +101,7 @@ class UpdatePersonUseCaseTest {
         .thenReturn(Optional.of(person));
     updatePersonUseCase =
         new UpdatePersonUseCase(
+            org.mockito.Mockito.mock(AuditEventRecorder.class),
             personRepository,
             userRepository,
             cityRepository,

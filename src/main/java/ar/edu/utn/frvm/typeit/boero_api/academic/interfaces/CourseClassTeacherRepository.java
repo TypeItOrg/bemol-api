@@ -13,6 +13,8 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 public interface CourseClassTeacherRepository extends JpaRepository<CourseClassTeacher, UUID> {
+  void deleteByCourseClass_Course_Id(UUID courseId);
+
   @EntityGraph(attributePaths = "person")
   List<CourseClassTeacher> findByCourseClass_IdIn(List<UUID> courseClassIds);
 

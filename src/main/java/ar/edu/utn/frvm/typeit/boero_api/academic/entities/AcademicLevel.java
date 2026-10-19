@@ -17,6 +17,8 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.hibernate.envers.Audited;
+import org.hibernate.envers.RelationTargetAuditMode;
 import org.jspecify.annotations.Nullable;
 
 @Entity
@@ -43,12 +45,15 @@ public class AcademicLevel extends Auditable {
 
   @ManyToOne(fetch = FetchType.LAZY, optional = false)
   @JoinColumn(name = "study_plan_id", nullable = false)
+  @Audited(targetAuditMode = RelationTargetAuditMode.NOT_AUDITED)
   private StudyPlan studyPlan;
 
   @Column(nullable = false, length = 150)
+  @Audited
   private String name;
 
   @Column(name = "display_order", nullable = false)
+  @Audited
   private int displayOrder;
 
   @Column(length = 1000)

@@ -14,7 +14,15 @@ public enum AuditModule {
   COURSES("Cursos"),
   STUDY_PLANS("Planes de estudio"),
   DOCUMENTATION("Documentación"),
-  EMAILS("Correos");
+  EMAILS("Correos"),
+  TRAINING_PATHS("Trayectos formativos"),
+  ACADEMIC_YEARS("Ciclos lectivos"),
+  ACADEMIC_SPACES("Espacios académicos"),
+  INSTRUMENTS("Instrumentos"),
+  SHIFTS("Turnos"),
+  ENROLLMENT_PERIODS("Períodos de inscripción"),
+  COURSE_ENROLLMENTS("Cursadas"),
+  SECURITY("Seguridad");
 
   private final String label;
 }

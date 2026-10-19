@@ -2,6 +2,10 @@ package ar.edu.utn.frvm.typeit.boero_api.auth.services;
 
 import static java.util.Objects.requireNonNull;
 
+import ar.edu.utn.frvm.typeit.boero_api.audit.enums.AuditAction;
+import ar.edu.utn.frvm.typeit.boero_api.audit.enums.AuditEntityType;
+import ar.edu.utn.frvm.typeit.boero_api.audit.enums.AuditOrigin;
+import ar.edu.utn.frvm.typeit.boero_api.audit.services.AuditEventRecorder;
 import ar.edu.utn.frvm.typeit.boero_api.auth.entities.InstitutionalPasswordResetToken;
 import ar.edu.utn.frvm.typeit.boero_api.auth.exceptions.InvalidPasswordRecoveryTokenException;
 import ar.edu.utn.frvm.typeit.boero_api.auth.exceptions.PasswordConfirmationMismatchException;
@@ -10,6 +14,7 @@ import ar.edu.utn.frvm.typeit.boero_api.auth.interfaces.UserRepository;
 import ar.edu.utn.frvm.typeit.boero_api.auth.payloads.requests.ResetPasswordRequest;
 import java.time.Clock;
 import java.time.Instant;
+import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -18,6 +23,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @RequiredArgsConstructor
 public class ResetInstitutionalPasswordUseCase {
+  private final AuditEventRecorder auditRecorder;
   private final InstitutionalHostContext hostContext;
   private final Clock clock;
   private final UserRepository userRepository;
@@ -49,6 +55,15 @@ public class ResetInstitutionalPasswordUseCase {
 
     token.getUser().changePassword(requireNonNull(passwordEncoder.encode(request.password())));
     token.markUsed(now);
+    final var user = token.getUser();
+    auditRecorder.recordCurrentActor(
+        user.getInstitution(),
+        user.getPerson().getId(),
+        AuditAction.PASSWORD_CHANGED,
+        AuditEntityType.USER,
+        user.getId(),
+        AuditOrigin.SELF_SERVICE,
+        Map.of());
     sessionRevocationService.revokeInstitutionalSessionsForUser(token.getUser().getId());
   }
 }

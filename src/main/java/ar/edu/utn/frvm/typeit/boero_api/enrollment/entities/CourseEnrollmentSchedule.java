@@ -22,6 +22,8 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.hibernate.envers.Audited;
+import org.hibernate.envers.RelationTargetAuditMode;
 import org.jspecify.annotations.Nullable;
 
 @Entity
@@ -39,31 +41,39 @@ public class CourseEnrollmentSchedule extends Auditable {
 
   @ManyToOne(fetch = FetchType.LAZY, optional = false)
   @JoinColumn(name = "institution_id", nullable = false)
+  @Audited(targetAuditMode = RelationTargetAuditMode.NOT_AUDITED)
   private Institution institution;
 
   @ManyToOne(fetch = FetchType.LAZY, optional = false)
   @JoinColumn(name = "course_enrollment_id", nullable = false)
+  @Audited(targetAuditMode = RelationTargetAuditMode.NOT_AUDITED)
   private CourseEnrollment courseEnrollment;
 
   @ManyToOne(fetch = FetchType.LAZY, optional = false)
   @JoinColumn(name = "course_class_schedule_id", nullable = false)
+  @Audited(targetAuditMode = RelationTargetAuditMode.NOT_AUDITED)
   private CourseClassSchedule schedule;
 
   @ManyToOne(fetch = FetchType.LAZY)
   @JoinColumn(name = "course_individual_slot_id")
+  @Audited(targetAuditMode = RelationTargetAuditMode.NOT_AUDITED)
   private @Nullable CourseIndividualSlot individualSlot;
 
   @Enumerated(EnumType.STRING)
   @Column(name = "day_of_week", nullable = false, length = 20)
+  @Audited
   private CourseDay dayOfWeek;
 
   @Column(name = "start_time", nullable = false)
+  @Audited
   private LocalTime startTime;
 
   @Column(name = "end_time", nullable = false)
+  @Audited
   private LocalTime endTime;
 
   @Column(name = "released_at")
+  @Audited
   private Instant releasedAt;
 
   public static CourseEnrollmentSchedule create(

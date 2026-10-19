@@ -114,9 +114,7 @@ public class AcademicLifecycleJournal {
       final UUID id,
       final AcademicLifecycleAction action,
       final Map<String, Object> details) {
-    if (details.isEmpty()
-        || (type != AcademicLifecycleResource.COURSE
-            && type != AcademicLifecycleResource.STUDY_PLAN)) {
+    if (details.isEmpty()) {
       return;
     }
     final AuditAction auditAction =
@@ -134,15 +132,32 @@ public class AcademicLifecycleJournal {
                 case RESTORE -> AuditAction.STUDY_PLAN_RESTORED;
                 case CREATE_VERSION -> AuditAction.STUDY_PLAN_VERSION_CREATED;
               };
-          default -> throw new IllegalArgumentException("Unsupported audit resource");
+          case ACADEMIC_YEAR ->
+              action == AcademicLifecycleAction.DELETE
+                  ? AuditAction.ACADEMIC_YEAR_DELETED
+                  : AuditAction.ACADEMIC_YEAR_RESTORED;
+          case ACADEMIC_SPACE ->
+              action == AcademicLifecycleAction.DELETE
+                  ? AuditAction.ACADEMIC_SPACE_DELETED
+                  : AuditAction.ACADEMIC_SPACE_RESTORED;
+          case INSTRUMENT ->
+              action == AcademicLifecycleAction.DELETE
+                  ? AuditAction.INSTRUMENT_DELETED
+                  : AuditAction.INSTRUMENT_RESTORED;
+          case SHIFT ->
+              action == AcademicLifecycleAction.DELETE
+                  ? AuditAction.SHIFT_DELETED
+                  : AuditAction.SHIFT_RESTORED;
+          case TRAINING_PATH ->
+              action == AcademicLifecycleAction.DELETE
+                  ? AuditAction.TRAINING_PATH_DELETED
+                  : AuditAction.TRAINING_PATH_RESTORED;
         };
     auditRecorder.recordCurrentActor(
         institution,
         null,
         auditAction,
-        type == AcademicLifecycleResource.COURSE
-            ? AuditEntityType.COURSE
-            : AuditEntityType.STUDY_PLAN,
+        AuditEntityType.valueOf(type.name()),
         id,
         AuditOrigin.administration(),
         details);

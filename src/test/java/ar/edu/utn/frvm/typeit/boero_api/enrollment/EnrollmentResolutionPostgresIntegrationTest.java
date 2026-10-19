@@ -69,6 +69,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 @IntegrationTest
 @Import({
   JpaAuditingTestConfig.class,
+  ar.edu.utn.frvm.typeit.boero_api.audit.services.AuditEventRecorder.class,
   EnrollmentInstitutionLock.class,
   AcademicAccessGuard.class,
   EnrollmentApplicationResponseFactory.class,
@@ -89,6 +90,11 @@ class EnrollmentResolutionPostgresIntegrationTest {
   private ScopedAuthorizationService authorization;
 
   @MockitoBean private EnrollmentApplicationPeriodService periods;
+
+  @MockitoBean
+  private ar.edu.utn.frvm.typeit.boero_api.institutional.services.OperatingContextResolver
+      operatingContext;
+
   @MockitoBean private EnrollmentDocumentAuthorization documentAuthorization;
 
   @Autowired private EntityManager entityManager;

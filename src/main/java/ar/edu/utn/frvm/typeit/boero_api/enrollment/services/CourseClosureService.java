@@ -33,6 +33,7 @@ public class CourseClosureService {
   private final CourseEnrollmentScheduleRepository scheduleRepository;
   private final CourseEnrollmentHistoryRepository historyRepository;
   private final Clock clock;
+  private final CourseEnrollmentAudit audit;
 
   private final EnrollmentInstitutionLock enrollmentInstitutionLock;
 
@@ -48,10 +49,13 @@ public class CourseClosureService {
         applicationCourseRepository.findByCourseIdAndInstitutionId(courseId, institutionId)) {
       if (selection.getEnrollmentApplication().getStatus() == EnrollmentApplicationStatus.DRAFT) {
         applicationCourseRepository.delete(selection);
+        audit.recordSelection(selection, selection.getStatus(), true);
       } else if (selection.getStatus() == EnrollmentApplicationCourseStatus.PENDING
           || selection.getStatus() == EnrollmentApplicationCourseStatus.WAITLISTED) {
+        final var previousStatus = selection.getStatus();
         selection.reject(
             "COURSE_FINISHED", "El curso fue finalizado.", clock.instant(), authorityPersonId);
+        audit.recordSelection(selection, previousStatus, false);
       }
     }
 
@@ -72,6 +76,7 @@ public class CourseClosureService {
     for (final CourseEnrollment enrollment : enrollments) {
       final var previousAcademicStatus = enrollment.getAcademicStatus();
       enrollment.complete(clock.instant());
+      audit.record(enrollment, CourseEnrollmentStatus.ENROLLED, previousAcademicStatus);
       for (final CourseEnrollmentSchedule schedule :
           schedulesByEnrollment.getOrDefault(enrollment.getId(), List.of())) {
         if (schedule.getReleasedAt() == null) {

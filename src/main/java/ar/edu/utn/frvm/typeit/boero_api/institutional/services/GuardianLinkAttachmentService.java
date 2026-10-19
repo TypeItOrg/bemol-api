@@ -1,5 +1,9 @@
 package ar.edu.utn.frvm.typeit.boero_api.institutional.services;
 
+import ar.edu.utn.frvm.typeit.boero_api.audit.enums.AuditAction;
+import ar.edu.utn.frvm.typeit.boero_api.audit.enums.AuditEntityType;
+import ar.edu.utn.frvm.typeit.boero_api.audit.enums.AuditOrigin;
+import ar.edu.utn.frvm.typeit.boero_api.audit.services.AuditEventRecorder;
 import ar.edu.utn.frvm.typeit.boero_api.common.storage.StorageService;
 import ar.edu.utn.frvm.typeit.boero_api.enrollment.exceptions.InvalidFileException;
 import ar.edu.utn.frvm.typeit.boero_api.enrollment.services.EnrollmentFilePolicy;
@@ -15,6 +19,7 @@ import ar.edu.utn.frvm.typeit.boero_api.institutional.interfaces.PersonGuardianA
 import ar.edu.utn.frvm.typeit.boero_api.institutional.interfaces.PersonGuardianRepository;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.payloads.guardian.GuardianLinkAttachmentResponse;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.jspecify.annotations.Nullable;
@@ -39,6 +44,7 @@ public class GuardianLinkAttachmentService {
   private final PersonGuardianRepository personGuardianRepository;
   private final PersonGuardianAttachmentRepository attachmentRepository;
   private final StorageService storage;
+  private final AuditEventRecorder auditRecorder;
 
   public record Content(Resource resource, PersonGuardianAttachment attachment) {}
 
@@ -71,7 +77,7 @@ public class GuardianLinkAttachmentService {
             ? file.getOriginalFilename()
             : stored.safeFileName();
 
-    return GuardianLinkAttachmentResponse.from(
+    final var attachment =
         attachmentRepository.saveAndFlush(
             PersonGuardianAttachment.builder()
                 .institution(link.getInstitution())
@@ -80,7 +86,22 @@ public class GuardianLinkAttachmentService {
                 .storagePath(stored.storagePath())
                 .contentType(stored.contentType())
                 .fileSize(stored.size())
-                .build()));
+                .build());
+    auditRecorder.recordCurrentActor(
+        link.getInstitution(),
+        link.getDependentPerson().getId(),
+        AuditAction.GUARDIAN_ATTACHMENT_UPLOADED,
+        AuditEntityType.PERSON_GUARDIAN_ATTACHMENT,
+        attachment.getId(),
+        AuditOrigin.SELF_SERVICE,
+        Map.of(
+            "relatedPersonIds",
+            List.of(
+                link.getTutorPerson().getId().toString(),
+                link.getDependentPerson().getId().toString()),
+            "after",
+            Map.of("contentType", stored.contentType(), "size", stored.size())));
+    return GuardianLinkAttachmentResponse.from(attachment);
   }
 
   @Transactional
@@ -93,6 +114,18 @@ public class GuardianLinkAttachmentService {
     final PersonGuardianAttachment attachment = findAttachment(link, attachmentId);
 
     attachmentRepository.delete(attachment);
+    auditRecorder.recordCurrentActor(
+        link.getInstitution(),
+        link.getDependentPerson().getId(),
+        AuditAction.GUARDIAN_ATTACHMENT_DELETED,
+        AuditEntityType.PERSON_GUARDIAN_ATTACHMENT,
+        attachmentId,
+        AuditOrigin.SELF_SERVICE,
+        Map.of(
+            "relatedPersonIds",
+            List.of(
+                link.getTutorPerson().getId().toString(),
+                link.getDependentPerson().getId().toString())));
     TransactionSynchronizationManager.registerSynchronization(
         new TransactionSynchronization() {
           @Override

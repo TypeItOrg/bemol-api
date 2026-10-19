@@ -19,6 +19,8 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.hibernate.envers.Audited;
+import org.hibernate.envers.RelationTargetAuditMode;
 import org.jspecify.annotations.Nullable;
 
 @Entity
@@ -35,17 +37,21 @@ public class PersonAccessInvitation {
 
   @ManyToOne(fetch = FetchType.LAZY, optional = false)
   @JoinColumn(name = "person_id", nullable = false)
+  @Audited(targetAuditMode = RelationTargetAuditMode.NOT_AUDITED)
   private Person person;
 
   @ManyToOne(fetch = FetchType.LAZY)
   @JoinColumn(name = "representation_id")
+  @Audited(targetAuditMode = RelationTargetAuditMode.NOT_AUDITED)
   private @Nullable PersonGuardian representation;
 
   @ManyToOne(fetch = FetchType.LAZY)
   @JoinColumn(name = "institutional_issuer_person_id")
+  @Audited(targetAuditMode = RelationTargetAuditMode.NOT_AUDITED)
   private @Nullable Person institutionalIssuer;
 
   @Column(name = "issuing_institution_id")
+  @Audited
   private @Nullable UUID issuingInstitutionId;
 
   @Column(name = "token_hash", nullable = false, unique = true, length = 64)
@@ -55,9 +61,11 @@ public class PersonAccessInvitation {
   private String email;
 
   @Column(name = "expires_at", nullable = false)
+  @Audited
   private Instant expiresAt;
 
   @Column(name = "consumed_at")
+  @Audited
   private @Nullable Instant consumedAt;
 
   public static PersonAccessInvitation issue(

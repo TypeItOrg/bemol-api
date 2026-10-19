@@ -64,10 +64,223 @@ class CourseEnrollmentFlowPostgresIntegrationTest extends DatabaseMigrationTestS
   @Autowired AssignPersonSystemRoleUseCase assignRole;
   @Autowired TeacherCourseService teaching;
   @Autowired UpdateAcademicYearStatusUseCase closeYear;
+  @Autowired CreateEnrollmentPeriodUseCase createPeriod;
+  @Autowired UpdateEnrollmentPeriodUseCase updatePeriod;
+  @Autowired UpdateEnrollmentPeriodStatusUseCase periodStatus;
+  @Autowired DeleteEnrollmentPeriodUseCase deletePeriod;
+  @Autowired RequestEnrollmentDocumentsUseCase requestDocuments;
+  @Autowired EnrollmentAttachmentService attachments;
+
+  @Autowired
+  ar.edu.utn.frvm.typeit.boero_api.institutional.services.GuardianLinkAttachmentService
+      guardianAttachments;
+
+  @org.springframework.test.context.bean.override.mockito.MockitoSpyBean
+  ar.edu.utn.frvm.typeit.boero_api.common.storage.StorageService storage;
 
   @BeforeEach
   void authenticateManagementOperations() {
     authenticatePlatformAdministrator();
+  }
+
+  @Test
+  void auditsPeriodAdmissionDocumentsAndEnrollmentAsOneTransactionalWorkflow() throws Exception {
+    org.mockito.Mockito.doNothing()
+        .when(storage)
+        .write(
+            org.mockito.ArgumentMatchers.anyString(),
+            org.mockito.ArgumentMatchers.anyString(),
+            org.mockito.ArgumentMatchers.anyLong(),
+            org.mockito.ArgumentMatchers.any());
+    final var f = fixture(false);
+    final UUID planId =
+        tx(() -> em.find(Course.class, f.courseId()).getStudyPlanSpace().getStudyPlan().getId());
+    final var offerings = List.of(new EnrollmentPeriodOfferingRequest(planId, List.of(), true));
+    final var from = Instant.now().plusSeconds(86400);
+    final UUID periodId =
+        createPeriod
+            .execute(
+                f.institutionId(),
+                new CreateEnrollmentPeriodRequest(
+                    f.yearId(), "Período auditado", from, from.plusSeconds(3600), offerings))
+            .id();
+    final var change =
+        new UpdateEnrollmentPeriodRequest(
+            "Período actualizado", from, from.plusSeconds(7200), offerings);
+    updatePeriod.execute(f.institutionId(), periodId, change);
+    updatePeriod.execute(f.institutionId(), periodId, change);
+    periodStatus.execute(
+        f.institutionId(),
+        periodId,
+        new EnrollmentPeriodStatusRequest(EnrollmentPeriodStatus.CLOSED));
+    periodStatus.execute(
+        f.institutionId(),
+        periodId,
+        new EnrollmentPeriodStatusRequest(EnrollmentPeriodStatus.CLOSED));
+    deletePeriod.execute(f.institutionId(), periodId);
+    assertThat(auditActions(periodId))
+        .containsExactlyInAnyOrder(
+            "ENROLLMENT_PERIOD_CREATED",
+            "ENROLLMENT_PERIOD_UPDATED",
+            "ENROLLMENT_PERIOD_STATUS_CHANGED",
+            "ENROLLMENT_PERIOD_DELETED");
+
+    final var request = submitted(f, "00014001");
+    final var unchanged = new UpdateEnrollmentDraftRequest(null);
+    final var draft = draft(f, "00014002");
+    applications.updateDraft(draft.personId(), draft.applicationId(), unchanged);
+    select(draft, f.courseId());
+    select(draft, f.courseId());
+    assertThat(auditActions(draft.applicationId()))
+        .containsExactly("ENROLLMENT_APPLICATION_DRAFT_UPDATED");
+    final UUID document =
+        tx(
+            () -> {
+              final var value =
+                  DocumentDefinition.create(em.find(Institution.class, f.institutionId()));
+              value.update(
+                  "Constancia", "Instrucciones privadas", List.of("application/pdf"), true);
+              return persist(value).getId();
+            });
+    requestDocuments.execute(
+        f.institutionId(),
+        request.applicationId(),
+        new CreateEnrollmentDocumentRequest(
+            "Motivo privado del pedido",
+            List.of(
+                new EnrollmentDocumentRequestItem(
+                    document, DocumentRequirementLevel.BEFORE_CONFIRMATION))));
+    final UUID requirement =
+        tx(
+            () ->
+                em.find(EnrollmentApplication.class, request.applicationId())
+                    .getDocumentRequirements()
+                    .getFirst()
+                    .getId());
+    final var admin = requireNonNull(SecurityContextHolder.getContext().getAuthentication());
+    final var file =
+        ar.edu.utn.frvm.typeit.boero_api.support.EnrollmentDocumentTestData.pdf(
+            "archivo-privado.pdf");
+    final var first =
+        attachments.uploadAttachment(request.applicationId(), file, requirement, admin);
+    final var second =
+        attachments.uploadAttachment(request.applicationId(), file, requirement, admin);
+    assertThat(auditActions(first.id())).containsExactly("ENROLLMENT_ATTACHMENT_UPLOADED");
+    assertThat(auditActions(second.id())).containsExactly("ENROLLMENT_ATTACHMENT_REPLACED");
+    attachments.review(
+        request.applicationId(),
+        second.id(),
+        new DocumentReviewRequest(DocumentReviewStatus.OBSERVED, "Observación privada"),
+        admin);
+    attachments.deleteAttachment(request.applicationId(), second.id(), admin);
+    final var replacement =
+        attachments.uploadAttachment(request.applicationId(), file, requirement, admin);
+    approve.executeProvisionally(f.institutionId(), request.applicationId(), null);
+    attachments.review(
+        request.applicationId(),
+        replacement.id(),
+        new DocumentReviewRequest(DocumentReviewStatus.ACCEPTED, ""),
+        admin);
+    approve.execute(f.institutionId(), request.applicationId(), null);
+    final UUID linkId =
+        tx(
+            () ->
+                persist(
+                        PersonGuardian.request(
+                            em.find(Institution.class, f.institutionId()),
+                            em.find(Person.class, request.personId()),
+                            em.find(Person.class, draft.personId()),
+                            GuardianRelationship.MOTHER,
+                            true))
+                    .getId());
+    final var tutor =
+        new JwtAuthenticatedUser(
+            UUID.randomUUID(),
+            request.personId(),
+            "00014001",
+            f.institutionId(),
+            UUID.randomUUID(),
+            "test");
+    SecurityContextHolder.getContext()
+        .setAuthentication(new TestingAuthenticationToken(tutor, "", "ROLE_INSTITUTIONAL_USER"));
+    final var support =
+        guardianAttachments.upload(f.institutionId(), request.personId(), linkId, file);
+    guardianAttachments.delete(f.institutionId(), request.personId(), linkId, support.id());
+    assertThat(auditActions(support.id()))
+        .containsExactlyInAnyOrder("GUARDIAN_ATTACHMENT_UPLOADED", "GUARDIAN_ATTACHMENT_DELETED");
+    assertThat(
+            jdbcTemplate.queryForObject(
+                "SELECT count(*) FROM audit_events WHERE entity_id = ? AND acted_on_behalf AND actor_person_id = ? AND subject_person_id = ?",
+                Long.class,
+                support.id(),
+                request.personId(),
+                draft.personId()))
+        .isEqualTo(2);
+    authenticatePlatformAdministrator();
+    final var enrollment = enroll(f, request);
+    closeYear.execute(
+        f.institutionId(), f.yearId(), new AcademicYearStatusRequest(AcademicYearStatus.CLOSED));
+    assertThat(auditActions(enrollment.id()))
+        .containsExactlyInAnyOrder("COURSE_ENROLLMENT_CREATED", "COURSE_ENROLLMENT_STATUS_CHANGED");
+    final var closed = enrollments.get(f.institutionId(), enrollment.id());
+    final var graded =
+        enrollments.updateAcademicStatus(
+            f.institutionId(),
+            enrollment.id(),
+            new UpdateAcademicEnrollmentStatusRequest(
+                AcademicEnrollmentStatus.PASSED, "Motivo académico privado", closed.version()),
+            null);
+    final var corrected =
+        enrollments.updateAcademicStatus(
+            f.institutionId(),
+            enrollment.id(),
+            new UpdateAcademicEnrollmentStatusRequest(
+                AcademicEnrollmentStatus.PASSED, "Motivo académico corregido", graded.version()),
+            null);
+    enrollments.updateAcademicStatus(
+        f.institutionId(),
+        enrollment.id(),
+        new UpdateAcademicEnrollmentStatusRequest(
+            AcademicEnrollmentStatus.PASSED, "Motivo académico corregido", corrected.version()),
+        null);
+    assertThat(auditActions(enrollment.id())).hasSize(4);
+    assertThat(auditActions(request.applicationId()))
+        .contains(
+            "ENROLLMENT_DOCUMENTS_REQUESTED",
+            "ENROLLMENT_APPLICATION_APPROVED_PROVISIONALLY",
+            "ENROLLMENT_APPLICATION_APPROVED");
+    assertThat(auditActions(draft.applicationId())).hasSize(2);
+    final String details =
+        jdbcTemplate.queryForObject(
+            "SELECT string_agg(details::text, '') FROM audit_events WHERE institution_id = ?",
+            String.class,
+            f.institutionId());
+    assertThat(details)
+        .doesNotContain(
+            "Instrucciones privadas",
+            "archivo-privado.pdf",
+            "Motivo privado",
+            "Observación privada",
+            "Motivo académico",
+            "Colegio");
+    assertThat(
+            jdbcTemplate.queryForObject(
+                "SELECT count(*) FROM audit_events WHERE entity_id = ? AND subject_person_id = ? AND actor_kind = 'PLATFORM'",
+                Long.class,
+                replacement.id(),
+                request.personId()))
+        .isEqualTo(2);
+  }
+
+  private List<String> auditActions(UUID id) {
+    return jdbcTemplate
+        .queryForList(
+            "SELECT action FROM audit_events WHERE entity_id = ? ORDER BY occurred_at, audit_event_id",
+            String.class,
+            id)
+        .stream()
+        .map(value -> requireNonNull(value))
+        .toList();
   }
 
   @Test
@@ -268,6 +481,10 @@ class CourseEnrollmentFlowPostgresIntegrationTest extends DatabaseMigrationTestS
     assertThat(accepted.status()).isEqualTo(CourseEnrollmentStatus.ENROLLED);
     assertThat(accepted.academicStatus()).isEqualTo(AcademicEnrollmentStatus.IN_PROGRESS);
     assertThat(waitlist.execute(f.institutionId(), f.courseId())).isEmpty();
+    assertThat(auditActions(winners.getFirst().id()))
+        .contains("COURSE_ENROLLMENT_CREATED", "COURSE_ENROLLMENT_STATUS_CHANGED");
+    assertThat(auditActions(queued.applicationId()))
+        .contains("ENROLLMENT_APPLICATION_COURSE_WAITLISTED");
   }
 
   @Test

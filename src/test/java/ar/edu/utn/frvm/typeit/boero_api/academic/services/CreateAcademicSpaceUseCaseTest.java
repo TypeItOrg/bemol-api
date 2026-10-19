@@ -12,6 +12,7 @@ import ar.edu.utn.frvm.typeit.boero_api.academic.enums.AcademicSpaceType;
 import ar.edu.utn.frvm.typeit.boero_api.academic.exceptions.AcademicConflictException;
 import ar.edu.utn.frvm.typeit.boero_api.academic.interfaces.AcademicSpaceRepository;
 import ar.edu.utn.frvm.typeit.boero_api.academic.payloads.CreateAcademicSpaceRequest;
+import ar.edu.utn.frvm.typeit.boero_api.audit.services.AuditEventRecorder;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.entities.Institution;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.interfaces.InstitutionRepository;
 import java.util.Optional;
@@ -43,7 +44,10 @@ class CreateAcademicSpaceUseCaseTest {
         .willAnswer(invocation -> invocation.getArgument(0));
 
     final var response =
-        new CreateAcademicSpaceUseCase(academicSpaceRepository, institutionRepository)
+        new CreateAcademicSpaceUseCase(
+                org.mockito.Mockito.mock(AuditEventRecorder.class),
+                academicSpaceRepository,
+                institutionRepository)
             .execute(
                 institutionId,
                 new CreateAcademicSpaceRequest(
@@ -68,7 +72,10 @@ class CreateAcademicSpaceUseCaseTest {
         .willAnswer(invocation -> invocation.getArgument(0));
 
     final var response =
-        new CreateAcademicSpaceUseCase(academicSpaceRepository, institutionRepository)
+        new CreateAcademicSpaceUseCase(
+                org.mockito.Mockito.mock(AuditEventRecorder.class),
+                academicSpaceRepository,
+                institutionRepository)
             .execute(
                 institutionId,
                 new CreateAcademicSpaceRequest(
@@ -90,7 +97,10 @@ class CreateAcademicSpaceUseCaseTest {
 
     assertThatThrownBy(
             () ->
-                new CreateAcademicSpaceUseCase(academicSpaceRepository, institutionRepository)
+                new CreateAcademicSpaceUseCase(
+                        org.mockito.Mockito.mock(AuditEventRecorder.class),
+                        academicSpaceRepository,
+                        institutionRepository)
                     .execute(
                         institutionId,
                         new CreateAcademicSpaceRequest(

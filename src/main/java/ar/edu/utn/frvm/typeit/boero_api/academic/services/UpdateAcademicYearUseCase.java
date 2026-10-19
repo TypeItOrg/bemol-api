@@ -7,6 +7,9 @@ import ar.edu.utn.frvm.typeit.boero_api.academic.exceptions.AcademicYearNotFound
 import ar.edu.utn.frvm.typeit.boero_api.academic.interfaces.AcademicYearRepository;
 import ar.edu.utn.frvm.typeit.boero_api.academic.payloads.AcademicYearResponse;
 import ar.edu.utn.frvm.typeit.boero_api.academic.payloads.UpdateAcademicYearRequest;
+import ar.edu.utn.frvm.typeit.boero_api.audit.enums.AuditAction;
+import ar.edu.utn.frvm.typeit.boero_api.audit.enums.AuditEntityType;
+import ar.edu.utn.frvm.typeit.boero_api.audit.services.AuditEventRecorder;
 import ar.edu.utn.frvm.typeit.boero_api.common.time.BusinessDateProvider;
 import ar.edu.utn.frvm.typeit.boero_api.enrollment.services.EnrollmentInstitutionLock;
 import java.util.UUID;
@@ -18,6 +21,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @RequiredArgsConstructor
 public class UpdateAcademicYearUseCase {
+  private final AuditEventRecorder auditRecorder;
 
   private final AcademicYearRepository academicYearRepository;
   private final BusinessDateProvider businessDateProvider;
@@ -37,8 +41,18 @@ public class UpdateAcademicYearUseCase {
       throw AcademicConflictException.forField("year", AcademicMessages.DUPLICATE_YEAR);
     }
 
+    final var before = AcademicCatalogAuditDetails.snapshot(academicYear);
     academicYear.update(
         request.year(), request.startDate(), request.endDate(), businessDateProvider.today());
+    auditRecorder.recordChange(
+        academicYear.getInstitution(),
+        null,
+        AuditAction.ACADEMIC_YEAR_UPDATED,
+        AuditEntityType.ACADEMIC_YEAR,
+        academicYear.getId(),
+        String.valueOf(academicYear.getYear()),
+        before,
+        AcademicCatalogAuditDetails.snapshot(academicYear));
     if (request.status() != null && request.status() != academicYear.getStatus()) {
       statusChanges.change(institutionId, academicYear, request.status());
     }

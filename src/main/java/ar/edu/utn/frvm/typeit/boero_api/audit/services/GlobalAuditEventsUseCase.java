@@ -5,6 +5,7 @@ import ar.edu.utn.frvm.typeit.boero_api.audit.enums.AuditActorKind;
 import ar.edu.utn.frvm.typeit.boero_api.audit.enums.AuditEntityType;
 import ar.edu.utn.frvm.typeit.boero_api.audit.enums.AuditModule;
 import ar.edu.utn.frvm.typeit.boero_api.audit.enums.AuditScope;
+import ar.edu.utn.frvm.typeit.boero_api.audit.envers.EnversEventHistory;
 import ar.edu.utn.frvm.typeit.boero_api.audit.exceptions.AuditEventNotFoundException;
 import ar.edu.utn.frvm.typeit.boero_api.audit.exceptions.AuditMessages;
 import ar.edu.utn.frvm.typeit.boero_api.audit.exceptions.AuditValidationException;
@@ -35,6 +36,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class GlobalAuditEventsUseCase {
   private final AuditEventRepository auditEventRepository;
   private final GlobalAuditEventResponses responses;
+  private final EnversEventHistory history;
 
   @Transactional(readOnly = true)
   public Page<GlobalAuditEventResponse> list(
@@ -53,7 +55,7 @@ public class GlobalAuditEventsUseCase {
   public GlobalAuditEventResponse get(final UUID eventId) {
     final var event =
         auditEventRepository.findById(eventId).orElseThrow(AuditEventNotFoundException::new);
-    return responses.enrichment(List.of(event)).apply(event);
+    return responses.enrichment(List.of(event)).apply(event).withHistory(history.find(event));
   }
 
   @Transactional(readOnly = true)

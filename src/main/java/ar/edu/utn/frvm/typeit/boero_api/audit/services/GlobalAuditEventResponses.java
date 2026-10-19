@@ -83,7 +83,8 @@ class GlobalAuditEventResponses {
           event.getRequestId(),
           event.getOrigin(),
           event.getDetails(),
-          event.getOccurredAt());
+          event.getOccurredAt(),
+          null);
     };
   }
 }

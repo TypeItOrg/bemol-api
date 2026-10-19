@@ -24,9 +24,13 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.hibernate.envers.AuditOverride;
+import org.hibernate.envers.Audited;
+import org.hibernate.envers.RelationTargetAuditMode;
 import org.jspecify.annotations.Nullable;
 
 @Entity
+@AuditOverride(forClass = SoftDeletable.class, name = "deletedAt", isAudited = true)
 @Table(
     name = "academic_spaces",
     uniqueConstraints =
@@ -46,9 +50,11 @@ public class AcademicSpace extends SoftDeletable {
 
   @ManyToOne(fetch = FetchType.LAZY, optional = false)
   @JoinColumn(name = "institution_id", nullable = false)
+  @Audited(targetAuditMode = RelationTargetAuditMode.NOT_AUDITED)
   private Institution institution;
 
   @Column(nullable = false, length = 150)
+  @Audited
   private String name;
 
   @Column(length = 1000)
@@ -56,16 +62,20 @@ public class AcademicSpace extends SoftDeletable {
 
   @Enumerated(EnumType.STRING)
   @Column(nullable = false, length = 20)
+  @Audited
   private AcademicSpaceType type;
 
   @Enumerated(EnumType.STRING)
   @Column(nullable = false, length = 20)
+  @Audited
   private AcademicSpaceFormat format;
 
   @Column(nullable = false)
+  @Audited
   private boolean active;
 
   @Column(nullable = false)
+  @Audited
   private boolean instrumental;
 
   public static AcademicSpace create(

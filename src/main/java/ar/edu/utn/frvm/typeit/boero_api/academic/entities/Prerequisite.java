@@ -20,6 +20,8 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.hibernate.envers.Audited;
+import org.hibernate.envers.RelationTargetAuditMode;
 
 @Entity
 @Table(
@@ -49,22 +51,27 @@ public class Prerequisite extends Auditable {
 
   @ManyToOne(fetch = FetchType.LAZY, optional = false)
   @JoinColumn(name = "study_plan_id", nullable = false)
+  @Audited(targetAuditMode = RelationTargetAuditMode.NOT_AUDITED)
   private StudyPlan studyPlan;
 
   @ManyToOne(fetch = FetchType.LAZY, optional = false)
   @JoinColumn(name = "target_study_plan_space_id", nullable = false)
+  @Audited(targetAuditMode = RelationTargetAuditMode.NOT_AUDITED)
   private StudyPlanSpace targetStudyPlanSpace;
 
   @ManyToOne(fetch = FetchType.LAZY, optional = false)
   @JoinColumn(name = "required_study_plan_space_id", nullable = false)
+  @Audited(targetAuditMode = RelationTargetAuditMode.NOT_AUDITED)
   private StudyPlanSpace requiredStudyPlanSpace;
 
   @Enumerated(EnumType.STRING)
   @Column(name = "requirement_stage", nullable = false, length = 20)
+  @Audited
   private RequirementStage requirementStage;
 
   @Enumerated(EnumType.STRING)
   @Column(name = "required_condition", nullable = false, length = 20)
+  @Audited
   private RequiredCondition requiredCondition;
 
   public static Prerequisite create(

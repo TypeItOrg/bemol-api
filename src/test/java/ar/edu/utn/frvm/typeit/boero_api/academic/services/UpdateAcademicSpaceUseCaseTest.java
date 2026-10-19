@@ -11,6 +11,7 @@ import ar.edu.utn.frvm.typeit.boero_api.academic.enums.AcademicSpaceType;
 import ar.edu.utn.frvm.typeit.boero_api.academic.exceptions.AcademicConflictException;
 import ar.edu.utn.frvm.typeit.boero_api.academic.interfaces.AcademicSpaceRepository;
 import ar.edu.utn.frvm.typeit.boero_api.academic.payloads.UpdateAcademicSpaceRequest;
+import ar.edu.utn.frvm.typeit.boero_api.audit.services.AuditEventRecorder;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.entities.Institution;
 import java.util.Optional;
 import java.util.UUID;
@@ -48,7 +49,8 @@ class UpdateAcademicSpaceUseCaseTest {
         .willReturn(false);
 
     final var response =
-        new UpdateAcademicSpaceUseCase(academicSpaceRepository)
+        new UpdateAcademicSpaceUseCase(
+                org.mockito.Mockito.mock(AuditEventRecorder.class), academicSpaceRepository)
             .execute(
                 institutionId,
                 spaceId,
@@ -74,7 +76,8 @@ class UpdateAcademicSpaceUseCaseTest {
 
     assertThatThrownBy(
             () ->
-                new UpdateAcademicSpaceUseCase(academicSpaceRepository)
+                new UpdateAcademicSpaceUseCase(
+                        org.mockito.Mockito.mock(AuditEventRecorder.class), academicSpaceRepository)
                     .execute(
                         institutionId,
                         spaceId,

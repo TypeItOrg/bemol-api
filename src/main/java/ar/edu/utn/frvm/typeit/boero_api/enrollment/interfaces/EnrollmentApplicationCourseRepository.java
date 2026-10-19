@@ -22,6 +22,19 @@ public interface EnrollmentApplicationCourseRepository
   @EntityGraph(attributePaths = {"course", "course.studyPlanSpace", "preferredTeacher"})
   List<EnrollmentApplicationCourse> findByEnrollmentApplication_Id(UUID applicationId);
 
+  @Query(
+      """
+      SELECT selection FROM EnrollmentApplicationCourse selection
+      JOIN FETCH selection.enrollmentApplication application
+      JOIN FETCH selection.course course
+      JOIN FETCH course.studyPlanSpace
+      WHERE selection.institution.id = :institutionId AND selection.enrollmentPeriod.id = :periodId
+        AND application.status = ar.edu.utn.frvm.typeit.boero_api.enrollment.enums.EnrollmentApplicationStatus.DRAFT
+        AND application.deletedAt IS NULL
+      """)
+  List<EnrollmentApplicationCourse> findDraftsByPeriod(
+      @Param("institutionId") UUID institutionId, @Param("periodId") UUID periodId);
+
   @Lock(LockModeType.PESSIMISTIC_WRITE)
   @EntityGraph(attributePaths = {"enrollmentApplication", "course", "preferredTeacher"})
   @Query(
@@ -35,7 +48,7 @@ public interface EnrollmentApplicationCourseRepository
       @Param("applicationId") UUID applicationId,
       @Param("statuses") List<EnrollmentApplicationCourseStatus> statuses);
 
-  @EntityGraph(attributePaths = {"enrollmentApplication"})
+  @EntityGraph(attributePaths = {"enrollmentApplication", "enrollmentApplication.applicantPerson"})
   @Query(
       "SELECT selection FROM EnrollmentApplicationCourse selection WHERE selection.institution.id = :institutionId AND selection.course.id = :courseId")
   List<EnrollmentApplicationCourse> findByCourseIdAndInstitutionId(

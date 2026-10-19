@@ -9,6 +9,7 @@ import ar.edu.utn.frvm.typeit.boero_api.enrollment.entities.EnrollmentPeriod;
 import ar.edu.utn.frvm.typeit.boero_api.enrollment.entities.EnrollmentPeriodOffering;
 import ar.edu.utn.frvm.typeit.boero_api.enrollment.exceptions.EnrollmentMessages;
 import ar.edu.utn.frvm.typeit.boero_api.enrollment.exceptions.EnrollmentValidationException;
+import ar.edu.utn.frvm.typeit.boero_api.enrollment.interfaces.EnrollmentApplicationCourseRepository;
 import ar.edu.utn.frvm.typeit.boero_api.enrollment.interfaces.EnrollmentApplicationRepository;
 import ar.edu.utn.frvm.typeit.boero_api.enrollment.interfaces.EnrollmentPeriodRepository;
 import ar.edu.utn.frvm.typeit.boero_api.enrollment.payloads.EnrollmentPeriodOfferingRequest;
@@ -16,11 +17,13 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.hibernate.exception.ConstraintViolationException;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -32,6 +35,8 @@ public class EnrollmentPeriodScopeService {
   private final AcademicLevelRepository academicLevelRepository;
   private final EnrollmentApplicationRepository applicationRepository;
   private final EnrollmentPeriodRepository periodRepository;
+  private final EnrollmentApplicationCourseRepository selectionRepository;
+  private final NamedParameterJdbcTemplate jdbc;
 
   @Transactional(propagation = Propagation.MANDATORY)
   public void configure(
@@ -90,6 +95,9 @@ public class EnrollmentPeriodScopeService {
       prepared.add(new PreparedOffering(plan, levels, request.includeUnassigned()));
     }
 
+    if (period.isScopeConfigured()) {
+      clearDraftSelections(period, byPlan);
+    }
     period
         .getOfferings()
         .removeIf(offering -> !byPlan.containsKey(offering.getStudyPlan().getId()));
@@ -108,6 +116,42 @@ public class EnrollmentPeriodScopeService {
       offering.selectLevels(selection.levels(), selection.includeUnassigned());
     }
     period.markScopeConfigured();
+  }
+
+  private void clearDraftSelections(
+      final EnrollmentPeriod period, final Map<UUID, EnrollmentPeriodOfferingRequest> desired) {
+    final var removed =
+        selectionRepository
+            .findDraftsByPeriod(period.getInstitution().getId(), period.getId())
+            .stream()
+            .filter(
+                selection -> {
+                  final var space = selection.getCourse().getStudyPlanSpace();
+                  final var requested = desired.get(space.getStudyPlan().getId());
+                  return requested == null
+                      || (space.getAcademicLevel() == null
+                          ? !requested.includeUnassigned()
+                          : !requested
+                              .academicLevelIds()
+                              .contains(space.getAcademicLevel().getId()));
+                })
+            .toList();
+    if (removed.isEmpty()) {
+      return;
+    }
+
+    // Delete through Hibernate before scope triggers run, so Envers sees each removed selection.
+    selectionRepository.deleteAll(removed);
+    selectionRepository.flush();
+    // Preserve the trigger's timestamp-only side effect; this field is intentionally not audited.
+    jdbc.update(
+        "UPDATE enrollment_applications SET updated_at = CURRENT_TIMESTAMP WHERE enrollment_application_id IN (:ids)",
+        Map.of(
+            "ids",
+            removed.stream()
+                .map(value -> value.getEnrollmentApplication().getId())
+                .distinct()
+                .toList()));
   }
 
   private record PreparedOffering(

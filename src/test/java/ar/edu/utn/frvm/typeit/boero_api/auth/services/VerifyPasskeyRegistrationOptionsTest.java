@@ -8,6 +8,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import ar.edu.utn.frvm.typeit.boero_api.audit.services.AuditEventRecorder;
 import ar.edu.utn.frvm.typeit.boero_api.auth.config.WebAuthnProperties;
 import ar.edu.utn.frvm.typeit.boero_api.auth.entities.PasskeyCredential;
 import ar.edu.utn.frvm.typeit.boero_api.auth.entities.User;
@@ -196,6 +197,7 @@ class VerifyPasskeyRegistrationOptionsTest {
 
   private VerifyPasskeyRegistrationUseCase useCase() {
     return new VerifyPasskeyRegistrationUseCase(
+        org.mockito.Mockito.mock(AuditEventRecorder.class),
         userRepository,
         passkeyCredentialRepository,
         mapper,

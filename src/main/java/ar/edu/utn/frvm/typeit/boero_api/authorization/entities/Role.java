@@ -21,6 +21,8 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.hibernate.envers.Audited;
+import org.hibernate.envers.RelationTargetAuditMode;
 
 @Entity
 @Table(
@@ -41,21 +43,26 @@ public class Role extends Auditable {
   private UUID id;
 
   @Column(nullable = false, length = 50)
+  @Audited
   private String code;
 
   @Column(nullable = false, length = 100)
+  @Audited
   private String name;
 
   @Enumerated(EnumType.STRING)
   @Column(nullable = false, length = 20)
+  @Audited
   private RoleScope scope;
 
   @Column(name = "is_system", nullable = false)
   @Builder.Default
+  @Audited
   private boolean system = true;
 
   @ManyToOne(fetch = FetchType.LAZY)
   @JoinColumn(name = "institution_id")
+  @Audited(targetAuditMode = RelationTargetAuditMode.NOT_AUDITED)
   private Institution institution;
 
   public static Role customInstitutional(

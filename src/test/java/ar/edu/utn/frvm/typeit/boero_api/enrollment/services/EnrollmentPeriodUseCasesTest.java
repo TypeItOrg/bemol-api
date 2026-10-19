@@ -11,6 +11,7 @@ import ar.edu.utn.frvm.typeit.boero_api.academic.entities.AcademicYear;
 import ar.edu.utn.frvm.typeit.boero_api.academic.entities.AcademicYearFixtures;
 import ar.edu.utn.frvm.typeit.boero_api.academic.exceptions.AcademicYearNotFoundException;
 import ar.edu.utn.frvm.typeit.boero_api.academic.interfaces.AcademicYearRepository;
+import ar.edu.utn.frvm.typeit.boero_api.audit.services.AuditEventRecorder;
 import ar.edu.utn.frvm.typeit.boero_api.authorization.services.PermissionAccess;
 import ar.edu.utn.frvm.typeit.boero_api.authorization.services.ScopedAuthorizationService;
 import ar.edu.utn.frvm.typeit.boero_api.enrollment.entities.EnrollmentPeriod;
@@ -71,6 +72,7 @@ class EnrollmentPeriodUseCasesTest {
     periodAccess = new EnrollmentPeriodAccessService(authorization);
     createUseCase =
         new CreateEnrollmentPeriodUseCase(
+            org.mockito.Mockito.mock(AuditEventRecorder.class),
             periodAccess,
             institutionLock,
             scopeService,
@@ -79,13 +81,26 @@ class EnrollmentPeriodUseCasesTest {
     getUseCase = new GetEnrollmentPeriodUseCase(periodAccess, periodRepository);
     updateUseCase =
         new UpdateEnrollmentPeriodUseCase(
-            periodAccess, periodRepository, institutionLock, scopeService);
+            org.mockito.Mockito.mock(AuditEventRecorder.class),
+            periodAccess,
+            periodRepository,
+            institutionLock,
+            scopeService);
     updateStatusUseCase =
         new UpdateEnrollmentPeriodStatusUseCase(
-            periodAccess, periodRepository, institutionLock, scopeService);
+            org.mockito.Mockito.mock(AuditEventRecorder.class),
+            periodAccess,
+            periodRepository,
+            institutionLock,
+            scopeService);
     deleteUseCase =
         new DeleteEnrollmentPeriodUseCase(
-            periodAccess, periodRepository, institutionLock, scopeService, CLOCK);
+            org.mockito.Mockito.mock(AuditEventRecorder.class),
+            periodAccess,
+            periodRepository,
+            institutionLock,
+            scopeService,
+            CLOCK);
 
     institutionId = UUID.fromString("00000000-0000-4000-8000-000000000001");
     academicYearId = UUID.fromString("00000000-0000-4000-8000-000000000002");

@@ -10,6 +10,7 @@ import ar.edu.utn.frvm.typeit.boero_api.academic.entities.Shift;
 import ar.edu.utn.frvm.typeit.boero_api.academic.exceptions.ShiftNotFoundException;
 import ar.edu.utn.frvm.typeit.boero_api.academic.interfaces.ShiftRepository;
 import ar.edu.utn.frvm.typeit.boero_api.academic.payloads.ActiveStatusRequest;
+import ar.edu.utn.frvm.typeit.boero_api.audit.services.AuditEventRecorder;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.entities.Institution;
 import java.util.Optional;
 import java.util.UUID;
@@ -22,6 +23,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
 class UpdateShiftStatusUseCaseTest {
+  @org.mockito.Mock private AuditEventRecorder auditAuditEventRecorder;
 
   @Mock private ShiftRepository shiftRepository;
   @InjectMocks private UpdateShiftStatusUseCase useCase;

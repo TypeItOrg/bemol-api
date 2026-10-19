@@ -1,5 +1,8 @@
 package ar.edu.utn.frvm.typeit.boero_api.enrollment.services;
 
+import ar.edu.utn.frvm.typeit.boero_api.audit.enums.AuditAction;
+import ar.edu.utn.frvm.typeit.boero_api.audit.enums.AuditEntityType;
+import ar.edu.utn.frvm.typeit.boero_api.audit.services.AuditEventRecorder;
 import ar.edu.utn.frvm.typeit.boero_api.authorization.enums.PermissionCode;
 import ar.edu.utn.frvm.typeit.boero_api.enrollment.exceptions.EnrollmentPeriodNotFoundException;
 import ar.edu.utn.frvm.typeit.boero_api.enrollment.exceptions.InvalidEnrollmentPeriodDatesException;
@@ -14,6 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @RequiredArgsConstructor
 public class UpdateEnrollmentPeriodUseCase {
+  private final AuditEventRecorder auditRecorder;
   private final EnrollmentPeriodAccessService periodAccess;
 
   private final EnrollmentPeriodRepository periodRepository;
@@ -35,11 +39,21 @@ public class UpdateEnrollmentPeriodUseCase {
             .orElseThrow(EnrollmentPeriodNotFoundException::new);
 
     periodAccess.requireManage(period, PermissionCode.ENROLLMENT_PERIOD_UPDATE);
+    final var before = EnrollmentPeriodAuditDetails.snapshot(period);
     scopeService.configure(period, request.offerings());
     periodAccess.requireManage(period, PermissionCode.ENROLLMENT_PERIOD_UPDATE);
     period.updateDetails(request.name(), request.startDate(), request.endDate());
     final var saved = scopeService.save(period);
 
+    auditRecorder.recordChange(
+        period.getInstitution(),
+        null,
+        AuditAction.ENROLLMENT_PERIOD_UPDATED,
+        AuditEntityType.ENROLLMENT_PERIOD,
+        saved.getId(),
+        saved.getName(),
+        before,
+        EnrollmentPeriodAuditDetails.snapshot(saved));
     return periodAccess.responseAfterMutation(saved, PermissionCode.ENROLLMENT_PERIOD_UPDATE);
   }
 }

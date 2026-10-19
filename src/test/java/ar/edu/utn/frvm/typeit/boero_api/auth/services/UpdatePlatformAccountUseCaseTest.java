@@ -7,6 +7,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+import ar.edu.utn.frvm.typeit.boero_api.audit.services.AuditEventRecorder;
 import ar.edu.utn.frvm.typeit.boero_api.auth.entities.PlatformAccount;
 import ar.edu.utn.frvm.typeit.boero_api.auth.exceptions.PlatformAccountEmailAlreadyExistsException;
 import ar.edu.utn.frvm.typeit.boero_api.auth.exceptions.PlatformAccountNotFoundException;
@@ -36,7 +37,10 @@ class UpdatePlatformAccountUseCaseTest {
   void setUp() {
     useCase =
         new UpdatePlatformAccountUseCase(
-            platformAccountRepository, passwordEncoder, sessionRevocationService);
+            org.mockito.Mockito.mock(AuditEventRecorder.class),
+            platformAccountRepository,
+            passwordEncoder,
+            sessionRevocationService);
   }
 
   @Test

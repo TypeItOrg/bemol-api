@@ -4,7 +4,10 @@ import ar.edu.utn.frvm.typeit.boero_api.academic.enums.CourseStatus;
 import ar.edu.utn.frvm.typeit.boero_api.academic.exceptions.AcademicIntegrityViolationTranslator;
 import ar.edu.utn.frvm.typeit.boero_api.academic.exceptions.CourseNotFoundException;
 import ar.edu.utn.frvm.typeit.boero_api.academic.exceptions.InvalidAcademicStateException;
+import ar.edu.utn.frvm.typeit.boero_api.academic.interfaces.CourseClassDayRepository;
 import ar.edu.utn.frvm.typeit.boero_api.academic.interfaces.CourseClassRepository;
+import ar.edu.utn.frvm.typeit.boero_api.academic.interfaces.CourseClassScheduleRepository;
+import ar.edu.utn.frvm.typeit.boero_api.academic.interfaces.CourseClassTeacherRepository;
 import ar.edu.utn.frvm.typeit.boero_api.academic.interfaces.CourseRepository;
 import ar.edu.utn.frvm.typeit.boero_api.academic.payloads.CourseResponse;
 import ar.edu.utn.frvm.typeit.boero_api.academic.payloads.ReplaceCourseClassesRequest;
@@ -34,6 +37,9 @@ public class ReplaceCourseClassesUseCase {
   private final AcademicAccessGuard accessGuard;
   private final CourseRepository courseRepository;
   private final CourseClassRepository courseClassRepository;
+  private final CourseClassDayRepository courseClassDayRepository;
+  private final CourseClassScheduleRepository courseClassScheduleRepository;
+  private final CourseClassTeacherRepository courseClassTeacherRepository;
   private final CourseClassAssembler courseClassAssembler;
   private final CourseTreeReader courseTreeReader;
   private final CourseIndividualSlotRepository slotRepository;
@@ -98,9 +104,12 @@ public class ReplaceCourseClassesUseCase {
   }
 
   private void deleteCurrentClasses(final UUID courseId) {
-    courseClassRepository.deleteSchedulesByCourseId(courseId);
-    courseClassRepository.deleteTeachersByCourseId(courseId);
-    courseClassRepository.deleteDaysByCourseId(courseId);
-    courseClassRepository.deleteByCourseId(courseId);
+    // Derived deletes invoke entity callbacks; bulk JPQL would bypass Envers.
+    courseClassScheduleRepository.deleteByDay_CourseClass_Course_Id(courseId);
+    courseClassTeacherRepository.deleteByCourseClass_Course_Id(courseId);
+    courseClassDayRepository.deleteByCourseClass_Course_Id(courseId);
+    courseClassRepository.deleteByCourse_Id(courseId);
+    // Release class-number uniqueness before inserting the replacement tree.
+    courseClassRepository.flush();
   }
 }

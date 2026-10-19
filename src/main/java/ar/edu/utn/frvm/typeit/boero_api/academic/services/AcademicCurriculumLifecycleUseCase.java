@@ -62,7 +62,8 @@ public class AcademicCurriculumLifecycleUseCase {
           AcademicLifecycleResource.TRAINING_PATH,
           id,
           AcademicLifecycleAction.DELETE,
-          request);
+          request,
+          AcademicCatalogAuditDetails.lifecycle(path.getName(), true));
     }
   }
 
@@ -77,7 +78,12 @@ public class AcademicCurriculumLifecycleUseCase {
             .findByIdAndInstitution_IdForLifecycle(id, institutionId)
             .orElseThrow(TrainingPathNotFoundException::new);
     journal.restore(
-        path, path.getInstitution(), AcademicLifecycleResource.TRAINING_PATH, id, request);
+        path,
+        path.getInstitution(),
+        AcademicLifecycleResource.TRAINING_PATH,
+        id,
+        request,
+        AcademicCatalogAuditDetails.lifecycle(path.getName(), false));
   }
 
   @Transactional

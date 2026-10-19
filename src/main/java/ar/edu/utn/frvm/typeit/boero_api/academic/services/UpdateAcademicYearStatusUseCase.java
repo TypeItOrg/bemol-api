@@ -79,7 +79,17 @@ public class UpdateAcademicYearStatusUseCase {
           "status", AcademicMessages.ACADEMIC_YEAR_ACTIVE_CONFLICT);
     }
 
+    final var previousStatus = academicYear.getStatus();
     academicYear.transitionTo(targetStatus);
+    auditRecorder.recordChange(
+        academicYear.getInstitution(),
+        null,
+        AuditAction.ACADEMIC_YEAR_STATUS_CHANGED,
+        AuditEntityType.ACADEMIC_YEAR,
+        academicYear.getId(),
+        String.valueOf(academicYear.getYear()),
+        Map.of("status", previousStatus.name()),
+        Map.of("status", academicYear.getStatus().name()));
     if (targetStatus == AcademicYearStatus.CLOSED) {
       final var courses =
           courseRepository.findByAcademicYear_IdAndInstitution_IdAndDeletedAtIsNull(

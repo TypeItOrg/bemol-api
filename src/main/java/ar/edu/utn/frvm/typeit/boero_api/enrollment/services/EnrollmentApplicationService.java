@@ -7,6 +7,8 @@ import ar.edu.utn.frvm.typeit.boero_api.academic.interfaces.AcademicYearReposito
 import ar.edu.utn.frvm.typeit.boero_api.academic.interfaces.TrainingPathRepository;
 import ar.edu.utn.frvm.typeit.boero_api.audit.enums.AuditAction;
 import ar.edu.utn.frvm.typeit.boero_api.audit.enums.AuditEntityType;
+import ar.edu.utn.frvm.typeit.boero_api.audit.enums.AuditOrigin;
+import ar.edu.utn.frvm.typeit.boero_api.audit.services.AuditChangeDetails;
 import ar.edu.utn.frvm.typeit.boero_api.audit.services.AuditEventRecorder;
 import ar.edu.utn.frvm.typeit.boero_api.common.web.PaginatedResponse;
 import ar.edu.utn.frvm.typeit.boero_api.enrollment.entities.ApplicantResponsible;
@@ -143,11 +145,22 @@ public class EnrollmentApplicationService {
     final var application = lockOwnedApplication(personId, applicationId);
     requireOpenDraft(application);
 
+    final var before = EnrollmentDraftAuditDetails.snapshot(application);
     if (request.getData() != null) {
       drafts.update(application, request.getData());
     }
     final var saved = saveDraft(application);
-    audit(personId, saved, AuditAction.ENROLLMENT_APPLICATION_DRAFT_UPDATED);
+    final var after = EnrollmentDraftAuditDetails.snapshot(saved);
+    if (!before.equals(after)) {
+      auditEventRecorder.recordCurrentActor(
+          saved.getInstitution(),
+          saved.getApplicantPerson().getId(),
+          AuditAction.ENROLLMENT_APPLICATION_DRAFT_UPDATED,
+          AuditEntityType.ENROLLMENT_APPLICATION,
+          saved.getId(),
+          AuditOrigin.SELF_SERVICE,
+          AuditChangeDetails.change("Solicitud de inscripción", before, after));
+    }
 
     return responses.from(saved);
   }

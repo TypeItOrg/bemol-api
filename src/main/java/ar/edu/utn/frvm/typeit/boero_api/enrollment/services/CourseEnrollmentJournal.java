@@ -30,6 +30,7 @@ public class CourseEnrollmentJournal {
   private final EnrollmentApplicationCourseAssignmentSnapshotRepository snapshots;
   private final CourseEnrollmentRepository enrollments;
   private final Clock clock;
+  private final CourseEnrollmentAudit audit;
 
   @Transactional(propagation = Propagation.MANDATORY)
   public void record(
@@ -54,6 +55,7 @@ public class CourseEnrollmentJournal {
             reason,
             authorityPersonId,
             clock.instant()));
+    audit.record(enrollment, previousStatus, previousAcademicStatus);
   }
 
   @Transactional(propagation = Propagation.MANDATORY)

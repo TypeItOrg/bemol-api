@@ -31,6 +31,8 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.hibernate.envers.Audited;
+import org.hibernate.envers.RelationTargetAuditMode;
 
 @Entity
 @Table(
@@ -60,19 +62,23 @@ public class PersonRoleAssignment extends Auditable {
 
   @ManyToOne(fetch = FetchType.LAZY, optional = false)
   @JoinColumn(name = "person_id", nullable = false)
+  @Audited(targetAuditMode = RelationTargetAuditMode.NOT_AUDITED)
   private Person person;
 
   @ManyToOne(fetch = FetchType.LAZY, optional = false)
   @JoinColumn(name = "role_id", nullable = false)
+  @Audited(targetAuditMode = RelationTargetAuditMode.NOT_AUDITED)
   private Role role;
 
   @ManyToOne(fetch = FetchType.LAZY, optional = false)
   @JoinColumn(name = "institution_id", nullable = false)
+  @Audited(targetAuditMode = RelationTargetAuditMode.NOT_AUDITED)
   private Institution institution;
 
   @Enumerated(EnumType.STRING)
   @Column(name = "access_scope", nullable = false)
   @Builder.Default
+  @Audited
   private AccessScope accessScope = AccessScope.INSTITUTION;
 
   @ElementCollection
@@ -81,6 +87,7 @@ public class PersonRoleAssignment extends Auditable {
       joinColumns = @JoinColumn(name = "person_role_assignment_id"))
   @Column(name = "training_path_id", nullable = false)
   @Builder.Default
+  @Audited
   private Set<UUID> trainingPathIds = new HashSet<>();
 
   public Set<UUID> getTrainingPathIds() {

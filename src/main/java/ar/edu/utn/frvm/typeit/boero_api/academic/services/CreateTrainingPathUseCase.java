@@ -8,8 +8,12 @@ import ar.edu.utn.frvm.typeit.boero_api.academic.interfaces.TrainingPathReposito
 import ar.edu.utn.frvm.typeit.boero_api.academic.payloads.CreateTrainingPathRequest;
 import ar.edu.utn.frvm.typeit.boero_api.academic.payloads.TrainingPathResponse;
 import ar.edu.utn.frvm.typeit.boero_api.academic.validation.AcademicNameNormalizer;
+import ar.edu.utn.frvm.typeit.boero_api.audit.enums.AuditAction;
+import ar.edu.utn.frvm.typeit.boero_api.audit.enums.AuditEntityType;
+import ar.edu.utn.frvm.typeit.boero_api.audit.services.AuditEventRecorder;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.exceptions.InstitutionNotFoundException;
 import ar.edu.utn.frvm.typeit.boero_api.institutional.interfaces.InstitutionRepository;
+import java.util.Map;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -19,6 +23,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @RequiredArgsConstructor
 public class CreateTrainingPathUseCase {
+  private final AuditEventRecorder auditRecorder;
   private final TrainingPathRepository trainingPathRepository;
   private final InstitutionRepository institutionRepository;
 
@@ -38,6 +43,15 @@ public class CreateTrainingPathUseCase {
           trainingPathRepository.save(
               TrainingPath.create(institution, name, request.description()));
       trainingPathRepository.flush();
+      auditRecorder.recordChange(
+          saved.getInstitution(),
+          null,
+          AuditAction.TRAINING_PATH_CREATED,
+          AuditEntityType.TRAINING_PATH,
+          saved.getId(),
+          saved.getName(),
+          Map.of(),
+          AcademicCatalogAuditDetails.snapshot(saved));
       return TrainingPathResponse.from(saved);
     } catch (DataIntegrityViolationException exception) {
       throw AcademicIntegrityViolationTranslator.translate(exception);

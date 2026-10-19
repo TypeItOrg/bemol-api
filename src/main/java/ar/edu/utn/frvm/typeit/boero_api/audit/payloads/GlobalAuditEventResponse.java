@@ -27,7 +27,8 @@ import org.jspecify.annotations.Nullable;
       "requestId",
       "origin",
       "details",
-      "occurredAt"
+      "occurredAt",
+      "history"
     })
 public record GlobalAuditEventResponse(
     UUID id,
@@ -45,4 +46,26 @@ public record GlobalAuditEventResponse(
     @Schema(nullable = true) @Nullable String requestId,
     @Schema(nullable = true) @Nullable AuditOrigin origin,
     Map<String, Object> details,
-    Instant occurredAt) {}
+    Instant occurredAt,
+    @Schema(nullable = true) @Nullable AuditHistoryResponse history) {
+  public GlobalAuditEventResponse withHistory(@Nullable final AuditHistoryResponse history) {
+    return new GlobalAuditEventResponse(
+        id,
+        actorKind,
+        actorId,
+        actorName,
+        subjectPersonId,
+        subjectName,
+        institutionId,
+        institutionName,
+        action,
+        entityType,
+        entityId,
+        actedOnBehalf,
+        requestId,
+        origin,
+        details,
+        occurredAt,
+        history);
+  }
+}

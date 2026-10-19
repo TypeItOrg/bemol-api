@@ -60,6 +60,7 @@ import tools.jackson.databind.node.JsonNodeFactory;
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
 @Import({
   JpaAuditingTestConfig.class,
+  ar.edu.utn.frvm.typeit.boero_api.audit.services.AuditEventRecorder.class,
   PasskeyCredentialMapper.class,
   PasskeyUserCredentialRepository.class,
   RevokePasskeyUseCase.class,
@@ -152,7 +153,42 @@ class PasskeyConcurrencyPostgresIntegrationTest {
   @DisplayName("Should reject use and rename after revocation commits")
   void revokedCredentialCannotBeUsedOrRenamed() {
     final Fixture fixture = fixture();
-    revoke.execute(fixture.principal(), fixture.id());
+    org.springframework.security.core.context.SecurityContextHolder.getContext()
+        .setAuthentication(
+            new org.springframework.security.authentication.TestingAuthenticationToken(
+                fixture.principal(), ""));
+    try {
+      rename.execute(fixture.principal(), fixture.id(), "Private device label");
+      rename.execute(fixture.principal(), fixture.id(), "Private device label");
+      revoke.execute(fixture.principal(), fixture.id());
+    } finally {
+      org.springframework.security.core.context.SecurityContextHolder.clearContext();
+    }
+    new TransactionTemplate(transactionManager)
+        .executeWithoutResult(
+            state -> {
+              final var audit =
+                  entityManager
+                      .unwrap(org.hibernate.Session.class)
+                      .createNativeQuery(
+                          "SELECT action, actor_person_id, subject_person_id, details::text FROM audit_events WHERE entity_id = :id",
+                          Object[].class)
+                      .setParameter("id", fixture.id())
+                      .getResultList();
+              assertThat(audit).hasSize(2);
+              assertThat(audit)
+                  .extracting(row -> row[0])
+                  .containsExactlyInAnyOrder("PASSKEY_UPDATED", "PASSKEY_DELETED");
+              assertThat(audit)
+                  .allSatisfy(
+                      row -> {
+                        assertThat(row[1]).isEqualTo(fixture.principal().personId());
+                        assertThat(row[2]).isEqualTo(fixture.principal().personId());
+                        assertThat(row[3].toString())
+                            .doesNotContain(
+                                "Private device label", fixture.externalId().toBase64UrlString());
+                      });
+            });
     assertThat(adapter.findByCredentialId(fixture.externalId())).isNull();
     assertThatThrownBy(() -> rename.execute(fixture.principal(), fixture.id(), "Other"))
         .isInstanceOf(PasskeyNotFoundException.class);
@@ -160,7 +196,7 @@ class PasskeyConcurrencyPostgresIntegrationTest {
 
   @Test
   @DisplayName("Should translate the actual Flyway credential constraint to a duplicate error")
-  void translatesRealCredentialConstraint() {
+  void translatesRealCredentialConstraintAndAuditsSuccessfulRegistration() {
     final Fixture fixture = fixture();
     when(webAuthnProperties.maxPasskeys()).thenReturn(10);
     when(ceremonies.consumeRegistration("ceremony"))
@@ -208,6 +244,47 @@ class PasskeyConcurrencyPostgresIntegrationTest {
                 registration.execute(
                     fixture.principal(), "ceremony", JsonNodeFactory.instance.objectNode()))
         .isInstanceOf(DuplicatePasskeyCredentialException.class);
+    final Bytes uniqueId = Bytes.random();
+    when(relyingParty.registerCredential(any()))
+        .thenReturn(
+            ImmutableCredentialRecord.builder()
+                .credentialType(PublicKeyCredentialType.PUBLIC_KEY)
+                .credentialId(uniqueId)
+                .userEntityUserId(new Bytes(requireNonNull(handle)))
+                .publicKey(new ImmutablePublicKeyCose(new byte[] {1, 2, 3}))
+                .signatureCount(0)
+                .transports(Set.of())
+                .label("Private label")
+                .created(Instant.now())
+                .build());
+    org.springframework.security.core.context.SecurityContextHolder.getContext()
+        .setAuthentication(
+            new org.springframework.security.authentication.TestingAuthenticationToken(
+                fixture.principal(), ""));
+    try {
+      final var registered =
+          registration.execute(
+              fixture.principal(), "ceremony", JsonNodeFactory.instance.objectNode());
+      new TransactionTemplate(transactionManager)
+          .executeWithoutResult(
+              state -> {
+                final var audit =
+                    entityManager
+                        .unwrap(org.hibernate.Session.class)
+                        .createNativeQuery(
+                            "SELECT entity_id, actor_person_id, subject_person_id, details::text FROM audit_events WHERE action = 'PASSKEY_CREATED' AND subject_person_id = :person",
+                            Object[].class)
+                        .setParameter("person", fixture.principal().personId())
+                        .getResultList();
+                assertThat(audit).hasSize(1);
+                assertThat(audit.getFirst()[0]).isEqualTo(registered.id());
+                assertThat(audit.getFirst()[1]).isEqualTo(fixture.principal().personId());
+                assertThat(audit.getFirst()[2]).isEqualTo(fixture.principal().personId());
+                assertThat(audit.getFirst()[3].toString()).isEqualTo("{}");
+              });
+    } finally {
+      org.springframework.security.core.context.SecurityContextHolder.clearContext();
+    }
   }
 
   private Fixture fixture() {
@@ -233,6 +310,7 @@ class PasskeyConcurrencyPostgresIntegrationTest {
                   externalId,
                   JwtAuthenticatedUser.builder()
                       .userId(user.getId())
+                      .personId(user.getPerson().getId())
                       .institutionId(institution.getId())
                       .sessionId(UUID.randomUUID())
                       .build());

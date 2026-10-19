@@ -8,6 +8,9 @@ import ar.edu.utn.frvm.typeit.boero_api.academic.interfaces.AcademicSpaceReposit
 import ar.edu.utn.frvm.typeit.boero_api.academic.payloads.AcademicSpaceResponse;
 import ar.edu.utn.frvm.typeit.boero_api.academic.payloads.UpdateAcademicSpaceRequest;
 import ar.edu.utn.frvm.typeit.boero_api.academic.validation.AcademicNameNormalizer;
+import ar.edu.utn.frvm.typeit.boero_api.audit.enums.AuditAction;
+import ar.edu.utn.frvm.typeit.boero_api.audit.enums.AuditEntityType;
+import ar.edu.utn.frvm.typeit.boero_api.audit.services.AuditEventRecorder;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -17,6 +20,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @RequiredArgsConstructor
 public class UpdateAcademicSpaceUseCase {
+  private final AuditEventRecorder auditRecorder;
   private final AcademicSpaceRepository academicSpaceRepository;
 
   @Transactional
@@ -42,6 +46,7 @@ public class UpdateAcademicSpaceUseCase {
         institutionId, name, request.type().name(), request.format().name(), id)) {
       throw AcademicConflictException.forField("name", AcademicMessages.DUPLICATE_NAME);
     }
+    final var before = AcademicCatalogAuditDetails.snapshot(space);
     space.update(
         name, request.description(), request.type(), request.format(), request.instrumental());
     try {
@@ -49,6 +54,15 @@ public class UpdateAcademicSpaceUseCase {
     } catch (DataIntegrityViolationException exception) {
       throw AcademicIntegrityViolationTranslator.translate(exception);
     }
+    auditRecorder.recordChange(
+        space.getInstitution(),
+        null,
+        AuditAction.ACADEMIC_SPACE_UPDATED,
+        AuditEntityType.ACADEMIC_SPACE,
+        space.getId(),
+        space.getName(),
+        before,
+        AcademicCatalogAuditDetails.snapshot(space));
     return AcademicSpaceResponse.from(space);
   }
 }

@@ -44,6 +44,7 @@ public class MailAuditRecorder {
             context.requestId(),
             AuditOrigin.MAIL_DELIVERY,
             Map.of("recipient", recipient, "mailType", type.getLabel()),
-            clock.instant()));
+            clock.instant(),
+            null));
   }
 }

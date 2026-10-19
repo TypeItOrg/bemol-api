@@ -52,6 +52,7 @@ class UpdateAcademicYearUseCaseTest {
             courseClassTeacherRepository);
     service =
         new UpdateAcademicYearUseCase(
+            org.mockito.Mockito.mock(AuditEventRecorder.class),
             academicYearRepository,
             new BusinessDateProvider(Clock.systemUTC()),
             institutionLock,

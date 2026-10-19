@@ -40,6 +40,15 @@ public class DeletePersonUseCase {
     }
 
     personRepository.save(person);
+    auditEventRecorder.recordChange(
+        person.getInstitution(),
+        personId,
+        AuditAction.PERSON_DELETED,
+        AuditEntityType.PERSON,
+        personId,
+        "Persona",
+        Map.of("deleted", false),
+        Map.of("deleted", true));
     userRepository
         .findByPerson_IdAndInstitution_Id(personId, institutionId)
         .ifPresent(

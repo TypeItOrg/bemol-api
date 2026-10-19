@@ -20,6 +20,8 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.hibernate.envers.Audited;
+import org.hibernate.envers.RelationTargetAuditMode;
 import org.jspecify.annotations.Nullable;
 
 /** Legal guardianship of a person (usually a minor) by another person, within an institution. */
@@ -38,14 +40,17 @@ public class PersonGuardian extends Auditable {
 
   @ManyToOne(fetch = FetchType.LAZY, optional = false)
   @JoinColumn(name = "institution_id", nullable = false)
+  @Audited(targetAuditMode = RelationTargetAuditMode.NOT_AUDITED)
   private Institution institution;
 
   @ManyToOne(fetch = FetchType.LAZY, optional = false)
   @JoinColumn(name = "tutor_person_id", nullable = false)
+  @Audited(targetAuditMode = RelationTargetAuditMode.NOT_AUDITED)
   private Person tutorPerson;
 
   @ManyToOne(fetch = FetchType.LAZY, optional = false)
   @JoinColumn(name = "dependent_person_id", nullable = false)
+  @Audited(targetAuditMode = RelationTargetAuditMode.NOT_AUDITED)
   private Person dependentPerson;
 
   // Requester-provided identity, never copied from an existing person's protected data.
@@ -60,9 +65,11 @@ public class PersonGuardian extends Auditable {
 
   @Enumerated(EnumType.STRING)
   @Column(nullable = false, length = 30)
+  @Audited
   private GuardianRelationship relationship;
 
   @Column(name = "own_access_requested", nullable = false)
+  @Audited
   private boolean ownAccessRequested;
 
   @Column(name = "declared_email", length = 150)
@@ -74,18 +81,22 @@ public class PersonGuardian extends Auditable {
   }
 
   @Column(name = "is_primary_contact", nullable = false)
+  @Audited
   private boolean primaryContact;
 
   @Enumerated(EnumType.STRING)
   @Column(nullable = false, length = 20)
   @Builder.Default
+  @Audited
   private GuardianLinkStatus status = GuardianLinkStatus.PENDING;
 
   @ManyToOne(fetch = FetchType.LAZY)
   @JoinColumn(name = "resolved_by_person_id")
+  @Audited(targetAuditMode = RelationTargetAuditMode.NOT_AUDITED)
   private @Nullable Person resolvedBy;
 
   @Column(name = "resolved_at")
+  @Audited
   private @Nullable Instant resolvedAt;
 
   /** Every link starts pending: the institution decides who may represent whom. */
