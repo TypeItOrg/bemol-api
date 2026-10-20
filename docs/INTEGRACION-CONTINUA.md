@@ -4,26 +4,29 @@ Este documento detalla el flujo de integración continua, las puertas de calidad
 
 ## 1. Visión General del Pipeline
 
-El pipeline de CI está implementado mediante GitHub Actions en [`.github/workflows/ci-staging.yaml`](../.github/workflows/ci-staging.yaml) y se activa ante:
+Las validaciones están en [`.github/workflows/ci.yaml`](../.github/workflows/ci.yaml), visible como **CI**. Se ejecutan ante:
 
 - **Pull Requests** hacia las ramas `develop`, `staging` y `main`.
-- **Pushes** directos a `develop`, `staging` y `main`.
+- **Pushes** directos a `develop` y `main`.
+- **Pushes a `staging`**, mediante la llamada reutilizable desde [Deploy staging](../.github/workflows/deploy-staging.yaml). No se ejecuta otro CI duplicado por ese push.
 
-En GitHub Actions aparece como **CI and staging deployment**. Las validaciones se ejecutan en las tres ramas; sólo un push a `staging` publica imágenes y solicita un despliegue. `develop` se ejecuta localmente: CI valida su código, pero no publica imágenes ni despliega un ambiente remoto. No hay workflow de despliegue a producción mientras ese ambiente no exista.
+CI no publica imágenes ni recibe secrets de Dokploy. **Deploy staging** sólo se activa por push a `staging`: primero llama al mismo CI del mismo commit mediante `workflow_call`, después publica la imagen y finalmente solicita el despliegue. Así se conserva la rama `staging` para las restricciones del GitHub Environment, sin encadenar ejecuciones privilegiadas con `workflow_run`.
 
-El pipeline incluye control de concurrencia (`cancel-in-progress: true`), lo que cancela automáticamente ejecuciones previas de una misma rama ante nuevos commits para ahorrar recursos.
+`develop` se ejecuta localmente: CI valida su código, pero no publica imágenes ni despliega un ambiente remoto. `main` también queda sólo con CI. No hay workflow de despliegue productivo.
+
+Ambos workflows tienen grupos de concurrencia diferentes y cancelan ejecuciones anteriores de la misma referencia. El CI reutilizable conserva el evento, la referencia y el SHA del caller; no hace checkout del HEAD de otra rama.
 
 ## 2. Trabajos y Fases del Pipeline
 
-El flujo de trabajo se divide en cuatro trabajos principales:
+Los dos archivos separan validación y despliegue sin duplicar sus validaciones:
 
 ```mermaid
 flowchart TD
-    PR[Push / Pull Request] --> SA[Job: static-analysis]
-    PR --> T[Job: test]
-    SA --> PI[Job: publish-image\nSolo push a staging]
-    T --> PI
-    PI --> DS[Job: deploy-staging\nSolo push a staging]
+    PR[PR / push develop o main] --> CI[CI: static-analysis y test]
+    ST[Push staging] --> DS[Deploy staging]
+    DS --> RC[Reutiliza CI del mismo commit]
+    RC --> PI[publish-image sólo si CI pasó]
+    PI --> DEP[Solicitud HTTPS a Dokploy]
 ```
 
 ### A. Trabajo: Análisis Estático (`static-analysis`)
@@ -32,7 +35,7 @@ Este trabajo valida la calidad del código, contratos de nulidad y detección te
 
 - **Comando**:
   ```bash
-  ./gradlew --no-daemon --continue codeStructureCheck staticAnalysis
+  ./gradlew --no-daemon --build-cache --continue codeStructureCheck staticAnalysis --profile
   ```
 - **Toolchains de compilación**:
   - Requiere JDK 21 (compilación normal) y JDK 25 (analizador).
@@ -75,7 +78,7 @@ Garantiza que el comportamiento del sistema y los contratos HTTP e institucional
 
 ### C. Trabajo: Construcción y Publicación de Imágenes (`publish-image`)
 
-Se ejecuta únicamente tras aprobar el análisis estático y las pruebas en pushes a `staging`.
+Pertenece a **Deploy staging** y depende del job `ci`, que llama a las mismas validaciones de **CI**. Sólo se ejecuta por push a `staging` tras aprobar análisis estático y pruebas. El checkout y el tag `sha-<commit>` usan `github.sha`, el mismo commit validado, no el HEAD posterior de la rama.
 
 - **Imagen Docker multi-stage**:
   - Utiliza el target `prod` de [`Dockerfile`](../Dockerfile).
@@ -89,7 +92,7 @@ Se ejecuta únicamente tras aprobar el análisis estático y las pruebas en push
 
 ### D. Trabajo: Despliegue Continuo a Staging (`deploy-staging`)
 
-- Se activa tras la publicación de la imagen en pushes a `staging`.
+- Pertenece a **Deploy staging** y se activa tras la publicación de la imagen en pushes a `staging`.
 - Usa el GitHub Environment `staging` y sus secrets `DOKPLOY_URL`, `DOKPLOY_API_KEY` y `DOKPLOY_STAGING_COMPOSE_ID` para solicitar el despliegue por HTTPS a Dokploy; no entra por SSH.
 - Dokploy descarga las imágenes y ejecuta el Compose de staging de `boero-infra`, conservando los volúmenes existentes. El tag móvil `staging` identifica la última imagen publicada de esa rama; para fijar una versión se utiliza su tag `sha-<commit>` en Dokploy.
 - El job confirma una solicitud asíncrona, no la salud posterior ni un rollback automático. La operación, verificación y vuelta se documentan en [Staging con Dokploy](https://github.com/TypeItOrg/boero-infra/blob/main/docs/DOKPLOY-STAGING.md).
@@ -111,3 +114,24 @@ Antes de enviar un Pull Request, es recomendable ejecutar localmente los mismos 
 # 4. Tests de integración (si tocaste base de datos o migraciones)
 ./gradlew integrationTest
 ```
+
+## 4. Rendimiento sin reducir cobertura
+
+- Los runners se fijan en `ubuntu-24.04`; `upload-artifact` usa v7.0.2 (Node 24). El Node interno de una action no cambia el Java de la API.
+- `gradle/actions/setup-gradle@v6` reemplaza la caché de `setup-java`, sin mantener dos proveedores sobre el mismo directorio. Se selecciona `cache-provider: basic`: caché de GitHub, sin servicio comercial adicional ni Build Scans publicados.
+- `--build-cache` permite reutilizar compilación y otros outputs seguros. Las tareas `Test` tienen la caché de resultados desactivada: se ejecutan los tests de la suite elegida, incluidos PostgreSQL/Flyway cuando corresponden. No se modifican etiquetas, exclusiones, assertions, forks ni fixtures.
+- `--profile` genera el desglose de tareas. El artifact **backend-test-reports** conserva durante 7 días los XML JUnit, el HTML de tests y los perfiles Gradle, también cuando falla la suite.
+- La caché no conserva contextos Spring ni bases de Testcontainers entre jobs. Una ejecución fría puede seguir tardando más; no se promete una duración fija ni se omiten integraciones para obtener un CI verde.
+
+### Medición local del 2026-10-20
+
+En la misma copia aislada se comparó una ejecución completa sin build cache con otra desde `clean`, con la caché de compilación previamente poblada mediante `testClasses`:
+
+| Ejecución | Tiempo de pared | Casos / fallos / omitidos |
+| --- | --- | --- |
+| Base sin caché de compilación | 163,11 s | 1008 / 0 / 0 |
+| Caché de compilación caliente | 141,37 s | 1008 / 0 / 0 |
+
+La segunda ejecución restauró `compileJava` y `compileTestJava` (`FROM-CACHE`) y ejecutó `test` realmente. Se compararon todos los identificadores y estados JUnit: mismos 1008 casos, sin omisiones. La reducción observada fue 21,74 s (13,3 %); no incluye el coste inicial de poblar la caché y no garantiza ese porcentaje en los runners de GitHub.
+
+Las suites más lentas de la base fueron `AcademicCatalogAuditPostgresIntegrationTest` (18,47 s), `EnrollmentApplicationGuardianshipPostgresIntegrationTest` (8,49 s) y `EnversCoveragePostgresIntegrationTest` (7,08 s). Son candidatos para estudiar arranque de contextos y fixtures, no justificación para eliminar pruebas. No se cambió su aislamiento ni se habilitó paralelismo sobre bases compartidas.

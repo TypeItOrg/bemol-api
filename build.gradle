@@ -68,6 +68,8 @@ spotless {
 tasks.withType(Test).configureEach {
     useJUnitPlatform()
     maxHeapSize = '1g'
+    // Cache compilation, not the results of database and security tests.
+    outputs.cacheIf { false }
     testLogging {
         events = ['passed', 'skipped', 'failed']
         exceptionFormat = 'full'
