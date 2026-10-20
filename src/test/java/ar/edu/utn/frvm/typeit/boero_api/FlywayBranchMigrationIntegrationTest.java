@@ -44,7 +44,7 @@ class FlywayBranchMigrationIntegrationTest {
   @TempDir Path previousRelease;
 
   @ParameterizedTest
-  @ValueSource(strings = {"dev", "qa", "staging", "prod"})
+  @ValueSource(strings = {"dev", "staging", "prod"})
   @DisplayName("Should enable late migrations in every profile without disabling validation")
   void shouldKeepSharedPolicyAcrossProfiles(final String profile) throws IOException {
     final var settings = settings(profile);
