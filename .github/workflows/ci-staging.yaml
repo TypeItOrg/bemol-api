@@ -1,4 +1,4 @@
-name: CI
+name: CI and staging deployment
 
 on:
   pull_request:
@@ -104,9 +104,7 @@ jobs:
         run: ./gradlew --no-daemon spotlessCheck test
 
   publish-image:
-    if: >-
-      github.event_name == 'push' &&
-      (github.ref_name == 'develop' || github.ref_name == 'staging' || github.ref_name == 'main')
+    if: github.event_name == 'push' && github.ref_name == 'staging'
     needs: [static-analysis, test]
     runs-on: ubuntu-latest
     permissions:

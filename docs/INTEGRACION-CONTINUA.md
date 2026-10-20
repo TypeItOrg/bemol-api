@@ -4,10 +4,12 @@ Este documento detalla el flujo de integración continua, las puertas de calidad
 
 ## 1. Visión General del Pipeline
 
-El pipeline de CI está implementado mediante GitHub Actions en [`.github/workflows/ci.yaml`](../.github/workflows/ci.yaml) y se activa ante:
+El pipeline de CI está implementado mediante GitHub Actions en [`.github/workflows/ci-staging.yaml`](../.github/workflows/ci-staging.yaml) y se activa ante:
 
 - **Pull Requests** hacia las ramas `develop`, `staging` y `main`.
 - **Pushes** directos a `develop`, `staging` y `main`.
+
+En GitHub Actions aparece como **CI and staging deployment**. Las validaciones se ejecutan en las tres ramas; sólo un push a `staging` publica imágenes y solicita un despliegue. `develop` se ejecuta localmente: CI valida su código, pero no publica imágenes ni despliega un ambiente remoto. No hay workflow de despliegue a producción mientras ese ambiente no exista.
 
 El pipeline incluye control de concurrencia (`cancel-in-progress: true`), lo que cancela automáticamente ejecuciones previas de una misma rama ante nuevos commits para ahorrar recursos.
 
@@ -19,7 +21,8 @@ El flujo de trabajo se divide en cuatro trabajos principales:
 flowchart TD
     PR[Push / Pull Request] --> SA[Job: static-analysis]
     PR --> T[Job: test]
-    T --> PI[Job: publish-image\nSolo staging / main]
+    SA --> PI[Job: publish-image\nSolo push a staging]
+    T --> PI
     PI --> DS[Job: deploy-staging\nSolo push a staging]
 ```
 
@@ -29,7 +32,7 @@ Este trabajo valida la calidad del código, contratos de nulidad y detección te
 
 - **Comando**:
   ```bash
-  ./gradlew --no-daemon --continue staticAnalysis
+  ./gradlew --no-daemon --continue codeStructureCheck staticAnalysis
   ```
 - **Toolchains de compilación**:
   - Requiere JDK 21 (compilación normal) y JDK 25 (analizador).
@@ -57,7 +60,7 @@ Garantiza que el comportamiento del sistema y los contratos HTTP e institucional
        ./gradlew --no-daemon integrationTest
        ```
      - Si los cambios no afectan persistencia (por ejemplo, documentación o tests unitarios aislados), se omite la ejecución pesada de Testcontainers para acelerar el feedback del PR.
-- **Flujo en ramas `staging` y `main` (integración y publicación)**:
+- **Flujo en ramas `staging` y `main` (suite completa)**:
   - Ejecuta la suite completa sin omisiones:
     ```bash
     ./gradlew --no-daemon spotlessCheck test
@@ -72,7 +75,7 @@ Garantiza que el comportamiento del sistema y los contratos HTTP e institucional
 
 ### C. Trabajo: Construcción y Publicación de Imágenes (`publish-image`)
 
-Se ejecuta únicamente tras aprobar el trabajo de pruebas en pushes a `staging` o `main`.
+Se ejecuta únicamente tras aprobar el análisis estático y las pruebas en pushes a `staging`.
 
 - **Imagen Docker multi-stage**:
   - Utiliza el target `prod` de [`Dockerfile`](../Dockerfile).
@@ -82,17 +85,14 @@ Se ejecuta únicamente tras aprobar el trabajo de pruebas en pushes a `staging` 
   - Las imágenes se publican en GitHub Container Registry (`ghcr.io/typeitorg/boero-api`).
   - Se publican dos tags por imagen:
     1. Inmutable por commit: `ghcr.io/typeitorg/boero-api:sha-<commit_sha>`.
-    2. Móvil por rama: `ghcr.io/typeitorg/boero-api:staging` o `:main`.
+    2. Móvil de staging: `ghcr.io/typeitorg/boero-api:staging`.
 
 ### D. Trabajo: Despliegue Continuo a Staging (`deploy-staging`)
 
 - Se activa tras la publicación de la imagen en pushes a `staging`.
-- Conecta por SSH mediante clave privada a la VPS configurada en `boero-infra`.
-- Actualiza el contenedor del API pasando la versión inmutable:
-  ```bash
-  make deploy-api ENV=staging VERSION=sha-<commit_sha>
-  ```
-- El script de despliegue en infraestructura revierte automáticamente la versión anterior si el healthcheck de readiness falla.
+- Usa el GitHub Environment `staging` y sus secrets `DOKPLOY_URL`, `DOKPLOY_API_KEY` y `DOKPLOY_STAGING_COMPOSE_ID` para solicitar el despliegue por HTTPS a Dokploy; no entra por SSH.
+- Dokploy descarga las imágenes y ejecuta el Compose de staging de `boero-infra`, conservando los volúmenes existentes. El tag móvil `staging` identifica la última imagen publicada de esa rama; para fijar una versión se utiliza su tag `sha-<commit>` en Dokploy.
+- El job confirma una solicitud asíncrona, no la salud posterior ni un rollback automático. La operación, verificación y vuelta se documentan en [Staging con Dokploy](https://github.com/TypeItOrg/boero-infra/blob/main/docs/DOKPLOY-STAGING.md).
 
 ## 3. Verificaciones de Calidad Locales Recomendadas
 
