@@ -33,10 +33,14 @@ jobs:
             21
             25
 
-      - name: Set up Gradle cache
-        uses: gradle/actions/setup-gradle@v6
+      - name: Cache Gradle dependencies and compilation
+        uses: actions/cache@v5
         with:
-          cache-provider: basic
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ runner.os }}-${{ runner.arch }}-${{ github.job }}-${{ github.sha }}
+          restore-keys: gradle-${{ runner.os }}-${{ runner.arch }}-${{ github.job }}-
 
       - name: Check code structure, nullness and compiler warnings
         run: ./gradlew --no-daemon --build-cache --continue codeStructureCheck staticAnalysis --profile
@@ -67,10 +71,14 @@ jobs:
           distribution: temurin
           java-version: "21"
 
-      - name: Set up Gradle cache
-        uses: gradle/actions/setup-gradle@v6
+      - name: Cache Gradle dependencies and compilation
+        uses: actions/cache@v5
         with:
-          cache-provider: basic
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ runner.os }}-${{ runner.arch }}-${{ github.job }}-${{ github.sha }}
+          restore-keys: gradle-${{ runner.os }}-${{ runner.arch }}-${{ github.job }}-
 
       - name: Verify formatting and fast test suite
         if: >-

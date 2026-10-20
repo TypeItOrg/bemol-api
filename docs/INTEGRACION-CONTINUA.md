@@ -118,7 +118,7 @@ Antes de enviar un Pull Request, es recomendable ejecutar localmente los mismos 
 ## 4. Rendimiento sin reducir cobertura
 
 - Los runners se fijan en `ubuntu-24.04`; `upload-artifact` usa v7.0.2 (Node 24). El Node interno de una action no cambia el Java de la API.
-- `gradle/actions/setup-gradle@v6` reemplaza la caché de `setup-java`, sin mantener dos proveedores sobre el mismo directorio. Se selecciona `cache-provider: basic`: caché de GitHub, sin servicio comercial adicional ni Build Scans publicados.
+- `actions/cache@v5` conserva dependencias, compilación de scripts y build cache de Gradle. La clave incluye sistema, arquitectura, job y commit; el prefijo permite restaurar la entrada previa del mismo job y guardar outputs nuevos después de cada commit exitoso. Reemplaza la caché de `setup-java`, sin dos proveedores sobre el mismo directorio ni servicios comerciales o Build Scans. Gradle valida los inputs de cada tarea antes de reutilizar sus outputs; una entrada de caché no salta tests.
 - `--build-cache` permite reutilizar compilación y otros outputs seguros. Las tareas `Test` tienen la caché de resultados desactivada: se ejecutan los tests de la suite elegida, incluidos PostgreSQL/Flyway cuando corresponden. No se modifican etiquetas, exclusiones, assertions, forks ni fixtures.
 - `--profile` genera el desglose de tareas. El artifact **backend-test-reports** conserva durante 7 días los XML JUnit, el HTML de tests y los perfiles Gradle, también cuando falla la suite.
 - La caché no conserva contextos Spring ni bases de Testcontainers entre jobs. Una ejecución fría puede seguir tardando más; no se promete una duración fija ni se omiten integraciones para obtener un CI verde.
