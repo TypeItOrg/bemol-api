@@ -146,21 +146,20 @@ jobs:
     permissions:
       contents: read
     steps:
-      - name: Configure SSH
+      - name: Request staging deployment
         env:
-          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
-          DEPLOY_SSH_KNOWN_HOSTS: ${{ secrets.DEPLOY_SSH_KNOWN_HOSTS }}
+          DOKPLOY_URL: ${{ secrets.DOKPLOY_URL }}
+          DOKPLOY_API_KEY: ${{ secrets.DOKPLOY_API_KEY }}
+          DOKPLOY_STAGING_COMPOSE_ID: ${{ secrets.DOKPLOY_STAGING_COMPOSE_ID }}
         run: |
-          install -m 700 -d ~/.ssh
-          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
-          chmod 600 ~/.ssh/deploy_key
-          printf '%s\n' "$DEPLOY_SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          : "${DOKPLOY_URL:?Missing DOKPLOY_URL}"
+          : "${DOKPLOY_API_KEY:?Missing DOKPLOY_API_KEY}"
+          : "${DOKPLOY_STAGING_COMPOSE_ID:?Missing DOKPLOY_STAGING_COMPOSE_ID}"
 
-      - name: Deploy API to staging
-        env:
-          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
-          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
-          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
-        run: |
-          ssh -p "$DEPLOY_PORT" -i ~/.ssh/deploy_key "$DEPLOY_USER@$DEPLOY_HOST" \
-            "cd /opt/boero-infra && flock /tmp/boero-infra-git.lock git pull --ff-only && make deploy-api ENV=staging VERSION=sha-${{ github.sha }}"
+          curl --proto '=https' --fail --silent --show-error --max-time 60 \
+            --request POST "${DOKPLOY_URL%/}/api/compose.deploy" \
+            --header "x-api-key: $DOKPLOY_API_KEY" \
+            --header 'Content-Type: application/json' \
+            --data "$(jq -n --arg composeId "$DOKPLOY_STAGING_COMPOSE_ID" \
+              --arg title "$GITHUB_REPOSITORY@$GITHUB_SHA" '{composeId: $composeId, title: $title}')" \
+            --output /dev/null
