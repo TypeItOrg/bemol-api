@@ -58,12 +58,6 @@ public record CreateGuardianDependentRequest(
             && birthDate != null);
   }
 
-  @AssertTrue(
-      message = "La invitación de acceso propio se gestiona después de aprobar la vinculación.")
-  public boolean isOwnAccessSeparate() {
-    return requestMode == null || (!ownAccessRequested && email == null);
-  }
-
   public CreateGuardianDependentRequest(
       String documentNumber,
       String firstName,
