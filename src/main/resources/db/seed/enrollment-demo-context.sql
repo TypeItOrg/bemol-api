@@ -2,8 +2,6 @@
 \set ON_ERROR_STOP on
 BEGIN;
 SET LOCAL lock_timeout = '10s';
--- Keep the original lock also used by older versions of the seed/repair command.
-SELECT pg_advisory_xact_lock(hashtext('boero:enrollment-demo:v1'));
 SELECT pg_advisory_xact_lock(hashtext('bemol:enrollment-demo:v1'));
 CREATE TEMP TABLE seed_context (
     institution_id uuid NOT NULL, dataset text NOT NULL,

@@ -1,19 +1,6 @@
 -- Enrollment dataset loader. Configuration and fixtures are supplied by run.sh.
 -- Atomic, explicit execution only. No Flyway migration and no startup hook.
 -- Run with the shared IDs and catalog scripts through make seed-demo.
--- These legacy hash inputs detect unsafe pre-registry fixtures; never replace them.
-DO $$
-BEGIN
-    IF EXISTS (SELECT 1 FROM people WHERE institution_id = (SELECT institution_id FROM seed_context) AND person_id = md5('boero:enrollment-demo:v1:person:1')::uuid)
-       OR EXISTS (SELECT 1 FROM training_paths p JOIN seed_programs s
-                  ON p.training_path_id = md5('boero:enrollment:official-2025:path:' || s.code)::uuid
-                  WHERE p.institution_id = (SELECT institution_id FROM seed_context))
-       OR EXISTS (SELECT 1 FROM study_plans WHERE institution_id = (SELECT institution_id FROM seed_context) AND study_plan_id IN (
-                  md5('boero:enrollment-demo:v1:plan:1')::uuid, md5('boero:enrollment-demo:v1:plan:2')::uuid)) THEN
-        RAISE EXCEPTION 'Hay IDs del seed anterior. Se requiere revisar y migrar esos identificadores antes de cargar; no se modificaron datos.';
-    END IF;
-END $$;
-
 DO $$
 DECLARE
     tenant uuid := (SELECT institution_id FROM seed_context);

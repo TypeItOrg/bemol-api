@@ -8,7 +8,7 @@ fi
 
 : "${SEED_INSTITUTION:?Indicar SEED_INSTITUTION con el código de la institución destino}"
 SEED_YEAR=${SEED_YEAR:-$(date +%Y)}
-# The ID registry migrates earlier dataset names without changing business UUIDs.
+# Keep one stable dataset identity across reruns.
 seed_dataset=bemol-2025
 SEED_TIMEZONE=${SEED_TIMEZONE:-America/Argentina/Cordoba}
 SEED_TRANSPORT=${SEED_TRANSPORT:-compose}
