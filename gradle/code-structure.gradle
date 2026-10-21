@@ -3,19 +3,19 @@
 def sourceRoot = file('src/main/java')
 def defaultLineLimit = 250
 def exceptions = [
-    'ar/edu/utn/frvm/typeit/boero_api/authorization/enums/PermissionCode.java': [
+    'ar/edu/utn/frvm/typeit/bemol_api/authorization/enums/PermissionCode.java': [
         limit: 589,
         reason: 'Single permission catalog: enum identity and exhaustive switches stay together.'
     ],
-    'ar/edu/utn/frvm/typeit/boero_api/enrollment/entities/EnrollmentApplication.java': [
+    'ar/edu/utn/frvm/typeit/bemol_api/enrollment/entities/EnrollmentApplication.java': [
         limit: 457,
         reason: 'JPA aggregate mapping and intrinsic lifecycle invariants stay in the entity.'
     ],
-    'ar/edu/utn/frvm/typeit/boero_api/enrollment/interfaces/EnrollmentApplicationRepository.java': [
+    'ar/edu/utn/frvm/typeit/bemol_api/enrollment/interfaces/EnrollmentApplicationRepository.java': [
         limit: 269,
         reason: 'Repository queries keep the applicant and active guardianship access projections together.'
     ],
-    'ar/edu/utn/frvm/typeit/boero_api/enrollment/services/EnrollmentApplicationService.java': [
+    'ar/edu/utn/frvm/typeit/bemol_api/enrollment/services/EnrollmentApplicationService.java': [
         limit: 942,
         reason: 'Enrollment orchestration currently coordinates legacy drafts, course periods and guardianship access.'
     ]

@@ -1,7 +1,7 @@
 services:
   dev:
-    container_name: boero-api-dev
-    image: boero-api:dev
+    container_name: bemol-api-dev
+    image: bemol-api:dev
     build:
       context: .
       dockerfile: Dockerfile
@@ -29,14 +29,14 @@ services:
       MAIL_PASSWORD: ${MAIL_PASSWORD:-}
       MAIL_SMTP_AUTH: ${MAIL_SMTP_AUTH:-false}
       MAIL_SMTP_STARTTLS: ${MAIL_SMTP_STARTTLS:-false}
-      MAIL_FROM: ${MAIL_FROM:-no-reply@boero.local}
+      MAIL_FROM: ${MAIL_FROM:-no-reply@bemol.local}
       PASSWORD_RECOVERY_FRONTEND_URL: ${PASSWORD_RECOVERY_FRONTEND_URL:-http://localhost:3000}
       EMAIL_VERIFICATION_FRONTEND_URL: ${EMAIL_VERIFICATION_FRONTEND_URL:-${PASSWORD_RECOVERY_FRONTEND_URL:-http://localhost:3000}}
       EMAIL_VERIFICATION_TOKEN_EXPIRATION: ${EMAIL_VERIFICATION_TOKEN_EXPIRATION:-24h}
       EMAIL_VERIFICATION_RESEND_INTERVAL: ${EMAIL_VERIFICATION_RESEND_INTERVAL:-60s}
       PASSWORD_RECOVERY_TOKEN_EXPIRATION: ${PASSWORD_RECOVERY_TOKEN_EXPIRATION:-30m}
       WEBAUTHN_RP_ID: ${WEBAUTHN_RP_ID:-localhost}
-      WEBAUTHN_RP_NAME: ${WEBAUTHN_RP_NAME:-Boero}
+      WEBAUTHN_RP_NAME: ${WEBAUTHN_RP_NAME:-Bemol}
       WEBAUTHN_ALLOWED_ORIGINS: ${WEBAUTHN_ALLOWED_ORIGINS:-http://localhost:3000}
       WEBAUTHN_CHALLENGE_TTL: ${WEBAUTHN_CHALLENGE_TTL:-PT5M}
       WEBAUTHN_LOGIN_ATTEMPT_TTL: ${WEBAUTHN_LOGIN_ATTEMPT_TTL:-PT5M}
@@ -80,7 +80,7 @@ services:
           path: ./docker
 
   redis:
-    container_name: boero-api-redis-dev
+    container_name: bemol-api-redis-dev
     image: redis:7-alpine
     command: ["redis-server", "--save", "", "--appendonly", "no"]
     logging:
@@ -96,14 +96,14 @@ services:
       start_period: 5s
 
   mailpit:
-    container_name: boero-api-mailpit-dev
+    container_name: bemol-api-mailpit-dev
     image: axllent/mailpit:v1.24
     ports:
       - "1025:1025"
       - "8025:8025"
 
   postgres:
-    container_name: boero-api-postgres-dev
+    container_name: bemol-api-postgres-dev
     image: postgres:18-alpine
     command: ["/bin/sh", "/usr/local/bin/postgres-entrypoint.sh"]
     environment:

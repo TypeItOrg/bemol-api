@@ -1,0 +1,15 @@
+package ar.edu.utn.frvm.typeit.bemol_api.institutional.exceptions;
+
+import ar.edu.utn.frvm.typeit.bemol_api.common.exceptions.ApplicationException;
+import ar.edu.utn.frvm.typeit.bemol_api.common.exceptions.ErrorCategory;
+
+public class GuardianLinkAttachmentNotFoundException extends ApplicationException {
+  private static final long serialVersionUID = 1L;
+
+  public GuardianLinkAttachmentNotFoundException() {
+    super(
+        ErrorCategory.NOT_FOUND,
+        InstitutionMessages.GUARDIAN_LINK_ATTACHMENT_NOT_FOUND,
+        "GUARDIAN_LINK_ATTACHMENT_NOT_FOUND");
+  }
+}

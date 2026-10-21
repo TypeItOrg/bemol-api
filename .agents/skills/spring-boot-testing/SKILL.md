@@ -1,9 +1,9 @@
 ---
 name: spring-boot-testing
-description: Design, implement or diagnose requested Boero API tests with the existing Gradle and fixture setup.
+description: Design, implement or diagnose requested Bemol API tests with the existing Gradle and fixture setup.
 ---
 
-# Boero API testing
+# Bemol API testing
 
 Use Boot-managed JUnit Jupiter, Mockito and the existing fixtures; resolve versions and task configuration from `build.gradle`. This skill does not authorize adding or running tests, starting databases, or changing dependencies beyond the user's request.
 
@@ -23,7 +23,7 @@ Read only the reference needed:
 | Requested Spring Boot test migration | [Boot 4 migration](references/sb4-migration.md) |
 | Deliberate use of an existing fixture-generation dependency | [Instancio](references/instancio.md) |
 
-Use fixtures under `src/test/java/ar/edu/utn/frvm/typeit/boero_api/support` and feature-specific test factories. Keep lifecycle dates, identifiers and tenant relationships deterministic; avoid reflection and business logic in tests.
+Use fixtures under `src/test/java/ar/edu/utn/frvm/typeit/bemol_api/support` and feature-specific test factories. Keep lifecycle dates, identifiers and tenant relationships deterministic; avoid reflection and business logic in tests.
 
 When execution is authorized, use the narrowest relevant Gradle task: `fastTest` excludes integration tests; `integrationTest` selects `@IntegrationTest` cases; `test` runs the complete suite. Use `--tests` for a focused class/method. Check configuration before assuming isolation from external systems.
 

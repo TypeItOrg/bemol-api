@@ -1,6 +1,6 @@
 # INTEGRACIÓN CONTINUA Y CALIDAD (CI)
 
-Este documento detalla el flujo de integración continua, las puertas de calidad automatizadas, el análisis estático y el empaquetado de artefactos del backend de Boero.
+Este documento detalla el flujo de integración continua, las puertas de calidad automatizadas, el análisis estático y el empaquetado de artefactos del backend de Bemol.
 
 ## 1. Visión General del Pipeline
 

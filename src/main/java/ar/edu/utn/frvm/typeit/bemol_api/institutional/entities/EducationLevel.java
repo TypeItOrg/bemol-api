@@ -1,0 +1,12 @@
+package ar.edu.utn.frvm.typeit.bemol_api.institutional.entities;
+
+public enum EducationLevel {
+  PRIMARY_INCOMPLETE,
+  PRIMARY_COMPLETE,
+  SECONDARY_INCOMPLETE,
+  SECONDARY_COMPLETE,
+  TERTIARY_INCOMPLETE,
+  TERTIARY_COMPLETE,
+  UNIVERSITY_INCOMPLETE,
+  UNIVERSITY_COMPLETE
+}

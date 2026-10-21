@@ -1,9 +1,9 @@
 ---
 name: java-springboot
-description: Resolve Boero API design questions about entity, use-case, persistence or HTTP responsibility.
+description: Resolve Bemol API design questions about entity, use-case, persistence or HTTP responsibility.
 ---
 
-# Boero API design
+# Bemol API design
 
 Use the relevant domain, persistence or HTTP section of [the repository contract](../../../AGENTS.md) and adjacent implementation to resolve the responsibility in question. Routine Java edits do not need a design review.
 

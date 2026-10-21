@@ -1,6 +1,6 @@
 # ARQUITECTURA DEL SISTEMA
 
-Este documento describe los principios arquitectónicos, la estructura modular y las decisiones técnicas fundamentales de la API de Boero.
+Este documento describe los principios arquitectónicos, la estructura modular y las decisiones técnicas fundamentales de la API de Bemol.
 
 ## 1. Stack Tecnológico
 
@@ -14,7 +14,7 @@ Este documento describe los principios arquitectónicos, la estructura modular y
 
 ## 2. Organización Modular por Features
 
-El código fuente (`ar.edu.utn.frvm.typeit.boero_api`) se estructura por dominio funcional en lugar de agrupar por capas técnicas horizontales:
+El código fuente (`ar.edu.utn.frvm.typeit.bemol_api`) se estructura por dominio funcional en lugar de agrupar por capas técnicas horizontales:
 
 | Módulo | Responsabilidad |
 |---|---|
@@ -95,3 +95,9 @@ Para profundizar en la implementación de cada subsistema:
 - [Módulo Académico](academic/OPERACIONES-DESTRUCTIVAS.md).
 - [Módulo de Inscripciones](enrollment/FLUJO-INSCRIPCION-CURSOS.md).
 - [Almacenamiento S3 y Local](storage/ALMACENAMIENTO-S3.md).
+
+## Nombre de la aplicación
+
+La aplicación se llama **Bemol**. Los identificadores operativos anteriores se
+conservan cuando son necesarios para acceder a recursos existentes. Consultar
+la guía `boero-infra/docs/RENOMBRE-BEMOL.md` antes de renombrar recursos persistentes.

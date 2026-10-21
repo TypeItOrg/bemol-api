@@ -1,10 +1,10 @@
 # REGISTRO Y TRAZABILIDAD (LOGS)
 
-Este documento define la política de logging, la correlación de solicitudes y las restricciones de seguridad aplicadas en la API de Boero.
+Este documento define la política de logging, la correlación de solicitudes y las restricciones de seguridad aplicadas en la API de Bemol.
 
 ## 1. Filosofía de Logging
 
-El registro de logs en Boero tiene como objetivo proveer observabilidad operativa y diagnóstica precisa sin comprometer datos sensibles ni degradar el rendimiento:
+El registro de logs en Bemol tiene como objetivo proveer observabilidad operativa y diagnóstica precisa sin comprometer datos sensibles ni degradar el rendimiento:
 
 - **Sin ruido innecesario**: Los errores funcionales esperados no generan stack traces en consola.
 - **Trazabilidad de punta a punta**: Cada acción se correlaciona con una petición HTTP mediante un identificador único.
@@ -12,7 +12,7 @@ El registro de logs en Boero tiene como objetivo proveer observabilidad operativ
 
 ## 2. Trazabilidad con `RequestLoggingFilter`
 
-La clase `RequestLoggingFilter` (`ar.edu.utn.frvm.typeit.boero_api.common.logging.RequestLoggingFilter`) gestiona la correlación de cada petición:
+La clase `RequestLoggingFilter` (`ar.edu.utn.frvm.typeit.bemol_api.common.logging.RequestLoggingFilter`) gestiona la correlación de cada petición:
 
 1. **Extracción y Validación de ID**:
    - Inspecciona la cabecera HTTP `X-Request-Id` de la petición.

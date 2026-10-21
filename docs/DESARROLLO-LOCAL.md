@@ -1,6 +1,6 @@
 # DESARROLLO LOCAL Y ENTORNOS
 
-Esta guía describe cómo configurar, ejecutar y operar el entorno de desarrollo local para el backend de Boero.
+Esta guía describe cómo configurar, ejecutar y operar el entorno de desarrollo local para el backend de Bemol.
 
 ## 1. Responsabilidades y Alcance
 
@@ -41,7 +41,7 @@ Una vez iniciado el entorno, los siguientes servicios quedan disponibles en `loc
 
 | Servicio | Puerto Local | Descripción |
 |---|---|---|
-| **Boero API** | `8080` | Endpoint HTTP de la aplicación (`http://localhost:8080`). |
+| **Bemol API** | `8080` | Endpoint HTTP de la aplicación (`http://localhost:8080`). |
 | **PostgreSQL** | `5432` | Base de datos relacional (`boero_db`, usuario `boero`, clave `boero`). |
 | **Redis** | `6379` | Almacenamiento en memoria para tokens, sesiones y rate limiting. |
 | **Mailpit (Web)** | `8025` | Interfaz web para inspeccionar correos salientes (`http://localhost:8025`). |
@@ -51,17 +51,17 @@ Una vez iniciado el entorno, los siguientes servicios quedan disponibles en `loc
 
 El archivo `compose.yaml` orquesta cuatro servicios interconectados a través de la red `boero-api-network-dev`:
 
-1. **`dev` (`boero-api-dev`)**:
+1. **`dev` (`bemol-api-dev`)**:
    - Contenedor que ejecuta la aplicación Spring Boot mediante el target `dev` del Dockerfile.
    - Monta el volumen de caché de Gradle (`gradle-cache`) y el volumen persistente de almacenamiento local (`boero-api-storage-dev` en `/workspace/storage`).
    - Posee reglas de `develop.watch`: sincroniza cambios en `src/` automáticamente hacia el contenedor e inicia un rebuild ante modificaciones en dependencias (`build.gradle`, `settings.gradle`, etc.).
-2. **`postgres` (`boero-api-postgres-dev`)**:
+2. **`postgres` (`bemol-api-postgres-dev`)**:
    - PostgreSQL 18 sobre Alpine Linux.
    - Ejecuta un script de inicialización (`docker/postgres-entrypoint.sh`) que prepara las extensiones y la base de datos de desarrollo.
    - Posee healthcheck configurado con `pg_isready`.
-3. **`redis` (`boero-api-redis-dev`)**:
+3. **`redis` (`bemol-api-redis-dev`)**:
    - Redis 7 sobre Alpine Linux, configurado sin persistencia en disco para optimizar velocidad de reinicio local.
-4. **`mailpit` (`boero-api-mailpit-dev`)**:
+4. **`mailpit` (`bemol-api-mailpit-dev`)**:
    - Atrapa todos los emails de verificación de cuentas y recuperación de contraseñas para permitir pruebas locales seguras.
 
 ## 5. Migraciones de Base de Datos (Flyway)

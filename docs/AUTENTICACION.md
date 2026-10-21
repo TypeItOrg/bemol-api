@@ -1,10 +1,10 @@
 # AUTENTICACIÓN Y AUTORIZACIÓN
 
-Este documento describe el modelo de seguridad, los mecanismos de autenticación dual, el ciclo de vida de tokens y la gestión de permisos dinámicos en Boero.
+Este documento describe el modelo de seguridad, los mecanismos de autenticación dual, el ciclo de vida de tokens y la gestión de permisos dinámicos en Bemol.
 
 ## 1. Visión General de Seguridad
 
-Boero implementa una arquitectura de seguridad diseñada para entornos educativos multitenant:
+Bemol implementa una arquitectura de seguridad diseñada para entornos educativos multitenant:
 
 - **Autenticación Dual**: Separa completamente las cuentas institucionales de las cuentas administrativas globales de la plataforma.
 - **Protocolo Stateless con Control de Sesión**: Los endpoints se autentican mediante JSON Web Tokens (JWT) sin estado HTTP, pero el sistema mantiene el control de sesiones activas en base de datos (`UserSession`) y revocación en Redis.
@@ -35,7 +35,7 @@ graph TD
   2. `POST /api/v1/auth/login/password` o WebAuthn: Valida la credencial contra el intento activo, genera la sesión y emite los tokens.
 
 ### B. Cuentas de Plataforma (`PlatformAccount`)
-- **Público**: Administradores y operadores globales del sistema Boero.
+- **Público**: Administradores y operadores globales del sistema Bemol.
 - **Credenciales**: Correo electrónico + Contraseña.
 - **Flujo de Acceso**:
   - `POST /api/v1/platform/auth/login`: Autenticación directa por email y contraseña. No pertenecen a ninguna institución escolar específica.
@@ -65,7 +65,7 @@ graph TD
 
 ## 4. Passkeys y WebAuthn
 
-Boero soporta autenticación FIDO2 / WebAuthn como alternativa moderna y resistente al phishing:
+Bemol soporta autenticación FIDO2 / WebAuthn como alternativa moderna y resistente al phishing:
 - Registro de múltiples llaves de seguridad o datos biométricos por cuenta (`WEBAUTHN_MAX_PASSKEYS`).
 - Desafíos criptográficos unívocos con tiempo de expiración acotado (`WEBAUTHN_CHALLENGE_TTL`).
 - Validación de contadores de uso de credenciales para detectar clonación de hardware.

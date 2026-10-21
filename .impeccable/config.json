@@ -10,7 +10,7 @@
           "src/main/resources/templates/mail/person-access-invitation.html"
         ],
         "createdAt": "2026-10-16T19:11:38.981Z",
-        "reason": "Agent verified: Thymeleaf th:src resolves logoUrl through FrontendAccessUrls.boeroLogoUrl; isolated render assertion passed with the actual logo URL."
+        "reason": "Agent verified: Thymeleaf th:src resolves logoUrl through FrontendAccessUrls.institutionLogoUrl; isolated render assertion passed with the actual logo URL."
       },
       {
         "rule": "overused-font",
