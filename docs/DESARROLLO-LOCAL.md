@@ -136,6 +136,28 @@ El archivo [`Makefile`](../Makefile) centraliza los atajos más frecuentes de Do
 | `make test` | Ejecuta la suite de pruebas mediante Gradle. |
 | `make seed-demo` | Carga el dataset demo de inscripciones en la base de datos. |
 
+### Escenario conectado del seed
+
+`SEED_INSTITUTION=<código> SEED_YEAR=2026 make seed-demo` agrega a Mariana Suárez
+dos personas a cargo con vínculos activos: Lucía Ferreyra, postulante con solicitud
+enviada al CAVI, y Camila Roldán, estudiante con solicitud aprobada y tres cursadas
+del CAVB instrumental (Lenguaje Musical, Ensamble y Piano). Las cursadas reutilizan
+comisiones, docentes y horarios existentes; incluyen el turno individual y sus
+historiales, sin superposiciones. Ambas solicitudes tienen un PDF real de presentación
+musical; el de Lucía está pendiente de revisión y el de Camila está aceptado.
+
+El seed es aditivo y transaccional, fuera de Flyway. Los IDs son estables por
+institución/dataset y las solicitudes existentes no se reinician al repetirlo.
+No reemplaza contraseñas, permisos ni archivos. Requiere almacenamiento local:
+con Compose copia los PDFs al servicio `SEED_API_SERVICE` (default `dev`); con
+`SEED_TRANSPORT=psql` indicar `SEED_STORAGE_DIR`, el directorio de la API accesible
+desde la shell. `COMPOSE_FILE` y `COMPOSE_ENV_FILES` permiten seleccionar los
+archivos de infraestructura al ejecutarlo explícitamente en un entorno compartido.
+Los PDFs se preparan antes de la transacción; si SQL falla, pueden quedar estos
+dos archivos de muestra sin referencias, pero no registros parciales en la base.
+Hacer backup e inventario antes de ejecutarlo sobre una base persistente; no usar
+`reset-data` para ampliar una demo existente.
+
 ## 7. Relación con Staging y Producción
 
 - La preparación de imágenes de producción (`ghcr.io/typeitorg/boero-api`) se realiza a través de CI.

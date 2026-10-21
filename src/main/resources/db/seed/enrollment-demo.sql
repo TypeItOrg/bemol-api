@@ -255,5 +255,3 @@ BEGIN
         END LOOP;
     END LOOP;
 END $$;
-COMMIT;
-\echo 'Carga completada. Los registros existentes no se sobrescribieron.'

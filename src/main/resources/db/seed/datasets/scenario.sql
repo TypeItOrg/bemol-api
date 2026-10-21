@@ -53,3 +53,14 @@ INSERT INTO seed_instrument_groups VALUES ('harmonic', 'Piano'), ('harmonic', 'G
 
 CREATE TEMP TABLE seed_shifts (name text PRIMARY KEY) ON COMMIT DROP;
 INSERT INTO seed_shifts VALUES ('Mañana'), ('Tarde'), ('Vespertino');
+
+CREATE TEMP TABLE seed_dependents (
+    member_number integer PRIMARY KEY REFERENCES seed_members,
+    tutor_number integer NOT NULL REFERENCES seed_members,
+    reviewer_number integer NOT NULL REFERENCES seed_members,
+    program text NOT NULL REFERENCES seed_programs,
+    application_status text NOT NULL CHECK (application_status IN ('SUBMITTED', 'APPROVED'))
+) ON COMMIT DROP;
+INSERT INTO seed_dependents VALUES
+    (1, 7, 8, 'cavi', 'SUBMITTED'),
+    (3, 7, 8, 'cavb-instrumento', 'APPROVED');
