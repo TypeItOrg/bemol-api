@@ -4,6 +4,7 @@ import static ar.edu.utn.frvm.typeit.bemol_api.support.InstitutionalTestData.cre
 import static ar.edu.utn.frvm.typeit.bemol_api.support.InstitutionalTestData.persist;
 import static ar.edu.utn.frvm.typeit.bemol_api.support.InstitutionalTestData.person;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.entities.PersonRoleAssignment;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.entities.Role;
@@ -11,22 +12,49 @@ import ar.edu.utn.frvm.typeit.bemol_api.authorization.enums.RoleScope;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.enums.SystemRoleCode;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.entities.Institution;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.entities.Person;
+import ar.edu.utn.frvm.typeit.bemol_api.support.IntegrationTest;
 import ar.edu.utn.frvm.typeit.bemol_api.support.JpaAuditingTestConfig;
+import ar.edu.utn.frvm.typeit.bemol_api.support.PostgresTestDatabase;
 import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
+import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase;
 import org.springframework.context.annotation.Import;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
+import org.testcontainers.junit.jupiter.Testcontainers;
 
-@DataJpaTest
+@DataJpaTest(
+    properties = {
+      "spring.flyway.enabled=true",
+      "spring.flyway.locations=classpath:db/migration",
+      "spring.flyway.sql-migration-prefix=",
+      "spring.jpa.hibernate.ddl-auto=validate"
+    })
+@AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
 @Import(JpaAuditingTestConfig.class)
-class PersonRepositoryTest {
+@Testcontainers
+@IntegrationTest
+class PersonRepositoryPostgresIntegrationTest {
+
+  private static final PostgresTestDatabase POSTGRES =
+      new PostgresTestDatabase("postgres:18-alpine", "institutional_people_repository");
 
   @Autowired private EntityManager entityManager;
   @Autowired private PersonRepository personRepository;
+
+  @DynamicPropertySource
+  static void databaseProperties(final DynamicPropertyRegistry registry) {
+    registry.add("spring.datasource.url", POSTGRES::getJdbcUrl);
+    registry.add("spring.datasource.username", POSTGRES::getUsername);
+    registry.add("spring.datasource.password", POSTGRES::getPassword);
+    registry.add("spring.datasource.driver-class-name", () -> "org.postgresql.Driver");
+  }
 
   @Test
   @DisplayName("Should find person by document number within institution")
@@ -72,6 +100,25 @@ class PersonRepositoryTest {
     assertThat(
             personRepository.findByDocumentNumberAndInstitution_Id("12345678", institution.getId()))
         .contains(active);
+    assertThat(
+            personRepository.findWithDetailsByIdAndInstitution_Id(
+                deleted.getId(), institution.getId()))
+        .contains(deleted);
+  }
+
+  @Test
+  void rejectsDuplicateActiveDocumentsInTheSameInstitutionButAllowsOtherInstitutions() {
+    final Institution institution = createInstitution(entityManager, "duplicate-document");
+    final Institution otherInstitution = createInstitution(entityManager, "foreign-document");
+    persist(entityManager, person(institution, "12345678"));
+    persist(entityManager, person(otherInstitution, "12345678"));
+    entityManager.flush();
+
+    persist(entityManager, person(institution, "12345678"));
+
+    assertThatThrownBy(entityManager::flush)
+        .isInstanceOf(PersistenceException.class)
+        .hasStackTraceContaining("people_active_document_number_unique");
   }
 
   @Test
@@ -101,6 +148,7 @@ class PersonRepositoryTest {
         persist(
             entityManager,
             Role.builder()
+                .institution(boero)
                 .code(SystemRoleCode.TEACHER.name())
                 .name(SystemRoleCode.TEACHER.getDisplayName())
                 .scope(RoleScope.INSTITUTION)

@@ -59,38 +59,6 @@ class LogoutUseCaseTest {
   }
 
   @Test
-  @DisplayName("Should close the session even when the access token is already expired")
-  void execute_closesSessionWhenTokenIsExpired() {
-    UUID sessionId = UUID.randomUUID();
-    var principal = institutionalPrincipal(UUID.randomUUID(), UUID.randomUUID(), sessionId);
-    UserSession session = activeSession(sessionId);
-
-    when(userSessionRepository.findById(sessionId)).thenReturn(Optional.of(session));
-
-    logoutUseCase.execute(principal, "expired-token");
-
-    verify(accessTokenRevocationService).revoke("expired-token");
-    verify(refreshTokenRepository).revokeBySessionId(sessionId);
-    assertThat(session.isActive()).isFalse();
-  }
-
-  @Test
-  @DisplayName("Should close the session even when the access token is invalid")
-  void execute_closesSessionWhenTokenIsInvalid() {
-    UUID sessionId = UUID.randomUUID();
-    var principal = institutionalPrincipal(UUID.randomUUID(), UUID.randomUUID(), sessionId);
-    UserSession session = activeSession(sessionId);
-
-    when(userSessionRepository.findById(sessionId)).thenReturn(Optional.of(session));
-
-    logoutUseCase.execute(principal, "garbage");
-
-    verify(accessTokenRevocationService).revoke("garbage");
-    verify(refreshTokenRepository).revokeBySessionId(sessionId);
-    assertThat(session.isActive()).isFalse();
-  }
-
-  @Test
   @DisplayName("Should revoke refresh tokens even when the session record is not found")
   void execute_handlesAlreadyClosedSessionGracefully() {
     UUID sessionId = UUID.randomUUID();

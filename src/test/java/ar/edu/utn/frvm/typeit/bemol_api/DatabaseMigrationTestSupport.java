@@ -21,7 +21,7 @@ import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.utility.DockerImageName;
 
 @SpringBootTest
-@Testcontainers(disabledWithoutDocker = true)
+@Testcontainers
 @IntegrationTest
 public abstract class DatabaseMigrationTestSupport {
 

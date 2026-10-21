@@ -100,11 +100,23 @@ class MailAuditPostgresIntegrationTest extends DatabaseMigrationTestSupport {
   void auditsAllCommittedMailFlowsWithCapturedContextAndSearchableSafeMetadata() throws Exception {
     authenticatePlatformAdministrator();
     final var principal = requireNonNull(SecurityContextHolder.getContext().getAuthentication());
+    final String recipient = UUID.randomUUID() + "@example.test";
     doAnswer(
             ignored -> {
               assertThat(Thread.currentThread().getName()).startsWith("mail-");
               assertThat(SecurityContextHolder.getContext().getAuthentication()).isNull();
               assertThat(MDC.get(RequestLoggingFilter.MDC_REQUEST_ID_KEY)).isNull();
+              final MimeMessage message = ignored.getArgument(0);
+              message.saveChanges();
+              assertThat(message.getFrom())
+                  .extracting(address -> requireNonNull(address).toString())
+                  .containsExactly("no-reply@example.test");
+              assertThat(message.getAllRecipients())
+                  .extracting(address -> requireNonNull(address).toString())
+                  .containsExactly(recipient);
+              assertThat(message.getSubject()).isNotBlank();
+              assertThat(message.isMimeType("text/html")).isTrue();
+              assertThat(message.getContent().toString()).contains(TOKEN);
               return null;
             })
         .when(smtp)
@@ -113,7 +125,6 @@ class MailAuditPostgresIntegrationTest extends DatabaseMigrationTestSupport {
     final UUID personId = UUID.randomUUID();
     fixtures.insertPerson(personId, institutionId, fixtures.randomDocumentNumber(), false);
     final String requestId = "mail-" + UUID.randomUUID();
-    final String recipient = UUID.randomUUID() + "@example.test";
     MDC.put(RequestLoggingFilter.MDC_REQUEST_ID_KEY, requestId);
     final var institution = Institution.builder().id(institutionId).name("Institución").build();
     final var person =

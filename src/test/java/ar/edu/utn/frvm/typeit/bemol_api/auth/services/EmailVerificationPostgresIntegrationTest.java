@@ -63,7 +63,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
   InstitutionalEmailVerificationUseCase.class,
   ResetInstitutionalPasswordUseCase.class
 })
-@Testcontainers(disabledWithoutDocker = true)
+@Testcontainers
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
 @IntegrationTest
 class EmailVerificationPostgresIntegrationTest {

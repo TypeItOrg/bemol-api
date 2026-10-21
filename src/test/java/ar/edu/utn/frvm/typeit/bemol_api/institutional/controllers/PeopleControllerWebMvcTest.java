@@ -416,32 +416,6 @@ class PeopleControllerWebMvcTest {
   }
 
   @Test
-  @DisplayName("Should return 204 on idempotent delete (already deleted)")
-  void deletePerson_isIdempotent() throws Exception {
-    var authentication = new TestingAuthenticationToken(platformPrincipal(PLATFORM_ACCOUNT_ID), "");
-    SecurityContextHolder.getContext().setAuthentication(authentication);
-    stubPlatformAdminAccess(true);
-
-    mockMvc
-        .perform(
-            delete(
-                    "/api/v1/admin/institutions/{institutionId}/people/{personId}",
-                    INSTITUTION_ID,
-                    PERSON_ID)
-                .principal(authentication))
-        .andExpect(status().isNoContent());
-
-    mockMvc
-        .perform(
-            delete(
-                    "/api/v1/admin/institutions/{institutionId}/people/{personId}",
-                    INSTITUTION_ID,
-                    PERSON_ID)
-                .principal(authentication))
-        .andExpect(status().isNoContent());
-  }
-
-  @Test
   @DisplayName("Should return 404 when deleting person from another institution")
   void deletePerson_returns404ForCrossTenant() throws Exception {
     var authentication = new TestingAuthenticationToken(platformPrincipal(PLATFORM_ACCOUNT_ID), "");

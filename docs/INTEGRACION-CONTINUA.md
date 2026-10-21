@@ -71,6 +71,10 @@ Garantiza que el comportamiento del sistema y los contratos HTTP e institucional
 
 #### Fixtures y contratos de error
 
+- Priorizar recorridos funcionales HTTP + casos de uso + PostgreSQL/Flyway para persistencia, permisos, aislamiento institucional y operaciones destructivas. H2 y repositorios mockeados no demuestran restricciones ni bloqueos de PostgreSQL.
+- Conservar tests unitarios cuando ejercitan reglas de negocio, algoritmos o límites de seguridad reales. No duplicar respuestas preparadas en mocks ni presentar variaciones del mismo stub como escenarios distintos.
+- La suite completa y `integrationTest` requieren Docker disponible: las integraciones deben fallar, no omitirse silenciosamente, si no pueden levantar su infraestructura temporal. Para trabajar sin Docker, usar `fastTest` sin presentarlo como validación completa.
+
 - `FlywayBranchMigrationIntegrationTest` reproduce el historial de staging hasta `20261011033241` sin las cinco migraciones de responsables/auditoría integradas después. Verifica la actualización fuera de orden sobre PostgreSQL, la conservación de personas, alumnos, vínculos e historial previo, la equivalencia de columnas con una instalación nueva y el rechazo de checksums alterados. Es un caso de regresión versionado, no una copia de los datos reales de staging ni una garantía para cualquier historial futuro.
 
 - Las entidades creadas con fábricas de dominio no reciben un UUID hasta su persistencia. En tests unitarios que simulan entidades persistidas, usar un `spy` con `doReturn(id).when(entity).getId()` cuando el caso de uso consulta ese identificador; mantener los argumentos exactos de los mocks y la validación estricta de Mockito.

@@ -59,32 +59,6 @@ class CreateAcademicSpaceUseCaseTest {
   }
 
   @Test
-  @DisplayName("Should allow the same name and type when the format differs")
-  void allowsSameNameAndTypeWhenFormatDiffers() {
-    final UUID institutionId = UUID.randomUUID();
-    final var institution = Institution.builder().id(institutionId).build();
-    given(institutionRepository.findById(institutionId)).willReturn(Optional.of(institution));
-    given(
-            academicSpaceRepository.existsByNormalizedNameAndTypeAndFormat(
-                institutionId, "Programación", "SUBJECT", "GRUPAL"))
-        .willReturn(false);
-    given(academicSpaceRepository.save(any(AcademicSpace.class)))
-        .willAnswer(invocation -> invocation.getArgument(0));
-
-    final var response =
-        new CreateAcademicSpaceUseCase(
-                org.mockito.Mockito.mock(AuditEventRecorder.class),
-                academicSpaceRepository,
-                institutionRepository)
-            .execute(
-                institutionId,
-                new CreateAcademicSpaceRequest(
-                    "Programación", null, AcademicSpaceType.SUBJECT, AcademicSpaceFormat.GRUPAL));
-
-    assertThat(response.name()).isEqualTo("Programación");
-  }
-
-  @Test
   @DisplayName("Should reject a duplicate name for the same type and format")
   void rejectsDuplicateNameTypeAndFormat() {
     final UUID institutionId = UUID.randomUUID();

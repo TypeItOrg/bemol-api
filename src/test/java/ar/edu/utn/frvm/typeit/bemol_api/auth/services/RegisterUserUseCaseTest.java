@@ -3,7 +3,6 @@ package ar.edu.utn.frvm.typeit.bemol_api.auth.services;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -108,29 +107,6 @@ class RegisterUserUseCaseTest {
   }
 
   @Test
-  @DisplayName("Should assign APPLICANT role after registering a person")
-  void execute_assignsApplicantRole() {
-    UUID institutionId = UUID.randomUUID();
-    RegisterRequest request =
-        new RegisterRequest(
-            "Ana",
-            "Garcia",
-            LocalDate.of(2010, 1, 1),
-            "12345678",
-            "ana@example.com",
-            "password123",
-            institutionId);
-
-    stubSuccessfulRegistration(institutionId, "password123", "encoded-hash");
-
-    registerUserUseCase.execute(request);
-
-    var personCaptor = ArgumentCaptor.forClass(Person.class);
-    verify(assignPersonSystemRoleUseCase)
-        .execute(personCaptor.capture(), eq(SystemRoleCode.APPLICANT), eq(false));
-  }
-
-  @Test
   @DisplayName("Should encode the password before saving the user")
   void execute_encodesPasswordBeforeSaving() {
     UUID institutionId = UUID.randomUUID();
@@ -209,34 +185,6 @@ class RegisterUserUseCaseTest {
 
   @Test
   @DisplayName(
-      "Should throw when a person with the same document already exists in the institution")
-  void execute_throwsWhenPersonAlreadyExistsInInstitution() {
-    UUID institutionId = UUID.randomUUID();
-    RegisterRequest request =
-        new RegisterRequest(
-            "Ana",
-            "Garcia",
-            LocalDate.of(2010, 1, 1),
-            "12345678",
-            "ana@example.com",
-            "password123",
-            institutionId);
-    Institution institution = institutionWith(institutionId);
-
-    when(institutionRepository.findById(institutionId)).thenReturn(Optional.of(institution));
-    when(personRepository.existsByDocumentNumberAndInstitution_Id("12345678", institutionId))
-        .thenReturn(true);
-
-    assertThatThrownBy(() -> registerUserUseCase.execute(request))
-        .isInstanceOf(UserAlreadyExistsException.class);
-
-    verify(personRepository, never()).save(any());
-    verify(userRepository, never()).save(any());
-    verify(assignPersonSystemRoleUseCase, never()).execute(any(), any());
-  }
-
-  @Test
-  @DisplayName(
       "Should reject public registration of an existing person without creating an account")
   void execute_rejectsExistingPersonWithoutAccount() {
     UUID institutionId = UUID.randomUUID();
@@ -265,33 +213,6 @@ class RegisterUserUseCaseTest {
         validator,
         assignPersonSystemRoleUseCase,
         emailVerification);
-  }
-
-  @Test
-  @DisplayName("Should reject existing person registration regardless of the supplied birth date")
-  void execute_rejectsExistingPersonWithDifferentBirthDate() {
-    UUID institutionId = UUID.randomUUID();
-    RegisterRequest request =
-        new RegisterRequest(
-            "Ana",
-            "Garcia",
-            LocalDate.of(2011, 1, 1),
-            "12345678",
-            "new@example.com",
-            "password123",
-            institutionId);
-    Institution institution = institutionWith(institutionId);
-    when(institutionRepository.findById(institutionId)).thenReturn(Optional.of(institution));
-    when(personRepository.existsByDocumentNumberAndInstitution_Id(
-            request.documentNumber(), institutionId))
-        .thenReturn(true);
-
-    assertThatThrownBy(() -> registerUserUseCase.execute(request))
-        .isInstanceOf(UserAlreadyExistsException.class);
-
-    verify(personRepository, never()).save(any());
-    verify(userRepository, never()).save(any());
-    verify(assignPersonSystemRoleUseCase, never()).executePreservingRoles(any(), any());
   }
 
   @Test

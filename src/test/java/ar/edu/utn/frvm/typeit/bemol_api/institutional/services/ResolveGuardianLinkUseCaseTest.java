@@ -99,6 +99,8 @@ class ResolveGuardianLinkUseCaseTest {
     assertThat(response.status()).isEqualTo(GuardianLinkStatus.ACTIVE);
     verify(assignPersonSystemRoleUseCase)
         .executePreservingRoles(link.getDependentPerson(), SystemRoleCode.APPLICANT);
+    verify(assignPersonSystemRoleUseCase, never())
+        .execute(any(Person.class), any(SystemRoleCode.class), anyBoolean());
     verify(auditEventRecorder)
         .recordCurrentActor(
             institution,
@@ -108,20 +110,6 @@ class ResolveGuardianLinkUseCaseTest {
             link.getId(),
             AuditOrigin.INSTITUTIONAL_ADMINISTRATION,
             Map.of());
-  }
-
-  @Test
-  @DisplayName("Should delegate role preservation to the institution-locked assigner")
-  void approve_requestsRolePreservation() {
-    givenPendingLinkAndReviewer();
-
-    useCase.approve(institution.getId(), reviewer.getId(), linkId);
-
-    assertThat(link.getStatus()).isEqualTo(GuardianLinkStatus.ACTIVE);
-    verify(assignPersonSystemRoleUseCase)
-        .executePreservingRoles(link.getDependentPerson(), SystemRoleCode.APPLICANT);
-    verify(assignPersonSystemRoleUseCase, never())
-        .execute(any(Person.class), any(SystemRoleCode.class), anyBoolean());
   }
 
   @Test

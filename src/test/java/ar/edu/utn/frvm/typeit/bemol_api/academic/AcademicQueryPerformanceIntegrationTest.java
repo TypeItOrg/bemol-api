@@ -85,7 +85,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
       "logging.level.org.hibernate.engine.internal.StatisticalLoggingSessionEventListener=OFF"
     })
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
-@Testcontainers(disabledWithoutDocker = true)
+@Testcontainers
 @IntegrationTest
 @Import({
   JpaAuditingConfig.class,

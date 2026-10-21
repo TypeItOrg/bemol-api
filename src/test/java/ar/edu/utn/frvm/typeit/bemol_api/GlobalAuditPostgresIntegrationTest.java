@@ -8,7 +8,10 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditAction;
+import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditEntityType;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditModule;
+import ar.edu.utn.frvm.typeit.bemol_api.audit.services.AuditEventRecorder;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.events.InstitutionalEmailVerificationRequested;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.filters.JwtAuthenticatedUser;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.payloads.requests.ConfirmEmailVerificationRequest;
@@ -28,6 +31,7 @@ import ar.edu.utn.frvm.typeit.bemol_api.authorization.payloads.ReplacePersonRole
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.services.InstitutionRoleManagementService;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.services.ReplacePersonRolesUseCase;
 import ar.edu.utn.frvm.typeit.bemol_api.common.mail.MailSender;
+import ar.edu.utn.frvm.typeit.bemol_api.institutional.entities.Institution;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.payloads.person.CreatePersonRequest;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.payloads.person.UpdatePersonByAdminRequest;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.payloads.person.UpdatePersonRequest;
@@ -38,6 +42,7 @@ import ar.edu.utn.frvm.typeit.bemol_api.institutional.services.UpdatePersonByAdm
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.services.UpdatePersonUseCase;
 import ar.edu.utn.frvm.typeit.bemol_api.support.AuthTestData;
 import ar.edu.utn.frvm.typeit.bemol_api.support.IntegrationTest;
+import jakarta.persistence.EntityManager;
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -88,6 +93,8 @@ class GlobalAuditPostgresIntegrationTest extends DatabaseMigrationTestSupport {
   @Autowired UpdatePlatformAccountStatusUseCase platformAccess;
   @Autowired TransactionTemplate transaction;
   @Autowired ApplicationEvents events;
+  @Autowired AuditEventRecorder auditRecorder;
+  @Autowired EntityManager entityManager;
   @MockitoBean MailSender mailSender;
 
   @Test
@@ -713,18 +720,29 @@ class GlobalAuditPostgresIntegrationTest extends DatabaseMigrationTestSupport {
 
   @Test
   void protectsEveryAdminEndpointAndPreservesTheInstitutionalContract() throws Exception {
-    final UUID institution = UUID.randomUUID(), actor = UUID.randomUUID();
+    final UUID institution = UUID.randomUUID(),
+        actor = UUID.randomUUID(),
+        subject = UUID.randomUUID();
     fixtures.insertTestInstitution(institution);
+    fixtures.insertPerson(actor, institution, fixtures.randomDocumentNumber(), false);
+    fixtures.insertPerson(subject, institution, fixtures.randomDocumentNumber(), false);
+    jdbcTemplate.update(
+        "UPDATE people SET first_name = 'Mateo', last_name = 'Delgado' WHERE person_id = ?",
+        subject);
+    final UUID entity = UUID.randomUUID();
+    transaction.executeWithoutResult(
+        ignored ->
+            auditRecorder.record(
+                entityManager.getReference(Institution.class, institution),
+                actor,
+                subject,
+                AuditAction.ENROLLMENT_APPLICATION_SUBMITTED,
+                AuditEntityType.ENROLLMENT_APPLICATION,
+                entity));
     final UUID legacy =
-        insertEvent(
-            institution,
-            "INSTITUTION",
-            actor,
-            null,
-            actor,
-            "ENROLLMENT_APPLICATION_SUBMITTED",
-            "ENROLLMENT_APPLICATION",
-            "compat-audit");
+        requireNonNull(
+            jdbcTemplate.queryForObject(
+                "SELECT audit_event_id FROM audit_events WHERE entity_id = ?", UUID.class, entity));
     insertEvent(
         institution,
         "PLATFORM",
@@ -766,7 +784,16 @@ class GlobalAuditPostgresIntegrationTest extends DatabaseMigrationTestSupport {
     final var response = asAdmin(get("/api/v1/institutions/" + institution + "/audit-events"));
     assertThat(response.get("totalItems").asInt()).isEqualTo(1);
     assertThat(response.at("/items/0/actorPersonId").asString()).isEqualTo(actor.toString());
-    assertThat(response.at("/items/0/subjectPersonId").asString()).isEqualTo(actor.toString());
+    assertThat(response.at("/items/0/subjectPersonId").asString()).isEqualTo(subject.toString());
+    assertThat(response.at("/items/0/actorName").asString()).isEqualTo("Ana Garcia");
+    assertThat(response.at("/items/0/subjectName").asString()).isEqualTo("Mateo Delgado");
+    assertThat(response.at("/items/0/actedOnBehalf").asBoolean()).isTrue();
+    jdbcTemplate.update("DELETE FROM people WHERE person_id = ?", subject);
+    final var historical = asAdmin(get("/api/v1/institutions/" + institution + "/audit-events"));
+    assertThat(historical.get("totalItems").asInt()).isEqualTo(1);
+    assertThat(historical.at("/items/0/actorPersonId").asString()).isEqualTo(actor.toString());
+    assertThat(historical.at("/items/0/actorName").asString()).isEqualTo("Ana Garcia");
+    assertThat(historical.at("/items/0/subjectName").isNull()).isTrue();
     mvc.perform(get(BASE).param("actorId", actor.toString()).with(authentication(admin())))
         .andExpect(status().isBadRequest());
     mvc.perform(

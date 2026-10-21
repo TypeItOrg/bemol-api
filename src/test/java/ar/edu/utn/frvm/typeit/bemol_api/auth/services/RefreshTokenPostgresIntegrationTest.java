@@ -50,7 +50,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
   RefreshTokenGenerator.class,
   JpaAuditingTestConfig.class
 })
-@Testcontainers(disabledWithoutDocker = true)
+@Testcontainers
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
 @IntegrationTest
 class RefreshTokenPostgresIntegrationTest {

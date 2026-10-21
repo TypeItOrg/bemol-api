@@ -15,7 +15,9 @@ import ar.edu.utn.frvm.typeit.bemol_api.academic.enums.RequirementType;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.services.ScopedAuthorizationService;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.entities.Institution;
 import ar.edu.utn.frvm.typeit.bemol_api.support.InstitutionalTestData;
+import ar.edu.utn.frvm.typeit.bemol_api.support.IntegrationTest;
 import ar.edu.utn.frvm.typeit.bemol_api.support.JpaAuditingTestConfig;
+import ar.edu.utn.frvm.typeit.bemol_api.support.PostgresTestDatabase;
 import jakarta.persistence.EntityManager;
 import java.time.LocalDate;
 import org.jspecify.annotations.Nullable;
@@ -24,15 +26,38 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
+import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase;
 import org.springframework.context.annotation.Import;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.testcontainers.junit.jupiter.Testcontainers;
 
-@DataJpaTest
+@DataJpaTest(
+    properties = {
+      "spring.flyway.enabled=true",
+      "spring.flyway.locations=classpath:db/migration,classpath:db/dev",
+      "spring.flyway.sql-migration-prefix=",
+      "spring.jpa.hibernate.ddl-auto=validate"
+    })
+@AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
+@Testcontainers
+@IntegrationTest
 @Import(JpaAuditingTestConfig.class)
-class AcademicOfferRepositoryTest {
+class AcademicOfferPostgresIntegrationTest {
 
   private static final LocalDate TODAY = LocalDate.of(2026, 9, 8);
+  private static final PostgresTestDatabase DATABASE =
+      new PostgresTestDatabase("postgres:18-alpine", "academic_offer_queries");
+
+  @DynamicPropertySource
+  static void databaseProperties(final DynamicPropertyRegistry registry) {
+    registry.add("spring.datasource.url", DATABASE::getJdbcUrl);
+    registry.add("spring.datasource.username", DATABASE::getUsername);
+    registry.add("spring.datasource.password", DATABASE::getPassword);
+    registry.add("spring.datasource.driver-class-name", () -> "org.postgresql.Driver");
+  }
 
   @Autowired private EntityManager entityManager;
   @Autowired private StudyPlanRepository studyPlanRepository;

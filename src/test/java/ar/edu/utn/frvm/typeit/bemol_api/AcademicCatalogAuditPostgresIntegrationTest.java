@@ -3,8 +3,14 @@ package ar.edu.utn.frvm.typeit.bemol_api;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.anonymous;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import ar.edu.utn.frvm.typeit.bemol_api.academic.enums.AcademicSpaceFormat;
@@ -42,13 +48,17 @@ import ar.edu.utn.frvm.typeit.bemol_api.academic.services.UpdateTrainingPathUseC
 import ar.edu.utn.frvm.typeit.bemol_api.auth.filters.JwtAuthenticatedUser;
 import ar.edu.utn.frvm.typeit.bemol_api.common.mail.MailSender;
 import ar.edu.utn.frvm.typeit.bemol_api.common.storage.StorageService;
+import ar.edu.utn.frvm.typeit.bemol_api.support.AuthTestData;
 import ar.edu.utn.frvm.typeit.bemol_api.support.IntegrationTest;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.http.MediaType;
 import org.springframework.security.authentication.TestingAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
@@ -81,6 +91,159 @@ class AcademicCatalogAuditPostgresIntegrationTest extends DatabaseMigrationTestS
   @Autowired ObjectMapper json;
   @MockitoBean MailSender mailSender;
   @MockitoSpyBean StorageService storageService;
+
+  @ParameterizedTest
+  @ValueSource(strings = {"/api/v1/admin/institutions", "/api/v1/institutions"})
+  void shiftHttpLifecyclePersistsChangesAndEnforcesValidationTenantAndUniqueness(
+      final String routePrefix) throws Exception {
+    authenticatePlatformAdministrator();
+    final var admin = requireNonNull(SecurityContextHolder.getContext().getAuthentication());
+    final UUID institution = UUID.randomUUID(), otherInstitution = UUID.randomUUID();
+    fixtures.insertTestInstitution(institution);
+    fixtures.insertTestInstitution(otherInstitution);
+    final String base = routePrefix + "/" + institution + "/shifts";
+
+    mvc.perform(get(base).with(anonymous())).andExpect(status().isUnauthorized());
+    mvc.perform(
+            get(base)
+                .with(
+                    authentication(
+                        new TestingAuthenticationToken(
+                            AuthTestData.platformPrincipal(UUID.randomUUID()), "", "ROLE_USER"))))
+        .andExpect(status().isForbidden());
+    mvc.perform(
+            post(base)
+                .with(authentication(admin))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"name\":\" \"}"))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.fieldErrors.name").exists());
+    mvc.perform(
+            post(routePrefix + "/{id}/shifts", UUID.randomUUID())
+                .with(authentication(admin))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"name\":\"Turno mañana\"}"))
+        .andExpect(status().isNotFound());
+
+    final var created =
+        json.readTree(
+            mvc.perform(
+                    post(base)
+                        .with(authentication(admin))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"  Turno   mañana  \",\"description\":\"De 8 a 12\"}"))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.name").value("Turno mañana"))
+                .andExpect(jsonPath("$.institutionId").value(institution.toString()))
+                .andExpect(jsonPath("$.active").value(true))
+                .andReturn()
+                .getResponse()
+                .getContentAsString());
+    final UUID shift = UUID.fromString(created.path("id").asString());
+    final String resource = base + "/" + shift;
+    mvc.perform(get(resource).with(authentication(admin)))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.description").value("De 8 a 12"));
+    mvc.perform(
+            post(base)
+                .with(authentication(admin))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"name\":\"turno manana\"}"))
+        .andExpect(status().isConflict())
+        .andExpect(jsonPath("$.fieldErrors.name").exists());
+    mvc.perform(
+            put(resource)
+                .with(authentication(admin))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"name\":\"Turno mañana\",\"description\":\"Horario ampliado\"}"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.description").value("Horario ampliado"));
+    mvc.perform(
+            put(resource)
+                .with(authentication(admin))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"name\":\" Turno   tarde \",\"description\":\"De 13 a 17\"}"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.name").value("Turno tarde"));
+
+    createShift.execute(institution, new CreateShiftRequest("Turno noche", null));
+    createShift.execute(otherInstitution, new CreateShiftRequest("Turno tarde", null));
+    mvc.perform(
+            put(resource)
+                .with(authentication(admin))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"name\":\"Turno noche\"}"))
+        .andExpect(status().isConflict());
+    mvc.perform(
+            get(routePrefix + "/{id}/shifts/{shift}", otherInstitution, shift)
+                .with(authentication(admin)))
+        .andExpect(status().isNotFound());
+    final String missing = base + "/" + UUID.randomUUID();
+    mvc.perform(get(missing).with(authentication(admin))).andExpect(status().isNotFound());
+    mvc.perform(
+            put(missing)
+                .with(authentication(admin))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"name\":\"Turno faltante\"}"))
+        .andExpect(status().isNotFound());
+    mvc.perform(
+            patch(missing + "/status")
+                .with(authentication(admin))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"active\":false}"))
+        .andExpect(status().isNotFound());
+
+    mvc.perform(
+            get(base)
+                .with(authentication(admin))
+                .param("search", "  tarde ")
+                .param("active", "true"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.totalItems").value(1))
+        .andExpect(jsonPath("$.items[0].id").value(shift.toString()));
+    mvc.perform(delete(resource).with(authentication(admin))).andExpect(status().isConflict());
+    mvc.perform(get(resource).with(authentication(admin)))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.name").value("Turno tarde"))
+        .andExpect(jsonPath("$.active").value(true));
+    mvc.perform(
+            patch(resource + "/status")
+                .with(authentication(admin))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"active\":false}"))
+        .andExpect(status().isNoContent());
+    mvc.perform(
+            get(base).with(authentication(admin)).param("search", "tarde").param("active", "true"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.totalItems").value(0));
+    mvc.perform(
+            get(base).with(authentication(admin)).param("search", "tarde").param("active", "false"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.items[0].id").value(shift.toString()));
+
+    mvc.perform(delete(resource).with(authentication(admin))).andExpect(status().isNoContent());
+    mvc.perform(get(resource).with(authentication(admin))).andExpect(status().isNotFound());
+    mvc.perform(get(base).with(authentication(admin)).param("search", "tarde"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.totalItems").value(0));
+    mvc.perform(
+            get(base).with(authentication(admin)).param("search", "tarde").param("deleted", "true"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.items[0].id").value(shift.toString()))
+        .andExpect(jsonPath("$.items[0].active").value(false));
+    mvc.perform(post(resource + "/restore").with(authentication(admin)))
+        .andExpect(status().isNoContent());
+    mvc.perform(get(resource).with(authentication(admin)))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.name").value("Turno tarde"))
+        .andExpect(jsonPath("$.active").value(false));
+    assertThat(
+            jdbcTemplate.queryForMap(
+                "SELECT name, active, deleted_at FROM shifts WHERE shift_id = ?", shift))
+        .containsEntry("name", "Turno tarde")
+        .containsEntry("active", false)
+        .containsEntry("deleted_at", null);
+  }
 
   @Test
   void auditsCatalogLifecycleEffectiveChangesPrivacyRollbackAndTenantFilters() throws Exception {

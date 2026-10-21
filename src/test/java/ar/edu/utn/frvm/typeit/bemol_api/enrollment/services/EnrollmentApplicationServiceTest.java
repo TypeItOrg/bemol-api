@@ -29,10 +29,8 @@ import ar.edu.utn.frvm.typeit.bemol_api.audit.services.AuditEventRecorder;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.interfaces.PersonRoleAssignmentRepository;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.services.ScopedAuthorizationService;
 import ar.edu.utn.frvm.typeit.bemol_api.common.time.BusinessDateProvider;
-import ar.edu.utn.frvm.typeit.bemol_api.common.web.PaginatedResponse;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.entities.ApplicantEducationBackground;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.entities.ApplicantPreference;
-import ar.edu.utn.frvm.typeit.bemol_api.enrollment.entities.ApplicantResponsible;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.entities.EnrollmentApplication;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.entities.EnrollmentApplicationSpace;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.entities.EnrollmentPeriod;
@@ -77,10 +75,7 @@ import org.mockito.ArgumentMatchers;
 import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.data.domain.PageImpl;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.jpa.domain.Specification;
 
 @ExtendWith(MockitoExtension.class)
 @SuppressWarnings("null")
@@ -244,29 +239,6 @@ class EnrollmentApplicationServiceTest {
                     new StartEnrollmentApplicationRequest(path.getId(), null, null)))
         .isInstanceOf(EnrollmentPeriodClosedException.class);
     verify(applicationRepository, never()).saveAndFlush(any());
-  }
-
-  @Test
-  @DisplayName("Should start a new draft when only a submitted application exists for the path")
-  void startOrGetApplication_allowsNewDraftAfterSubmitted() {
-    final var path = givenAvailableTrainingPath();
-    when(applicationRepository.findDraftsForTrainingPathAndAcademicYear(
-            institutionId, personId, path.getId(), academicYearId, Pageable.ofSize(1)))
-        .thenReturn(List.of());
-    when(applicationRepository.saveAndFlush(any(EnrollmentApplication.class)))
-        .thenAnswer(invocation -> invocation.getArgument(0));
-
-    final var response =
-        service.startOrGetApplication(
-            institutionId,
-            personId,
-            new StartEnrollmentApplicationRequest(path.getId(), null, null));
-
-    assertThat(response.getStatus()).isEqualTo(EnrollmentApplicationStatus.DRAFT);
-    verify(applicationRepository)
-        .findDraftsForTrainingPathAndAcademicYear(
-            institutionId, personId, path.getId(), academicYearId, Pageable.ofSize(1));
-    verify(applicationRepository).saveAndFlush(any(EnrollmentApplication.class));
   }
 
   @Test
@@ -718,52 +690,6 @@ class EnrollmentApplicationServiceTest {
   }
 
   @Test
-  @DisplayName("Should not require an own email to submit a minor's application")
-  void submitApplication_minorWithoutEmail_doesNotRequireEmail() {
-    Person person = Mockito.mock(Person.class);
-    // The caller (personId) is the tutor; the applicant is a different person.
-    when(person.getId()).thenReturn(UUID.randomUUID());
-    when(person.getFirstName()).thenReturn("Mateo");
-    when(person.getLastName()).thenReturn("González");
-    when(person.getDocumentNumber()).thenReturn("54123456");
-    when(person.getBirthDate()).thenReturn(LocalDate.now(CLOCK).minusYears(8));
-
-    Institution institution = Mockito.mock(Institution.class);
-    StudyPlan studyPlan = Mockito.mock(StudyPlan.class);
-    AcademicYear academicYear = Mockito.mock(AcademicYear.class);
-    EnrollmentPeriod period = Mockito.mock(EnrollmentPeriod.class);
-
-    EnrollmentApplication application =
-        EnrollmentApplication.builder()
-            .id(applicationId)
-            .institution(institution)
-            .applicantPerson(person)
-            .studyPlan(studyPlan)
-            .academicYear(academicYear)
-            .enrollmentPeriod(period)
-            .educationBackground(
-                ApplicantEducationBackground.builder().secondarySchool("Escuela 1").build())
-            .preference(ApplicantPreference.builder().preferredShift("TARDE").build())
-            .responsible(
-                ApplicantResponsible.builder()
-                    .fullName("Carlos González")
-                    .documentNumber("35123456")
-                    .phoneNumber("3534112233")
-                    .build())
-            .status(EnrollmentApplicationStatus.DRAFT)
-            .build();
-    StudyPlanSpace selectedStudyPlanSpace = Mockito.mock(StudyPlanSpace.class);
-    application.addSelectedSpace(
-        EnrollmentApplicationSpace.builder().studyPlanSpace(selectedStudyPlanSpace).build());
-
-    when(applicationRepository.findAccessibleForUpdate(applicationId, personId))
-        .thenReturn(Optional.of(application));
-
-    assertThatThrownBy(() -> service.submitApplication(personId, applicationId))
-        .isInstanceOf(EnrollmentValidationException.class);
-  }
-
-  @Test
   @DisplayName("Should require at least one selected course to submit")
   void submitApplication_requiresSelectedCourses() {
     Person person = Mockito.mock(Person.class);
@@ -844,9 +770,11 @@ class EnrollmentApplicationServiceTest {
       "Should throw EnrollmentValidationException when a minor applicant has no responsible/tutor data")
   void submitApplication_minorWithoutResponsible_reportsError() {
     Person person = Mockito.mock(Person.class);
+    when(person.getId()).thenReturn(UUID.randomUUID());
     when(person.getFirstName()).thenReturn("Juan");
     when(person.getLastName()).thenReturn("Pérez");
     when(person.getDocumentNumber()).thenReturn("12345678");
+    when(person.getBirthDate()).thenReturn(LocalDate.of(2018, 1, 1));
 
     ApplicantEducationBackground edu =
         ApplicantEducationBackground.builder().secondarySchool("Colegio San Martín").build();
@@ -877,7 +805,7 @@ class EnrollmentApplicationServiceTest {
   @DisplayName("Should reject a minor who applies for themself")
   void submitApplication_selfServiceMinor_reportsError() {
     assertBirthDateError(
-        personId, LocalDate.now().minusYears(16), EnrollmentMessages.APPLICANT_MUST_BE_ADULT);
+        personId, LocalDate.now(CLOCK).minusYears(16), EnrollmentMessages.APPLICANT_MUST_BE_ADULT);
   }
 
   @Test
@@ -926,56 +854,6 @@ class EnrollmentApplicationServiceTest {
         .satisfies(
             fieldErrors ->
                 assertThat(fieldErrors).containsEntry("personalData.birthDate", expectedMessage));
-  }
-
-  @Test
-  @DisplayName("Should list applications paginated for institutional admin")
-  void listApplications_success() {
-    Institution institution = Mockito.mock(Institution.class);
-    when(institution.getId()).thenReturn(institutionId);
-
-    Person person = Mockito.mock(Person.class);
-    when(person.getId()).thenReturn(personId);
-
-    StudyPlan studyPlan = Mockito.mock(StudyPlan.class);
-    when(studyPlan.getId()).thenReturn(studyPlanId);
-
-    AcademicYear academicYear = Mockito.mock(AcademicYear.class);
-    when(academicYear.getId()).thenReturn(academicYearId);
-
-    EnrollmentPeriod period =
-        EnrollmentPeriod.builder()
-            .id(periodId)
-            .institution(institution)
-            .academicYear(academicYear)
-            .build();
-
-    EnrollmentApplication application =
-        EnrollmentApplication.builder()
-            .id(applicationId)
-            .institution(institution)
-            .applicantPerson(person)
-            .studyPlan(studyPlan)
-            .academicYear(academicYear)
-            .enrollmentPeriod(period)
-            .status(EnrollmentApplicationStatus.SUBMITTED)
-            .build();
-
-    PageImpl<EnrollmentApplication> page = new PageImpl<>(List.of(application));
-    when(applicationRepository.findAll(
-            ArgumentMatchers.<Specification<EnrollmentApplication>>any(), any(Pageable.class)))
-        .thenReturn(page);
-
-    PaginatedResponse<EnrollmentApplicationResponse> response =
-        service.listApplications(
-            institutionId,
-            periodId,
-            EnrollmentApplicationStatus.SUBMITTED,
-            null,
-            PageRequest.of(0, 10));
-
-    assertThat(response.items()).hasSize(1);
-    assertThat(response.items().get(0).getApplicationId()).isEqualTo(applicationId);
   }
 
   @Test

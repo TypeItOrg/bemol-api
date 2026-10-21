@@ -67,7 +67,7 @@ import tools.jackson.databind.node.JsonNodeFactory;
   RenamePasskeyUseCase.class,
   VerifyPasskeyRegistrationUseCase.class
 })
-@Testcontainers(disabledWithoutDocker = true)
+@Testcontainers
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
 @IntegrationTest
 class PasskeyConcurrencyPostgresIntegrationTest {

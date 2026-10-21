@@ -59,7 +59,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.utility.DockerImageName;
 import tools.jackson.databind.JsonNode;
 
-@Testcontainers(disabledWithoutDocker = true)
+@Testcontainers
 @IntegrationTest
 class RecentAuthCeremonyIntegrationTest {
 

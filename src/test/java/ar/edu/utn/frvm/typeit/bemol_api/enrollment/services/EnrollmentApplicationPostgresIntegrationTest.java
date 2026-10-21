@@ -33,6 +33,7 @@ import ar.edu.utn.frvm.typeit.bemol_api.institutional.entities.Person;
 import ar.edu.utn.frvm.typeit.bemol_api.support.InstitutionalTestData;
 import ar.edu.utn.frvm.typeit.bemol_api.support.IntegrationTest;
 import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceException;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
@@ -54,7 +55,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
  * (mockear la Specification con any() nunca ejecuta el predicate).
  */
 @SpringBootTest
-@Testcontainers(disabledWithoutDocker = true)
+@Testcontainers
 @IntegrationTest
 class EnrollmentApplicationPostgresIntegrationTest extends DatabaseMigrationTestSupport {
 
@@ -134,7 +135,9 @@ class EnrollmentApplicationPostgresIntegrationTest extends DatabaseMigrationTest
             .studyPlanSpace(studyPlanSpace)
             .build());
 
-    assertThatThrownBy(entityManager::flush).isInstanceOf(RuntimeException.class);
+    assertThatThrownBy(entityManager::flush)
+        .isInstanceOf(PersistenceException.class)
+        .hasStackTraceContaining("enrollment_app_spaces_app_space_unique");
   }
 
   @Test
@@ -190,15 +193,22 @@ class EnrollmentApplicationPostgresIntegrationTest extends DatabaseMigrationTest
 
   @Test
   @Transactional
-  @DisplayName("Should reject submission when no study plan space was selected")
-  void submitApplication_withoutSelectedSpaces_throwsValidationException() {
+  @DisplayName("Should reject submission without selected courses and preserve the draft")
+  void submitApplication_withoutSelectedCourses_preservesDraft() {
     EnrollmentApplication application = createDraftApplication();
 
     assertThatThrownBy(
             () ->
                 service.submitApplication(
                     application.getApplicantPerson().getId(), application.getId()))
-        .isInstanceOf(EnrollmentValidationException.class);
+        .isInstanceOfSatisfying(
+            EnrollmentValidationException.class,
+            error -> assertThat(error.fieldErrors()).containsKey("courses"));
+
+    entityManager.flush();
+    entityManager.clear();
+    assertThat(entityManager.find(EnrollmentApplication.class, application.getId()).getStatus())
+        .isEqualTo(EnrollmentApplicationStatus.DRAFT);
   }
 
   private StudyPlanSpace createStudyPlanSpace(

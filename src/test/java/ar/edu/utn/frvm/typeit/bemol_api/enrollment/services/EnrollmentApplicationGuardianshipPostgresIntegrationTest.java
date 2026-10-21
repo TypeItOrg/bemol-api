@@ -69,6 +69,8 @@ import java.util.stream.Collectors;
 import org.hibernate.SessionFactory;
 import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
@@ -228,6 +230,12 @@ class EnrollmentApplicationGuardianshipPostgresIntegrationTest {
   private JsonNode represent(
       Scenario s, boolean ownAccessRequested, @Nullable String roleBeforeApproval)
       throws Exception {
+    return represent(s, ownAccessRequested, roleBeforeApproval, "1956-01-01");
+  }
+
+  private JsonNode represent(
+      Scenario s, boolean ownAccessRequested, @Nullable String roleBeforeApproval, String birthDate)
+      throws Exception {
     final var link =
         request(
             s,
@@ -241,7 +249,7 @@ class EnrollmentApplicationGuardianshipPostgresIntegrationTest {
                     "lastName",
                     "Delgado",
                     "birthDate",
-                    "1956-01-01",
+                    birthDate,
                     "relationship",
                     "OTHER",
                     "isPrimaryContact",
@@ -428,10 +436,11 @@ class EnrollmentApplicationGuardianshipPostgresIntegrationTest {
         expiresAt);
   }
 
-  @Test
-  void representsAndSubmitsWithRealActor() throws Exception {
+  @ParameterizedTest
+  @ValueSource(strings = {"1956-01-01", "2018-01-01"})
+  void representsAndSubmitsAnAdultOrMinorWithoutOwnEmail(String birthDate) throws Exception {
     final var s = setup();
-    final var link = represent(s);
+    final var link = represent(s, false, null, birthDate);
     final String person = link.get("dependentPersonId").asString();
     final var selected = actor(s, person);
     final var context = request(selected, get(profile(s, person)), 200);
@@ -450,7 +459,7 @@ class EnrollmentApplicationGuardianshipPostgresIntegrationTest {
     assertThat(app.get("applicantDocumentNumber")).isEqualTo(context.get("documentNumber"));
     final var personal = app.get("data").get("personalData");
     assertThat(personal.get("firstName").asString()).isEqualTo("Maria");
-    assertThat(personal.get("birthDate").asString()).isEqualTo("1956-01-01");
+    assertThat(personal.get("birthDate").asString()).isEqualTo(birthDate);
     assertThat(personal.get("email").isNull()).isTrue();
     assertThat(personal.get("documentNumber").asString())
         .isNotEqualTo(s.tutor().getDocumentNumber());
