@@ -32,7 +32,7 @@ public class PersonAccessInvitationMailListener {
   @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
   public void on(final PersonAccessInvited event) {
     final var context = new Context(Locale.forLanguageTag("es"));
-    context.setVariable("logoUrl", urls.institutionLogoUrl());
+    context.setVariable("logoUrl", urls.brandLogoUrl());
     context.setVariable("expirationHours", 24);
     context.setVariable("fullName", event.fullName());
     context.setVariable("institutionName", event.institutionName());

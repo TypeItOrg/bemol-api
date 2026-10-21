@@ -53,7 +53,7 @@ class LoginAttemptServiceRedisIntegrationTest {
             redisTemplate,
             new WebAuthnProperties(
                 "localhost",
-                "Boero",
+                "Bemol",
                 List.of("http://localhost:3000"),
                 Duration.ofMinutes(5),
                 Duration.ofMinutes(5),

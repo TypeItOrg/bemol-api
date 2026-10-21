@@ -27,7 +27,7 @@ public interface AuditEventOptionsQueries {
   String ACTORS_SEARCH =
       """
       WHERE (CAST(:search AS varchar) IS NULL OR STRPOS(
-          boero_normalize_text(actors.label), boero_normalize_text(CAST(:search AS varchar))) > 0)
+          bemol_normalize_text(actors.label), bemol_normalize_text(CAST(:search AS varchar))) > 0)
       """;
 
   @Query(
@@ -56,8 +56,8 @@ public interface AuditEventOptionsQueries {
   String OPTION_SEARCH =
       """
       WHERE (CAST(:search AS varchar) IS NULL OR STRPOS(
-          boero_normalize_text(options.label || ' ' || COALESCE(options."institutionName", '')),
-          boero_normalize_text(CAST(:search AS varchar))) > 0)
+          bemol_normalize_text(options.label || ' ' || COALESCE(options."institutionName", '')),
+          bemol_normalize_text(CAST(:search AS varchar))) > 0)
       """;
   String SUBJECTS_QUERY =
       """
@@ -88,7 +88,7 @@ public interface AuditEventOptionsQueries {
               + SUBJECTS_QUERY
               + ") options "
               + OPTION_SEARCH
-              + " ORDER BY boero_normalize_text(options.label), options.\"subjectPersonId\"",
+              + " ORDER BY bemol_normalize_text(options.label), options.\"subjectPersonId\"",
       countQuery = "SELECT COUNT(*) FROM (" + SUBJECTS_QUERY + ") options " + OPTION_SEARCH,
       nativeQuery = true)
   Page<AuditSubjectOptionProjection> searchSubjects(
@@ -136,7 +136,7 @@ public interface AuditEventOptionsQueries {
               + PEOPLE_QUERY
               + ") options "
               + OPTION_SEARCH
-              + " ORDER BY boero_normalize_text(options.label), options.\"personId\"",
+              + " ORDER BY bemol_normalize_text(options.label), options.\"personId\"",
       countQuery = "SELECT COUNT(*) FROM (" + PEOPLE_QUERY + ") options " + OPTION_SEARCH,
       nativeQuery = true)
   Page<AuditPersonOptionProjection> searchPeople(
@@ -229,7 +229,7 @@ public interface AuditEventOptionsQueries {
               + ENTITIES_QUERY
               + ") options "
               + OPTION_SEARCH
-              + " ORDER BY boero_normalize_text(options.label), options.\"entityType\", options.\"entityId\"",
+              + " ORDER BY bemol_normalize_text(options.label), options.\"entityType\", options.\"entityId\"",
       countQuery = "SELECT COUNT(*) FROM (" + ENTITIES_QUERY + ") options " + OPTION_SEARCH,
       nativeQuery = true)
   Page<AuditEntityOptionProjection> searchEntities(

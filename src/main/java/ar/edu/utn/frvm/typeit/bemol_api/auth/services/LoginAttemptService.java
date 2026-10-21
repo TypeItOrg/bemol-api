@@ -16,7 +16,7 @@ import org.springframework.stereotype.Service;
 public class LoginAttemptService {
   private final InstitutionalHostContext hostContext;
 
-  private static final String KEY_PREFIX = "boero:auth:login-attempt:";
+  private static final String KEY_PREFIX = "bemol:auth:login-attempt:";
 
   private final StringRedisTemplate redisTemplate;
   private final WebAuthnProperties properties;

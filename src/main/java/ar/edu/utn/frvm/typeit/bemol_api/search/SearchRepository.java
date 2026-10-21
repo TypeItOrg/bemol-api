@@ -50,8 +50,8 @@ class SearchRepository {
           LEFT JOIN academic_years y ON y.academic_year_id = a.academic_year_id AND y.institution_id = a.institution_id
          WHERE a.institution_id = :institutionId AND a.applicant_person_id = :personId
            AND a.deleted_at IS NULL
-           AND boero_search_vector(t.name || ' ' || coalesce(y.year::text, '')) @@ to_tsquery('simple', :query)
-         ORDER BY boero_search_rank(t.name, :query, :normalized) DESC, title, id
+           AND bemol_search_vector(t.name || ' ' || coalesce(y.year::text, '')) @@ to_tsquery('simple', :query)
+         ORDER BY bemol_search_rank(t.name, :query, :normalized) DESC, title, id
          LIMIT :fetchLimit
         """,
             parameters,
@@ -70,8 +70,8 @@ class SearchRepository {
           JOIN academic_spaces e ON e.academic_space_id = s.academic_space_id AND e.institution_id = c.institution_id
           JOIN study_plans p ON p.study_plan_id = s.study_plan_id AND p.institution_id = c.institution_id
          WHERE ce.institution_id = :institutionId AND st.person_id = :personId
-           AND boero_search_vector(e.name || ' ' || p.name) @@ to_tsquery('simple', :query)
-         ORDER BY boero_search_rank(e.name || ' ' || p.name, :query, :normalized) DESC, title, id
+           AND bemol_search_vector(e.name || ' ' || p.name) @@ to_tsquery('simple', :query)
+         ORDER BY bemol_search_rank(e.name || ' ' || p.name, :query, :normalized) DESC, title, id
          LIMIT :fetchLimit
         """,
             parameters,

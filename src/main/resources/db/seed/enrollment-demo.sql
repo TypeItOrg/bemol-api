@@ -1,6 +1,7 @@
 -- Enrollment dataset loader. Configuration and fixtures are supplied by run.sh.
 -- Atomic, explicit execution only. No Flyway migration and no startup hook.
 -- Run with the shared IDs and catalog scripts through make seed-demo.
+-- These legacy hash inputs detect unsafe pre-registry fixtures; never replace them.
 DO $$
 BEGIN
     IF EXISTS (SELECT 1 FROM people WHERE institution_id = (SELECT institution_id FROM seed_context) AND person_id = md5('boero:enrollment-demo:v1:person:1')::uuid)

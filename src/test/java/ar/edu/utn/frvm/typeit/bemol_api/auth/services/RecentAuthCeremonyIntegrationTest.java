@@ -63,7 +63,7 @@ import tools.jackson.databind.JsonNode;
 @IntegrationTest
 class RecentAuthCeremonyIntegrationTest {
 
-  private static final String RECENT_KEY_PREFIX = "boero:auth:recent:";
+  private static final String RECENT_KEY_PREFIX = "bemol:auth:recent:";
 
   @Container
   // The Testcontainers lifecycle owns and stops this shared container.
@@ -86,7 +86,7 @@ class RecentAuthCeremonyIntegrationTest {
     properties =
         new WebAuthnProperties(
             "localhost",
-            "Boero",
+            "Bemol",
             List.of("http://localhost:3000"),
             Duration.ofMinutes(5),
             Duration.ofMinutes(5),
@@ -269,7 +269,7 @@ class RecentAuthCeremonyIntegrationTest {
 
   private static PublicKeyCredentialCreationOptions creationOptions() {
     return PublicKeyCredentialCreationOptions.builder()
-        .rp(PublicKeyCredentialRpEntity.builder().id("localhost").name("Boero").build())
+        .rp(PublicKeyCredentialRpEntity.builder().id("localhost").name("Bemol").build())
         .user(
             ImmutablePublicKeyCredentialUserEntity.builder()
                 .id(Bytes.random())

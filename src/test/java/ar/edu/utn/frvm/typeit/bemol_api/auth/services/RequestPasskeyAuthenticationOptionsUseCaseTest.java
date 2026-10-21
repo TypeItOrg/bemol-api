@@ -123,7 +123,7 @@ class RequestPasskeyAuthenticationOptionsUseCaseTest {
         new Webauthn4JRelyingPartyOperations(
             userEntities,
             credentials,
-            PublicKeyCredentialRpEntity.builder().id("localhost").name("Boero").build(),
+            PublicKeyCredentialRpEntity.builder().id("localhost").name("Bemol").build(),
             Set.of("http://localhost:3000"));
     operations.setCustomizeRequestOptions(
         builder -> builder.userVerification(UserVerificationRequirement.REQUIRED));

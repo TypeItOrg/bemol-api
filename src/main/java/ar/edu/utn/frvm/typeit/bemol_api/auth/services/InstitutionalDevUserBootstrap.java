@@ -95,7 +95,7 @@ public class InstitutionalDevUserBootstrap implements ApplicationRunner {
             .firstName(institutionalDevUserProperties.resolvedName())
             .lastName(institutionalDevUserProperties.resolvedLastName())
             .documentNumber(documentNumber)
-            .email(documentNumber + "@boero.local")
+            .email(documentNumber + "@bemol.local")
             .build();
     personRepository.save(person);
     createUserForPerson(institution, person);

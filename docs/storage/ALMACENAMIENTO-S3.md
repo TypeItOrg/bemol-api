@@ -53,12 +53,12 @@ Las variables canónicas son `STORAGE_PROVIDER`, `STORAGE_LOCAL_DIR`,
 3. Mantener el cifrado predeterminado **SSE-S3** para la configuración inicial.
    KMS queda fuera de esta entrega. El cliente utiliza el cifrado predeterminado
    del bucket. Exigir HTTPS mediante la política preparada en
-   `boero-infra/deploy/aws/storage.yaml`.
+   `bemol-infra/deploy/aws/storage.yaml`.
 4. Crear una identidad exclusiva para la API y asociarle la política siguiente.
    En EC2, preferir un rol de instancia. En un VPS fuera de AWS, proporcionar
    credenciales de esa identidad por el entorno privado del contenedor.
 
-Reemplazar `NOMBRE_DEL_BUCKET` y `boero/` por los valores elegidos. Esta es
+Reemplazar `NOMBRE_DEL_BUCKET` y `bemol/` por los valores elegidos. Esta es
 una política de identidad IAM, no una política pública del bucket:
 
 ```json
@@ -69,7 +69,7 @@ una política de identidad IAM, no una política pública del bucket:
       "Sid": "ManageApplicationObjects",
       "Effect": "Allow",
       "Action": ["s3:PutObject", "s3:GetObject", "s3:DeleteObject"],
-      "Resource": "arn:aws:s3:::NOMBRE_DEL_BUCKET/boero/*"
+      "Resource": "arn:aws:s3:::NOMBRE_DEL_BUCKET/bemol/*"
     }
   ]
 }
@@ -92,7 +92,7 @@ no implica borrado de backups.
 
 No se necesita cuenta de AWS. Copiar `.env.dev.example` a `.env.dev` si todavía no
 existe y configurar `STORAGE_PROVIDER=local`. Ejecutar `make dev`: Compose monta
-`boero-api-storage-dev` en `/workspace/storage`. Al ejecutar Java directamente,
+`bemol-api-storage-dev` en `/workspace/storage`. Al ejecutar Java directamente,
 `STORAGE_LOCAL_DIR` define el directorio y su valor predeterminado es `storage`.
 
 Cargar un PDF o imagen en una solicitud editable y comprobar descarga autenticada,
@@ -101,14 +101,14 @@ otros módulos pueden usar `images/` o `documents/`, siempre en el mismo proveed
 
 ## Activar S3 en desarrollo
 
-En `boero-api`, copiar `.env.dev.example` a `.env.dev` solo si este último no existe.
+En `bemol-api`, copiar `.env.dev.example` a `.env.dev` solo si este último no existe.
 Completar el archivo privado:
 
 ```dotenv
 STORAGE_PROVIDER=s3
 STORAGE_S3_BUCKET=NOMBRE_DEL_BUCKET
 AWS_REGION=us-east-1
-STORAGE_S3_PREFIX=boero/
+STORAGE_S3_PREFIX=bemol/
 AWS_ACCESS_KEY_ID=REEMPLAZAR
 AWS_SECRET_ACCESS_KEY=REEMPLAZAR
 AWS_SESSION_TOKEN=
@@ -129,10 +129,10 @@ Después de completar la configuración, recrear el servicio con el flujo habitu
 
 ## Staging y producción
 
-La configuración compartida pertenece a `boero-infra`. Su `.env.example` documenta
+La configuración compartida pertenece a `bemol-infra`. Su `.env.example` documenta
 las mismas variables y `compose.yaml` las pasa al contenedor `api`. Completar
 `.env.staging` o `.env.production` en el host correspondiente y seguir
-`boero-infra/docs/S3.md` para validar y aplicar la configuración.
+`bemol-infra/docs/S3.md` para validar y aplicar la configuración.
 
 ## Arranque y comprobación pendiente en AWS
 

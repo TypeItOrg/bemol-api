@@ -331,7 +331,7 @@ class QaInstitutionalHostIsolationTest {
     final var rp =
         org.springframework.security.web.webauthn.api.PublicKeyCredentialRpEntity.builder()
             .id("testing.typeit.com.ar")
-            .name("Boero")
+            .name("Bemol")
             .build();
     final var operations =
         new TrustedWebAuthnOperations(
@@ -355,7 +355,7 @@ class QaInstitutionalHostIsolationTest {
     final var configured =
         new WebAuthnProperties(
             "testing.typeit.com.ar",
-            "Boero",
+            "Bemol",
             List.of(
                 "https://testing.typeit.com.ar:9443", "https://sibling.testing.typeit.com.ar:9443"),
             Duration.ofMinutes(5),
@@ -365,7 +365,7 @@ class QaInstitutionalHostIsolationTest {
     final var rp =
         org.springframework.security.web.webauthn.api.PublicKeyCredentialRpEntity.builder()
             .id("testing.typeit.com.ar")
-            .name("Boero")
+            .name("Bemol")
             .build();
     final var operations =
         new TrustedWebAuthnOperations(
@@ -401,7 +401,7 @@ class QaInstitutionalHostIsolationTest {
     final var rp =
         org.springframework.security.web.webauthn.api.PublicKeyCredentialRpEntity.builder()
             .id("testing.typeit.com.ar")
-            .name("Boero")
+            .name("Bemol")
             .build();
     final var operations =
         new TrustedWebAuthnOperations(users, credentials, rp, properties(), host);
@@ -433,7 +433,7 @@ class QaInstitutionalHostIsolationTest {
   static WebAuthnProperties properties() {
     return new WebAuthnProperties(
         "testing.typeit.com.ar",
-        "Boero",
+        "Bemol",
         List.of("https://testing.typeit.com.ar:9443"),
         Duration.ofMinutes(5),
         Duration.ofMinutes(5),

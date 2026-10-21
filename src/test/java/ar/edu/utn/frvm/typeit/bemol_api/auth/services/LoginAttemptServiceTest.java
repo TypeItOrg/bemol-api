@@ -42,7 +42,7 @@ class LoginAttemptServiceTest {
             redisTemplate,
             new WebAuthnProperties(
                 "localhost",
-                "Boero",
+                "Bemol",
                 List.of("http://localhost:3000"),
                 Duration.ofMinutes(5),
                 Duration.ofMinutes(5),
@@ -83,7 +83,7 @@ class LoginAttemptServiceTest {
   void invalidate_deletesKey() {
     service.invalidate("attempt-id");
 
-    verify(redisTemplate).delete("boero:auth:login-attempt:attempt-id");
+    verify(redisTemplate).delete("bemol:auth:login-attempt:attempt-id");
   }
 
   @Test
@@ -93,8 +93,8 @@ class LoginAttemptServiceTest {
     final UUID userId = UUID.randomUUID();
     final UUID institutionId = UUID.randomUUID();
     final String stored = userId + "|" + institutionId + "|true|" + Instant.now().toEpochMilli();
-    when(valueOperations.get("boero:auth:login-attempt:" + id)).thenReturn(stored);
-    when(valueOperations.getAndDelete("boero:auth:login-attempt:" + id)).thenReturn(stored);
+    when(valueOperations.get("bemol:auth:login-attempt:" + id)).thenReturn(stored);
+    when(valueOperations.getAndDelete("bemol:auth:login-attempt:" + id)).thenReturn(stored);
 
     final LoginAttempt claimed = service.claim(id);
 

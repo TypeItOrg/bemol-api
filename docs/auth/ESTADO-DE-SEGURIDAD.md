@@ -91,7 +91,7 @@ Esta regla se aplica en autenticación, refresh y validación de sesión. No deb
 
 ### Rate limiting de autenticación
 
-El control de frecuencia corresponde a Nginx, fuera de la API. Antes del despliegue se debe comprobar que sus reglas cubran identificación, contraseña, passkeys, reautenticación y recuperación. La API no mantiene contadores por IP ni por cuenta. El ejemplo versionado de `boero-infra` todavía enumera el login anterior y activa `limit_req_dry_run`; su revisión no sustituye verificar la configuración efectiva del servidor.
+El control de frecuencia corresponde a Nginx, fuera de la API. Antes del despliegue se debe comprobar que sus reglas cubran identificación, contraseña, passkeys, reautenticación y recuperación. La API no mantiene contadores por IP ni por cuenta. El ejemplo versionado de `bemol-infra` todavía enumera el login anterior y activa `limit_req_dry_run`; su revisión no sustituye verificar la configuración efectiva del servidor.
 
 Redis sigue siendo necesario para intentos de login, ceremonias WebAuthn, autenticación reciente y los demás mecanismos de sesión existentes.
 

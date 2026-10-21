@@ -15,8 +15,8 @@ import org.springframework.stereotype.Service;
 @RequiredArgsConstructor
 public class WebAuthnCeremonyService {
 
-  private static final String REGISTRATION_PREFIX = "boero:webauthn:registration:";
-  private static final String AUTHENTICATION_PREFIX = "boero:webauthn:authentication:";
+  private static final String REGISTRATION_PREFIX = "bemol:webauthn:registration:";
+  private static final String AUTHENTICATION_PREFIX = "bemol:webauthn:authentication:";
 
   private final StringRedisTemplate redisTemplate;
   private final WebAuthnProperties properties;

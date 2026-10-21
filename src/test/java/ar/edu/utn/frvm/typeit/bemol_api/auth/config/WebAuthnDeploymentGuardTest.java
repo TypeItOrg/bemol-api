@@ -73,7 +73,7 @@ class WebAuthnDeploymentGuardTest {
     final WebAuthnProperties properties =
         new WebAuthnProperties(
             "universidad.edu.ar",
-            "Boero",
+            "Bemol",
             List.of("https://universidad.edu.ar"),
             Duration.ofMinutes(5),
             Duration.ofMinutes(5),
@@ -87,7 +87,7 @@ class WebAuthnDeploymentGuardTest {
   private static WebAuthnProperties localhostProperties() {
     return new WebAuthnProperties(
         "localhost",
-        "Boero",
+        "Bemol",
         List.of("http://localhost:3000"),
         Duration.ofMinutes(5),
         Duration.ofMinutes(5),

@@ -39,7 +39,7 @@ class WebAuthnCeremonyServiceTest {
             redisTemplate,
             new WebAuthnProperties(
                 "localhost",
-                "Boero",
+                "Bemol",
                 List.of("http://localhost:3000"),
                 Duration.ofMinutes(5),
                 Duration.ofMinutes(5),
@@ -58,7 +58,7 @@ class WebAuthnCeremonyServiceTest {
 
     verify(valueOperations)
         .set(
-            ArgumentMatchers.eq("boero:webauthn:authentication:" + ceremonyId),
+            ArgumentMatchers.eq("bemol:webauthn:authentication:" + ceremonyId),
             valueCaptor.capture(),
             any(Duration.class));
     when(valueOperations.getAndDelete(anyString())).thenReturn(valueCaptor.getValue());
@@ -87,7 +87,7 @@ class WebAuthnCeremonyServiceTest {
 
     verify(valueOperations)
         .set(
-            ArgumentMatchers.eq("boero:webauthn:registration:" + ceremonyId),
+            ArgumentMatchers.eq("bemol:webauthn:registration:" + ceremonyId),
             valueCaptor.capture(),
             any(Duration.class));
     when(valueOperations.getAndDelete(anyString())).thenReturn(valueCaptor.getValue());

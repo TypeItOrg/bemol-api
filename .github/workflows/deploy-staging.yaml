@@ -45,8 +45,8 @@ jobs:
           target: prod
           push: true
           tags: |
-            ghcr.io/typeitorg/boero-api:sha-${{ github.sha }}
-            ghcr.io/typeitorg/boero-api:${{ github.ref_name }}
+            ghcr.io/typeitorg/bemol-api:sha-${{ github.sha }}
+            ghcr.io/typeitorg/bemol-api:${{ github.ref_name }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 

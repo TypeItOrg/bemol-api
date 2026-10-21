@@ -253,7 +253,7 @@ class VerifyPasskeyRegistrationOptionsTest {
 
   private static PublicKeyCredentialCreationOptions creationOptions() {
     return PublicKeyCredentialCreationOptions.builder()
-        .rp(PublicKeyCredentialRpEntity.builder().id("localhost").name("Boero").build())
+        .rp(PublicKeyCredentialRpEntity.builder().id("localhost").name("Bemol").build())
         .user(
             ImmutablePublicKeyCredentialUserEntity.builder()
                 .id(Bytes.random())

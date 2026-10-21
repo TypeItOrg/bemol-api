@@ -1,6 +1,6 @@
 # ÍNDICE DE AUTENTICACIÓN Y AUTORIZACIÓN
 
-Esta carpeta contiene la documentación de los subsistemas de autenticación y autorización del proyecto boero-api. Está pensada para que el equipo entienda cómo funciona cada pieza, por qué se tomaron ciertas decisiones y qué casos particulares existen.
+Esta carpeta contiene la documentación de los subsistemas de autenticación y autorización del proyecto bemol-api. Está pensada para que el equipo entienda cómo funciona cada pieza, por qué se tomaron ciertas decisiones y qué casos particulares existen.
 
 ## Documentos
 

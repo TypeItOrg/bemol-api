@@ -26,8 +26,7 @@ class QaCanonicalFrontendUrlsTest {
             "https://cboero." + domain + ":9443/auth/password-recovery/reset?token=token-123");
     assertThat(urls.tokenUrl(null, "/auth/password-recovery/reset", "token-123"))
         .isEqualTo("https://" + domain + ":9443/auth/password-recovery/reset?token=token-123");
-    assertThat(urls.institutionLogoUrl())
-        .isEqualTo("https://" + domain + ":9443/brand/boero-logo.webp");
+    assertThat(urls.brandLogoUrl()).isEqualTo("https://" + domain + ":9443/brand/logo-email.png");
   }
 
   @Test

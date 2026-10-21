@@ -36,7 +36,7 @@ public class FrontendAccessUrls {
         .toUriString();
   }
 
-  public String institutionLogoUrl() {
-    return base(null) + "/brand/boero-logo.webp";
+  public String brandLogoUrl() {
+    return base(null) + "/brand/logo-email.png";
   }
 }

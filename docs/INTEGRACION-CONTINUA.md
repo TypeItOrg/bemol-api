@@ -85,17 +85,17 @@ Pertenece a **Deploy staging** y depende del job `ci`, que llama a las mismas va
   - Compila con Gradle Wrapper y extrae las capas de Spring Boot (`bootJar -Djarmode=tools extract`) para optimizar el almacenamiento en caché de Docker y acelerar despliegues posteriores.
   - El contenedor de producción corre sobre un runtime mínimo con un usuario sin privilegios (`appuser`).
 - **Registro de Contenedores**:
-  - Las imágenes se publican en GitHub Container Registry (`ghcr.io/typeitorg/boero-api`).
+  - Las imágenes se publican en GitHub Container Registry (`ghcr.io/typeitorg/bemol-api`).
   - Se publican dos tags por imagen:
-    1. Inmutable por commit: `ghcr.io/typeitorg/boero-api:sha-<commit_sha>`.
-    2. Móvil de staging: `ghcr.io/typeitorg/boero-api:staging`.
+    1. Inmutable por commit: `ghcr.io/typeitorg/bemol-api:sha-<commit_sha>`.
+    2. Móvil de staging: `ghcr.io/typeitorg/bemol-api:staging`.
 
 ### D. Trabajo: Despliegue Continuo a Staging (`deploy-staging`)
 
 - Pertenece a **Deploy staging** y se activa tras la publicación de la imagen en pushes a `staging`.
 - Usa el GitHub Environment `staging` y sus secrets `DOKPLOY_URL`, `DOKPLOY_API_KEY` y `DOKPLOY_STAGING_COMPOSE_ID` para solicitar el despliegue por HTTPS a Dokploy; no entra por SSH.
-- Dokploy descarga las imágenes y ejecuta el Compose de staging de `boero-infra`, conservando los volúmenes existentes. El tag móvil `staging` identifica la última imagen publicada de esa rama; para fijar una versión se utiliza su tag `sha-<commit>` en Dokploy.
-- El job confirma una solicitud asíncrona, no la salud posterior ni un rollback automático. La operación, verificación y vuelta se documentan en [Staging con Dokploy](https://github.com/TypeItOrg/boero-infra/blob/main/docs/DOKPLOY-STAGING.md).
+- Dokploy descarga las imágenes y ejecuta el Compose de staging de `bemol-infra`, conservando los volúmenes existentes. El tag móvil `staging` identifica la última imagen publicada de esa rama; para fijar una versión se utiliza su tag `sha-<commit>` en Dokploy.
+- El job confirma una solicitud asíncrona, no la salud posterior ni un rollback automático. La operación, verificación y vuelta se documentan en [Staging con Dokploy](https://github.com/TypeItOrg/bemol-infra/blob/main/docs/DOKPLOY-STAGING.md).
 
 ## 3. Verificaciones de Calidad Locales Recomendadas
 

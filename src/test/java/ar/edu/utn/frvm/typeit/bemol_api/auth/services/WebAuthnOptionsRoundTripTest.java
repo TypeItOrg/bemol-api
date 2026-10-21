@@ -41,7 +41,7 @@ class WebAuthnOptionsRoundTripTest {
 
     assertThat(restored.getChallenge()).isEqualTo(options.getChallenge());
     assertThat(restored.getRp().getId()).isEqualTo("localhost");
-    assertThat(restored.getRp().getName()).isEqualTo("Boero");
+    assertThat(restored.getRp().getName()).isEqualTo("Bemol");
     assertThat(restored.getUser().getId()).isEqualTo(options.getUser().getId());
     assertThat(restored.getUser().getName()).isEqualTo("user-id");
     assertThat(restored.getUser().getDisplayName()).isEqualTo("Display Name");
@@ -115,7 +115,7 @@ class WebAuthnOptionsRoundTripTest {
 
   private static PublicKeyCredentialCreationOptions creationOptions() {
     return PublicKeyCredentialCreationOptions.builder()
-        .rp(PublicKeyCredentialRpEntity.builder().id("localhost").name("Boero").build())
+        .rp(PublicKeyCredentialRpEntity.builder().id("localhost").name("Bemol").build())
         .user(
             ImmutablePublicKeyCredentialUserEntity.builder()
                 .id(Bytes.random())

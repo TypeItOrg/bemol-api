@@ -1,3 +1,5 @@
+name: bemol-api
+
 services:
   dev:
     container_name: bemol-api-dev
@@ -15,9 +17,9 @@ services:
       STORAGE_LOCAL_DIR: /workspace/storage
       DB_HOST: ${DB_HOST:-postgres}
       DB_PORT: ${DB_PORT:-5432}
-      DB_NAME: ${DB_NAME:-boero_db}
-      DB_USER: ${DB_USER:-boero}
-      DB_PASSWORD: ${DB_PASSWORD:-boero}
+      DB_NAME: ${DB_NAME:-bemol_db}
+      DB_USER: ${DB_USER:-bemol}
+      DB_PASSWORD: ${DB_PASSWORD:-bemol}
       REDIS_HOST: ${REDIS_HOST:-redis}
       REDIS_PORT: ${REDIS_PORT:-6379}
       JWT_SECRET: ${JWT_SECRET:-0123456789abcdef0123456789abcdef}
@@ -107,10 +109,10 @@ services:
     image: postgres:18-alpine
     command: ["/bin/sh", "/usr/local/bin/postgres-entrypoint.sh"]
     environment:
-      DB_NAME: ${DB_NAME:-boero_db}
-      POSTGRES_DB: ${DB_NAME:-boero_db}
-      POSTGRES_USER: ${DB_USER:-boero}
-      POSTGRES_PASSWORD: ${DB_PASSWORD:-boero}
+      DB_NAME: ${DB_NAME:-bemol_db}
+      POSTGRES_DB: ${DB_NAME:-bemol_db}
+      POSTGRES_USER: ${DB_USER:-bemol}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-bemol}
     ports:
       - "5432:5432"
     volumes:
@@ -130,12 +132,12 @@ services:
 
 volumes:
   storage:
-    name: boero-api-storage-dev
+    name: bemol-api-storage-dev
   gradle-cache:
-    name: boero-api-gradle-cache-dev
+    name: bemol-api-gradle-cache-dev
   postgres-data:
-    name: boero-api-postgres-data-dev
+    name: bemol-api-postgres-data-dev
 
 networks:
   default:
-    name: boero-api-network-dev
+    name: bemol-api-network-dev

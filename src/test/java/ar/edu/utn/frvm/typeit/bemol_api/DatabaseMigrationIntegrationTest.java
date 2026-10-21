@@ -73,7 +73,7 @@ class DatabaseMigrationIntegrationTest extends DatabaseMigrationTestSupport {
               EXPLAIN (COSTS OFF)
               SELECT institution_id
               FROM institutions
-              WHERE boero_normalize_text(name) LIKE '%boero%'
+              WHERE bemol_normalize_text(name) LIKE '%boero%'
               """,
               String.class);
 

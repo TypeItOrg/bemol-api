@@ -217,7 +217,7 @@ final class GlobalAuditEventSpecification {
         cb.function(
             "strpos",
             Integer.class,
-            cb.function("boero_normalize_text", String.class, value),
+            cb.function("bemol_normalize_text", String.class, value),
             cb.literal(word)),
         0);
   }

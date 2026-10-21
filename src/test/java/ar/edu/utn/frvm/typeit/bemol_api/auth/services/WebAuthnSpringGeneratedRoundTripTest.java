@@ -103,7 +103,7 @@ class WebAuthnSpringGeneratedRoundTripTest {
       new Webauthn4JRelyingPartyOperations(
           userEntities,
           credentials,
-          PublicKeyCredentialRpEntity.builder().id("localhost").name("Boero").build(),
+          PublicKeyCredentialRpEntity.builder().id("localhost").name("Bemol").build(),
           Set.of("http://localhost:3000"));
 
   @Test
@@ -254,7 +254,7 @@ class WebAuthnSpringGeneratedRoundTripTest {
     assertThat(creationTree.get("challenge").asString())
         .isEqualTo(creation.getChallenge().toBase64UrlString());
     assertThat(creationTree.get("rp").get("id").asString()).isEqualTo("localhost");
-    assertThat(creationTree.get("rp").get("name").asString()).isEqualTo("Boero");
+    assertThat(creationTree.get("rp").get("name").asString()).isEqualTo("Bemol");
     assertThat(creationTree.get("user").get("id").asString())
         .isEqualTo(userHandle.toBase64UrlString());
     assertThat(creationTree.get("user").get("name").asString()).isEqualTo("user-id");

@@ -12,7 +12,7 @@ import org.springframework.stereotype.Service;
 @RequiredArgsConstructor
 public class RecentAuthService {
 
-  private static final String KEY_PREFIX = "boero:auth:recent:";
+  private static final String KEY_PREFIX = "bemol:auth:recent:";
 
   private final StringRedisTemplate redisTemplate;
   private final WebAuthnProperties properties;

@@ -4,8 +4,8 @@ Esta guía describe cómo configurar, ejecutar y operar el entorno de desarrollo
 
 ## 1. Responsabilidades y Alcance
 
-- **Este repositorio (`boero-api`)**: Es dueño del código de la aplicación, el `Dockerfile`, la configuración de desarrollo local en `compose.yaml` y las migraciones Flyway.
-- **Repositorio de infraestructura (`boero-infra`)**: Administra la topología compartida, Nginx, certificados TLS, despliegues y procedimientos de rollback para ambientes de staging y producción.
+- **Este repositorio (`bemol-api`)**: Es dueño del código de la aplicación, el `Dockerfile`, la configuración de desarrollo local en `compose.yaml` y las migraciones Flyway.
+- **Repositorio de infraestructura (`bemol-infra`)**: Administra la topología compartida, Nginx, certificados TLS, despliegues y procedimientos de rollback para ambientes de staging y producción.
 - **Aislamiento**: `compose.yaml` se utiliza **exclusivamente** para desarrollo local. No deben agregarse configuraciones de staging ni producción a este archivo.
 
 ## 2. Requisitos Previos
@@ -22,12 +22,18 @@ Esta guía describe cómo configurar, ejecutar y operar el entorno de desarrollo
 Copiar la plantilla de variables de entorno de desarrollo:
 
 ```bash
-cp .env.dev.example .env.dev
+test -e .env.dev || cp .env.dev.example .env.dev
 ```
 
 El archivo `.env.dev` contiene valores predefinidos listos para desarrollo local (conexiones a contenedores Docker, claves dummy de JWT y configuración de correo apuntada a Mailpit).
 
 ### Paso 2: Iniciar el entorno con Make
+
+El proyecto Compose y sus recursos locales se llaman `bemol-api`. Los volúmenes
+se crean automáticamente para una instalación nueva. El usuario autorizó recrear
+los datos descartables de pruebas; esto no es un procedimiento de migración para
+un entorno con datos que conservar. No reutilizar variables privadas con nombres
+de base/usuario anteriores.
 
 ```bash
 make dev
@@ -42,18 +48,18 @@ Una vez iniciado el entorno, los siguientes servicios quedan disponibles en `loc
 | Servicio | Puerto Local | Descripción |
 |---|---|---|
 | **Bemol API** | `8080` | Endpoint HTTP de la aplicación (`http://localhost:8080`). |
-| **PostgreSQL** | `5432` | Base de datos relacional (`boero_db`, usuario `boero`, clave `boero`). |
+| **PostgreSQL** | `5432` | Base de datos relacional (`bemol_db`, usuario `bemol`, clave `bemol`). |
 | **Redis** | `6379` | Almacenamiento en memoria para tokens, sesiones y rate limiting. |
 | **Mailpit (Web)** | `8025` | Interfaz web para inspeccionar correos salientes (`http://localhost:8025`). |
 | **Mailpit (SMTP)** | `1025` | Servidor SMTP simulado sin envío real a internet. |
 
 ## 4. Topología de Servicios en Desarrollo
 
-El archivo `compose.yaml` orquesta cuatro servicios interconectados a través de la red `boero-api-network-dev`:
+El archivo `compose.yaml` orquesta cuatro servicios interconectados a través de la red `bemol-api-network-dev`:
 
 1. **`dev` (`bemol-api-dev`)**:
    - Contenedor que ejecuta la aplicación Spring Boot mediante el target `dev` del Dockerfile.
-   - Monta el volumen de caché de Gradle (`gradle-cache`) y el volumen persistente de almacenamiento local (`boero-api-storage-dev` en `/workspace/storage`).
+   - Monta el volumen de caché de Gradle (`gradle-cache`) y el volumen persistente de almacenamiento local (`bemol-api-storage-dev` en `/workspace/storage`).
    - Posee reglas de `develop.watch`: sincroniza cambios en `src/` automáticamente hacia el contenedor e inicia un rebuild ante modificaciones en dependencias (`build.gradle`, `settings.gradle`, etc.).
 2. **`postgres` (`bemol-api-postgres-dev`)**:
    - PostgreSQL 18 sobre Alpine Linux.
@@ -128,7 +134,7 @@ El archivo [`Makefile`](../Makefile) centraliza los atajos más frecuentes de Do
 | `make down` | Detiene y remueve los contenedores de desarrollo. |
 | `make logs` | Muestra los logs en tiempo real del contenedor del API (`dev`). |
 | `make ps` | Muestra el estado actual de los contenedores de Compose. |
-| `make reset-data` | **Atención:** Detiene y elimina los volúmenes de datos (`postgres-data` y `storage`). |
+| `make reset-data` | **Destructivo:** detiene la pila y elimina los volúmenes locales de PostgreSQL, adjuntos y caché. Sólo para datos de pruebas descartables. |
 | `make migration <nombre>` | Genera un nuevo archivo de migración Flyway con timestamp UTC oficial. |
 | `make format` | Ejecuta `spotlessApply` para formatear el código. |
 | `make format-check` | Ejecuta `spotlessCheck` para validar formato. |
@@ -160,6 +166,6 @@ Hacer backup e inventario antes de ejecutarlo sobre una base persistente; no usa
 
 ## 7. Relación con Staging y Producción
 
-- La preparación de imágenes de producción (`ghcr.io/typeitorg/boero-api`) se realiza a través de CI.
-- Los ambientes compartidos de Staging y Producción requieren una VPS provisionada bajo las especificaciones de `boero-infra`.
+- La preparación de imágenes de producción (`ghcr.io/typeitorg/bemol-api`) se realiza a través de CI.
+- Los ambientes compartidos de Staging y Producción requieren una VPS provisionada bajo las especificaciones de `bemol-infra`.
 - La configuración existente en el repositorio no implica que un entorno externo esté actualmente encendido o desplegado.

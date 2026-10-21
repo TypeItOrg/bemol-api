@@ -38,7 +38,7 @@ class RecentAuthServiceTest {
             redisTemplate,
             new WebAuthnProperties(
                 "localhost",
-                "Boero",
+                "Bemol",
                 List.of("http://localhost:3000"),
                 Duration.ofMinutes(5),
                 Duration.ofMinutes(5),
@@ -51,7 +51,7 @@ class RecentAuthServiceTest {
   void isRecent_acceptsMatchingMarker() {
     final UUID sessionId = UUID.randomUUID();
     final UUID userId = UUID.randomUUID();
-    when(valueOperations.get("boero:auth:recent:" + sessionId)).thenReturn(userId + "|PASSWORD|1");
+    when(valueOperations.get("bemol:auth:recent:" + sessionId)).thenReturn(userId + "|PASSWORD|1");
 
     assertThat(service.isRecent(sessionId, userId)).isTrue();
   }
@@ -81,7 +81,7 @@ class RecentAuthServiceTest {
 
     final var value = ArgumentCaptor.forClass(String.class);
     verify(valueOperations)
-        .set(eq("boero:auth:recent:" + sessionId), value.capture(), eq(Duration.ofMinutes(5)));
+        .set(eq("bemol:auth:recent:" + sessionId), value.capture(), eq(Duration.ofMinutes(5)));
     final var parts = value.getValue().split("\\|", -1);
     assertThat(parts).hasSize(3);
     assertThat(parts[0]).isEqualTo(userId.toString());

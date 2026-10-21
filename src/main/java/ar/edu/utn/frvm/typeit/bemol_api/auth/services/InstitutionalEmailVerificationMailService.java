@@ -33,7 +33,7 @@ public class InstitutionalEmailVerificationMailService {
         "verificationUrl",
         accessUrls.tokenUrl(
             event.publicSubdomain(), "/auth/email-verification/confirm", event.token()));
-    context.setVariable("logoUrl", accessUrls.institutionLogoUrl());
+    context.setVariable("logoUrl", accessUrls.brandLogoUrl());
     context.setVariable("institutionName", event.institutionName());
     context.setVariable("fullName", event.fullName());
     context.setVariable("expirationHours", emailVerificationProperties.tokenExpiration().toHours());

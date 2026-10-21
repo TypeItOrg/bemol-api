@@ -15,7 +15,7 @@ import org.springframework.stereotype.Service;
 @RequiredArgsConstructor
 public class DiscoverableAuthenticationCeremonyService {
   // Separate format and namespace preserve in-flight identified login ceremonies.
-  private static final String PREFIX = "boero:webauthn:discoverable-authentication:";
+  private static final String PREFIX = "bemol:webauthn:discoverable-authentication:";
   private final StringRedisTemplate redisTemplate;
   private final WebAuthnProperties properties;
 

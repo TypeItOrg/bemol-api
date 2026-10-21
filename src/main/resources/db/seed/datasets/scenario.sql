@@ -9,9 +9,9 @@ CREATE TEMP TABLE seed_settings (
     group_capacity integer NOT NULL CHECK (group_capacity > 0),
     group_teachers integer[] NOT NULL CHECK (cardinality(group_teachers) > 0)
 ) ON COMMIT DROP;
--- Public demo password: BoeroDemo2026! Kept for compatibility, never reset on reruns.
+-- Public password for new demo users: BemolDemo2026! Existing passwords are never reset on reruns.
 INSERT INTO seed_settings VALUES (
-    '$2b$12$xwT.Abo0Q4vFReOL.rFEvODBYAegel/G1HE96wmS1S4Rm7VVpAyla', 'example.test',
+    '$2b$12$DZAvKR0GDDcAMSfi37vTzOUh.Z0dqsXkZm5MollLzfZnKN9yVZnSi', 'example.test',
     '2025', DATE '2025-01-01', 1,
     ARRAY['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY'], TIME '14:00', 60, 7, 20, ARRAY[5, 6]
 );

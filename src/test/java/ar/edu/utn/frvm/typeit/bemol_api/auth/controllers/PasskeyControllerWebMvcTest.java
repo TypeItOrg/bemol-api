@@ -168,7 +168,7 @@ class PasskeyControllerWebMvcTest {
                     """
                     {
                       "challenge": "AQID",
-                      "rp": {"id": "localhost", "name": "Boero"},
+                      "rp": {"id": "localhost", "name": "Bemol"},
                       "user": {"id": "AQID", "name": "user", "displayName": "User"},
                       "pubKeyCredParams": [{"type": "public-key", "alg": -7}],
                       "timeout": 300000,

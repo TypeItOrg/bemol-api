@@ -77,7 +77,8 @@ class InstitutionalEmailVerificationMailServiceTest {
     assertThat(message.subject()).isEqualTo("Confirmá tu email");
     assertThat(message.htmlBody())
         .contains("http://localhost:3000/auth/email-verification/confirm?token=token-123")
-        .contains("http://localhost:3000/brand/boero-logo.webp")
+        .contains("Bemol")
+        .contains("http://localhost:3000/brand/logo-email.png")
         .contains("Conservatorio Superior de Música Felipe Boero")
         .contains("Hola,")
         .contains("Ana García")

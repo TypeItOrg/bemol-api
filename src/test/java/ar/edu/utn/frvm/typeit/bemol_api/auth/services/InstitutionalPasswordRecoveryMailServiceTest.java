@@ -76,7 +76,8 @@ class InstitutionalPasswordRecoveryMailServiceTest {
     assertThat(message.subject()).isEqualTo("Recuperación de contraseña");
     assertThat(message.htmlBody())
         .contains("http://localhost:3000/auth/password-recovery/reset?token=token-123")
-        .contains("http://localhost:3000/brand/boero-logo.webp")
+        .contains("Bemol")
+        .contains("http://localhost:3000/brand/logo-email.png")
         .contains("Conservatorio Superior de Música Felipe Boero")
         .contains("Hola,")
         .contains("Ana García")

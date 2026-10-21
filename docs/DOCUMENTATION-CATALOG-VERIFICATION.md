@@ -56,4 +56,4 @@ Esta no es una certificación exhaustiva de todos los escenarios y combinaciones
 - No se recorrieron todas las combinaciones de roles, dispositivos y navegadores ni se realizó una auditoría completa con lector de pantalla.
 - No hay evidencia de staging/producción ni ejecución de tests automatizados.
 
-Los respaldos, logs de comprobaciones y capturas se conservaron fuera de los repositorios en el directorio privado local `/home/matias/.local/state/boero-document-verification`.
+Los respaldos, logs de comprobaciones y capturas se conservaron fuera de los repositorios en un directorio privado local de verificación documental.

@@ -232,7 +232,7 @@ navegador ni se levantaron servicios o activó Envers para simularla.
 ### Activación y verificación local
 
 La aplicación ahora arranca con Envers activo por defecto. Se comprobó el arranque
-real de `boero-api-dev` con `Envers integration enabled? : true` y readiness `UP`,
+real del servicio de desarrollo con `Envers integration enabled? : true` y readiness `UP`,
 sin recrear bases, volúmenes ni migraciones. Los seis escenarios PostgreSQL de
 Envers volvieron a pasar junto con `spotlessCheck`; no se agregaron tests nuevos.
 

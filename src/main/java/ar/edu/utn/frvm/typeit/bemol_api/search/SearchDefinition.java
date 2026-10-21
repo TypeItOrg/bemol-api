@@ -17,9 +17,9 @@ SELECT i.institution_id AS id, i.institution_id, i.name AS institution_name,
        i.active AS institution_active, i.name AS title, i.slug AS subtitle,
        CASE WHEN i.active THEN 'ACTIVE' ELSE 'INACTIVE' END AS status,
        NULL::text AS category,
-       boero_search_rank(i.name || ' ' || i.slug, :query, :normalized) AS score, NULL::integer AS study_plan_version
+       bemol_search_rank(i.name || ' ' || i.slug, :query, :normalized) AS score, NULL::integer AS study_plan_version
   FROM institutions i
- WHERE boero_search_vector(i.name || ' ' || i.slug) @@ to_tsquery('simple', :query)
+ WHERE bemol_search_vector(i.name || ' ' || i.slug) @@ to_tsquery('simple', :query)
 """),
   USER(
       SearchEntityType.USER,
@@ -30,12 +30,12 @@ SELECT p.person_id AS id, p.institution_id, i.name AS institution_name,
        p.document_number AS subtitle,
        CASE WHEN u.user_id IS NULL THEN 'NO_ACCESS' WHEN u.enabled THEN 'ENABLED' ELSE 'DISABLED' END AS status,
        NULL::text AS category,
-       boero_search_rank(p.first_name || ' ' || p.last_name || ' ' || p.last_name || ' ' || p.first_name || ' ' || p.document_number || ' ' || coalesce(p.email, ''), :query, :normalized) AS score, NULL::integer AS study_plan_version
+       bemol_search_rank(p.first_name || ' ' || p.last_name || ' ' || p.last_name || ' ' || p.first_name || ' ' || p.document_number || ' ' || coalesce(p.email, ''), :query, :normalized) AS score, NULL::integer AS study_plan_version
   FROM people p
   JOIN institutions i ON i.institution_id = p.institution_id
   LEFT JOIN users u ON u.institution_id = p.institution_id AND u.person_id = p.person_id
  WHERE NOT p.deleted
-   AND boero_search_vector(p.first_name || ' ' || p.last_name || ' ' || p.last_name || ' ' || p.first_name || ' ' || p.document_number || ' ' || coalesce(p.email, '')) @@ to_tsquery('simple', :query)
+   AND bemol_search_vector(p.first_name || ' ' || p.last_name || ' ' || p.last_name || ' ' || p.first_name || ' ' || p.document_number || ' ' || coalesce(p.email, '')) @@ to_tsquery('simple', :query)
 """),
   ROLE(
       SearchEntityType.ROLE,
@@ -44,11 +44,11 @@ SELECT p.person_id AS id, p.institution_id, i.name AS institution_name,
 SELECT r.role_id AS id, r.institution_id, i.name AS institution_name,
        i.active AS institution_active, r.name AS title, r.code AS subtitle,
        NULL::text AS status, CASE WHEN r.is_system THEN 'SYSTEM' ELSE 'CUSTOM' END AS category,
-       boero_search_rank(r.name || ' ' || r.code, :query, :normalized) AS score, NULL::integer AS study_plan_version
+       bemol_search_rank(r.name || ' ' || r.code, :query, :normalized) AS score, NULL::integer AS study_plan_version
   FROM roles r
   JOIN institutions i ON i.institution_id = r.institution_id
  WHERE r.scope = 'INSTITUTION'
-   AND boero_search_vector(r.name || ' ' || r.code) @@ to_tsquery('simple', :query)
+   AND bemol_search_vector(r.name || ' ' || r.code) @@ to_tsquery('simple', :query)
 """),
   PLATFORM_ACCOUNT(
       SearchEntityType.PLATFORM_ACCOUNT,
@@ -59,9 +59,9 @@ SELECT a.platform_account_id AS id, NULL::uuid AS institution_id,
        a.first_name || ' ' || a.last_name AS title, a.email AS subtitle,
        CASE WHEN a.enabled THEN 'ENABLED' ELSE 'DISABLED' END AS status,
        NULL::text AS category,
-       boero_search_rank(a.first_name || ' ' || a.last_name || ' ' || a.last_name || ' ' || a.first_name || ' ' || a.email, :query, :normalized) AS score, NULL::integer AS study_plan_version
+       bemol_search_rank(a.first_name || ' ' || a.last_name || ' ' || a.last_name || ' ' || a.first_name || ' ' || a.email, :query, :normalized) AS score, NULL::integer AS study_plan_version
   FROM platform_accounts a
- WHERE boero_search_vector(a.first_name || ' ' || a.last_name || ' ' || a.last_name || ' ' || a.first_name || ' ' || a.email) @@ to_tsquery('simple', :query)
+ WHERE bemol_search_vector(a.first_name || ' ' || a.last_name || ' ' || a.last_name || ' ' || a.first_name || ' ' || a.email) @@ to_tsquery('simple', :query)
 """),
   ACADEMIC_YEAR(
       SearchEntityType.ACADEMIC_YEAR,
@@ -70,10 +70,10 @@ SELECT a.platform_account_id AS id, NULL::uuid AS institution_id,
 SELECT y.academic_year_id AS id, y.institution_id, i.name AS institution_name,
        i.active AS institution_active, y.year::text AS title, NULL::text AS subtitle,
        y.status, NULL::text AS category,
-       boero_search_rank(y.year::text, :query, :normalized) AS score, NULL::integer AS study_plan_version
+       bemol_search_rank(y.year::text, :query, :normalized) AS score, NULL::integer AS study_plan_version
   FROM academic_years y JOIN institutions i ON i.institution_id = y.institution_id
  WHERE y.deleted_at IS NULL
-   AND boero_search_vector(y.year::text) @@ to_tsquery('simple', :query)
+   AND bemol_search_vector(y.year::text) @@ to_tsquery('simple', :query)
 """),
   TRAINING_PATH(
       SearchEntityType.TRAINING_PATH,
@@ -86,12 +86,12 @@ SELECT y.academic_year_id AS id, y.institution_id, i.name AS institution_name,
 SELECT p.study_plan_id AS id, p.institution_id, i.name AS institution_name,
        i.active AS institution_active, p.name AS title, t.name AS subtitle,
        p.status, NULL::text AS category,
-       boero_search_rank(p.name, :query, :normalized) AS score, p.version_number AS study_plan_version
+       bemol_search_rank(p.name, :query, :normalized) AS score, p.version_number AS study_plan_version
   FROM study_plans p JOIN institutions i ON i.institution_id = p.institution_id
   JOIN training_paths t ON t.training_path_id = p.training_path_id
  WHERE p.deleted_at IS NULL
    AND t.deleted_at IS NULL
-   AND boero_search_vector(p.name) @@ to_tsquery('simple', :query)
+   AND bemol_search_vector(p.name) @@ to_tsquery('simple', :query)
 """),
   ACADEMIC_SPACE(
       SearchEntityType.ACADEMIC_SPACE,
@@ -100,10 +100,10 @@ SELECT p.study_plan_id AS id, p.institution_id, i.name AS institution_name,
 SELECT e.academic_space_id AS id, e.institution_id, i.name AS institution_name,
        i.active AS institution_active, e.name AS title, e.description AS subtitle,
        CASE WHEN e.active THEN 'ACTIVE' ELSE 'INACTIVE' END AS status, e.type AS category,
-       boero_search_rank(e.name, :query, :normalized) AS score, NULL::integer AS study_plan_version
+       bemol_search_rank(e.name, :query, :normalized) AS score, NULL::integer AS study_plan_version
   FROM academic_spaces e JOIN institutions i ON i.institution_id = e.institution_id
  WHERE e.deleted_at IS NULL
-   AND boero_search_vector(e.name) @@ to_tsquery('simple', :query)
+   AND bemol_search_vector(e.name) @@ to_tsquery('simple', :query)
 """),
   INSTRUMENT(
       SearchEntityType.INSTRUMENT,
@@ -118,7 +118,7 @@ SELECT e.academic_space_id AS id, e.institution_id, i.name AS institution_name,
              i.active AS institution_active, e.name AS title, p.name AS subtitle,
              c.status,
              NULL::text AS category,
-             boero_search_rank(e.name || ' ' || p.name, :query, :normalized) AS score, p.version_number AS study_plan_version
+             bemol_search_rank(e.name || ' ' || p.name, :query, :normalized) AS score, p.version_number AS study_plan_version
         FROM courses c
         JOIN institutions i ON i.institution_id = c.institution_id
         JOIN academic_spaces e ON e.academic_space_id = c.academic_space_id
@@ -127,7 +127,7 @@ SELECT e.academic_space_id AS id, e.institution_id, i.name AS institution_name,
        WHERE c.deleted_at IS NULL
          AND e.deleted_at IS NULL
          AND p.deleted_at IS NULL
-         AND boero_search_vector(e.name || ' ' || p.name) @@ to_tsquery('simple', :query)
+         AND bemol_search_vector(e.name || ' ' || p.name) @@ to_tsquery('simple', :query)
        """),
   // Scoped to the caller's own dependents through :personId, so it is institutional-only.
   GUARDIAN_DEPENDENT(SearchEntityType.GUARDIAN_DEPENDENT, null, guardianDependents());
@@ -190,14 +190,14 @@ SELECT e.academic_space_id AS id, e.institution_id, i.name AS institution_name,
         SELECT p.person_id AS id, p.institution_id, i.name AS institution_name,
                i.active AS institution_active, p.first_name || ' ' || p.last_name AS title,
                p.document_number AS subtitle, NULL::text AS status, NULL::text AS category,
-               boero_search_rank(%1$s, :query, :normalized) AS score, NULL::integer AS study_plan_version
+               bemol_search_rank(%1$s, :query, :normalized) AS score, NULL::integer AS study_plan_version
           FROM person_guardians g
           JOIN people p ON p.institution_id = g.institution_id AND p.person_id = g.dependent_person_id
           JOIN institutions i ON i.institution_id = p.institution_id
          WHERE g.tutor_person_id = :personId
            AND g.status = 'ACTIVE'
            AND NOT p.deleted
-           AND boero_search_vector(%1$s) @@ to_tsquery('simple', :query)
+           AND bemol_search_vector(%1$s) @@ to_tsquery('simple', :query)
         """
         .formatted(searchText);
   }
@@ -208,11 +208,11 @@ SELECT e.%s AS id, e.institution_id, i.name AS institution_name,
        i.active AS institution_active, e.name AS title, e.description AS subtitle,
        CASE WHEN e.active THEN 'ACTIVE' ELSE 'INACTIVE' END AS status,
        NULL::text AS category,
-       boero_search_rank(e.name, :query, :normalized) AS score, NULL::integer AS study_plan_version
+       bemol_search_rank(e.name, :query, :normalized) AS score, NULL::integer AS study_plan_version
   FROM %s e
   JOIN institutions i ON i.institution_id = e.institution_id
  WHERE e.deleted_at IS NULL
-   AND boero_search_vector(e.name) @@ to_tsquery('simple', :query)
+   AND bemol_search_vector(e.name) @@ to_tsquery('simple', :query)
 """
         .formatted(idColumn, table);
   }

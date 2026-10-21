@@ -98,6 +98,8 @@ Para profundizar en la implementación de cada subsistema:
 
 ## Nombre de la aplicación
 
-La aplicación se llama **Bemol**. Los identificadores operativos anteriores se
-conservan cuando son necesarios para acceder a recursos existentes. Consultar
-la guía `boero-infra/docs/RENOMBRE-BEMOL.md` antes de renombrar recursos persistentes.
+La aplicación y sus identificadores activos usan **Bemol**. Las migraciones
+históricas son inmutables y las referencias de la institución conservan su nombre
+real. Consultar `bemol-infra/docs/RENOMBRE-BEMOL.md` antes de aplicar el corte
+operativo: datos, variables privadas, imágenes y despliegues requieren migración
+coordinada; un reemplazo de configuración no mueve recursos existentes.

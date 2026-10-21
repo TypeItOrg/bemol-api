@@ -8,8 +8,8 @@ fi
 
 : "${SEED_INSTITUTION:?Indicar SEED_INSTITUTION con el código de la institución destino}"
 SEED_YEAR=${SEED_YEAR:-$(date +%Y)}
-# Preserve the identity namespace used by existing demo records.
-seed_dataset=boero-2025
+# The ID registry migrates earlier dataset names without changing business UUIDs.
+seed_dataset=bemol-2025
 SEED_TIMEZONE=${SEED_TIMEZONE:-America/Argentina/Cordoba}
 SEED_TRANSPORT=${SEED_TRANSPORT:-compose}
 if [[ ! "$SEED_YEAR" =~ ^[0-9]{1,4}$ ]]; then
