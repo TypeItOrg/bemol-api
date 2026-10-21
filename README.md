@@ -1,7 +1,7 @@
 
 <!-- Banner -->
 <p align="center">
-  <img width="2172" height="724" alt="Plataforma de gestión académica" src="https://github.com/user-attachments/assets/9f69092c-f001-492b-b829-226dafb0e441" />
+  <img width="2172" height="724" alt="bemol_banner_logo_pua_original" src="https://github.com/user-attachments/assets/7d518765-03d6-4bc5-b858-667bd0151378" />
 </p>
 
 <!-- Tecnologías: Backend & Data -->
@@ -25,6 +25,7 @@
 
 <!-- Presentación -->
 
+<h1 align="center">Bemol</h1>
 <p align="center">
   Plataforma que centraliza inscripciones, cursadas, calificaciones y procesos administrativos <strong>en un solo lugar</strong>.
   Pensada para <strong>estudiantes, docentes y personal administrativo</strong>, ofrece un espacio donde gestionar actividades,
