@@ -100,7 +100,7 @@ Pertenece a **Deploy staging** y depende del job `ci`, que llama a las mismas va
 - Usa el GitHub Environment `staging` y sus secrets `DEPLOY_HOST`, `DEPLOY_PORT`, `DEPLOY_USER`, `DEPLOY_SSH_KEY` y `DEPLOY_SSH_KNOWN_HOSTS`.
 - Verifica la clave del host SSH y ejecuta `scripts/deploy-staging.sh` en el checkout `/opt/bemol-infra` del VPS. El script serializa despliegues de API/UI, descarga imágenes y combina `compose.yaml` con `compose.staging.yaml`, conservando volúmenes.
 - `API_VERSION` y `UI_VERSION` del archivo privado `.env.staging` seleccionan las versiones; pueden ser `staging` o tags `sha-<commit>`. Un tag móvil puede tomar una publicación posterior al commit que disparó el job.
-- El job recibe el resultado del script, que espera la salud configurada de los contenedores. No ejecuta rollback automático. El VPS ya opera con Compose y SSH, sin Dokploy; la operación se describe en [Staging](https://github.com/TypeItOrg/bemol-infra/blob/main/docs/STAGING.md).
+- El job recibe el resultado del script, que espera la salud configurada de los contenedores. No ejecuta rollback automático. El VPS ya opera con Compose y SSH, sin Dokploy; la operación se describe en la rama `staging` de infraestructura: [Staging](https://github.com/TypeItOrg/bemol-infra/blob/staging/docs/STAGING.md). En infraestructura, `main` queda reservada para producción.
 
 ## 3. Verificaciones de Calidad Locales Recomendadas
 
