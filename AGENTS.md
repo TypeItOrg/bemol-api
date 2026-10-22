@@ -4,6 +4,7 @@ Spring Boot API using Gradle, Java 21, JPA/PostgreSQL and Redis. Resolve exact v
 
 ## Working scope and tooling
 
+- Keep comments short, simple and on one line; omit obvious comments.
 - Follow the user's requested scope and existing authorization. Diagnosis/review does not authorize implementation; message drafting does not authorize commits.
 - Finish the requested outcome, including authorized verification and fixes caused by the change, without stopping after a first draft or repeatedly asking for the same approval. Stop for an unresolved scope, data-loss or access decision; report blockers and unverified behavior explicitly.
 - Preserve unrelated worktree/index changes and local environment files. Commit and push only when requested.
