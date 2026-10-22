@@ -12,14 +12,20 @@ import ar.edu.utn.frvm.typeit.bemol_api.authorization.services.BootstrapInstitut
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.services.InstitutionRoleManagementService;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.services.ListPersonRolesUseCase;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.services.ListSystemRolesUseCase;
+import ar.edu.utn.frvm.typeit.bemol_api.authorization.services.QueryInstitutionRolesUseCase;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.services.ReplacePersonRolesUseCase;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.services.RevokePersonRoleUseCase;
+import ar.edu.utn.frvm.typeit.bemol_api.common.web.PaginatedResponse;
 import ar.edu.utn.frvm.typeit.bemol_api.common.web.Version;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Size;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -27,6 +33,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -34,6 +41,8 @@ import org.springframework.web.bind.annotation.RestController;
 @RequiredArgsConstructor
 @RequiresPlatformRole(PlatformRoleCode.PLATFORM_ADMIN)
 public class AdminRoleController {
+
+  private final QueryInstitutionRolesUseCase roleQueries;
 
   private final ListPersonRolesUseCase listPersonRolesUseCase;
   private final AssignPersonRoleUseCase assignPersonRoleUseCase;
@@ -47,6 +56,22 @@ public class AdminRoleController {
   public List<InstitutionRoleResponse> listInstitutionRoles(
       @PathVariable final UUID institutionId) {
     return institutionRoleManagementService.list(institutionId, true);
+  }
+
+  @GetMapping(value = "/admin/institutions/{institutionId}/role-options", version = Version.V1)
+  public PaginatedResponse<InstitutionRoleResponse> roleOptions(
+      @PathVariable final UUID institutionId,
+      @RequestParam(required = false) @Size(max = 100) final String search,
+      @PageableDefault(sort = "name", direction = Sort.Direction.ASC) final Pageable pageable) {
+    return institutionRoleManagementService.list(institutionId, search, pageable);
+  }
+
+  @GetMapping(
+      value = "/admin/institutions/{institutionId}/role-options/{roleId}",
+      version = Version.V1)
+  public InstitutionRoleResponse roleOption(
+      @PathVariable final UUID institutionId, @PathVariable final UUID roleId) {
+    return roleQueries.option(institutionId, roleId);
   }
 
   @GetMapping(

@@ -43,6 +43,72 @@ class FlywayBranchMigrationIntegrationTest {
 
   @TempDir Path previousRelease;
 
+  @Test
+  void shouldBackfillCourseReadDependenciesWithoutGrantingThemToOtherRoles() {
+    final var database =
+        new PostgresTestDatabase("postgres:18-alpine", "course_permission_upgrade");
+    final var jdbc = jdbc(database);
+    Flyway.configure()
+        .dataSource(requireNonNull(jdbc.getDataSource()))
+        .locations("classpath:db/migration", "classpath:db/dev")
+        .sqlMigrationPrefix("")
+        .target("20261021223422")
+        .load()
+        .migrate();
+    final var fixtures = new MigrationFixtures(jdbc);
+    final UUID institution = fixtures.firstInstitutionId(),
+        reader = UUID.randomUUID(),
+        unrelated = UUID.randomUUID();
+    for (final UUID role : List.of(reader, unrelated)) {
+      jdbc.update(
+          "INSERT INTO roles (role_id, institution_id, scope, code, name, is_system, created_at,"
+              + " updated_at) VALUES (?, ?, 'INSTITUTION', ?, ?, false, CURRENT_TIMESTAMP,"
+              + " CURRENT_TIMESTAMP)",
+          role,
+          institution,
+          "UPGRADE_" + role,
+          "Upgrade " + role);
+    }
+    for (final String permission :
+        List.of(
+            "institution:enrollment-application:read",
+            "institution:enrollment-application-course:read")) {
+      jdbc.update(
+          "INSERT INTO permissions (permission_id, code, description, scope, created_at,"
+              + " updated_at) VALUES (?, ?, ?, 'INSTITUTION', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)"
+              + " ON CONFLICT (code) DO NOTHING",
+          UUID.randomUUID(),
+          permission,
+          permission);
+    }
+    jdbc.update(
+        "INSERT INTO role_permissions (role_id, permission_id) SELECT ?, permission_id FROM"
+            + " permissions WHERE code = 'institution:enrollment-application-course:read'",
+        reader);
+
+    final var upgrade =
+        Flyway.configure()
+            .dataSource(requireNonNull(jdbc.getDataSource()))
+            .locations("classpath:db/migration", "classpath:db/dev")
+            .sqlMigrationPrefix("")
+            .load();
+    assertThat(upgrade.migrate().migrationsExecuted).isEqualTo(1);
+    assertThat(
+            jdbc.queryForObject(
+                "SELECT count(*) FROM role_permissions rp JOIN permissions p ON p.permission_id ="
+                    + " rp.permission_id WHERE rp.role_id = ? AND p.code ="
+                    + " 'institution:enrollment-application:read'",
+                Long.class,
+                reader))
+        .isEqualTo(1);
+    assertThat(
+            jdbc.queryForObject(
+                "SELECT count(*) FROM role_permissions WHERE role_id = ?", Long.class, unrelated))
+        .isZero();
+    assertThat(upgrade.validateWithResult().validationSuccessful).isTrue();
+    assertThat(upgrade.migrate().migrationsExecuted).isZero();
+  }
+
   @ParameterizedTest
   @ValueSource(strings = {"dev", "staging", "prod"})
   @DisplayName("Should enable late migrations in every profile without disabling validation")
@@ -130,7 +196,8 @@ class FlywayBranchMigrationIntegrationTest {
         .containsExactlyInAnyOrderElementsOf(LATE_VERSIONS);
     assertThat(
             jdbc.queryForList(
-                "SELECT * FROM flyway_schema_history WHERE installed_rank <= 79 ORDER BY installed_rank"))
+                "SELECT * FROM flyway_schema_history WHERE installed_rank <= 79 ORDER BY"
+                    + " installed_rank"))
         .isEqualTo(history);
     assertThat(
             jdbc.queryForList(
@@ -145,8 +212,8 @@ class FlywayBranchMigrationIntegrationTest {
         .isEqualTo(dependentId);
     assertThat(
             jdbc.queryForMap(
-                "SELECT relationship, status FROM person_guardians"
-                    + " WHERE institution_id = ? AND tutor_person_id = ? AND dependent_person_id = ?",
+                "SELECT relationship, status FROM person_guardians WHERE institution_id = ? AND"
+                    + " tutor_person_id = ? AND dependent_person_id = ?",
                 institutionId,
                 tutorId,
                 dependentId))

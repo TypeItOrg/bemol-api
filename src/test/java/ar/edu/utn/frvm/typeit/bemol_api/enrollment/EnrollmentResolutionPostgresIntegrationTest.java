@@ -21,6 +21,7 @@ import ar.edu.utn.frvm.typeit.bemol_api.enrollment.payloads.RejectEnrollmentAppl
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.services.ApproveEnrollmentApplicationUseCase;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.services.EnrollmentAdmissionHistory;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.services.EnrollmentApplicationCourseApprovalService;
+import ar.edu.utn.frvm.typeit.bemol_api.enrollment.services.EnrollmentApplicationCourseAuthorization;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.services.EnrollmentApplicationPeriodService;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.services.EnrollmentApplicationResponseFactory;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.services.EnrollmentDocumentAudit;
@@ -73,6 +74,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
   EnrollmentInstitutionLock.class,
   AcademicAccessGuard.class,
   EnrollmentApplicationResponseFactory.class,
+  EnrollmentApplicationCourseAuthorization.class,
   EnrollmentDocumentRequirementsService.class,
   EnrollmentDocumentAudit.class,
   EnrollmentAdmissionHistory.class,
@@ -318,7 +320,8 @@ class EnrollmentResolutionPostgresIntegrationTest {
 
   @Test
   @DisplayName(
-      "Should enforce PostgreSQL consistency check: rejection_reason cannot be set when status is not REJECTED")
+      "Should enforce PostgreSQL consistency check: rejection_reason cannot be set when status is"
+          + " not REJECTED")
   void database_enforcesResolutionConsistencyCheck_cannotHaveRejectionReasonWhenNotRejected() {
     final var applicationId = startAndSubmit();
 
@@ -327,13 +330,13 @@ class EnrollmentResolutionPostgresIntegrationTest {
                 entityManager
                     .createNativeQuery(
                         """
-                        INSERT INTO enrollment_applications (
-                          enrollment_application_id, institution_id, applicant_person_id,
-                          study_plan_id, training_path_id, academic_year_id, enrollment_period_id, status,
-                          rejection_reason, created_at, updated_at
-                        ) VALUES (:id, :institutionId, :personId, :studyPlanId, :trainingPathId, :academicYearId,
-                                 :periodId, 'SUBMITTED', 'Reason without rejected status', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-                        """)
+INSERT INTO enrollment_applications (
+  enrollment_application_id, institution_id, applicant_person_id,
+  study_plan_id, training_path_id, academic_year_id, enrollment_period_id, status,
+  rejection_reason, created_at, updated_at
+) VALUES (:id, :institutionId, :personId, :studyPlanId, :trainingPathId, :academicYearId,
+         :periodId, 'SUBMITTED', 'Reason without rejected status', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+""")
                     .setParameter("id", UUID.randomUUID())
                     .setParameter("institutionId", institution.getId())
                     .setParameter("personId", constraintPerson.getId())
@@ -355,7 +358,8 @@ class EnrollmentResolutionPostgresIntegrationTest {
 
   @Test
   @DisplayName(
-      "Should enforce PostgreSQL consistency check: rejection_reason must be set when status is REJECTED")
+      "Should enforce PostgreSQL consistency check: rejection_reason must be set when status is"
+          + " REJECTED")
   void database_enforcesResolutionConsistencyCheck_cannotHaveNullRejectionReasonWhenRejected() {
     final var applicationId = startAndSubmit();
 
@@ -364,13 +368,13 @@ class EnrollmentResolutionPostgresIntegrationTest {
                 entityManager
                     .createNativeQuery(
                         """
-                        INSERT INTO enrollment_applications (
-                          enrollment_application_id, institution_id, applicant_person_id,
-                          study_plan_id, training_path_id, academic_year_id, enrollment_period_id, status,
-                          rejection_reason, created_at, updated_at
-                        ) VALUES (:id, :institutionId, :personId, :studyPlanId, :trainingPathId, :academicYearId,
-                                 :periodId, 'REJECTED', NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-                        """)
+INSERT INTO enrollment_applications (
+  enrollment_application_id, institution_id, applicant_person_id,
+  study_plan_id, training_path_id, academic_year_id, enrollment_period_id, status,
+  rejection_reason, created_at, updated_at
+) VALUES (:id, :institutionId, :personId, :studyPlanId, :trainingPathId, :academicYearId,
+         :periodId, 'REJECTED', NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+""")
                     .setParameter("id", UUID.randomUUID())
                     .setParameter("institutionId", institution.getId())
                     .setParameter("personId", constraintPerson.getId())

@@ -1,0 +1,14 @@
+{
+  "passed": true,
+  "checks": [
+    "Ver más roles permite encontrar el rol situado después de los primeros 50",
+    "Roles disponibles vuelve a mostrar filas con el botón Asignar, también en móvil",
+    "Asignar, guardar y recargar conserva el rol y sus metadatos de alcance",
+    "Alcance y trayectos conservan la disposición vertical a todo el ancho",
+    "El rol de prueba agregado se revocó al finalizar para restaurar las asignaciones previas"
+  ],
+  "screenshots": [
+    "roles-lista-original-escritorio.png",
+    "roles-lista-original-movil.png"
+  ]
+}

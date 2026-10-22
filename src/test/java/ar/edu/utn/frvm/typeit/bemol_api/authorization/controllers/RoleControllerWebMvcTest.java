@@ -34,6 +34,7 @@ import ar.edu.utn.frvm.typeit.bemol_api.authorization.services.InstitutionRoleMa
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.services.InstitutionalCallerGuard;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.services.ListPersonRolesUseCase;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.services.ListSystemRolesUseCase;
+import ar.edu.utn.frvm.typeit.bemol_api.authorization.services.QueryInstitutionRolesUseCase;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.services.ReplacePersonRolesUseCase;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.services.RevokePersonRoleUseCase;
 import ar.edu.utn.frvm.typeit.bemol_api.common.exceptions.GlobalExceptionHandler;
@@ -97,6 +98,7 @@ class RoleControllerWebMvcTest {
   @MockitoBean private ReplacePersonRolesUseCase replacePersonRolesUseCase;
   @MockitoBean private ListSystemRolesUseCase listSystemRolesUseCase;
   @MockitoBean private InstitutionRoleManagementService institutionRoleManagementService;
+  @MockitoBean private QueryInstitutionRolesUseCase roleQueries;
 
   @MockitoBean
   private BootstrapInstitutionalAuthorityUseCase bootstrapInstitutionalAuthorityUseCase;

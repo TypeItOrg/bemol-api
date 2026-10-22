@@ -10,6 +10,16 @@ import org.junit.jupiter.api.Test;
 class PermissionCodeDependencyTest {
 
   @Test
+  void courseSelectionReadIncludesTheApplicationDetailItNeeds() {
+    assertThat(
+            PermissionCode.withRequiredPermissions(
+                Set.of(PermissionCode.ENROLLMENT_APPLICATION_COURSE_READ)))
+        .containsExactlyInAnyOrder(
+            PermissionCode.ENROLLMENT_APPLICATION_COURSE_READ,
+            PermissionCode.ENROLLMENT_APPLICATION_READ);
+  }
+
+  @Test
   @DisplayName("Should include the people read permission for people actions")
   void withRequiredPermissions_includesPeopleReadPermission() {
     Set<PermissionCode> expanded =

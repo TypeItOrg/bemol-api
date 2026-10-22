@@ -10,7 +10,6 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import ar.edu.utn.frvm.typeit.bemol_api.academic.entities.AcademicSpace;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.entities.AcademicYear;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.entities.Instrument;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.entities.StudyPlan;
@@ -142,7 +141,8 @@ class EnrollmentApplicationServiceTest {
             Mockito.mock(EnrollmentDocumentAuthorization.class),
             Mockito.mock(EnrollmentDocumentAudit.class),
             documentRequirements,
-            admissionHistory);
+            admissionHistory,
+            Mockito.mock(EnrollmentApplicationCourseAuthorization.class));
     final var courses =
         new EnrollmentCourseSelectionService(
             courseRepository,
@@ -449,9 +449,6 @@ class EnrollmentApplicationServiceTest {
     UUID instrumentId = UUID.randomUUID();
     StudyPlanSpace space = Mockito.mock(StudyPlanSpace.class);
     when(space.getId()).thenReturn(spaceId);
-    AcademicSpace spaceAcademicSpace = Mockito.mock(AcademicSpace.class);
-    when(spaceAcademicSpace.getName()).thenReturn("Espacio académico");
-    when(space.getAcademicSpace()).thenReturn(spaceAcademicSpace);
     Instrument instrument = Mockito.mock(Instrument.class);
     when(instrument.getId()).thenReturn(instrumentId);
 
@@ -483,7 +480,8 @@ class EnrollmentApplicationServiceTest {
 
   @Test
   @DisplayName(
-      "Should reassign the study plan and discard previously selected spaces when the career changes")
+      "Should reassign the study plan and discard previously selected spaces when the career"
+          + " changes")
   void updateDraft_careerChangeReassignsStudyPlanAndClearsSpaces() {
     Person person = Mockito.mock(Person.class);
     when(person.getId()).thenReturn(personId);
@@ -725,7 +723,8 @@ class EnrollmentApplicationServiceTest {
 
   @Test
   @DisplayName(
-      "Should throw EnrollmentValidationException reporting each missing field when mandatory fields are missing upon submission")
+      "Should throw EnrollmentValidationException reporting each missing field when mandatory"
+          + " fields are missing upon submission")
   void submitApplication_missingFields() {
     Person person = Mockito.mock(Person.class);
     when(person.getId()).thenReturn(personId);
@@ -767,7 +766,8 @@ class EnrollmentApplicationServiceTest {
 
   @Test
   @DisplayName(
-      "Should throw EnrollmentValidationException when a minor applicant has no responsible/tutor data")
+      "Should throw EnrollmentValidationException when a minor applicant has no responsible/tutor"
+          + " data")
   void submitApplication_minorWithoutResponsible_reportsError() {
     Person person = Mockito.mock(Person.class);
     when(person.getId()).thenReturn(UUID.randomUUID());

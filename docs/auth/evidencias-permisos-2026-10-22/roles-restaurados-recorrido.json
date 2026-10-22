@@ -1,0 +1,13 @@
+{
+  "passed": true,
+  "checks": [
+    "Alcance arriba a todo el ancho; trayectos debajo a todo el ancho; etiquetas y contenedor anteriores; agregar trayecto al final",
+    "Quitar y volver a seleccionar un trayecto conserva los controles originales",
+    "Móvil con el mismo orden, controles a todo el ancho y sin desborde horizontal"
+  ],
+  "assignmentChangesSaved": false,
+  "screenshots": [
+    "roles-restaurados-escritorio.png",
+    "roles-restaurados-movil.png"
+  ]
+}

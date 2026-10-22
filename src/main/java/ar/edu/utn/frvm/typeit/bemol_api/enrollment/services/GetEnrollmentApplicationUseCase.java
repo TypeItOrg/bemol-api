@@ -27,9 +27,7 @@ public class GetEnrollmentApplicationUseCase {
         ScopedResource.ENROLLMENT_APPLICATION,
         applicationId);
 
-    // Course selections are always included: both callers (institutional and platform
-    // detail) already enforce their review permissions, and reviewers need the
-    // selections before approval to enroll from them.
+    // The response factory applies the separate course-read grant to embedded selections.
     return enrollmentApplicationRepository
         .findByIdAndInstitutionId(institutionId, applicationId)
         .map(application -> responseFactory.from(application, true))

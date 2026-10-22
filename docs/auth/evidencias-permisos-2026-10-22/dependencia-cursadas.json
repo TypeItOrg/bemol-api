@@ -1,0 +1,10 @@
+{
+  "passed": true,
+  "selectedPermission": "institution:enrollment-application-course:read",
+  "automaticallyRequiredPermission": "institution:enrollment-application:read",
+  "parentCheckedAndLocked": true,
+  "persistedPermissions": [
+    "institution:enrollment-application-course:read",
+    "institution:enrollment-application:read"
+  ]
+}

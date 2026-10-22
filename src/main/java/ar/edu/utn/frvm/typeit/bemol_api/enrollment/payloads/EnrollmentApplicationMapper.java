@@ -29,7 +29,7 @@ final class EnrollmentApplicationMapper {
       final boolean includeAttachments) {
     return base(application)
         .canReadAttachments(includeAttachments)
-        .data(EnrollmentDraftDataMapper.from(application, includeAttachments))
+        .data(EnrollmentDraftDataMapper.from(application, includeCourses, includeAttachments))
         .spaces(includeCourses ? spaces(application) : new ArrayList<>())
         .courses(
             !includeCourses || application.getCourseSelections() == null

@@ -1,0 +1,62 @@
+{
+  "api_full_suite": {
+    "classes": 186,
+    "tests": 1186,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "api_enrollment_fast_regressions": {
+    "classes": 14,
+    "tests": 105,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "api_final_http_regressions": {
+    "classes": 1,
+    "tests": 7,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "ui": {
+    "suites": 164,
+    "tests": 1196,
+    "failures": 0,
+    "test_timeout_ms": 5000
+  },
+  "infrastructure": {
+    "make_test": "passed",
+    "configuration_tests": 13,
+    "acceptance_verifier_tests": 10,
+    "backup_suite": "passed",
+    "failures": 0
+  },
+  "production_ui_build": "passed",
+  "spotless": "passed",
+  "ui_typecheck": "passed",
+  "changed_ui_files_eslint": "passed",
+  "changed_ui_files_prettier": "passed",
+  "browser": "Chromium: desktop and mobile; 82 configurable permissions selected and saved; scope changes and session revocation verified",
+  "review_api_health": "UP",
+  "review_services": [
+    "PostgreSQL 18",
+    "Redis 7",
+    "Mailpit local"
+  ],
+  "api_static_analysis": {
+    "nullAwayMain": "passed",
+    "nullAwayTest": "passed",
+    "ecjMain": "passed",
+    "ecjTest": "passed",
+    "codeStructureCheck": "passed"
+  },
+  "make_format": {
+    "api": "passed",
+    "ui": "passed"
+  },
+  "ui_eslint": "passed",
+  "ui_prettier_check": "passed",
+  "publication_branch": "develop"
+}

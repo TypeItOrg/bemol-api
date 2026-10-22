@@ -1,0 +1,16 @@
+{
+  "checks": [
+    "Explicación del alcance visible",
+    "Rol fuera de los primeros 50 buscado, asignado y guardado desde la UI",
+    "Cambio de roles: sesión anterior revocada; nuevo acceso limitado devuelve API 403 y pantalla Sin acceso",
+    "Ampliación a toda la institución: API 200 y UI accesible con cierre de la sesión anterior y nuevo acceso verificado",
+    "Reducción a un trayecto: revocación inmediata en API y UI con cierre de la sesión anterior y nuevo acceso verificado",
+    "Otra institución rechazada",
+    "Escritorio y móvil: controles etiquetados y sin desborde horizontal",
+    "Filtro de usuarios encuentra roles fuera de la primera página"
+  ],
+  "desktopOverflow": false,
+  "mobileOverflow": false,
+  "browser": "Chromium",
+  "passed": true
+}

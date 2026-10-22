@@ -23,6 +23,7 @@ public class EnrollmentApplicationResponseFactory {
   private final EnrollmentDocumentAudit audit;
   private final EnrollmentDocumentRequirementsService documents;
   private final EnrollmentAdmissionHistory history;
+  private final EnrollmentApplicationCourseAuthorization courseAuthorization;
 
   public EnrollmentApplicationResponse summary(final EnrollmentApplication application) {
     return EnrollmentApplicationResponse.summary(application).toBuilder()
@@ -54,13 +55,14 @@ public class EnrollmentApplicationResponseFactory {
     }
 
     final var response =
-        EnrollmentApplicationResponse.from(application, includeCourses, canRead).toBuilder()
+        EnrollmentApplicationResponse.from(
+                application, includeCourses && courseAuthorization.canRead(application), canRead)
+            .toBuilder()
             .admissionHistory(history.list(application.getId()))
             .periodOpen(periods.isOpen(application))
             .documents(canRead ? documents.responses(application, authentication) : List.of());
     final boolean canConfirm =
-        canRead
-            && canApprove
+        canApprove
             && (application.isPendingEvaluation()
                 || application.getStatus() == EnrollmentApplicationStatus.PROVISIONALLY_APPROVED)
             && documents.allAccepted(application);
@@ -81,8 +83,7 @@ public class EnrollmentApplicationResponseFactory {
                     .toList()
                 : List.of())
         .canApproveProvisionally(
-            canRead
-                && canApprove
+            canApprove
                 && application.isPendingEvaluation()
                 && documents.initialAccepted(application)
                 && !canConfirm)

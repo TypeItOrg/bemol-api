@@ -13,6 +13,7 @@ import ar.edu.utn.frvm.typeit.bemol_api.authorization.payloads.InstitutionRoleRe
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.payloads.InstitutionRoleResponse;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.services.AuthorizationService;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.services.InstitutionRoleManagementService;
+import ar.edu.utn.frvm.typeit.bemol_api.authorization.services.QueryInstitutionRolesUseCase;
 import ar.edu.utn.frvm.typeit.bemol_api.common.web.PaginatedResponse;
 import ar.edu.utn.frvm.typeit.bemol_api.common.web.Version;
 import jakarta.validation.Valid;
@@ -43,6 +44,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class InstitutionRoleController {
 
   private final InstitutionRoleManagementService roleService;
+  private final QueryInstitutionRolesUseCase roleQueries;
   private final AuthorizationService authorizationService;
 
   @GetMapping(value = "/institutions/{institutionId}/roles", version = Version.V1)
@@ -57,6 +59,17 @@ public class InstitutionRoleController {
       @PageableDefault(sort = "name", direction = Sort.Direction.ASC) Pageable pageable,
       Authentication authentication) {
     return roleService.list(institutionId, search, pageable);
+  }
+
+  @GetMapping(value = "/institutions/{institutionId}/role-options/{roleId}", version = Version.V1)
+  @RequiresInstitutionAccess
+  @RequiresAnyPermission({
+    PermissionCode.INSTITUTION_ROLE_READ,
+    PermissionCode.INSTITUTION_PERSON_READ_ANY
+  })
+  public InstitutionRoleResponse roleOption(
+      @PathVariable UUID institutionId, @PathVariable UUID roleId) {
+    return roleQueries.option(institutionId, roleId);
   }
 
   @GetMapping(value = "/institutions/{institutionId}/roles/{roleId}", version = Version.V1)

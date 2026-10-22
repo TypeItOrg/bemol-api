@@ -15,7 +15,9 @@ final class EnrollmentDraftDataMapper {
   private EnrollmentDraftDataMapper() {}
 
   static EnrollmentDraftData from(
-      final EnrollmentApplication application, final boolean includeAttachments) {
+      final EnrollmentApplication application,
+      final boolean includeCourses,
+      final boolean includeAttachments) {
     final var path = application.getTrainingPath();
 
     return EnrollmentDraftData.builder()
@@ -26,10 +28,12 @@ final class EnrollmentDraftDataMapper {
         .preference(preference(application.getPreference()))
         .careerSelection(
             path == null ? new CareerSelectionDto() : new CareerSelectionDto(path.getId()))
-        .academicSpaceSelection(spaces(application))
-        .instrumentSelection(instruments(application))
+        .academicSpaceSelection(
+            includeCourses ? spaces(application) : new AcademicSpaceSelectionDto())
+        .instrumentSelection(
+            includeCourses ? instruments(application) : new InstrumentSelectionDto())
         .courses(
-            application.getCourseSelections() == null
+            !includeCourses || application.getCourseSelections() == null
                 ? new ArrayList<>()
                 : application.getCourseSelections().stream()
                     .map(

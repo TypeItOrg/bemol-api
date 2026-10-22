@@ -58,6 +58,15 @@ public class QueryInstitutionRolesUseCase {
   }
 
   @Transactional(readOnly = true)
+  public InstitutionRoleResponse option(final UUID institutionId, final UUID roleId) {
+    final var role =
+        roles
+            .findByIdAndScopeAndInstitution_Id(roleId, RoleScope.INSTITUTION, institutionId)
+            .orElseThrow(RoleNotFoundException::new);
+    return responses.from(role);
+  }
+
+  @Transactional(readOnly = true)
   public PlatformRoleResponse platform(final UUID roleId) {
     final var role =
         roles
