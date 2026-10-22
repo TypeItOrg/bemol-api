@@ -10,7 +10,7 @@ Las validaciones están en [`.github/workflows/ci.yaml`](../.github/workflows/ci
 - **Pushes** directos a `develop` y `main`.
 - **Pushes a `staging`**, mediante la llamada reutilizable desde [Deploy staging](../.github/workflows/deploy-staging.yaml). No se ejecuta otro CI duplicado por ese push.
 
-CI no publica imágenes ni recibe secrets de Dokploy. **Deploy staging** sólo se activa por push a `staging`: primero llama al mismo CI del mismo commit mediante `workflow_call`, después publica la imagen y finalmente solicita el despliegue. Así se conserva la rama `staging` para las restricciones del GitHub Environment, sin encadenar ejecuciones privilegiadas con `workflow_run`.
+CI no publica imágenes ni recibe credenciales de despliegue. **Deploy staging** sólo se activa por push a `staging`: primero llama al mismo CI del mismo commit mediante `workflow_call`, después publica la imagen y finalmente solicita el despliegue. Así se conserva la rama `staging` para las restricciones del GitHub Environment, sin encadenar ejecuciones privilegiadas con `workflow_run`.
 
 `develop` se ejecuta localmente: CI valida su código, pero no publica imágenes ni despliega un ambiente remoto. `main` también queda sólo con CI. No hay workflow de despliegue productivo.
 
@@ -26,7 +26,7 @@ flowchart TD
     ST[Push staging] --> DS[Deploy staging]
     DS --> RC[Reutiliza CI del mismo commit]
     RC --> PI[publish-image sólo si CI pasó]
-    PI --> DEP[Solicitud HTTPS a Dokploy]
+    PI --> DEP[SSH al VPS: pull y Compose up]
 ```
 
 ### A. Trabajo: Análisis Estático (`static-analysis`)
@@ -93,9 +93,10 @@ Pertenece a **Deploy staging** y depende del job `ci`, que llama a las mismas va
 ### D. Trabajo: Despliegue Continuo a Staging (`deploy-staging`)
 
 - Pertenece a **Deploy staging** y se activa tras la publicación de la imagen en pushes a `staging`.
-- Usa el GitHub Environment `staging` y sus secrets `DOKPLOY_URL`, `DOKPLOY_API_KEY` y `DOKPLOY_STAGING_COMPOSE_ID` para solicitar el despliegue por HTTPS a Dokploy; no entra por SSH.
-- Dokploy descarga las imágenes y ejecuta el Compose de staging de `bemol-infra`, conservando los volúmenes existentes. El tag móvil `staging` identifica la última imagen publicada de esa rama; para fijar una versión se utiliza su tag `sha-<commit>` en Dokploy.
-- El job confirma una solicitud asíncrona, no la salud posterior ni un rollback automático. La operación, verificación y vuelta se documentan en [Staging con Dokploy](https://github.com/TypeItOrg/bemol-infra/blob/main/docs/DOKPLOY-STAGING.md).
+- Usa el GitHub Environment `staging` y sus secrets `DEPLOY_HOST`, `DEPLOY_PORT`, `DEPLOY_USER`, `DEPLOY_SSH_KEY` y `DEPLOY_SSH_KNOWN_HOSTS`.
+- Verifica la clave del host SSH y ejecuta `scripts/deploy-staging.sh` en el checkout `/opt/bemol-infra` del VPS. El script serializa despliegues de API/UI, descarga imágenes y combina `compose.yaml` con `compose.staging.yaml`, conservando volúmenes.
+- `API_VERSION` y `UI_VERSION` del archivo privado `.env.staging` seleccionan las versiones; pueden ser `staging` o tags `sha-<commit>`. Un tag móvil puede tomar una publicación posterior al commit que disparó el job.
+- El job recibe el resultado del script, que espera la salud configurada de los contenedores. No ejecuta rollback automático. El VPS ya opera con Compose y SSH, sin Dokploy; la operación se describe en [Staging](https://github.com/TypeItOrg/bemol-infra/blob/main/docs/STAGING.md).
 
 ## 3. Verificaciones de Calidad Locales Recomendadas
 
