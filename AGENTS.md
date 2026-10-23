@@ -1,4 +1,4 @@
-# Bemol API
+# Bemol
 
 Spring Boot API using Gradle, Java 21, JPA/PostgreSQL and Redis. Resolve exact versions from `build.gradle` and `gradle/wrapper/gradle-wrapper.properties`.
 
