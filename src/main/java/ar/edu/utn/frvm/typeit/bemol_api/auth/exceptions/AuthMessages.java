@@ -60,11 +60,13 @@ public final class AuthMessages {
       "El intento de inicio de sesión es inválido o ha expirado.";
   public static final String LOGIN_STATE_INCONSISTENT =
       "No pudimos completar el inicio de sesión. Intentá nuevamente.";
-  public static final String PASSKEY_NOT_FOUND = "La passkey especificada no existe.";
-  public static final String PASSKEY_ALREADY_REGISTERED = "Esta passkey ya está registrada.";
+  public static final String PASSKEY_NOT_FOUND = "La llave de acceso especificada no existe.";
+  public static final String PASSKEY_ALREADY_REGISTERED =
+      "Esta llave de acceso ya está registrada.";
   public static final String PASSKEY_LIMIT_EXCEEDED =
-      "Alcanzaste el máximo de passkeys activas permitidas.";
-  public static final String PASSKEY_LABEL_REQUIRED = "El nombre de la passkey es requerido.";
+      "Alcanzaste el máximo de llaves de acceso activas permitidas.";
+  public static final String PASSKEY_LABEL_REQUIRED =
+      "El nombre de la llave de acceso es requerido.";
   public static final String PASSKEY_LABEL_LENGTH =
       "El nombre debe tener entre 1 y 100 caracteres.";
   public static final String RECENT_AUTH_REQUIRED =
@@ -72,7 +74,7 @@ public final class AuthMessages {
   public static final String WEBAUTHN_CEREMONY_INVALID =
       "La ceremonia WebAuthn es inválida o ha expirado.";
   public static final String WEBAUTHN_VERIFICATION_FAILED =
-      "No pudimos usar una passkey. Podés reintentar o ingresar con tu contraseña.";
+      "No pudimos usar la llave de acceso. Podés reintentar o ingresar con tu contraseña.";
   public static final String PASSKEY_EMAIL_VERIFICATION_REQUIRED =
       "Confirmá tu correo electrónico antes de ingresar. Para continuar, ingresá tu documento.";
 
