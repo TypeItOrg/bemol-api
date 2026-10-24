@@ -62,10 +62,6 @@ public final class ValidationMessages {
   public static final String ROLE_REQUIRED = "El rol es requerido.";
   public static final String ROLE_NAME_MAX_LENGTH =
       "El nombre no puede superar los 100 caracteres.";
-  public static final String SLUG_FORMAT =
-      "El slug solo puede contener letras minúsculas, números y guiones.";
-  public static final String SLUG_MAX_LENGTH = "El slug debe tener menos de 100 caracteres.";
-  public static final String SLUG_REQUIRED = "El slug es requerido.";
   public static final String STREET_REQUIRED = "La calle es requerida.";
   public static final String NUMBER_MAX_LENGTH = "El número debe tener menos de 50 caracteres.";
   public static final String YEAR_MINIMUM = "El año debe ser igual o posterior a 2000.";

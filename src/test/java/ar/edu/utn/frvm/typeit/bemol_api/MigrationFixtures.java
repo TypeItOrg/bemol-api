@@ -38,13 +38,12 @@ final class MigrationFixtures {
     jdbcTemplate.update(
         """
         INSERT INTO institutions (
-          institution_id, city_id, name, slug, active, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+          institution_id, city_id, name, active, created_at, updated_at
+        ) VALUES (?, ?, ?, true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
         """,
         institutionId,
         cityId,
-        "Migration Institution " + institutionId,
-        "migration-" + institutionId);
+        "Migration Institution " + institutionId);
   }
 
   void insertAcademicYear(final UUID id, final UUID institutionId, final int year) {

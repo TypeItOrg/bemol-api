@@ -44,7 +44,7 @@ las relaciones guardan referencias, no copias indiscriminadas del objeto asociad
 | `EnrollmentPeriod` | `institution`, `academicYear`, `name`, `startDate`, `endDate`, `status`, `scopeConfigured`, `deletedAt` heredado |
 | `EnrollmentPeriodOffering` | `period`, `studyPlan` |
 | `EnrollmentPeriodOfferingLevel` | `offering`, `academicLevel` |
-| `Institution` | `city`, `name`, `slug`, `publicSubdomain`, `logoContentType`, `logoVersion`, `logoSize`, `active` |
+| `Institution` | `city`, `name`, `publicSubdomain`, `logoContentType`, `logoVersion`, `logoSize`, `active` |
 | `Instrument` | `institution`, `name`, `active`, `deletedAt` heredado |
 | `PasskeyCredential` | `user`, `revokedAt` |
 | `Person` | `institution`, `deleted` |

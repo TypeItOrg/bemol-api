@@ -23,7 +23,6 @@ import ar.edu.utn.frvm.typeit.bemol_api.common.logging.RequestLoggingFilter;
 import ar.edu.utn.frvm.typeit.bemol_api.common.mail.MailSender;
 import ar.edu.utn.frvm.typeit.bemol_api.common.storage.StorageService;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.enums.DocumentRequirementLevel;
-import ar.edu.utn.frvm.typeit.bemol_api.institutional.exceptions.SlugAlreadyExistsException;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.payloads.requests.CreateInstitutionRequest;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.payloads.requests.UpdateInstitutionRequest;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.payloads.requests.UpdateInstitutionalInstitutionRequest;
@@ -113,17 +112,12 @@ class InstitutionsDocumentsAuditPostgresIntegrationTest extends DatabaseMigratio
         requireNonNull(
             jdbcTemplate.queryForObject("SELECT city_id FROM cities LIMIT 1", UUID.class));
     final UUID institutionId =
-        createInstitution
-            .execute(institutionRequest("Instituto Boreal", "audit-aurora-" + suffix, cityId))
-            .id();
+        createInstitution.execute(institutionRequest("Instituto Boreal", cityId)).id();
     final UUID destinationId =
-        createInstitution
-            .execute(institutionRequest("Instituto Destino", "audit-destino-" + suffix, cityId))
-            .id();
+        createInstitution.execute(institutionRequest("Instituto Destino", cityId)).id();
     final var updatedInstitution =
         new UpdateInstitutionRequest(
             "Instituto Boreal Renovado",
-            "audit-aurora-" + suffix,
             cityId,
             null,
             null,
@@ -316,22 +310,6 @@ class InstitutionsDocumentsAuditPostgresIntegrationTest extends DatabaseMigratio
             jdbcTemplate.queryForObject(
                 "SELECT name FROM document_definitions WHERE id = ?", String.class, documentId))
         .isEqualTo("Documento Aurora Revisado");
-    assertThatThrownBy(
-            () ->
-                updateInstitution.execute(
-                    institutionId,
-                    new UpdateInstitutionRequest(
-                        "Rejected institution",
-                        "audit-destino-" + suffix,
-                        cityId,
-                        null,
-                        null,
-                        null,
-                        null,
-                        PRIVATE_PHONE,
-                        PRIVATE_EMAIL,
-                        true)))
-        .isInstanceOf(SlugAlreadyExistsException.class);
     assertThat(count(institutionId, "INSTITUTION_UPDATED")).isEqualTo(2);
     assertThat(
             jdbcTemplate.queryForList(
@@ -396,10 +374,9 @@ class InstitutionsDocumentsAuditPostgresIntegrationTest extends DatabaseMigratio
         .isEqualTo("Trayecto Aurora");
   }
 
-  private CreateInstitutionRequest institutionRequest(
-      final String name, final String slug, final UUID cityId) {
+  private CreateInstitutionRequest institutionRequest(final String name, final UUID cityId) {
     return new CreateInstitutionRequest(
-        name, slug, cityId, null, null, null, null, PRIVATE_PHONE, PRIVATE_EMAIL);
+        name, cityId, null, null, null, null, PRIVATE_PHONE, PRIVATE_EMAIL, true);
   }
 
   private DocumentDefinitionRequest documentRequest(

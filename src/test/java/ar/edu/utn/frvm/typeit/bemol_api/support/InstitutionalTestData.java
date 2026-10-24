@@ -39,8 +39,8 @@ public final class InstitutionalTestData {
         .build();
   }
 
-  public static Institution institution(City city, String slug) {
-    return Institution.builder().city(city).name("Conservatorio Boero").slug(slug).build();
+  public static Institution institution(City city, String name) {
+    return Institution.builder().city(city).name(name).build();
   }
 
   public static Person person(Institution institution, String documentNumber) {
@@ -67,11 +67,11 @@ public final class InstitutionalTestData {
         .build();
   }
 
-  public static Institution createInstitution(EntityManager entityManager, String slug) {
+  public static Institution createInstitution(EntityManager entityManager, String name) {
     Country country = persist(entityManager, country(isoCode()));
     Province province = persist(entityManager, province(country, suffix()));
     City city = persist(entityManager, city(province, suffix()));
-    return persist(entityManager, institution(city, slug));
+    return persist(entityManager, institution(city, name));
   }
 
   public static User createUser(

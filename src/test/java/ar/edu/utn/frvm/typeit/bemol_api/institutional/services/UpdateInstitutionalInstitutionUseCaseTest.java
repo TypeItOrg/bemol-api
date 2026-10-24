@@ -112,13 +112,7 @@ class UpdateInstitutionalInstitutionUseCaseTest {
     final City city =
         City.builder().id(UUID.randomUUID()).name("Villa Maria").province(province).build();
 
-    return Institution.builder()
-        .id(id)
-        .name("Conservatorio Boero")
-        .slug("boero-villa-maria")
-        .city(city)
-        .active(true)
-        .build();
+    return Institution.builder().id(id).name("Conservatorio Boero").city(city).active(true).build();
   }
 
   private static City newCityWith(final UUID cityId) {

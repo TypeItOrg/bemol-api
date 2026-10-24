@@ -13,11 +13,11 @@ INSERT INTO seed_context
 SELECT institution_id, :'seed_dataset', :'seed_year'::integer,
        coalesce(nullif(:'seed_reference_date', '')::date, make_date(:'seed_year'::integer, 9, 1)),
        :'seed_timezone'
-FROM institutions WHERE slug = :'seed_institution' AND active;
+FROM institutions WHERE institution_id = :'seed_institution'::uuid AND active;
 DO $$
 BEGIN
     IF NOT EXISTS (SELECT 1 FROM seed_context) THEN
-        RAISE EXCEPTION 'SEED_INSTITUTION debe ser el código de una institución existente y activa.';
+        RAISE EXCEPTION 'SEED_INSTITUTION debe ser el UUID de una institución existente y activa.';
     END IF;
     IF NOT EXISTS (SELECT 1 FROM pg_timezone_names WHERE name = (SELECT timezone FROM seed_context)) THEN
         RAISE EXCEPTION 'SEED_TIMEZONE no es una zona horaria reconocida.';

@@ -21,23 +21,18 @@ class QaInstitutionPublicAccessTest {
     final var country = InstitutionalTestData.country("TST");
     final var province = InstitutionalTestData.province(country, "14");
     final var city = InstitutionalTestData.city(province, "14098");
-    return Institution.builder()
-        .id(UUID.randomUUID())
-        .city(city)
-        .name("Conservatorio QA")
-        .slug("legacy-slug")
-        .build();
+    return Institution.builder().id(UUID.randomUUID()).city(city).name("Conservatorio QA").build();
   }
 
   @Test
   void I01_domainInvariant_optionalIndependentLabel() {
     final var institution = institution();
     institution.changePublicSubdomain("cboero");
-    institution.changeSlug("different-legacy-slug");
+    institution.rename("Conservatorio actualizado");
     assertThat(institution.getPublicSubdomain()).isEqualTo("cboero");
     institution.changePublicSubdomain(null);
     assertThat(institution.getPublicSubdomain()).isNull();
-    assertThat(institution.getSlug()).isEqualTo("different-legacy-slug");
+    assertThat(institution.getName()).isEqualTo("Conservatorio actualizado");
     PublicSubdomainPolicy.validate("a");
     PublicSubdomainPolicy.validate("a".repeat(63));
     PublicSubdomainPolicy.validate("music-2026");
@@ -97,7 +92,7 @@ class QaInstitutionPublicAccessTest {
             new org.springframework.dao.DataIntegrityViolationException(
                 "different constraint",
                 new org.hibernate.exception.ConstraintViolationException(
-                    "other", new java.sql.SQLException("other"), "institutions_slug_unique")))
+                    "other", new java.sql.SQLException("other"), "other_unique_constraint")))
         .when(repository)
         .saveAndFlush(institution);
     assertThatThrownBy(

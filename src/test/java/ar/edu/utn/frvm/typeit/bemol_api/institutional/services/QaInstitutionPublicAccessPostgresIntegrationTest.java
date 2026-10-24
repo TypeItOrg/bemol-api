@@ -193,16 +193,7 @@ class QaInstitutionPublicAccessPostgresIntegrationTest {
     platformMetadata.execute(
         a.id(),
         new UpdateInstitutionRequest(
-            "New platform name",
-            "different-slug",
-            a.cityId(),
-            null,
-            null,
-            null,
-            null,
-            null,
-            null,
-            true));
+            "New platform name", a.cityId(), null, null, null, null, null, null, true));
     tenantMetadata.execute(
         a.id(),
         new UpdateInstitutionalInstitutionRequest(

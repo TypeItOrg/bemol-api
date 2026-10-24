@@ -142,9 +142,23 @@ El archivo [`Makefile`](../Makefile) centraliza los atajos más frecuentes de Do
 | `make test` | Ejecuta la suite de pruebas mediante Gradle. |
 | `make seed-demo` | Carga el dataset demo de inscripciones en la base de datos. |
 
+### Migraciones con watch y retiro del slug institucional
+
+Antes de generar una migración, detener la API y el watcher de Compose: `make migration`
+crea primero un archivo vacío que el entorno en watch podría aplicar antes de editarlo.
+
+El retiro de `Institution.slug` se implementa en
+`20261024032009__drop_retired_institution_slug.sql`. El archivo
+`20261024031419__remove_institution_slug.sql` debe permanecer vacío: ya se registró
+así en un entorno local con checksum 0. No usar `repair` ni reescribir ese registro.
+La migración elimina los slugs actuales y reconstruye la búsqueda por nombre;
+conserva la columna histórica en `institutions_aud`. Respaldar la base antes de
+aplicarla; revertir el código anterior requiere restaurar los slugs y su esquema
+desde ese respaldo, no alcanza con volver al binario anterior.
+
 ### Escenario conectado del seed
 
-`SEED_INSTITUTION=<código> SEED_YEAR=2026 make seed-demo` agrega a Mariana Suárez
+`SEED_INSTITUTION=<uuid> SEED_YEAR=2026 make seed-demo` agrega a Mariana Suárez
 dos personas a cargo con vínculos activos: Lucía Ferreyra, postulante con solicitud
 enviada al CAVI, y Camila Roldán, estudiante con solicitud aprobada y tres cursadas
 del CAVB instrumental (Lenguaje Musical, Ensamble y Piano). Las cursadas reutilizan

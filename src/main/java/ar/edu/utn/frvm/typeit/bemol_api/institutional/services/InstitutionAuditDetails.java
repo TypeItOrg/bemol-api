@@ -12,7 +12,6 @@ final class InstitutionAuditDetails {
   static Map<String, Object> snapshot(final Institution institution) {
     final var values = new LinkedHashMap<String, Object>();
     values.put("name", institution.getName());
-    values.put("slug", institution.getSlug());
     values.put("cityId", institution.getCity().getId());
     values.put("cityName", institution.getCity().getName());
     values.put("street", institution.getStreet());
@@ -46,7 +45,7 @@ final class InstitutionAuditDetails {
   // Contact and address values only participate in no-op detection, never in persisted details.
   private static Map<String, Object> publicValues(final Map<String, Object> snapshot) {
     final var values = new LinkedHashMap<String, Object>();
-    for (final var field : List.of("name", "slug", "cityName", "active")) {
+    for (final var field : List.of("name", "cityName", "active")) {
       values.put(field, snapshot.get(field));
     }
     return values;

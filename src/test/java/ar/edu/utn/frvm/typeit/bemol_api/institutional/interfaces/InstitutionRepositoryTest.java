@@ -18,7 +18,6 @@ import ar.edu.utn.frvm.typeit.bemol_api.institutional.entities.Province;
 import ar.edu.utn.frvm.typeit.bemol_api.support.JpaAuditingTestConfig;
 import jakarta.persistence.EntityManager;
 import java.time.Instant;
-import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -47,7 +46,7 @@ class InstitutionRepositoryTest {
 
     assertThat(page.getTotalElements()).isEqualTo(2);
     assertThat(page.getContent())
-        .extracting(mappedInstitution -> mappedInstitution.getSlug())
+        .extracting(mappedInstitution -> mappedInstitution.getName())
         .contains("boero-active", "boero-inactive");
     assertThat(page.getContent())
         .allSatisfy(
@@ -81,8 +80,8 @@ class InstitutionRepositoryTest {
 
     assertThat(page.getTotalElements()).isEqualTo(1);
     assertThat(page.getContent())
-        .extracting(mappedInstitution -> mappedInstitution.getSlug())
-        .containsExactly("boero-active");
+        .extracting(mappedInstitution -> mappedInstitution.getName())
+        .containsExactly("Conservatorio Superior de Música Felipe Boero");
     assertThat(page.getContent())
         .allSatisfy(
             institution -> {
@@ -114,26 +113,6 @@ class InstitutionRepositoryTest {
     assertThat(summary.getActiveInstitutions()).isEqualTo(1);
     assertThat(summary.getPeople()).isEqualTo(3);
     assertThat(summary.getUsersWithAccess()).isEqualTo(1);
-  }
-
-  @Test
-  @DisplayName("Should detect slug duplicates")
-  void existsBySlug_detectsDuplicates() {
-    createInstitution(entityManager, "boero");
-    entityManager.flush();
-
-    assertThat(institutionRepository.existsBySlug("boero")).isTrue();
-    assertThat(institutionRepository.existsBySlug("other-slug")).isFalse();
-  }
-
-  @Test
-  @DisplayName("Should detect slug duplicates excluding current institution")
-  void existsBySlugAndIdNot_excludesCurrentInstitution() {
-    Institution institution = createInstitution(entityManager, "boero");
-    entityManager.flush();
-
-    assertThat(institutionRepository.existsBySlugAndIdNot("boero", institution.getId())).isFalse();
-    assertThat(institutionRepository.existsBySlugAndIdNot("boero", UUID.randomUUID())).isTrue();
   }
 
   @Test
@@ -217,7 +196,7 @@ class InstitutionRepositoryTest {
     var institutions = institutionRepository.findTop5ByOrderByCreatedAtDesc();
 
     assertThat(institutions)
-        .extracting(mappedInstitution -> mappedInstitution.getSlug())
+        .extracting(mappedInstitution -> mappedInstitution.getName())
         .containsExactly("boero-5", "boero-4", "boero-3", "boero-2", "boero-1");
     assertThat(institutions)
         .allSatisfy(

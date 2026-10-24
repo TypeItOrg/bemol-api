@@ -43,14 +43,14 @@ class GlobalExceptionHandlerTest {
   void shouldMapFieldConflictExceptionToPayload() {
     final ResponseEntity<ExceptionPayload> response =
         handler.handleApplicationException(
-            new FieldConflictException("slug", "Ya existe una institución con ese slug."));
+            new FieldConflictException("email", "Ya existe una cuenta con ese email."));
 
     assertThat(response.getStatusCode().value()).isEqualTo(409);
     assertThat(response.getBody()).isNotNull();
     assertThat(response.getBody().status()).isEqualTo(409);
-    assertThat(response.getBody().message()).isEqualTo("Ya existe una institución con ese slug.");
+    assertThat(response.getBody().message()).isEqualTo("Ya existe una cuenta con ese email.");
     assertThat(response.getBody().fieldErrors())
-        .containsEntry("slug", "Ya existe una institución con ese slug.")
+        .containsEntry("email", "Ya existe una cuenta con ese email.")
         .hasSize(1);
   }
 

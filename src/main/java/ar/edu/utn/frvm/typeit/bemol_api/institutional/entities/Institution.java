@@ -10,7 +10,6 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
-import jakarta.persistence.UniqueConstraint;
 import java.util.UUID;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
@@ -24,9 +23,7 @@ import org.jspecify.annotations.Nullable;
 
 @DynamicUpdate
 @Entity
-@Table(
-    name = "institutions",
-    uniqueConstraints = @UniqueConstraint(name = "institutions_slug_unique", columnNames = "slug"))
+@Table(name = "institutions")
 @Getter
 @NoArgsConstructor
 @AllArgsConstructor(access = AccessLevel.PRIVATE)
@@ -46,10 +43,6 @@ public class Institution extends Auditable {
   @Column(nullable = false)
   @Audited
   private String name;
-
-  @Column(nullable = false, length = 100)
-  @Audited
-  private String slug;
 
   @Column(name = "public_subdomain", length = 63)
   @Audited
@@ -113,10 +106,6 @@ public class Institution extends Auditable {
 
   public void rename(final String name) {
     this.name = name;
-  }
-
-  public void changeSlug(final String slug) {
-    this.slug = slug;
   }
 
   public void updateLocation(

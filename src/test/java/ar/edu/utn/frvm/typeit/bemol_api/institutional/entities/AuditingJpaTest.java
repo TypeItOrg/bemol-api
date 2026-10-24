@@ -134,9 +134,9 @@ class AuditingJpaTest {
     assertThat(foundSession.getStartedAt()).isEqualTo(FIXED_INSTANT);
   }
 
-  private Institution createInstitution(final String slug) {
+  private Institution createInstitution(final String name) {
     return ar.edu.utn.frvm.typeit.bemol_api.support.InstitutionalTestData.createInstitution(
-        entityManager, slug);
+        entityManager, name);
   }
 
   private User createUser(final Institution institution, final String documentNumber) {

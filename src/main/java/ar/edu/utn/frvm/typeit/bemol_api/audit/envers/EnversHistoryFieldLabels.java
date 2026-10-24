@@ -106,7 +106,7 @@ final class EnversHistoryFieldLabels {
           entry("scope", "Ámbito"),
           entry("scope_configured", "Alcance configurado"),
           entry("self_access_enabled", "Acceso propio habilitado"),
-          entry("slug", "Nombre en la dirección web"),
+          entry("slug", "Slug histórico"),
           entry("source", "Origen de inscripción"),
           entry("source_requirement_id", "Identificador del requisito de origen"),
           entry("start_date", "Desde"),

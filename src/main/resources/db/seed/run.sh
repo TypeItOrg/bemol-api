@@ -6,7 +6,7 @@ if [[ $# -ne 0 ]]; then
     echo "Uso: $0" >&2; exit 2
 fi
 
-: "${SEED_INSTITUTION:?Indicar SEED_INSTITUTION con el código de la institución destino}"
+: "${SEED_INSTITUTION:?Indicar SEED_INSTITUTION con el UUID de la institución destino}"
 SEED_YEAR=${SEED_YEAR:-$(date +%Y)}
 # Keep one stable dataset identity across reruns.
 seed_dataset=bemol-2025
@@ -15,8 +15,8 @@ SEED_TRANSPORT=${SEED_TRANSPORT:-compose}
 if [[ ! "$SEED_YEAR" =~ ^[0-9]{1,4}$ ]]; then
     echo 'SEED_YEAR debe ser un año de 1 a 9998.' >&2; exit 2
 fi
-if [[ ! "$SEED_INSTITUTION" =~ ^[a-z0-9][a-z0-9-]*$ ]]; then
-    echo 'SEED_INSTITUTION debe ser un código válido sin separadores de ruta.' >&2; exit 2
+if [[ ! "$SEED_INSTITUTION" =~ ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$ ]]; then
+    echo 'SEED_INSTITUTION debe ser un UUID válido.' >&2; exit 2
 fi
 asset=src/main/resources/db/seed/assets/presentacion-musical.pdf
 asset_prefix="seed-demo/$SEED_INSTITUTION/$SEED_YEAR"

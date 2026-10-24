@@ -27,7 +27,7 @@ class DatabaseMigrationIntegrationTest extends DatabaseMigrationTestSupport {
     assertThat(activePersonDocumentIndexCount()).isEqualTo(1);
     assertThat(passwordResetTokenUserUniqueIndexCount()).isEqualTo(1);
     assertThat(pgTrgmExtensionCount()).isEqualTo(1);
-    assertThat(searchTrigramIndexCount()).isEqualTo(17);
+    assertThat(searchTrigramIndexCount()).isEqualTo(16);
   }
 
   @Test

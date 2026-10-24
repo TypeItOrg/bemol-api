@@ -7,14 +7,12 @@ import ar.edu.utn.frvm.typeit.bemol_api.audit.services.AuditEventRecorder;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.services.InstitutionRoleProvisioner;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.entities.Institution;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.exceptions.CityNotFoundException;
-import ar.edu.utn.frvm.typeit.bemol_api.institutional.exceptions.SlugAlreadyExistsException;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.interfaces.CityRepository;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.interfaces.InstitutionRepository;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.payloads.InstitutionDetailResponse;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.payloads.requests.CreateInstitutionRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -30,16 +28,11 @@ public class CreateInstitutionUseCase {
 
   @Transactional
   public InstitutionDetailResponse execute(CreateInstitutionRequest request) {
-    if (institutionRepository.existsBySlug(request.slug())) {
-      throw new SlugAlreadyExistsException();
-    }
-
     var city = cityRepository.findById(request.cityId()).orElseThrow(CityNotFoundException::new);
 
     Institution institution =
         Institution.builder()
             .name(request.name())
-            .slug(request.slug())
             .city(city)
             .street(request.street())
             .number(request.number())
@@ -47,17 +40,12 @@ public class CreateInstitutionUseCase {
             .additionalInfo(request.additionalInfo())
             .phoneNumber(request.phoneNumber())
             .email(request.email())
-            .active(true)
+            .active(request.active())
             .build();
 
-    Institution saved;
-    try {
-      saved = institutionRepository.save(institution);
-      institutionRepository.flush();
-      institutionRoleProvisioner.provision(saved);
-    } catch (DataIntegrityViolationException exception) {
-      throw new SlugAlreadyExistsException();
-    }
+    Institution saved = institutionRepository.save(institution);
+    institutionRepository.flush();
+    institutionRoleProvisioner.provision(saved);
 
     InstitutionDetailResponse response =
         institutionRepository

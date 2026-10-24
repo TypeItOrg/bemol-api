@@ -38,7 +38,7 @@ class AutoLoginUseCaseTest {
   @BeforeEach
   void setup() {
     environment.setActiveProfiles("staging");
-    final var institution = Institution.builder().id(institutionId).slug("any-institution").build();
+    final var institution = Institution.builder().id(institutionId).build();
     final var person =
         Person.builder()
             .id(UUID.randomUUID())

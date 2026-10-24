@@ -15,7 +15,6 @@ import ar.edu.utn.frvm.typeit.bemol_api.institutional.entities.Institution;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.entities.Province;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.exceptions.CityNotFoundException;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.exceptions.InstitutionNotFoundException;
-import ar.edu.utn.frvm.typeit.bemol_api.institutional.exceptions.SlugAlreadyExistsException;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.interfaces.CityRepository;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.interfaces.InstitutionRepository;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.payloads.requests.UpdateInstitutionRequest;
@@ -48,7 +47,6 @@ class UpdateInstitutionUseCaseTest {
     UpdateInstitutionRequest request =
         new UpdateInstitutionRequest(
             "Boero Actualizado",
-            "boero-actualizado",
             cityId,
             "Belgrano",
             "456",
@@ -60,15 +58,13 @@ class UpdateInstitutionUseCaseTest {
 
     when(institutionRepository.findWithLocationById(institutionId))
         .thenReturn(Optional.of(institution));
-    when(institutionRepository.existsBySlugAndIdNot("boero-actualizado", institutionId))
-        .thenReturn(false);
     when(cityRepository.findById(cityId)).thenReturn(Optional.of(city));
 
     var response = updateInstitutionUseCase.execute(institutionId, request);
 
     verify(institutionRepository).save(institution);
     assertThat(response.name()).isEqualTo("Boero Actualizado");
-    assertThat(response.slug()).isEqualTo("boero-actualizado");
+    assertThat(response.id()).isEqualTo(institutionId);
     assertThat(response.active()).isFalse();
     assertThat(response.city().name()).isEqualTo("Villa Maria");
     assertThat(response.country().isoCode()).isEqualTo("ARG");
@@ -89,22 +85,6 @@ class UpdateInstitutionUseCaseTest {
   }
 
   @Test
-  @DisplayName("Should throw when slug belongs to another institution")
-  void execute_throwsWhenSlugBelongsToAnotherInstitution() {
-    UUID institutionId = UUID.randomUUID();
-    UpdateInstitutionRequest request = updateRequest(UUID.randomUUID(), true);
-    when(institutionRepository.findWithLocationById(institutionId))
-        .thenReturn(Optional.of(institutionWith(institutionId)));
-    when(institutionRepository.existsBySlugAndIdNot(request.slug(), institutionId))
-        .thenReturn(true);
-
-    assertThatThrownBy(() -> updateInstitutionUseCase.execute(institutionId, request))
-        .isInstanceOf(SlugAlreadyExistsException.class);
-
-    verify(institutionRepository, never()).save(any());
-  }
-
-  @Test
   @DisplayName("Should throw when city does not exist")
   void execute_throwsWhenCityNotFound() {
     UUID institutionId = UUID.randomUUID();
@@ -113,8 +93,6 @@ class UpdateInstitutionUseCaseTest {
 
     when(institutionRepository.findWithLocationById(institutionId))
         .thenReturn(Optional.of(institutionWith(institutionId)));
-    when(institutionRepository.existsBySlugAndIdNot(request.slug(), institutionId))
-        .thenReturn(false);
     when(cityRepository.findById(cityId)).thenReturn(Optional.empty());
 
     assertThatThrownBy(() -> updateInstitutionUseCase.execute(institutionId, request))
@@ -125,16 +103,7 @@ class UpdateInstitutionUseCaseTest {
 
   private static UpdateInstitutionRequest updateRequest(UUID cityId, boolean active) {
     return new UpdateInstitutionRequest(
-        "Boero Actualizado",
-        "boero-actualizado",
-        cityId,
-        null,
-        null,
-        null,
-        null,
-        null,
-        null,
-        active);
+        "Boero Actualizado", cityId, null, null, null, null, null, null, active);
   }
 
   private static Institution institutionWith(UUID id) {
@@ -144,13 +113,7 @@ class UpdateInstitutionUseCaseTest {
         Province.builder().id(UUID.randomUUID()).country(country).name("Cordoba").build();
     City city = City.builder().name("Villa Maria").province(province).build();
 
-    return Institution.builder()
-        .id(id)
-        .name("Conservatorio Boero")
-        .slug("boero-villa-maria")
-        .city(city)
-        .active(true)
-        .build();
+    return Institution.builder().id(id).name("Conservatorio Boero").city(city).active(true).build();
   }
 
   private static City cityWith(UUID cityId) {

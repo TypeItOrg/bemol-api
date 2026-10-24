@@ -71,7 +71,6 @@ class ListInstitutionsAdminUseCaseTest {
     return Institution.builder()
         .id(UUID.randomUUID())
         .name("Conservatorio Boero")
-        .slug("boero-villa-maria")
         .city(city)
         .active(true)
         .build();

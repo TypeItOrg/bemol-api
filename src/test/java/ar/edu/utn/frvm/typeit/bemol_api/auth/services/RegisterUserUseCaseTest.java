@@ -287,7 +287,6 @@ class RegisterUserUseCaseTest {
     return Institution.builder()
         .id(id)
         .name("Conservatorio Boero")
-        .slug("boero")
         .city(City.builder().build())
         .build();
   }

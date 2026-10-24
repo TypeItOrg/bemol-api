@@ -186,7 +186,6 @@ class InstitutionalInstitutionControllerWebMvcTest {
     return InstitutionDetailResponse.builder()
         .id(INSTITUTION_ID)
         .name("Conservatorio Boero")
-        .slug("boero-villa-maria")
         .city(CitySummaryResponse.builder().cityId(CITY_ID).name("Villa Maria").build())
         .province(ProvinceSummaryResponse.builder().provinceId(PROVINCE_ID).name("Cordoba").build())
         .country(

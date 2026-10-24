@@ -8,7 +8,6 @@ import lombok.Builder;
 public record InstitutionListItemResponse(
     UUID id,
     String name,
-    String slug,
     CountryLocationResponse country,
     String city,
     String province,
@@ -18,7 +17,6 @@ public record InstitutionListItemResponse(
     return InstitutionListItemResponse.builder()
         .id(institution.getId())
         .name(institution.getName())
-        .slug(institution.getSlug())
         .country(CountryLocationResponse.from(institution.getCity().getProvince().getCountry()))
         .city(institution.getCity().getName())
         .province(institution.getCity().getProvince().getName())

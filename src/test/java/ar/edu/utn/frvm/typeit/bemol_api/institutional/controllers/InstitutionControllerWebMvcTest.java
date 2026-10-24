@@ -104,7 +104,6 @@ class InstitutionControllerWebMvcTest {
                         InstitutionListItemResponse.builder()
                             .id(INSTITUTION_ID)
                             .name("Conservatorio Boero")
-                            .slug("boero-villa-maria")
                             .country(
                                 CountryLocationResponse.builder()
                                     .countryId(COUNTRY_ID)
@@ -125,7 +124,6 @@ class InstitutionControllerWebMvcTest {
         .perform(get("/api/v1/institutions"))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.items[0].id").value(INSTITUTION_ID.toString()))
-        .andExpect(jsonPath("$.items[0].slug").value("boero-villa-maria"))
         .andExpect(jsonPath("$.items[0].country.countryId").value(COUNTRY_ID.toString()))
         .andExpect(jsonPath("$.items[0].country.name").value("Argentina"))
         .andExpect(jsonPath("$.items[0].country.isoCode").value("ARG"))
@@ -164,7 +162,6 @@ class InstitutionControllerWebMvcTest {
         .perform(get("/api/v1/institutions/{id}", INSTITUTION_ID))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.id").value(INSTITUTION_ID.toString()))
-        .andExpect(jsonPath("$.slug").value("boero-villa-maria"))
         .andExpect(jsonPath("$.city.cityId").value(CITY_ID.toString()))
         .andExpect(jsonPath("$.city.name").value("Villa Maria"))
         .andExpect(jsonPath("$.province.provinceId").value(PROVINCE_ID.toString()))
@@ -216,8 +213,7 @@ class InstitutionControllerWebMvcTest {
                 .principal(authentication)
                 .contentType(APPLICATION_JSON)
                 .content(createPayload()))
-        .andExpect(status().isCreated())
-        .andExpect(jsonPath("$.slug").value("boero-villa-maria"));
+        .andExpect(status().isCreated());
   }
 
   @Test
@@ -351,7 +347,6 @@ class InstitutionControllerWebMvcTest {
                         InstitutionAdminListItemResponse.builder()
                             .id(INSTITUTION_ID)
                             .name("Conservatorio Boero")
-                            .slug("boero-villa-maria")
                             .country(
                                 CountryLocationResponse.builder()
                                     .countryId(COUNTRY_ID)
@@ -414,7 +409,6 @@ class InstitutionControllerWebMvcTest {
     return InstitutionDetailResponse.builder()
         .id(INSTITUTION_ID)
         .name("Conservatorio Boero")
-        .slug("boero-villa-maria")
         .city(CitySummaryResponse.builder().cityId(CITY_ID).name("Villa Maria").build())
         .province(ProvinceSummaryResponse.builder().provinceId(PROVINCE_ID).name("Cordoba").build())
         .country(
@@ -436,7 +430,7 @@ class InstitutionControllerWebMvcTest {
     return """
         {
           "name": "Conservatorio Boero",
-          "slug": "boero-villa-maria",
+          "active": true,
           "cityId": "%s"
         }
         """
@@ -460,7 +454,6 @@ class InstitutionControllerWebMvcTest {
     return """
         {
           "name": "Conservatorio Boero",
-          "slug": "boero-villa-maria",
           "cityId": "%s",
           "active": true
         }
@@ -472,7 +465,7 @@ class InstitutionControllerWebMvcTest {
     return """
         {
           "name": "Conservatorio Boero",
-          "slug": "boero-villa-maria",
+          "active": true,
           "cityId": "not-a-uuid"
         }
         """;

@@ -91,6 +91,7 @@ class FlywayBranchMigrationIntegrationTest {
             .dataSource(requireNonNull(jdbc.getDataSource()))
             .locations("classpath:db/migration", "classpath:db/dev")
             .sqlMigrationPrefix("")
+            .target("20261022120008")
             .load();
     assertThat(upgrade.migrate().migrationsExecuted).isEqualTo(1);
     assertThat(

@@ -37,9 +37,9 @@ class QaInstitutionalHostIsolationTest {
   @BeforeEach
   void setup() {
     institutions = mock(InstitutionRepository.class);
-    tenant = Institution.builder().id(UUID.randomUUID()).name("A").slug("old-a").build();
+    tenant = Institution.builder().id(UUID.randomUUID()).name("A").build();
     tenant.changePublicSubdomain("cboero");
-    other = Institution.builder().id(UUID.randomUUID()).name("B").slug("old-b").build();
+    other = Institution.builder().id(UUID.randomUUID()).name("B").build();
     user =
         User.builder()
             .id(UUID.randomUUID())

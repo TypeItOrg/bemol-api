@@ -223,7 +223,6 @@ class QaInstitutionAccessWebMvcTest {
         {
           "institution": {
             "name": "Conservatorio QA",
-            "slug": "qa",
             "cityId": "33333333-3333-3333-3333-333333333333",
             "active": true
           },

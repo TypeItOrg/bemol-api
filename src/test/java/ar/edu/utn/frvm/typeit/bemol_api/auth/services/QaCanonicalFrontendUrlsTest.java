@@ -31,8 +31,7 @@ class QaCanonicalFrontendUrlsTest {
 
   @Test
   void A06_canonicalEmail_asyncEventsSnapshotAccessIdentity() {
-    final var institution =
-        Institution.builder().id(UUID.randomUUID()).name("Institution").slug("legacy").build();
+    final var institution = Institution.builder().id(UUID.randomUUID()).name("Institution").build();
     institution.changePublicSubdomain("cboero");
     final var user =
         User.builder()

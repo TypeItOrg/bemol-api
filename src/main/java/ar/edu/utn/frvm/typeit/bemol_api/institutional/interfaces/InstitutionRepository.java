@@ -17,7 +17,6 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.transaction.annotation.Transactional;
 
 public interface InstitutionRepository extends JpaRepository<Institution, UUID> {
-  Optional<Institution> findBySlug(String slug);
 
   @Transactional(readOnly = true)
   Optional<Institution> findByPublicSubdomainAndActiveTrue(String publicSubdomain);
@@ -42,7 +41,6 @@ public interface InstitutionRepository extends JpaRepository<Institution, UUID> 
         AND (
           :search IS NULL
           OR UNACCENT_LOWER(institution.name) LIKE UNACCENT_LOWER(CONCAT('%', CAST(:search AS string), '%'))
-          OR UNACCENT_LOWER(institution.slug) LIKE UNACCENT_LOWER(CONCAT('%', CAST(:search AS string), '%'))
           OR UNACCENT_LOWER(city.name) LIKE UNACCENT_LOWER(CONCAT('%', CAST(:search AS string), '%'))
           OR UNACCENT_LOWER(province.name) LIKE UNACCENT_LOWER(CONCAT('%', CAST(:search AS string), '%'))
           OR UNACCENT_LOWER(country.name) LIKE UNACCENT_LOWER(CONCAT('%', CAST(:search AS string), '%'))
@@ -63,10 +61,6 @@ public interface InstitutionRepository extends JpaRepository<Institution, UUID> 
 
   @EntityGraph(attributePaths = {"city", "city.province", "city.province.country"})
   Optional<Institution> findWithLocationById(UUID id);
-
-  boolean existsBySlug(String slug);
-
-  boolean existsBySlugAndIdNot(String slug, UUID id);
 
   long countByActiveTrue();
 

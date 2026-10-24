@@ -14,12 +14,12 @@ enum SearchDefinition {
       null,
       """
 SELECT i.institution_id AS id, i.institution_id, i.name AS institution_name,
-       i.active AS institution_active, i.name AS title, i.slug AS subtitle,
+       i.active AS institution_active, i.name AS title, NULL::text AS subtitle,
        CASE WHEN i.active THEN 'ACTIVE' ELSE 'INACTIVE' END AS status,
        NULL::text AS category,
-       bemol_search_rank(i.name || ' ' || i.slug, :query, :normalized) AS score, NULL::integer AS study_plan_version
+       bemol_search_rank(i.name, :query, :normalized) AS score, NULL::integer AS study_plan_version
   FROM institutions i
- WHERE bemol_search_vector(i.name || ' ' || i.slug) @@ to_tsquery('simple', :query)
+ WHERE bemol_search_vector(i.name) @@ to_tsquery('simple', :query)
 """),
   USER(
       SearchEntityType.USER,

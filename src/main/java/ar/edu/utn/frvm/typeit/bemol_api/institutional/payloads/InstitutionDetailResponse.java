@@ -10,7 +10,6 @@ import org.jspecify.annotations.Nullable;
 public record InstitutionDetailResponse(
     UUID id,
     String name,
-    String slug,
     @Schema(nullable = true, requiredMode = Schema.RequiredMode.REQUIRED)
         @Nullable String publicSubdomain,
     @Schema(nullable = true, requiredMode = Schema.RequiredMode.REQUIRED) @Nullable String logoUrl,
@@ -33,7 +32,6 @@ public record InstitutionDetailResponse(
     return InstitutionDetailResponse.builder()
         .id(institution.getId())
         .name(institution.getName())
-        .slug(institution.getSlug())
         .publicSubdomain(institution.getPublicSubdomain())
         .logoUrl(InstitutionPublicAccessResponse.logoUrl(institution))
         .city(CitySummaryResponse.from(city))
