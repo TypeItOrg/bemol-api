@@ -16,6 +16,30 @@ INSERT INTO seed_settings VALUES (
     ARRAY['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY'], TIME '14:00', 60, 7, 20, ARRAY[5, 6]
 );
 
+CREATE TEMP TABLE seed_periods (
+    code text PRIMARY KEY, name text NOT NULL,
+    start_date date NOT NULL, end_date date NOT NULL,
+    CHECK (start_date <= end_date)
+) ON COMMIT DROP;
+INSERT INTO seed_periods
+SELECT 'vocacionales', 'Ciclos Artísticos Vocacionales', make_date(academic_year, 8, 1), make_date(academic_year, 11, 30)
+FROM seed_context
+UNION ALL
+SELECT 'profesorado', 'Profesorado de Música', make_date(academic_year, 9, 1), make_date(academic_year, 12, 15)
+FROM seed_context;
+
+CREATE TEMP TABLE seed_program_periods (
+    program text PRIMARY KEY REFERENCES seed_programs,
+    period_code text NOT NULL REFERENCES seed_periods
+) ON COMMIT DROP;
+INSERT INTO seed_program_periods VALUES
+    ('cavi', 'vocacionales'),
+    ('cavb-instrumento', 'vocacionales'),
+    ('cavb-canto', 'vocacionales'),
+    ('cava-instrumento', 'vocacionales'),
+    ('cava-canto', 'vocacionales'),
+    ('isfd', 'profesorado');
+
 CREATE TEMP TABLE seed_members (
     number integer PRIMARY KEY, document text NOT NULL UNIQUE,
     first_name text NOT NULL, last_name text NOT NULL,

@@ -71,6 +71,7 @@ DECLARE
     tenant uuid := (SELECT institution_id FROM seed_context);
     cycle uuid;
     cycle_year integer := (SELECT academic_year FROM seed_context);
+    period record;
     program record;
     placement record;
     chosen_instrument record;
@@ -116,7 +117,18 @@ BEGIN
                           AND lower(name) = lower(catalog_name));
     END LOOP;
 
-    FOR program IN SELECT * FROM seed_programs ORDER BY code LOOP
+    FOR period IN SELECT * FROM seed_periods ORDER BY code LOOP
+        period_key := pg_temp.academic_id('period:' || period.code || ':' || cycle_year);
+        INSERT INTO enrollment_periods (enrollment_period_id, institution_id, academic_year_id, name,
+                                        start_date, end_date, status, scope_configured, created_at, updated_at)
+        VALUES (period_key, tenant, cycle, 'Inscripciones ' || cycle_year || ' - ' || period.name,
+                period.start_date::timestamp AT TIME ZONE (SELECT timezone FROM seed_context),
+                ((period.end_date + 1)::timestamp AT TIME ZONE (SELECT timezone FROM seed_context)) - interval '1 second',
+                'OPEN', true, now(), now()) ON CONFLICT (enrollment_period_id) DO NOTHING;
+    END LOOP;
+
+    FOR program IN SELECT p.*, assignment.period_code FROM seed_programs p
+                   JOIN seed_program_periods assignment ON assignment.program = p.code ORDER BY p.code LOOP
         path_key := pg_temp.academic_id('path:' || program.code);
         plan_key := pg_temp.academic_id('plan:' || program.code);
         INSERT INTO training_paths (training_path_id, institution_id, name, description, active, created_at, updated_at)
@@ -125,14 +137,8 @@ BEGIN
         VALUES (plan_key, tenant, path_key, program.name || ' - ' || settings.plan_edition, settings.plan_effective_from, 'ACTIVE', now(), now())
         ON CONFLICT (study_plan_id) DO NOTHING;
 
-        period_key := pg_temp.academic_id('period:' || program.code || ':' || cycle_year);
+        period_key := pg_temp.academic_id('period:' || program.period_code || ':' || cycle_year);
         offering_key := pg_temp.academic_id('offering:' || program.code || ':' || cycle_year);
-        INSERT INTO enrollment_periods (enrollment_period_id, institution_id, academic_year_id, name,
-                                        start_date, end_date, status, scope_configured, created_at, updated_at)
-        VALUES (period_key, tenant, cycle, 'Inscripciones ' || cycle_year || ' - ' || program.name,
-                make_date(cycle_year, 1, 1)::timestamp AT TIME ZONE (SELECT timezone FROM seed_context),
-                (make_date(cycle_year + 1, 1, 1)::timestamp AT TIME ZONE (SELECT timezone FROM seed_context)) - interval '1 second',
-                'OPEN', true, now(), now()) ON CONFLICT (enrollment_period_id) DO NOTHING;
         INSERT INTO enrollment_period_offerings (offering_id, enrollment_period_id, study_plan_id)
         VALUES (offering_key, period_key, plan_key) ON CONFLICT (offering_id) DO NOTHING;
 

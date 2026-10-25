@@ -158,6 +158,17 @@ desde ese respaldo, no alcanza con volver al binario anterior.
 
 ### Escenario conectado del seed
 
+El dataset incluye dos períodos del año indicado por `SEED_YEAR`:
+
+| Período | Fechas | Trayectos |
+|---|---|---|
+| Ciclos Artísticos Vocacionales | 01/08–30/11 | CAVI, CAVB Instrumento/Canto y CAVA Instrumento/Canto |
+| Profesorado de Música | 01/09–15/12 | Profesorado (ISFD) |
+
+Así se prueban un período con varios planes y otro con uno solo, ambos con el nivel
+de oferta configurado en el escenario. `SEED_REFERENCE_DATE` debe quedar dentro del
+período de las solicitudes demo (Vocacionales); por defecto es el 1 de septiembre.
+
 `SEED_INSTITUTION=<uuid> SEED_YEAR=2026 make seed-demo` agrega a Mariana Suárez
 dos personas a cargo con vínculos activos: Lucía Ferreyra, postulante con solicitud
 enviada al CAVI, y Camila Roldán, estudiante con solicitud aprobada y tres cursadas
@@ -168,6 +179,8 @@ musical; el de Lucía está pendiente de revisión y el de Camila está aceptado
 
 El seed es aditivo y transaccional, fuera de Flyway. Los IDs son estables por
 institución/dataset y las solicitudes existentes no se reinician al repetirlo.
+Si ya se cargó la versión con un período por trayecto, el seed se detiene antes de
+insertar datos de negocio: no consolida períodos ni mueve solicitudes existentes.
 No reemplaza contraseñas, permisos ni archivos. Requiere almacenamiento local:
 con Compose copia los PDFs al servicio `SEED_API_SERVICE` (default `dev`); con
 `SEED_TRANSPORT=psql` indicar `SEED_STORAGE_DIR`, el directorio de la API accesible

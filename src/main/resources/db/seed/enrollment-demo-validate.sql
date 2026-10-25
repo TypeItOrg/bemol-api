@@ -5,6 +5,22 @@ DECLARE
     missing text;
 BEGIN
     SELECT * INTO STRICT settings FROM seed_settings;
+    IF EXISTS (SELECT 1 FROM seed_programs p
+               WHERE NOT EXISTS (SELECT 1 FROM seed_program_periods assignment WHERE assignment.program = p.code)) THEN
+        RAISE EXCEPTION 'Cada trayecto del dataset debe tener un período de inscripción.';
+    END IF;
+    IF EXISTS (SELECT 1 FROM seed_dependents d JOIN seed_program_periods assignment ON assignment.program = d.program
+               JOIN seed_periods p ON p.code = assignment.period_code CROSS JOIN seed_context c
+               WHERE c.reference_date NOT BETWEEN p.start_date AND p.end_date) THEN
+        RAISE EXCEPTION 'La fecha de referencia debe estar dentro del período de las solicitudes demo.';
+    END IF;
+    IF EXISTS (SELECT 1 FROM seed_program_periods assignment CROSS JOIN seed_context c
+               JOIN enrollment_period_offerings o
+                 ON o.offering_id = pg_temp.academic_id('offering:' || assignment.program || ':' || c.academic_year)
+               WHERE o.enrollment_period_id <> pg_temp.academic_id('period:' || assignment.period_code || ':' || c.academic_year)) THEN
+        RAISE EXCEPTION 'La demo existente usa otra distribución de períodos; consolidarla por separado antes de repetir el seed.';
+    END IF;
+
     SELECT string_agg(m.role_code, ', ' ORDER BY m.role_code) INTO missing
     FROM (SELECT DISTINCT role_code FROM seed_members) m
     WHERE NOT EXISTS (SELECT 1 FROM roles r JOIN seed_context c USING (institution_id)

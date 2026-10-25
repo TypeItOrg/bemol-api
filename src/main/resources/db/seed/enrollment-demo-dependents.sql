@@ -35,6 +35,7 @@ DECLARE
     reviewer uuid;
     dependent uuid;
     application uuid;
+    period_key uuid;
     document uuid := pg_temp.demo_id('document:musical-presentation');
     requirement uuid;
     selection uuid;
@@ -56,6 +57,8 @@ BEGIN
         dependent := pg_temp.demo_id('person:' || fixture.member_number);
         application := pg_temp.demo_id('application:dependent:' || fixture.member_number || ':' || cycle_year);
         requirement := pg_temp.demo_id('requirement:dependent:' || fixture.member_number || ':' || cycle_year);
+        SELECT pg_temp.academic_id('period:' || period_code || ':' || cycle_year) INTO STRICT period_key
+        FROM seed_program_periods WHERE program = fixture.program;
 
         INSERT INTO person_guardians (person_guardian_id, institution_id, tutor_person_id, dependent_person_id,
                                       relationship, is_primary_contact, status, resolved_by_person_id, resolved_at,
@@ -77,7 +80,7 @@ BEGIN
                                              resolved_by_person_id, created_at, updated_at)
         SELECT application, tenant, dependent, tutor, pg_temp.academic_id('path:' || fixture.program),
                pg_temp.academic_id('plan:' || fixture.program), academic_year_id,
-               pg_temp.academic_id('period:' || fixture.program || ':' || cycle_year), 'DRAFT', NULL, NULL, occurred, occurred
+               period_key, 'DRAFT', NULL, NULL, occurred, occurred
         FROM academic_years WHERE institution_id = tenant AND year = cycle_year AND deleted_at IS NULL
         ON CONFLICT (enrollment_application_id) DO NOTHING RETURNING enrollment_application_id INTO inserted;
         IF inserted IS NULL THEN
@@ -137,7 +140,7 @@ BEGIN
                     enrollment_application_id, enrollment_period_id, course_id, status, requested_at,
                     submitted_with_capacity, resolved_at, resolved_by_person_id, created_at, updated_at)
             VALUES (selection, tenant, application,
-                    pg_temp.academic_id('period:' || fixture.program || ':' || cycle_year), selected.course_id,
+                    period_key, selected.course_id,
                     'PENDING', occurred, true, NULL, NULL, occurred, occurred);
             INSERT INTO enrollment_application_spaces (enrollment_application_space_id, enrollment_application_id,
                                                        study_plan_space_id, instrument_id, created_at, updated_at)
