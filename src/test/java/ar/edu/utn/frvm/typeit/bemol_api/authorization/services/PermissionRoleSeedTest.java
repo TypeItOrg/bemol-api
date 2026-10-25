@@ -87,7 +87,7 @@ class PermissionRoleSeedTest {
     assertThat(rolePermissionRepository.count()).isEqualTo(assignments);
     assertThat(rolePermissionRepository.findPermissionCodesByRoleIds(List.of(authority.getId())))
         .containsExactlyInAnyOrderElementsOf(
-            Arrays.stream(PermissionCode.values()).map(PermissionCode::getCode).toList());
+            Arrays.stream(PermissionCode.values()).map(code -> code.getCode()).toList());
     assertThat(rolePermissionRepository.findByRole_Id(student.getId())).isEmpty();
     assertThat(
             rolePermissionRepository.findPermissionCodesByRoleIds(

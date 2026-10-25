@@ -81,9 +81,10 @@ public class InstitutionRoleProvisioner {
         Set.copyOf(rolePermissionRepository.findPermissionCodesByRoleIds(List.of(role.getId())));
     final Map<String, Permission> permissions =
         permissionRepository
-            .findByCodeIn(codes.stream().map(PermissionCode::getCode).toList())
+            .findByCodeIn(codes.stream().map(code -> code.getCode()).toList())
             .stream()
-            .collect(Collectors.toMap(Permission::getCode, permission -> permission));
+            .collect(
+                Collectors.toMap(permission -> permission.getCode(), permission -> permission));
 
     for (PermissionCode code : codes) {
       final Permission permission = permissions.get(code.getCode());
