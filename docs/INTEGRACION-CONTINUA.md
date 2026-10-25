@@ -8,13 +8,25 @@ Las validaciones están en [`.github/workflows/ci.yaml`](../.github/workflows/ci
 
 - **Pull Requests** hacia las ramas `develop`, `staging` y `main`.
 - **Pushes** directos a `develop` y `main`.
-- **Pushes a `staging`**, mediante la llamada reutilizable desde [Deploy staging](../.github/workflows/deploy-staging.yaml). No se ejecuta otro CI duplicado por ese push.
 
-CI no publica imágenes ni recibe credenciales de despliegue. **Deploy staging** sólo se activa por push a `staging`: primero llama al mismo CI del mismo commit mediante `workflow_call`, después publica la imagen y finalmente solicita el despliegue. Así se conserva la rama `staging` para las restricciones del GitHub Environment, sin encadenar ejecuciones privilegiadas con `workflow_run`.
+CI no publica imágenes ni recibe credenciales de despliegue. **Deploy staging** sólo se activa por push a `staging`: publica la imagen y solicita el despliegue, sin repetir CI ni consultar ejecuciones anteriores.
+
+La protección nativa de `staging` exige `static-analysis`, `test`, `test-suites (fastTest)` y `test-suites (integrationTest)`, emitidos por GitHub Actions para el commit que se promueve. Se aplica también a administradores, sin exigir un PR ni permitir force pushes o borrado de la rama. Esta protección se configura en GitHub, no en el YAML: no debe quitarse mientras staging despliegue sin ejecutar CI.
+
+Después de que el CI de develop termine correctamente, la promoción habitual es:
+
+```bash
+git fetch origin
+git switch staging
+git rebase origin/develop
+git push origin staging
+```
+
+Si staging no tiene commits propios, el rebase conserva el SHA validado de develop. Si genera otro commit, o faltan checks aprobados, GitHub rechaza el push; staging no ejecuta CI como respaldo. No crear cambios exclusivos en staging.
 
 `develop` se ejecuta localmente: CI valida su código, pero no publica imágenes ni despliega un ambiente remoto. `main` también queda sólo con CI. No hay workflow de despliegue productivo.
 
-Ambos workflows tienen grupos de concurrencia diferentes y cancelan ejecuciones anteriores de la misma referencia. El CI reutilizable conserva el evento, la referencia y el SHA del caller; no hace checkout del HEAD de otra rama.
+Ambos workflows tienen grupos de concurrencia diferentes y cancelan ejecuciones anteriores de la misma referencia. La imagen usa el SHA recibido por el push a staging, sin hacer checkout del HEAD de otra rama.
 
 ## 2. Trabajos y Fases del Pipeline
 
@@ -23,9 +35,9 @@ Los dos archivos separan validación y despliegue sin duplicar sus validaciones:
 ```mermaid
 flowchart TD
     PR[PR / push develop o main] --> CI[CI: static-analysis y suites paralelas]
-    ST[Push staging] --> DS[Deploy staging]
-    DS --> RC[Reutiliza CI del mismo commit]
-    RC --> PI[publish-image sólo si CI pasó]
+    CI --> G[Checks aprobados para el commit]
+    G --> ST[Push del mismo commit a staging]
+    ST --> PI[publish-image]
     PI --> DEP[SSH al VPS: pull y Compose up]
 ```
 
@@ -56,7 +68,7 @@ Garantiza que el comportamiento del sistema y los contratos HTTP e institucional
 
 `test-suites` ejecuta una matriz con `fastTest` e `integrationTest` en runners separados y en paralelo. No se habilitan forks paralelos sobre una misma base ni se comparten contenedores entre jobs. `fail-fast: false` permite terminar y conservar los reportes de ambas suites aunque una falle.
 
-- **Flujo en rama `develop` (desarrollo activo)**:
+- **Pull requests hacia `develop` (feedback temprano)**:
   1. **Formato y pruebas rápidas**: `./gradlew --no-daemon --build-cache spotlessCheck fastTest --profile` (Google Java Format, tests unitarios y slices aislados).
   2. **Detección de cambios sensibles a integración**, en el otro runner: un script de bash analiza el diff contra la rama base:
      - Si se modifican archivos en `src/main/resources/db/migration/`, `application*.properties`, entidades, repositorios, controladores, configuración, tests `*IntegrationTest.java` o `build.gradle`, CI ejecuta automáticamente:
@@ -64,14 +76,14 @@ Garantiza que el comportamiento del sistema y los contratos HTTP e institucional
        ./gradlew --no-daemon --build-cache integrationTest --profile
        ```
      - Si los cambios no afectan persistencia (por ejemplo, documentación o tests unitarios aislados), se omite la ejecución pesada de Testcontainers para acelerar el feedback del PR.
-- **Flujo en ramas `staging` y `main` (suite completa)**:
+- **Pushes a `develop` y `main`, y pull requests hacia `staging` o `main` (suite completa)**:
   - Ejecuta ambos grupos obligatoriamente, en runners distintos, sin omisiones ni una segunda ejecución de `test`:
     ```bash
     ./gradlew --no-daemon --build-cache spotlessCheck fastTest --profile
     ./gradlew --no-daemon --build-cache integrationTest --profile
     ```
 
-El job `test` conserva el nombre del check anterior y espera a toda la matriz. Sólo aprueba si su resultado conjunto es `success`; un fallo o cancelación no se transforma en un check verde. `publish-image` sigue dependiendo del CI reutilizable completo, incluido el análisis estático, y el despliegue sigue dependiendo de la publicación.
+El job `test` conserva su nombre y espera a toda la matriz. Sólo aprueba si su resultado conjunto es `success`; un fallo o cancelación no se transforma en un check verde. GitHub exige los checks antes de aceptar el push a staging y el despliegue depende de que la publicación termine correctamente.
 
 #### Fixtures y contratos de error
 

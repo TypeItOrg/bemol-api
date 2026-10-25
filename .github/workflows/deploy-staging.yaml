@@ -10,14 +10,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  ci:
-    uses: ./.github/workflows/ci.yaml
-    permissions:
-      contents: read
-
   publish-image:
-    if: github.event_name == 'push' && github.ref_name == 'staging'
-    needs: ci
     runs-on: ubuntu-24.04
     permissions:
       contents: read
@@ -51,7 +44,6 @@ jobs:
           cache-to: type=gha,mode=max
 
   deploy-staging:
-    if: github.event_name == 'push' && github.ref_name == 'staging'
     needs: publish-image
     runs-on: ubuntu-24.04
     environment: staging

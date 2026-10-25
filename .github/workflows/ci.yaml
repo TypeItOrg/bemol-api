@@ -92,21 +92,13 @@ jobs:
 
       - name: Detect integration-sensitive changes
         if: >-
-          matrix.suite == 'integrationTest' && (
-            (github.event_name == 'push' && github.ref_name == 'develop') ||
-            (github.event_name == 'pull_request' && github.base_ref == 'develop'))
+          matrix.suite == 'integrationTest' &&
+          github.event_name == 'pull_request' && github.base_ref == 'develop'
         id: persistence-changes
         shell: bash
         run: |
-          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
-            git fetch --no-tags --depth=1 origin "${{ github.base_ref }}"
-            base_ref="origin/${{ github.base_ref }}"
-          else
-            base_ref="${{ github.event.before }}"
-            if ! git cat-file -e "${base_ref}^{commit}" 2>/dev/null; then
-              base_ref="HEAD^"
-            fi
-          fi
+          git fetch --no-tags --depth=1 origin "${{ github.base_ref }}"
+          base_ref="origin/${{ github.base_ref }}"
 
           if git diff --name-only "$base_ref" HEAD | grep -Eq '^(src/main/resources/(db/migration/|application[^/]*\.properties$)|src/main/java/.+/(entities|interfaces|services|search|config|controllers)/|src/test/java/.+IntegrationTest\.java$|build.gradle$)'; then
             echo "required=true" >> "$GITHUB_OUTPUT"
@@ -119,7 +111,7 @@ jobs:
           matrix.suite == 'integrationTest' && (
             steps.persistence-changes.outputs.required == 'true' ||
             (github.event_name == 'push' &&
-              (github.ref_name == 'staging' || github.ref_name == 'main')) ||
+              (github.ref_name == 'develop' || github.ref_name == 'staging' || github.ref_name == 'main')) ||
             (github.event_name == 'pull_request' &&
               (github.base_ref == 'staging' || github.base_ref == 'main')))
         run: ./gradlew --no-daemon --build-cache integrationTest --profile
