@@ -62,7 +62,7 @@ public class CreatePlatformAccountUseCase {
               .lastName(request.lastName().trim())
               .email(email)
               .password(requireNonNull(passwordEncoder.encode(request.password())))
-              .enabled(true)
+              .enabled(!Boolean.FALSE.equals(request.enabled()))
               .build());
     } catch (final DataIntegrityViolationException exception) {
       throw new PlatformAccountEmailAlreadyExistsException();

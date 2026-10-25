@@ -11,6 +11,7 @@ import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
+import org.jspecify.annotations.Nullable;
 
 public record CreatePlatformAccountRequest(
     @NotBlank(message = ValidationMessages.FIRST_NAME_REQUIRED)
@@ -27,4 +28,5 @@ public record CreatePlatformAccountRequest(
         String email,
     @NotBlank(message = ValidationMessages.PASSWORD_REQUIRED)
         @Size(min = PASSWORD_MIN, max = PASSWORD_MAX, message = ValidationMessages.PASSWORD_RANGE)
-        String password) {}
+        String password,
+    @Nullable Boolean enabled) {}

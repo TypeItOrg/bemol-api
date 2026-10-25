@@ -814,7 +814,7 @@ class GlobalAuditPostgresIntegrationTest extends DatabaseMigrationTestSupport {
 
   private CreatePlatformAccountRequest accountRequest() {
     return new CreatePlatformAccountRequest(
-        "Audit", "Administrator", UUID.randomUUID() + "@example.test", PASSWORD);
+        "Audit", "Administrator", UUID.randomUUID() + "@example.test", PASSWORD, true);
   }
 
   private CreatePersonRequest personRequest() {

@@ -44,7 +44,7 @@ class CreatePlatformAccountUseCaseTest {
   void createNormalizesEmailHashesPasswordAndAssignsAdministratorRole() {
     final var request =
         new CreatePlatformAccountRequest(
-            " María ", " González ", " ADMIN@BOERO.EDU.AR ", "password123");
+            " María ", " González ", " ADMIN@BOERO.EDU.AR ", "password123", true);
     when(platformAccountRepository.existsByEmailIgnoreCase("admin@boero.edu.ar")).thenReturn(false);
     when(passwordEncoder.encode("password123")).thenReturn("hashed-password");
     when(platformAccountRepository.saveAndFlush(org.mockito.ArgumentMatchers.any()))
@@ -78,7 +78,8 @@ class CreatePlatformAccountUseCaseTest {
   @Test
   void createRejectsDuplicateEmailBeforeEncodingPassword() {
     final var request =
-        new CreatePlatformAccountRequest("María", "González", "admin@boero.edu.ar", "password123");
+        new CreatePlatformAccountRequest(
+            "María", "González", "admin@boero.edu.ar", "password123", true);
     when(platformAccountRepository.existsByEmailIgnoreCase("admin@boero.edu.ar")).thenReturn(true);
 
     assertThatThrownBy(() -> useCase.execute(request))
