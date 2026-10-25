@@ -1,5 +1,6 @@
 package ar.edu.utn.frvm.typeit.bemol_api.institutional.services;
 
+import ar.edu.utn.frvm.typeit.bemol_api.common.validation.WebpContainer;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.exceptions.InstitutionLogoTooLargeException;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.exceptions.InvalidInstitutionLogoException;
 import java.io.ByteArrayInputStream;
@@ -75,10 +76,14 @@ public final class InstitutionLogoPolicy {
         validateFormatAndTrailer(bytes, format);
 
         reader.setInput(input, true, true);
+        if (format.equals("webp") && reader.getNumImages(false) != 1) {
+          throw new InvalidInstitutionLogoException();
+        }
+
         validateDimensions(reader);
         validateDecodedImage(reader);
 
-        return format.equals("png") ? "image/png" : "image/jpeg";
+        return "image/" + format;
       } finally {
         reader.dispose();
       }
@@ -98,6 +103,7 @@ public final class InstitutionLogoPolicy {
               bytes.length >= 12
                   && "IEND"
                       .equals(new String(bytes, bytes.length - 8, 4, StandardCharsets.US_ASCII));
+          case "webp" -> WebpContainer.isComplete(bytes);
           default -> false;
         };
     if (!complete) {

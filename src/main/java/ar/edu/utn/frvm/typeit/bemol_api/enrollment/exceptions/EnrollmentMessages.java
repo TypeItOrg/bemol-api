@@ -35,7 +35,7 @@ public final class EnrollmentMessages {
   public static final String DOCUMENT_FORMAT_INVALID =
       "El formato no está admitido para este requisito documental.";
   public static final String FILE_CONTENT_INVALID =
-      "El archivo no es un PDF, JPEG o PNG válido, o su contenido no coincide con el tipo indicado.";
+      "El archivo no es un PDF, JPEG, PNG o WebP estático válido, o su contenido no coincide con el tipo indicado.";
   public static final String FILE_IMAGE_TOO_LARGE =
       "La imagen no puede superar los 25 millones de píxeles.";
   public static final String FILE_PDF_ENCRYPTED =
@@ -121,7 +121,7 @@ public final class EnrollmentMessages {
   public static final String FILE_TOO_LARGE = "El tamaño del archivo no puede superar los 10MB.";
   public static final String FILE_TYPE_REQUIRED = "Tipo de archivo no especificado.";
   public static final String FILE_TYPE_INVALID =
-      "Tipo de archivo no permitido. Solo se permiten formatos PDF, JPG y PNG.";
+      "Tipo de archivo no permitido. Solo se permiten formatos PDF, JPG, PNG y WebP estático.";
   public static final String FILE_PATH_TRAVERSAL = "Intento de path traversal detectado.";
   public static final String FILE_NOT_FOUND = "No se encontró el archivo físico en almacenamiento.";
   public static final String FILE_UNREADABLE = "No se pudo leer el archivo físico.";

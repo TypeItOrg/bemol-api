@@ -51,7 +51,11 @@ public class InstitutionLogoUseCase {
             + id
             + "/logos/"
             + version
-            + (image.contentType().equals("image/png") ? ".png" : ".jpg");
+            + switch (image.contentType()) {
+              case "image/png" -> ".png";
+              case "image/webp" -> ".webp";
+              default -> ".jpg";
+            };
     cleanupAfterTransaction(key, institution.getLogoKey());
     storage.write(
         key,

@@ -2,6 +2,7 @@ package ar.edu.utn.frvm.typeit.bemol_api.enrollment.services;
 
 import static java.util.Objects.requireNonNull;
 
+import ar.edu.utn.frvm.typeit.bemol_api.common.validation.WebpContainer;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.exceptions.EnrollmentMessages;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.exceptions.InvalidFileException;
 import java.io.ByteArrayInputStream;
@@ -47,6 +48,7 @@ public final class EnrollmentFilePolicy {
           case "application/pdf" -> ".pdf";
           case "image/jpeg" -> ".jpg";
           case "image/png" -> ".png";
+          case "image/webp" -> ".webp";
           default -> throw new InvalidFileException(EnrollmentMessages.FILE_TYPE_INVALID);
         };
     final String fileName = UUID.randomUUID() + extension;
@@ -147,16 +149,20 @@ public final class EnrollmentFilePolicy {
       final var reader = readers.next();
       try {
         final String format = reader.getFormatName().toLowerCase(Locale.ROOT);
-        if (!format.equals("jpeg") && !format.equals("png")) {
+        if (!format.equals("jpeg") && !format.equals("png") && !format.equals("webp")) {
           throw new InvalidFileException(EnrollmentMessages.FILE_TYPE_INVALID);
         }
         validateImageTrailer(bytes, format);
 
         reader.setInput(input, true, true);
+        if (format.equals("webp") && reader.getNumImages(false) != 1) {
+          throw new InvalidFileException(EnrollmentMessages.FILE_CONTENT_INVALID);
+        }
+
         validateImageDimensions(reader);
         validateDecodedImage(reader);
 
-        return format.equals("jpeg") ? "image/jpeg" : "image/png";
+        return "image/" + format;
       } finally {
         reader.dispose();
       }
@@ -174,6 +180,7 @@ public final class EnrollmentFilePolicy {
               bytes.length >= 12
                   && "IEND"
                       .equals(new String(bytes, bytes.length - 8, 4, StandardCharsets.US_ASCII));
+          case "webp" -> WebpContainer.isComplete(bytes);
           default -> false;
         };
     if (!complete) {

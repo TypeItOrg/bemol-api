@@ -55,7 +55,8 @@ public final class InstitutionMessages {
       "Ya existe una institución con ese subdominio.";
   public static final String PUBLIC_ACCESS_UNAVAILABLE =
       "El acceso institucional no está disponible temporalmente.";
-  public static final String LOGO_INVALID = "El formato del logo no está permitido.";
+  public static final String LOGO_INVALID =
+      "El logo debe ser una imagen PNG, JPEG o WebP estática válida.";
   public static final String LOGO_TOO_LARGE = "El logo supera el tamaño máximo permitido.";
   public static final String LOGO_NOT_FOUND = "La institución no tiene un logo disponible.";
 

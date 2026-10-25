@@ -10,7 +10,7 @@ public record DocumentDefinitionRequest(
     @NotBlank @Size(max = 150) String name,
     @NotNull @Size(max = 1000) String instructions,
     @NotEmpty
-        List<@NotBlank @Pattern(regexp = "application/pdf|image/jpeg|image/png") String>
+        List<@NotBlank @Pattern(regexp = "application/pdf|image/jpeg|image/png|image/webp") String>
             allowedFormats,
     @NotNull Boolean active,
     @PositiveOrZero @Nullable Long revision,

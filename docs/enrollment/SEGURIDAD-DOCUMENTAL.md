@@ -13,12 +13,15 @@ módulos y no mantiene una configuración de proveedor por módulo.
 
 ## Alcance y permisos
 
-PDF, JPEG y PNG de hasta 10 MiB. Se validan contenido, tipo declarado y estructura:
+PDF, JPEG, PNG y WebP estático de hasta 10 MiB. Se validan contenido, tipo declarado y estructura:
 ImageIO decodifica las imágenes después de limitar sus dimensiones a 25 millones
 de píxeles; PDFBox 3.0.8 usa análisis estricto y rechaza PDFs cifrados, sin páginas,
 truncados o ilegibles. Como protección de recursos se permiten hasta 1.000 páginas
 y 64 MiB acumulados de contenido de páginas descomprimido. Se conserva el archivo
 original, incluidas firmas digitales: no se reconstruyen ni sanitizan documentos.
+WebP se decodifica con TwelveMonkeys ImageIO; se comprueba el tamaño del contenedor
+RIFF y se rechazan animaciones. Los formatos permitidos siguen dependiendo del
+catálogo; habilitar WebP no modifica requisitos ni configuraciones existentes.
 
 **No hay antivirus ni detección de malware.** La validación no certifica que un
 archivo sea inocuo ni comprueba autenticidad de documentos o firmas digitales.

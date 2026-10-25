@@ -27,7 +27,7 @@ tamaño y un `InputStreamSource`. Por ejemplo, un módulo puede usar
 Las claves se validan para impedir rutas absolutas y segmentos `.`/`..`.
 
 En inscripciones, `EnrollmentFilePolicy` prepara y valida el archivo antes de
-llamar al servicio: hasta 10 MiB, contenido PDF/JPEG/PNG y nombre generado con UUID.
+llamar al servicio: hasta 10 MiB, contenido PDF/JPEG/PNG/WebP estático y nombre generado con UUID.
 PostgreSQL conserva los metadatos y la
 ruta relativa `enrollments/<solicitud UUID>/<archivo UUID>.<extensión>`; el contenido se guarda
 en el proveedor. En S3, la clave es `<prefijo><ruta relativa>`.

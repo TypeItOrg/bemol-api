@@ -11,6 +11,7 @@ import ar.edu.utn.frvm.typeit.bemol_api.institutional.entities.Institution;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.exceptions.InstitutionLogoTooLargeException;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.exceptions.InvalidInstitutionLogoException;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.interfaces.InstitutionRepository;
+import ar.edu.utn.frvm.typeit.bemol_api.support.WebpTestData;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -76,6 +77,17 @@ class QaInstitutionLogoTest {
     final var currentKey = institution.getLogoKey();
     assertThat(currentKey).isNotNull();
     verify(storage, never()).deletePhysicalFile(currentKey);
+  }
+
+  @Test
+  void storesWebpWithItsOwnExtensionAndMimeType() throws IOException {
+    final var bytes = WebpTestData.read("lossless-alpha.webp");
+    logos.replace(
+        institution.getId(), new MockMultipartFile("file", "logo.webp", "image/webp", bytes));
+
+    assertThat(institution.getLogoKey()).endsWith(".webp");
+    assertThat(institution.getLogoContentType()).isEqualTo("image/webp");
+    verify(storage).write(endsWith(".webp"), eq("image/webp"), eq((long) bytes.length), any());
   }
 
   @Test
