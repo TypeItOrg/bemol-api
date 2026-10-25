@@ -178,7 +178,13 @@ public class PermissionRoleSeed implements ApplicationRunner {
             .map(code -> requireNonNull(permissions.get(code)).getId())
             .collect(Collectors.toSet());
 
-    for (final var rolePermission : rolePermissionRepository.findByRole_Id(role.getId())) {
+    final var existingAssignments = rolePermissionRepository.findByRole_Id(role.getId());
+    final Set<UUID> existingPermissionIds =
+        existingAssignments.stream()
+            .map(assignment -> assignment.getId().getPermissionId())
+            .collect(Collectors.toSet());
+
+    for (final var rolePermission : existingAssignments) {
       if (!desiredPermissionIds.contains(rolePermission.getPermission().getId())) {
         rolePermissionRepository.delete(rolePermission);
       }
@@ -187,8 +193,7 @@ public class PermissionRoleSeed implements ApplicationRunner {
     for (PermissionCode permissionCode : requiredPermissionCodes) {
       Permission permission = requireNonNull(permissions.get(permissionCode));
 
-      if (!rolePermissionRepository.existsByRoleIdAndPermissionId(
-          role.getId(), permission.getId())) {
+      if (!existingPermissionIds.contains(permission.getId())) {
         rolePermissionRepository.save(RolePermission.of(role, permission));
       }
     }

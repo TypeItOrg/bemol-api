@@ -1,8 +1,10 @@
 package ar.edu.utn.frvm.typeit.bemol_api.authorization.services;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import ar.edu.utn.frvm.typeit.bemol_api.auth.services.SessionRevocationService;
+import ar.edu.utn.frvm.typeit.bemol_api.authorization.entities.RolePermission;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.enums.PermissionCode;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.enums.PlatformRoleCode;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.enums.RoleScope;
@@ -10,10 +12,14 @@ import ar.edu.utn.frvm.typeit.bemol_api.authorization.enums.SystemRoleCode;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.interfaces.PermissionRepository;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.interfaces.RolePermissionRepository;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.interfaces.RoleRepository;
+import ar.edu.utn.frvm.typeit.bemol_api.support.InstitutionalTestData;
 import ar.edu.utn.frvm.typeit.bemol_api.support.JpaAuditingTestConfig;
+import jakarta.persistence.EntityManager;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
+import org.hibernate.SessionFactory;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -38,6 +44,91 @@ class PermissionRoleSeedTest {
   @Autowired private PermissionRepository permissionRepository;
   @Autowired private RoleRepository roleRepository;
   @Autowired private RolePermissionRepository rolePermissionRepository;
+  @Autowired private InstitutionRoleProvisioner institutionRoleProvisioner;
+  @Autowired private EntityManager entityManager;
+
+  @Test
+  void run_restoresRequiredPermissionsWithoutResettingCustomizedInstitutionalRoles() {
+    permissionRoleSeed.run(new org.springframework.boot.DefaultApplicationArguments());
+    final var institution = InstitutionalTestData.createInstitution(entityManager, "Seed policies");
+    institutionRoleProvisioner.provision(institution);
+    final var authority =
+        roleRepository
+            .findByScopeAndCodeAndInstitution_Id(
+                RoleScope.INSTITUTION,
+                SystemRoleCode.INSTITUTIONAL_AUTHORITY.name(),
+                institution.getId())
+            .orElseThrow();
+    rolePermissionRepository.deleteAll(rolePermissionRepository.findByRole_Id(authority.getId()));
+    final var student =
+        roleRepository
+            .findByScopeAndCodeAndInstitution_Id(
+                RoleScope.INSTITUTION, SystemRoleCode.STUDENT.name(), institution.getId())
+            .orElseThrow();
+    rolePermissionRepository.deleteAll(rolePermissionRepository.findByRole_Id(student.getId()));
+    final var applicantTemplate =
+        roleRepository
+            .findByScopeAndCodeAndInstitutionIsNull(
+                RoleScope.INSTITUTION, SystemRoleCode.APPLICANT.name())
+            .orElseThrow();
+    rolePermissionRepository.deleteAll(
+        rolePermissionRepository.findByRole_Id(applicantTemplate.getId()));
+    rolePermissionRepository.save(
+        RolePermission.of(
+            applicantTemplate,
+            permissionRepository.findByCode(PermissionCode.SHIFT_READ.getCode()).orElseThrow()));
+    entityManager.flush();
+    entityManager.clear();
+
+    permissionRoleSeed.run(new org.springframework.boot.DefaultApplicationArguments());
+    final long assignments = rolePermissionRepository.count();
+    permissionRoleSeed.run(new org.springframework.boot.DefaultApplicationArguments());
+
+    assertThat(rolePermissionRepository.count()).isEqualTo(assignments);
+    assertThat(rolePermissionRepository.findPermissionCodesByRoleIds(List.of(authority.getId())))
+        .containsExactlyInAnyOrderElementsOf(
+            Arrays.stream(PermissionCode.values()).map(PermissionCode::getCode).toList());
+    assertThat(rolePermissionRepository.findByRole_Id(student.getId())).isEmpty();
+    assertThat(
+            rolePermissionRepository.findPermissionCodesByRoleIds(
+                List.of(applicantTemplate.getId())))
+        .containsExactly(PermissionCode.ACADEMIC_OFFER_READ.getCode());
+  }
+
+  @Test
+  void provision_rejectsMissingPermissions() {
+    rolePermissionRepository.deleteAllInBatch();
+    permissionRepository.deleteAllInBatch();
+    entityManager.clear();
+    final var institution =
+        InstitutionalTestData.createInstitution(entityManager, "Missing permissions");
+
+    assertThatThrownBy(() -> institutionRoleProvisioner.provision(institution))
+        .isInstanceOf(IllegalStateException.class);
+  }
+
+  @Test
+  void provision_queriesExistingPermissionsInBulk() {
+    permissionRoleSeed.run(new org.springframework.boot.DefaultApplicationArguments());
+    final var institution =
+        InstitutionalTestData.createInstitution(entityManager, "Bounded provisioning");
+    institutionRoleProvisioner.provision(institution);
+    entityManager.flush();
+    entityManager.clear();
+    final var statistics =
+        entityManager.getEntityManagerFactory().unwrap(SessionFactory.class).getStatistics();
+    final boolean statisticsEnabled = statistics.isStatisticsEnabled();
+    statistics.setStatisticsEnabled(true);
+    statistics.clear();
+
+    try {
+      institutionRoleProvisioner.provision(institution);
+
+      assertThat(statistics.getPrepareStatementCount()).isLessThan(12);
+    } finally {
+      statistics.setStatisticsEnabled(statisticsEnabled);
+    }
+  }
 
   @Test
   @DisplayName("Should seed permissions and system roles idempotently")

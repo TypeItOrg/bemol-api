@@ -14,8 +14,10 @@ import ar.edu.utn.frvm.typeit.bemol_api.authorization.interfaces.RolePermissionR
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.interfaces.RoleRepository;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.entities.Institution;
 import java.util.EnumSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -75,16 +77,21 @@ public class InstitutionRoleProvisioner {
 
   private void assignDefaults(Role role, Set<PermissionCode> codes) {
     codes = PermissionCode.withRequiredPermissions(codes);
+    final Set<String> assignedCodes =
+        Set.copyOf(rolePermissionRepository.findPermissionCodesByRoleIds(List.of(role.getId())));
+    final Map<String, Permission> permissions =
+        permissionRepository
+            .findByCodeIn(codes.stream().map(PermissionCode::getCode).toList())
+            .stream()
+            .collect(Collectors.toMap(Permission::getCode, permission -> permission));
 
     for (PermissionCode code : codes) {
-      Permission permission =
-          permissionRepository
-              .findByCode(code.getCode())
-              .orElseThrow(
-                  () -> new IllegalStateException(String.format(PERMISSION_NOT_SEEDED, code)));
+      final Permission permission = permissions.get(code.getCode());
+      if (permission == null) {
+        throw new IllegalStateException(String.format(PERMISSION_NOT_SEEDED, code));
+      }
 
-      if (!rolePermissionRepository.existsByRoleIdAndPermissionId(
-          role.getId(), permission.getId())) {
+      if (!assignedCodes.contains(code.getCode())) {
         rolePermissionRepository.save(RolePermission.of(role, permission));
       }
     }
