@@ -1,7 +1,7 @@
 plugins {
     id 'java'
     id 'net.ltgt.errorprone' version '5.1.1'
-    id 'org.springframework.boot' version '4.0.6'
+    id 'org.springframework.boot' version '4.0.9'
     id 'io.spring.dependency-management' version '1.1.7'
     id 'com.diffplug.spotless' version '8.7.0'
 }
@@ -17,6 +17,10 @@ java {
 repositories {
     mavenCentral()
 }
+
+// Keep HttpComponents patched until Boot's BOM catches up.
+ext['httpclient5.version'] = '5.6.3'
+ext['httpcore5.version'] = '5.4.3'
 
 dependencies {
     implementation platform('software.amazon.awssdk:bom:2.54.4')
