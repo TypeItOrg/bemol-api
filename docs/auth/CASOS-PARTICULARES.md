@@ -39,6 +39,19 @@ La decisión fue token pequeño + resolución dinámica con caché. El primer ac
 
 En PostgreSQL, el seed adquiere un advisory lock transaccional antes de sincronizar. Esto serializa el arranque de varias instancias y evita que dos nodos intenten crear simultáneamente los mismos roles globales. Al finalizar limpia los cachés de autorización.
 
+El rol Estudiante recibe `ACADEMIC_OFFER_READ`, sin `STUDY_PLAN_READ` ni
+`ACADEMIC_YEAR_READ`: consulta trayectos, planes vigentes, niveles y materias desde
+Oferta académica; el ciclo se muestra como contexto de sus inscripciones y cursadas.
+La navegación sigue los permisos efectivos; otro rol o una concesión explícita
+puede habilitar los catálogos institucionales de planes y ciclos lectivos.
+
+La migración `remove_student_default_academic_year_permission` sustituye los
+permisos de catálogo por `ACADEMIC_OFFER_READ` en roles Estudiante institucionales
+que conservan exactamente los dos permisos originales (`STUDY_PLAN_READ` y
+`ACADEMIC_YEAR_READ`) o sólo `STUDY_PLAN_READ`. No modifica roles personalizados ni
+roles Estudiante con otro conjunto de permisos. Los roles institucionales existentes
+no se restablecen a los valores predeterminados al iniciar.
+
 ## Bootstrap de authority institucional
 
 `BootstrapInstitutionalAuthorityUseCase` (endpoint `POST /api/v1/admin/institutions/{id}/authority/{personId}`) es la única forma de crear el primer `INSTITUTIONAL_AUTHORITY` de una institución. Solo `PLATFORM_ADMIN` puede ejecutarlo.

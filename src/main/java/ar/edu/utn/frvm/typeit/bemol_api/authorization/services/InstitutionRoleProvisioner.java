@@ -31,7 +31,7 @@ public class InstitutionRoleProvisioner {
           SystemRoleCode.APPLICANT,
           EnumSet.of(PermissionCode.ACADEMIC_OFFER_READ),
           SystemRoleCode.STUDENT,
-          EnumSet.of(PermissionCode.STUDY_PLAN_READ, PermissionCode.ACADEMIC_YEAR_READ),
+          EnumSet.of(PermissionCode.ACADEMIC_OFFER_READ),
           SystemRoleCode.TEACHER,
           Set.of(),
           SystemRoleCode.INSTITUTIONAL_AUTHORITY,
