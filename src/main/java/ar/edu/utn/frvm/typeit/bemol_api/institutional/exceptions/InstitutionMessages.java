@@ -15,6 +15,8 @@ public final class InstitutionMessages {
       "La invitación no es válida, venció o fue cancelada. Solicitá una nueva.";
   public static final String OWN_ACCESS_PASSWORD_MISMATCH = "Las contraseñas no coinciden.";
 
+  public static final String SHORT_NAME_MAX_LENGTH = "El nombre corto admite hasta 50 caracteres.";
+
   public static final String INSTITUTION_NOT_FOUND = "La institución especificada no existe.";
   public static final String INSTITUTION_INACTIVE = "La institución especificada no está activa.";
   public static final String CITY_NOT_FOUND = "La ciudad especificada no existe.";

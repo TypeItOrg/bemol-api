@@ -118,6 +118,7 @@ class InstitutionsDocumentsAuditPostgresIntegrationTest extends DatabaseMigratio
     final var updatedInstitution =
         new UpdateInstitutionRequest(
             "Instituto Boreal Renovado",
+            null,
             cityId,
             null,
             null,
@@ -165,6 +166,7 @@ class InstitutionsDocumentsAuditPostgresIntegrationTest extends DatabaseMigratio
     final var institutionalUpdate =
         new UpdateInstitutionalInstitutionRequest(
             "Instituto Boreal Comunitario",
+            null,
             cityId,
             null,
             null,
@@ -376,7 +378,7 @@ class InstitutionsDocumentsAuditPostgresIntegrationTest extends DatabaseMigratio
 
   private CreateInstitutionRequest institutionRequest(final String name, final UUID cityId) {
     return new CreateInstitutionRequest(
-        name, cityId, null, null, null, null, PRIVATE_PHONE, PRIVATE_EMAIL, true);
+        name, null, cityId, null, null, null, null, PRIVATE_PHONE, PRIVATE_EMAIL, true);
   }
 
   private DocumentDefinitionRequest documentRequest(

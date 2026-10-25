@@ -11,6 +11,8 @@ public record InstitutionDetailResponse(
     UUID id,
     String name,
     @Schema(nullable = true, requiredMode = Schema.RequiredMode.REQUIRED)
+        @Nullable String shortName,
+    @Schema(nullable = true, requiredMode = Schema.RequiredMode.REQUIRED)
         @Nullable String publicSubdomain,
     @Schema(nullable = true, requiredMode = Schema.RequiredMode.REQUIRED) @Nullable String logoUrl,
     CitySummaryResponse city,
@@ -32,6 +34,7 @@ public record InstitutionDetailResponse(
     return InstitutionDetailResponse.builder()
         .id(institution.getId())
         .name(institution.getName())
+        .shortName(institution.getShortName())
         .publicSubdomain(institution.getPublicSubdomain())
         .logoUrl(InstitutionPublicAccessResponse.logoUrl(institution))
         .city(CitySummaryResponse.from(city))

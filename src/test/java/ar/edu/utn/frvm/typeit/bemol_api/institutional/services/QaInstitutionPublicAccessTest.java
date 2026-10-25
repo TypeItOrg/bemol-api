@@ -115,7 +115,7 @@ class QaInstitutionPublicAccessTest {
     assertThat(response.logoUrl()).isNull();
     assertThat(response.getClass().getRecordComponents())
         .extracting(component -> component.getName())
-        .containsExactly("id", "name", "publicSubdomain", "logoUrl");
+        .containsExactly("id", "name", "shortName", "publicSubdomain", "logoUrl");
   }
 
   @Test

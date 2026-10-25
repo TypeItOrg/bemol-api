@@ -47,6 +47,7 @@ class UpdateInstitutionUseCaseTest {
     UpdateInstitutionRequest request =
         new UpdateInstitutionRequest(
             "Boero Actualizado",
+            null,
             cityId,
             "Belgrano",
             "456",
@@ -103,7 +104,7 @@ class UpdateInstitutionUseCaseTest {
 
   private static UpdateInstitutionRequest updateRequest(UUID cityId, boolean active) {
     return new UpdateInstitutionRequest(
-        "Boero Actualizado", cityId, null, null, null, null, null, null, active);
+        "Boero Actualizado", null, cityId, null, null, null, null, null, null, active);
   }
 
   private static Institution institutionWith(UUID id) {

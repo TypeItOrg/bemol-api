@@ -83,10 +83,11 @@ class QaInstitutionAccessWebMvcTest {
   }
 
   @Test
-  void I02_minimalResolution_httpOnlyPublicFourFields() throws Exception {
+  void I02_minimalResolution_httpOnlyPublicFields() throws Exception {
     when(resolve.execute("cboero"))
         .thenReturn(
-            new InstitutionPublicAccessResponse(institutionId, "Conservatorio QA", "cboero", null));
+            new InstitutionPublicAccessResponse(
+                institutionId, "Conservatorio QA", null, "cboero", null));
     final var response =
         mvc.perform(get("/api/v1/institutions/by-subdomain/cboero"))
             .andExpect(status().isOk())
@@ -96,7 +97,7 @@ class QaInstitutionAccessWebMvcTest {
             .getResponse();
     final var body =
         new tools.jackson.databind.json.JsonMapper().readTree(response.getContentAsString());
-    assertThat(body.properties()).hasSize(4);
+    assertThat(body.properties()).hasSize(5);
     assertThat(body.has("slug")).isFalse();
     assertThat(body.has("email")).isFalse();
   }

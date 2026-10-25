@@ -44,6 +44,10 @@ public class Institution extends Auditable {
   @Audited
   private String name;
 
+  @Column(name = "short_name", length = 50)
+  @Audited
+  private @Nullable String shortName;
+
   @Column(name = "public_subdomain", length = 63)
   @Audited
   private @Nullable String publicSubdomain;
@@ -102,6 +106,10 @@ public class Institution extends Auditable {
     this.logoContentType = null;
     this.logoVersion = null;
     this.logoSize = null;
+  }
+
+  public void changeShortName(final @Nullable String shortName) {
+    this.shortName = shortName == null || shortName.isBlank() ? null : shortName.strip();
   }
 
   public void rename(final String name) {

@@ -43,6 +43,8 @@ public class CreateInstitutionUseCase {
             .active(request.active())
             .build();
 
+    institution.changeShortName(request.shortName());
+
     Institution saved = institutionRepository.save(institution);
     institutionRepository.flush();
     institutionRoleProvisioner.provision(saved);

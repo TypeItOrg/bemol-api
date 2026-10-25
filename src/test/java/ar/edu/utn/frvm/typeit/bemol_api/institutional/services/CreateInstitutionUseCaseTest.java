@@ -49,6 +49,7 @@ class CreateInstitutionUseCaseTest {
     CreateInstitutionRequest request =
         new CreateInstitutionRequest(
             "Conservatorio Boero",
+            null,
             cityId,
             "San Martin",
             "123",
@@ -109,7 +110,7 @@ class CreateInstitutionUseCaseTest {
     UUID cityId = UUID.randomUUID();
     CreateInstitutionRequest request =
         new CreateInstitutionRequest(
-            "Conservatorio Boero", cityId, null, null, null, null, null, null, true);
+            "Conservatorio Boero", null, cityId, null, null, null, null, null, null, true);
 
     when(cityRepository.findById(cityId)).thenReturn(Optional.empty());
 

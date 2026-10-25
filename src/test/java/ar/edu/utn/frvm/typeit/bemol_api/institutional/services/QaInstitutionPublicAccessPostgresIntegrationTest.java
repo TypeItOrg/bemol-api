@@ -193,11 +193,11 @@ class QaInstitutionPublicAccessPostgresIntegrationTest {
     platformMetadata.execute(
         a.id(),
         new UpdateInstitutionRequest(
-            "New platform name", a.cityId(), null, null, null, null, null, null, true));
+            "New platform name", null, a.cityId(), null, null, null, null, null, null, true));
     tenantMetadata.execute(
         a.id(),
         new UpdateInstitutionalInstitutionRequest(
-            "New tenant name", a.cityId(), null, null, null, null, null, null));
+            "New tenant name", null, a.cityId(), null, null, null, null, null, null));
     assertThat(read(a.id()).getPublicSubdomain()).isEqualTo("legacy-preserved");
     assertThat(logoUrl(read(a.id()))).isEqualTo(url);
     assertThat(objects).hasSize(1);

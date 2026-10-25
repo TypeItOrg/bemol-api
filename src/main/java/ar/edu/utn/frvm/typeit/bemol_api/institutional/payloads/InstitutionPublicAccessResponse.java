@@ -8,6 +8,8 @@ import org.jspecify.annotations.Nullable;
 public record InstitutionPublicAccessResponse(
     @Schema(requiredMode = Schema.RequiredMode.REQUIRED) UUID id,
     @Schema(requiredMode = Schema.RequiredMode.REQUIRED) String name,
+    @Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true)
+        @Nullable String shortName,
     @Schema(requiredMode = Schema.RequiredMode.REQUIRED) String publicSubdomain,
     @Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true)
         @Nullable String logoUrl) {
@@ -22,6 +24,7 @@ public record InstitutionPublicAccessResponse(
     return new InstitutionPublicAccessResponse(
         institution.getId(),
         institution.getName(),
+        institution.getShortName(),
         java.util.Objects.requireNonNull(institution.getPublicSubdomain()),
         logoUrl(institution));
   }

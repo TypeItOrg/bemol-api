@@ -49,6 +49,7 @@ class UpdateInstitutionalInstitutionUseCaseTest {
     final var request =
         new UpdateInstitutionalInstitutionRequest(
             "Nuevo Nombre",
+            null,
             newCityId,
             "Calle Falsa",
             "123",
@@ -79,7 +80,7 @@ class UpdateInstitutionalInstitutionUseCaseTest {
 
     final var request =
         new UpdateInstitutionalInstitutionRequest(
-            "Nombre", UUID.randomUUID(), null, null, null, null, null, null);
+            "Nombre", null, UUID.randomUUID(), null, null, null, null, null, null);
 
     assertThatThrownBy(() -> updateInstitutionalInstitutionUseCase.execute(institutionId, request))
         .isInstanceOf(InstitutionNotFoundException.class);
@@ -98,7 +99,7 @@ class UpdateInstitutionalInstitutionUseCaseTest {
 
     final var request =
         new UpdateInstitutionalInstitutionRequest(
-            "Nombre", cityId, null, null, null, null, null, null);
+            "Nombre", null, cityId, null, null, null, null, null, null);
 
     assertThatThrownBy(() -> updateInstitutionalInstitutionUseCase.execute(institutionId, request))
         .isInstanceOf(CityNotFoundException.class);

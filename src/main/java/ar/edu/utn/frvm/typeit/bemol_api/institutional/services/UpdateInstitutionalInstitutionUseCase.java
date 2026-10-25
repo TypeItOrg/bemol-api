@@ -37,6 +37,7 @@ public class UpdateInstitutionalInstitutionUseCase {
     final var before = InstitutionAuditDetails.snapshot(institution);
 
     institution.rename(request.name());
+    institution.changeShortName(request.shortName());
     institution.updateLocation(
         city, request.street(), request.number(), request.neighborhood(), request.additionalInfo());
     institution.updateContact(request.phoneNumber(), request.email());
