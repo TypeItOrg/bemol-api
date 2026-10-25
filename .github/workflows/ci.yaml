@@ -55,10 +55,14 @@ jobs:
             build/reports/profile/
           if-no-files-found: ignore
 
-  test:
+  test-suites:
     runs-on: ubuntu-24.04
     permissions:
       contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        suite: [fastTest, integrationTest]
     steps:
       - name: Check out repository
         uses: actions/checkout@v6
@@ -77,19 +81,20 @@ jobs:
           path: |
             ~/.gradle/caches
             ~/.gradle/wrapper
-          key: gradle-${{ runner.os }}-${{ runner.arch }}-${{ github.job }}-${{ github.sha }}
-          restore-keys: gradle-${{ runner.os }}-${{ runner.arch }}-${{ github.job }}-
+          key: gradle-${{ runner.os }}-${{ runner.arch }}-test-${{ matrix.suite }}-${{ github.sha }}
+          restore-keys: |
+            gradle-${{ runner.os }}-${{ runner.arch }}-test-${{ matrix.suite }}-
+            gradle-${{ runner.os }}-${{ runner.arch }}-test-
 
       - name: Verify formatting and fast test suite
-        if: >-
-          (github.event_name == 'push' && github.ref_name == 'develop') ||
-          (github.event_name == 'pull_request' && github.base_ref == 'develop')
+        if: matrix.suite == 'fastTest'
         run: ./gradlew --no-daemon --build-cache spotlessCheck fastTest --profile
 
       - name: Detect integration-sensitive changes
         if: >-
-          (github.event_name == 'push' && github.ref_name == 'develop') ||
-          (github.event_name == 'pull_request' && github.base_ref == 'develop')
+          matrix.suite == 'integrationTest' && (
+            (github.event_name == 'push' && github.ref_name == 'develop') ||
+            (github.event_name == 'pull_request' && github.base_ref == 'develop'))
         id: persistence-changes
         shell: bash
         run: |
@@ -109,26 +114,36 @@ jobs:
             echo "required=false" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Run integration tests for persistence changes
-        if: steps.persistence-changes.outputs.required == 'true'
-        run: ./gradlew --no-daemon --build-cache integrationTest --profile
-
-      - name: Verify formatting and full test suite
+      - name: Run integration test suite
         if: >-
-          (github.event_name == 'push' &&
-            (github.ref_name == 'staging' || github.ref_name == 'main')) ||
-          (github.event_name == 'pull_request' &&
-            (github.base_ref == 'staging' || github.base_ref == 'main'))
-        run: ./gradlew --no-daemon --build-cache spotlessCheck test --profile
+          matrix.suite == 'integrationTest' && (
+            steps.persistence-changes.outputs.required == 'true' ||
+            (github.event_name == 'push' &&
+              (github.ref_name == 'staging' || github.ref_name == 'main')) ||
+            (github.event_name == 'pull_request' &&
+              (github.base_ref == 'staging' || github.base_ref == 'main')))
+        run: ./gradlew --no-daemon --build-cache integrationTest --profile
 
       - name: Upload test and timing reports
         if: always()
         uses: actions/upload-artifact@v7.0.2
         with:
-          name: backend-test-reports
+          name: backend-${{ matrix.suite }}-reports
           path: |
-            build/test-results/
-            build/reports/tests/
+            build/test-results/${{ matrix.suite }}/
+            build/reports/tests/${{ matrix.suite }}/
             build/reports/profile/
           if-no-files-found: ignore
           retention-days: 7
+
+  test:
+    if: always()
+    needs: test-suites
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - name: Require successful test suites
+        env:
+          TEST_SUITES_RESULT: ${{ needs.test-suites.result }}
+        run: test "$TEST_SUITES_RESULT" = success

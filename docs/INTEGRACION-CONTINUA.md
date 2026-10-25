@@ -22,7 +22,7 @@ Los dos archivos separan validación y despliegue sin duplicar sus validaciones:
 
 ```mermaid
 flowchart TD
-    PR[PR / push develop o main] --> CI[CI: static-analysis y test]
+    PR[PR / push develop o main] --> CI[CI: static-analysis y suites paralelas]
     ST[Push staging] --> DS[Deploy staging]
     DS --> RC[Reutiliza CI del mismo commit]
     RC --> PI[publish-image sólo si CI pasó]
@@ -50,24 +50,28 @@ Este trabajo valida la calidad del código, contratos de nulidad y detección te
      - Trata cualquier advertencia como error bloqueante: imports o miembros no utilizados, conversiones inseguras (raw types), deprecaciones y fugas de recursos cerrables.
 - **Artefactos**: En caso de fallo o advertencia, los informes XML de diagnóstico (`build/reports/static-analysis/`) se suben como artefactos de GitHub Actions para su inspección.
 
-### B. Trabajo: Pruebas Automatizadas (`test`)
+### B. Trabajos: Pruebas Automatizadas (`test-suites` y `test`)
 
 Garantiza que el comportamiento del sistema y los contratos HTTP e institucionales no se rompan.
 
+`test-suites` ejecuta una matriz con `fastTest` e `integrationTest` en runners separados y en paralelo. No se habilitan forks paralelos sobre una misma base ni se comparten contenedores entre jobs. `fail-fast: false` permite terminar y conservar los reportes de ambas suites aunque una falle.
+
 - **Flujo en rama `develop` (desarrollo activo)**:
-  1. **Formato**: `./gradlew spotlessCheck` (Google Java Format).
-  2. **Pruebas Rápidas**: `./gradlew fastTest` (tests unitarios y slices aislados con mocks).
-  3. **Detección Inteligente de Persistencia**: Un script de bash analiza el diff contra la rama base:
+  1. **Formato y pruebas rápidas**: `./gradlew --no-daemon --build-cache spotlessCheck fastTest --profile` (Google Java Format, tests unitarios y slices aislados).
+  2. **Detección de cambios sensibles a integración**, en el otro runner: un script de bash analiza el diff contra la rama base:
      - Si se modifican archivos en `src/main/resources/db/migration/`, `application*.properties`, entidades, repositorios, controladores, configuración, tests `*IntegrationTest.java` o `build.gradle`, CI ejecuta automáticamente:
        ```bash
-       ./gradlew --no-daemon integrationTest
+       ./gradlew --no-daemon --build-cache integrationTest --profile
        ```
      - Si los cambios no afectan persistencia (por ejemplo, documentación o tests unitarios aislados), se omite la ejecución pesada de Testcontainers para acelerar el feedback del PR.
 - **Flujo en ramas `staging` y `main` (suite completa)**:
-  - Ejecuta la suite completa sin omisiones:
+  - Ejecuta ambos grupos obligatoriamente, en runners distintos, sin omisiones ni una segunda ejecución de `test`:
     ```bash
-    ./gradlew --no-daemon spotlessCheck test
+    ./gradlew --no-daemon --build-cache spotlessCheck fastTest --profile
+    ./gradlew --no-daemon --build-cache integrationTest --profile
     ```
+
+El job `test` conserva el nombre del check anterior y espera a toda la matriz. Sólo aprueba si su resultado conjunto es `success`; un fallo o cancelación no se transforma en un check verde. `publish-image` sigue dependiendo del CI reutilizable completo, incluido el análisis estático, y el despliegue sigue dependiendo de la publicación.
 
 #### Fixtures y contratos de error
 
@@ -123,9 +127,9 @@ Antes de enviar un Pull Request, es recomendable ejecutar localmente los mismos 
 ## 4. Rendimiento sin reducir cobertura
 
 - Los runners se fijan en `ubuntu-24.04`; `upload-artifact` usa v7.0.2 (Node 24). El Node interno de una action no cambia el Java de la API.
-- `actions/cache@v5` conserva dependencias, compilación de scripts y build cache de Gradle. La clave incluye sistema, arquitectura, job y commit; el prefijo permite restaurar la entrada previa del mismo job y guardar outputs nuevos después de cada commit exitoso. Reemplaza la caché de `setup-java`, sin dos proveedores sobre el mismo directorio ni servicios comerciales o Build Scans. Gradle valida los inputs de cada tarea antes de reutilizar sus outputs; una entrada de caché no salta tests.
+- `actions/cache@v5` conserva dependencias, compilación de scripts y build cache de Gradle. La clave incluye sistema, arquitectura, job o suite y commit; cada suite tiene una clave propia para evitar escrituras concurrentes sobre la misma entrada. El prefijo permite restaurar la entrada previa y, si falta una entrada de la suite, aprovechar la caché anterior de pruebas. Reemplaza la caché de `setup-java`, sin dos proveedores sobre el mismo directorio ni servicios comerciales o Build Scans. Gradle valida los inputs de cada tarea antes de reutilizar sus outputs; una entrada de caché no salta tests.
 - `--build-cache` permite reutilizar compilación y otros outputs seguros. Las tareas `Test` tienen la caché de resultados desactivada: se ejecutan los tests de la suite elegida, incluidos PostgreSQL/Flyway cuando corresponden. No se modifican etiquetas, exclusiones, assertions, forks ni fixtures.
-- `--profile` genera el desglose de tareas. El artifact **backend-test-reports** conserva durante 7 días los XML JUnit, el HTML de tests y los perfiles Gradle, también cuando falla la suite.
+- `--profile` genera el desglose de tareas. Los artifacts **backend-fastTest-reports** y **backend-integrationTest-reports** conservan durante 7 días los XML JUnit, el HTML y los perfiles Gradle de cada suite, también cuando falla una de ellas.
 - La caché no conserva contextos Spring ni bases de Testcontainers entre jobs. Una ejecución fría puede seguir tardando más; no se promete una duración fija ni se omiten integraciones para obtener un CI verde.
 
 ### Medición local del 2026-10-20
