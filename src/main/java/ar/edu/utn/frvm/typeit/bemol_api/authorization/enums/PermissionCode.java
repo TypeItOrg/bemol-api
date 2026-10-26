@@ -569,9 +569,7 @@ public enum PermissionCode {
     do {
       changed =
           expanded.addAll(
-              expanded.stream()
-                  .flatMap(permission -> permission.requiredPermissions().stream())
-                  .toList());
+              expanded.stream().flatMap(code -> code.requiredPermissions().stream()).toList());
     } while (changed);
 
     return Set.copyOf(expanded);
