@@ -11,6 +11,7 @@ public enum PermissionGroup {
   GRADES("Calificaciones", "Carga y gestión de calificaciones académicas."),
   ACADEMIC("Académico", "Configuración de la estructura curricular institucional."),
   ENROLLMENT("Inscripciones", "Gestión de solicitudes de inscripción."),
+  ACTIVITY("Actividad", "Consulta de auditoría y envíos de correos de la institución."),
   INSTITUTION("Institución", "Gestión y visualización de datos de la institución.");
 
   private final String displayName;

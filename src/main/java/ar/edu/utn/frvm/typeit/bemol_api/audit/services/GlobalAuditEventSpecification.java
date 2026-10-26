@@ -32,6 +32,11 @@ final class GlobalAuditEventSpecification {
   private GlobalAuditEventSpecification() {}
 
   static Specification<AuditEvent> from(final GlobalAuditEventFilter filter) {
+    return from(filter, true);
+  }
+
+  static Specification<AuditEvent> from(
+      final GlobalAuditEventFilter filter, final boolean includePlatformAccounts) {
     return (root, query, cb) -> {
       final List<Predicate> predicates = new ArrayList<>();
       if (filter.module() != AuditModule.EMAILS) {
@@ -97,7 +102,8 @@ final class GlobalAuditEventSpecification {
         final Expression<String> institutionName =
             root.join("institution", JoinType.LEFT).get("name");
         for (final String word : words) {
-          predicates.add(searchWord(root, query, cb, institutionName, word));
+          predicates.add(
+              searchWord(root, query, cb, institutionName, word, includePlatformAccounts));
         }
       }
       return cb.and(predicates.toArray(Predicate[]::new));
@@ -140,7 +146,8 @@ final class GlobalAuditEventSpecification {
       final CriteriaQuery<?> query,
       final CriteriaBuilder cb,
       final Expression<String> institutionName,
-      final String word) {
+      final String word,
+      final boolean includePlatformAccounts) {
     final var personQuery = query.subquery(Integer.class);
     final var person = personQuery.from(Person.class);
     personQuery
@@ -189,7 +196,7 @@ final class GlobalAuditEventSpecification {
     return cb.or(
         matchingActions.isEmpty() ? cb.disjunction() : event.get("action").in(matchingActions),
         cb.exists(personQuery),
-        cb.exists(accountQuery),
+        includePlatformAccounts ? cb.exists(accountQuery) : cb.disjunction(),
         cb.exists(roleQuery),
         containsWord(cb, institutionName, word),
         containsWord(cb, detailText(event, cb, "entityName"), word),

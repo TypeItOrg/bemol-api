@@ -11,7 +11,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditAction;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditEntityType;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditModule;
+import ar.edu.utn.frvm.typeit.bemol_api.audit.exceptions.AuditEventNotFoundException;
+import ar.edu.utn.frvm.typeit.bemol_api.audit.payloads.InstitutionalActivityFilter;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.services.AuditEventRecorder;
+import ar.edu.utn.frvm.typeit.bemol_api.audit.services.InstitutionalActivityUseCase;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.events.InstitutionalEmailVerificationRequested;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.filters.JwtAuthenticatedUser;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.payloads.requests.ConfirmEmailVerificationRequest;
@@ -57,6 +60,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.dao.DataAccessException;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.security.authentication.TestingAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -94,8 +98,171 @@ class GlobalAuditPostgresIntegrationTest extends DatabaseMigrationTestSupport {
   @Autowired TransactionTemplate transaction;
   @Autowired ApplicationEvents events;
   @Autowired AuditEventRecorder auditRecorder;
+  @Autowired InstitutionalActivityUseCase institutionalActivity;
   @Autowired EntityManager entityManager;
   @MockitoBean MailSender mailSender;
+
+  @Test
+  void institutionalActivityScopesListsAndDetailsAndSeparatesEmailAccess() {
+    final UUID institution = UUID.randomUUID(), other = UUID.randomUUID();
+    fixtures.insertTestInstitution(institution);
+    fixtures.insertTestInstitution(other);
+    final String requestId = "institutional-activity-" + UUID.randomUUID();
+    final UUID audit =
+        insertEvent(
+            institution, "PLATFORM", null, adminId(), null, "COURSE_CREATED", "COURSE", requestId);
+    final UUID email =
+        insertEvent(
+            institution,
+            "PLATFORM",
+            null,
+            adminId(),
+            null,
+            "EMAIL_SENT",
+            "EMAIL",
+            requestId,
+            UUID.randomUUID(),
+            "{\"recipient\":\"recipient@example.test\",\"mailType\":\"Invitación de acceso propio\",\"token\":\"must-not-be-returned\"}");
+    final UUID foreignAudit =
+        insertEvent(
+            other, "PLATFORM", null, adminId(), null, "COURSE_CREATED", "COURSE", requestId);
+    final UUID foreignEmail =
+        insertEvent(other, "PLATFORM", null, adminId(), null, "EMAIL_SENT", "EMAIL", requestId);
+    final UUID platformEvent =
+        insertEvent(
+            null,
+            "PLATFORM",
+            null,
+            adminId(),
+            null,
+            "PLATFORM_ACCOUNT_CREATED",
+            "PLATFORM_ACCOUNT",
+            requestId);
+    final var filter =
+        new InstitutionalActivityFilter(null, AuditModule.EMAILS, null, null, null, null);
+    final var auditPage =
+        institutionalActivity.list(institution, filter, false, PageRequest.of(0, 20));
+    final var mailPage =
+        institutionalActivity.list(institution, filter, true, PageRequest.of(0, 20));
+
+    assertThat(auditPage.getContent()).extracting(event -> event.id()).containsExactly(audit);
+    assertThat(mailPage.getContent()).extracting(event -> event.id()).containsExactly(email);
+    final String accountName =
+        jdbcTemplate.queryForObject(
+            "SELECT first_name || ' ' || last_name FROM platform_accounts WHERE platform_account_id = ?",
+            String.class,
+            adminId());
+    assertThat(
+            institutionalActivity
+                .list(
+                    institution,
+                    new InstitutionalActivityFilter(null, null, accountName, null, null, null),
+                    false,
+                    PageRequest.of(0, 20))
+                .getContent())
+        .isEmpty();
+    final var detail = institutionalActivity.get(institution, audit, false);
+    assertThat(detail.actorId()).isNull();
+    assertThat(detail.actorName()).isEqualTo("Administración de plataforma");
+    assertThat(detail.requestId()).isNull();
+    assertThat(detail.origin()).isNull();
+    final var mail = institutionalActivity.get(institution, email, true);
+    assertThat(mail.details()).containsOnlyKeys("recipient", "mailType");
+    assertThat(mailPage.getContent().getFirst().details())
+        .containsOnlyKeys("recipient", "mailType");
+    for (final UUID denied : List.of(foreignAudit, foreignEmail, platformEvent)) {
+      assertThatThrownBy(() -> institutionalActivity.get(institution, denied, false))
+          .isInstanceOf(AuditEventNotFoundException.class);
+      assertThatThrownBy(() -> institutionalActivity.get(institution, denied, true))
+          .isInstanceOf(AuditEventNotFoundException.class);
+    }
+    assertThatThrownBy(() -> institutionalActivity.get(institution, email, false))
+        .isInstanceOf(AuditEventNotFoundException.class);
+    assertThatThrownBy(() -> institutionalActivity.get(institution, audit, true))
+        .isInstanceOf(AuditEventNotFoundException.class);
+  }
+
+  @Test
+  void institutionalHttpRequiresTheDedicatedPermissionAndCannotReadAnotherInstitution()
+      throws Exception {
+    authenticatePlatformAdministrator();
+    final UUID institution = fixtures.firstInstitutionId();
+    final UUID other = UUID.randomUUID();
+    fixtures.insertTestInstitution(other);
+    final UUID person = createPerson.execute(institution, personRequest()).personId();
+    final UUID user = userId(person);
+    final var role =
+        roles.createAsPlatformAdmin(
+            institution,
+            new InstitutionRoleRequest(
+                "Correos " + UUID.randomUUID(),
+                Set.of(PermissionCode.INSTITUTION_EMAIL_READ.getCode())));
+    replaceRoles.execute(
+        institution,
+        person,
+        new ReplacePersonRolesRequest(
+            List.of(new AssignRoleRequest(role.id(), AccessScope.INSTITUTION, Set.of()))),
+        true,
+        Set.of());
+    final UUID session = UUID.randomUUID();
+    jdbcTemplate.update(
+        "INSERT INTO user_sessions (user_session_id, user_id, started_at, active, remember_me) VALUES (?, ?, now(), true, false)",
+        session,
+        user);
+    final UUID ownEmail =
+        insertEvent(
+            institution,
+            "PLATFORM",
+            null,
+            adminId(),
+            null,
+            "EMAIL_SENT",
+            "EMAIL",
+            "own-email-" + UUID.randomUUID(),
+            UUID.randomUUID(),
+            "{\"recipient\":\"verify-activity@example.test\",\"mailType\":\"Verificación de correo\",\"token\":\"secret\"}");
+    final UUID foreignEmail =
+        insertEvent(
+            other,
+            "PLATFORM",
+            null,
+            adminId(),
+            null,
+            "EMAIL_SENT",
+            "EMAIL",
+            "foreign-email-" + UUID.randomUUID());
+    final Authentication institutional =
+        new TestingAuthenticationToken(
+            new JwtAuthenticatedUser(user, person, "12345678", institution, session, "test"),
+            "",
+            "ROLE_USER");
+    SecurityContextHolder.clearContext();
+    final String base = "/api/v1/institutions/" + institution + "/activity";
+
+    final String body =
+        mvc.perform(
+                get(base + "/emails")
+                    .param("search", "verify-activity@example.test")
+                    .param("from", "2026-10-17T00:00:00Z")
+                    .param("to", "2026-10-18T00:00:00Z")
+                    .with(authentication(institutional)))
+            .andExpect(status().isOk())
+            .andReturn()
+            .getResponse()
+            .getContentAsString();
+    assertThat(json.readTree(body).at("/items/0/id").asString()).isEqualTo(ownEmail.toString());
+    assertThat(body).doesNotContain("secret");
+    mvc.perform(get(base + "/emails/" + ownEmail).with(authentication(institutional)))
+        .andExpect(status().isOk());
+    mvc.perform(get(base + "/emails/" + foreignEmail).with(authentication(institutional)))
+        .andExpect(status().isNotFound());
+    mvc.perform(get(base + "/audit-events").with(authentication(institutional)))
+        .andExpect(status().isForbidden());
+    mvc.perform(
+            get("/api/v1/institutions/" + other + "/activity/emails")
+                .with(authentication(institutional)))
+        .andExpect(status().isForbidden());
+  }
 
   @Test
   void auditsPersonalChangesAndPasswordsWithoutPrivateSnapshotsOrNoopEvents() throws Exception {

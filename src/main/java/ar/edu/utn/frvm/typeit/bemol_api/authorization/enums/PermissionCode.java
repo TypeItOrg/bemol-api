@@ -384,8 +384,13 @@ public enum PermissionCode {
   INSTITUTION_AUDIT_READ(
       "institution:audit:read",
       PermissionScope.INSTITUTION,
-      PermissionGroup.INSTITUTION,
+      PermissionGroup.ACTIVITY,
       "Ver registro de auditoría"),
+  INSTITUTION_EMAIL_READ(
+      "institution:email:read",
+      PermissionScope.INSTITUTION,
+      PermissionGroup.ACTIVITY,
+      "Ver registro de correos"),
   COURSE_ENROLLMENT_READ(
       "institution:course-enrollment:read",
       PermissionScope.INSTITUTION,
