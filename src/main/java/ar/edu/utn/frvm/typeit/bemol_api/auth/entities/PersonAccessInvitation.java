@@ -22,12 +22,15 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.DynamicUpdate;
 import org.hibernate.envers.Audited;
 import org.hibernate.envers.RelationTargetAuditMode;
 import org.jspecify.annotations.Nullable;
 
 @Entity
 @Table(name = "person_access_invitations")
+// Mail delivery and invitation state can change concurrently.
+@DynamicUpdate
 @Getter
 @Builder(access = AccessLevel.PRIVATE)
 @NoArgsConstructor(access = AccessLevel.PROTECTED)

@@ -16,6 +16,7 @@ import ar.edu.utn.frvm.typeit.bemol_api.auth.payloads.requests.PasswordRecoveryR
 import ar.edu.utn.frvm.typeit.bemol_api.auth.services.AccountEmailChangeUseCase;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.services.ActivatePersonOwnAccessUseCase;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.services.InstitutionalAccountManagementUseCase;
+import ar.edu.utn.frvm.typeit.bemol_api.auth.services.InvitationMailOutcomeRecorder;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.services.PersonOwnAccessService;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.services.RequestInstitutionalPasswordRecoveryUseCase;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.enums.SystemRoleCode;
@@ -39,6 +40,11 @@ import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.Callable;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.locks.LockSupport;
+import java.util.function.BooleanSupplier;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -67,6 +73,7 @@ class AuthorizedAccountsPostgresIntegrationTest extends DatabaseMigrationTestSup
 
   @Autowired ActivatePersonOwnAccessUseCase activate;
   @Autowired InstitutionalAccountManagementUseCase accounts;
+  @Autowired InvitationMailOutcomeRecorder invitationMailOutcomes;
   @Autowired ar.edu.utn.frvm.typeit.bemol_api.auth.services.GrantPersonAutonomyUseCase autonomy;
   @Autowired AccountEmailChangeUseCase emails;
   @Autowired RegisterGuardianDependentUseCase requests;
@@ -139,6 +146,61 @@ class AuthorizedAccountsPostgresIntegrationTest extends DatabaseMigrationTestSup
     assertThat(user(person).isEnabled()).isTrue();
     assertThatThrownBy(() -> anonymousActivation(raw)).isInstanceOf(OwnAccessException.class);
     assertThat(user(person).getId()).isEqualTo(id);
+  }
+
+  @Test
+  void concurrentMailOutcomeCannotUndoInvitationCancellation() throws Exception {
+    final UUID person = createPerson(SystemRoleCode.APPLICANT);
+    final String token = invitation(person);
+    final UUID id =
+        requireNonNull(
+            jdbcTemplate.queryForObject(
+                "SELECT invitation_id FROM person_access_invitations WHERE person_id = ?",
+                UUID.class,
+                person));
+    awaitCondition(
+        () ->
+            count(
+                    "SELECT count(*) FROM person_access_invitations WHERE invitation_id = ? AND mail_outcome IS NOT NULL",
+                    id)
+                == 1);
+    final String currentOutcome =
+        requireNonNull(
+            jdbcTemplate.queryForObject(
+                "SELECT mail_outcome FROM person_access_invitations WHERE invitation_id = ?",
+                String.class,
+                id));
+    final String newOutcome = "SENT".equals(currentOutcome) ? "FAILED" : "SENT";
+
+    try (final var pool = Executors.newSingleThreadExecutor()) {
+      final AtomicReference<Future<?>> result = new AtomicReference<>();
+      transaction.executeWithoutResult(
+          status -> {
+            jdbcTemplate.queryForObject(
+                "SELECT invitation_id FROM person_access_invitations WHERE invitation_id = ? FOR UPDATE",
+                UUID.class,
+                id);
+            result.set(pool.submit(() -> invitationMailOutcomes.record(id, newOutcome)));
+            awaitCondition(
+                () -> {
+                  jdbcTemplate.execute("SELECT pg_stat_clear_snapshot()");
+                  return count(
+                          "SELECT count(*) FROM pg_stat_activity WHERE datname = current_database() AND wait_event_type = 'Lock' AND lower(query) LIKE '%update person_access_invitations%'")
+                      > 0;
+                });
+            accounts.cancel(institution, person);
+          });
+      requireNonNull(result.get()).get(30, TimeUnit.SECONDS);
+    }
+
+    assertThat(
+            count(
+                "SELECT count(*) FROM person_access_invitations WHERE invitation_id = ? AND cancelled_at IS NOT NULL AND mail_outcome = ?",
+                id,
+                newOutcome))
+        .isEqualTo(1);
+    assertThatThrownBy(() -> anonymousActivation(token)).isInstanceOf(OwnAccessException.class);
+    assertThat(count("SELECT count(*) FROM users WHERE person_id = ?", person)).isZero();
   }
 
   @Test
@@ -742,6 +804,14 @@ class AuthorizedAccountsPostgresIntegrationTest extends DatabaseMigrationTestSup
 
   private long count(final String sql, final Object... args) {
     return requireNonNull(jdbcTemplate.queryForObject(sql, Long.class, args));
+  }
+
+  private void awaitCondition(final BooleanSupplier condition) {
+    final long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(30);
+    while (!condition.getAsBoolean() && System.nanoTime() < deadline) {
+      LockSupport.parkNanos(TimeUnit.MILLISECONDS.toNanos(25));
+    }
+    assertThat(condition.getAsBoolean()).isTrue();
   }
 
   private CreateGuardianDependentRequest request(final String document) {
