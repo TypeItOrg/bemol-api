@@ -39,6 +39,7 @@ import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.Callable;
 import java.util.concurrent.Executors;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -90,14 +91,27 @@ class AuthorizedAccountsPostgresIntegrationTest extends DatabaseMigrationTestSup
   @Autowired ar.edu.utn.frvm.typeit.bemol_api.auth.interfaces.PasskeyCredentialRepository keys;
   @MockitoBean MailSender mail;
   UUID institution;
+  String originalPlatformPassword;
 
   @BeforeEach
   void prepare() {
     institution = fixtures.firstInstitutionId();
     authenticatePlatformAdministrator();
+    originalPlatformPassword =
+        requireNonNull(
+            jdbcTemplate.queryForObject(
+                "SELECT password FROM platform_accounts WHERE email = 'admin@plataforma.com'",
+                String.class));
     jdbcTemplate.update(
         "UPDATE platform_accounts SET password = ? WHERE email = 'admin@plataforma.com'",
         passwords.encode(PASSWORD));
+  }
+
+  @AfterEach
+  void restorePlatformPassword() {
+    jdbcTemplate.update(
+        "UPDATE platform_accounts SET password = ? WHERE email = 'admin@plataforma.com'",
+        originalPlatformPassword);
   }
 
   @ParameterizedTest

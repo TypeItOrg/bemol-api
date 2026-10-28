@@ -74,6 +74,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -133,6 +134,7 @@ class EnrollmentApplicationGuardianshipPostgresIntegrationTest {
   @Autowired PasswordEncoder encoder;
   @Autowired ApplicationEvents events;
   @Autowired ListGuardianDependentsUseCase listDependents;
+  @Autowired StringRedisTemplate redis;
   @MockitoBean MailSender mailSender;
   private static final String PASSWORD = "DummyPassword123!";
 
@@ -236,6 +238,25 @@ class EnrollmentApplicationGuardianshipPostgresIntegrationTest {
   private JsonNode represent(
       Scenario s, boolean ownAccessRequested, @Nullable String roleBeforeApproval, String birthDate)
       throws Exception {
+    final String document = docNumber();
+    if (roleBeforeApproval != null) {
+      final var personId =
+          tx(
+              () -> {
+                final var person =
+                    Person.builder()
+                        .institution(s.institution())
+                        .documentNumber(document)
+                        .firstName("Maria")
+                        .lastName("Delgado")
+                        .birthDate(LocalDate.parse(birthDate))
+                        .build();
+                entityManager.persist(person);
+                return person.getId();
+              });
+      assignPrivilegedRole(s, personId, roleBeforeApproval);
+    }
+    final long invitationsBefore = events.stream(PersonAccessInvited.class).count();
     final var link =
         request(
             s,
@@ -243,7 +264,7 @@ class EnrollmentApplicationGuardianshipPostgresIntegrationTest {
                 post(base(s) + "/representations"),
                 Map.of(
                     "documentNumber",
-                    docNumber(),
+                    document,
                     "firstName",
                     "Maria",
                     "lastName",
@@ -257,32 +278,55 @@ class EnrollmentApplicationGuardianshipPostgresIntegrationTest {
                     "ownAccessRequested",
                     ownAccessRequested,
                     "email",
-                    "dummy-person@example.test")),
+                    "dummy-person@example.test",
+                    "requestMode",
+                    "NEW")),
             201);
-    assertThat(
-            events.stream(PersonAccessInvited.class)
-                .noneMatch(
-                    event ->
-                        event
-                            .personId()
-                            .toString()
-                            .equals(link.get("dependentPersonId").asString())))
-        .isTrue();
-    if (roleBeforeApproval != null) {
-      assignPrivilegedRole(
-          s, UUID.fromString(link.get("dependentPersonId").asString()), roleBeforeApproval);
+    assertThat(link.get("dependentPersonId").isNull()).isTrue();
+    assertThat(events.stream(PersonAccessInvited.class).count()).isEqualTo(invitationsBefore);
+    final var approved =
+        request(
+            reviewer(s),
+            body(
+                post(
+                    base(s)
+                        + "/guardian-links/"
+                        + link.get("personGuardianId").asString()
+                        + "/approve"),
+                Map.of()),
+            200);
+    final var activeLink = representation(s, link.get("personGuardianId"));
+    assertThat(activeLink.get("dependentPersonId")).isEqualTo(approved.at("/dependent/personId"));
+    return activeLink;
+  }
+
+  private JsonNode representation(Scenario s, JsonNode linkId) throws Exception {
+    final var links = request(s, get(base(s) + "/representations"), 200);
+    for (final var link : links) {
+      if (link.get("personGuardianId").equals(linkId)) {
+        return link;
+      }
     }
-    request(
-        s,
-        body(
-            post(
-                base(s)
-                    + "/guardian-links/"
-                    + link.get("personGuardianId").asString()
-                    + "/approve"),
-            Map.of()),
-        200);
-    return link;
+    throw new AssertionError("Approved representation missing from the tutor's list");
+  }
+
+  private Authentication reviewer(Scenario s) {
+    final var reviewer =
+        tx(
+            () -> {
+              final var person = person(s.institution());
+              assignRoles.execute(person, SystemRoleCode.INSTITUTIONAL_AUTHORITY);
+              entityManager.persist(
+                  User.builder()
+                      .person(person)
+                      .institution(s.institution())
+                      .password(requireNonNull(encoder.encode(PASSWORD)))
+                      .emailVerificationStatus(EmailVerificationStatus.VERIFIED)
+                      .emailVerifiedAt(Instant.now())
+                      .build());
+              return person;
+            });
+    return actor(new Scenario(s.institution(), reviewer, s.plan(), s.year()), null);
   }
 
   private JsonNode start(Scenario s, String person) throws Exception {
@@ -555,7 +599,7 @@ class EnrollmentApplicationGuardianshipPostgresIntegrationTest {
   }
 
   @Test
-  void switchesFullPermissionsWithoutChainingAndRecoversAfterRevocation() throws Exception {
+  void keepsActorPermissionsWithoutChainingAndRecoversAfterRevocation() throws Exception {
     final var s = setup();
     final var link = represent(s);
     final String selected = link.get("dependentPersonId").asString();
@@ -564,9 +608,15 @@ class EnrollmentApplicationGuardianshipPostgresIntegrationTest {
     request(session, body(post(identity), Map.of("personId", selected)), 204);
     assertThat(request(session, get("/api/v1/auth/me"), 200).get("user").get("personId").asString())
         .isEqualTo(selected);
-    request(session, get(base(s) + "/people"), 403);
-    assignPrivilegedRole(s, UUID.fromString(selected), "INSTITUTIONAL_AUTHORITY");
     request(session, get(base(s) + "/people"), 200);
+    assignPrivilegedRole(s, UUID.fromString(selected), "INSTITUTIONAL_AUTHORITY");
+    tx(
+        () -> {
+          assignRoles.execute(
+              entityManager.find(Person.class, s.tutor().getId()), SystemRoleCode.APPLICANT);
+          return null;
+        });
+    request(session, get(base(s) + "/people"), 403);
     final var indirect =
         tx(
             () -> {
@@ -593,6 +643,8 @@ class EnrollmentApplicationGuardianshipPostgresIntegrationTest {
         session, body(post(identity), java.util.Collections.singletonMap("personId", null)), 204);
     assertThat(request(session, get("/api/v1/auth/me"), 200).get("user").get("personId").asString())
         .isEqualTo(s.tutor().getId().toString());
+    request(session, get(base(s) + "/people"), 403);
+    assignPrivilegedRole(s, s.tutor().getId(), "INSTITUTIONAL_AUTHORITY");
     request(session, get(base(s) + "/people"), 200);
   }
 
@@ -705,6 +757,7 @@ class EnrollmentApplicationGuardianshipPostgresIntegrationTest {
                     "confirmPassword",
                     PASSWORD)))
         .andExpect(status().isBadRequest());
+    allowMail(UUID.fromString(person));
     request(
         s, body(patch(access), Map.of("enabled", true, "email", "dummy-person@example.test")), 200);
     final var replacement =
@@ -743,7 +796,11 @@ class EnrollmentApplicationGuardianshipPostgresIntegrationTest {
                             UUID.fromString(person), s.institution().getId())
                         .isEmpty()))
         .isTrue();
-    request(s, body(patch(access), Map.of("enabled", true, "email", "ignored@example.test")), 200);
+    allowMail(UUID.fromString(person));
+    request(
+        s,
+        body(patch(access), Map.of("enabled", true, "email", "institution-corrected@example.test")),
+        200);
     final var corrected =
         events.stream(PersonAccessInvited.class)
             .filter(
@@ -833,7 +890,7 @@ class EnrollmentApplicationGuardianshipPostgresIntegrationTest {
                     "dummy-person@example.test")),
             201);
     request(
-        s,
+        reviewer(s),
         body(
             post(
                 base(s)
@@ -843,8 +900,8 @@ class EnrollmentApplicationGuardianshipPostgresIntegrationTest {
             Map.of()),
         200);
     request(s, body(post("/api/v1/auth/active-identity"), Map.of("personId", person)), 403);
-    final var managed = request(s, get(base(s) + "/representations"), 200);
-    assertThat(managed.get(0).get("ownAccessStatus").asString()).isEqualTo("INSTITUTION_BLOCKED");
+    final var managed = representation(s, blockedLink.get("personGuardianId"));
+    assertThat(managed.get("ownAccessStatus").asString()).isEqualTo("INSTITUTION_BLOCKED");
     assertPrivilegedInvitationsRequireInstitution();
   }
 
@@ -879,7 +936,7 @@ class EnrollmentApplicationGuardianshipPostgresIntegrationTest {
               jsonPath("message")
                   .value(
                       ar.edu.utn.frvm.typeit.bemol_api.institutional.exceptions.InstitutionMessages
-                          .OWN_ACCESS_INSTITUTION_REQUIRED));
+                          .OWN_ACCESS_TOKEN_INVALID));
       request(
           s,
           body(patch(access), Map.of("enabled", true, "email", "representative@example.test")),
@@ -898,7 +955,7 @@ class EnrollmentApplicationGuardianshipPostgresIntegrationTest {
                   .asString())
           .isEqualTo("INSTITUTION_REQUIRED");
       request(actor(s, personId.toString()), get(profile(s, personId.toString())), 200);
-      request(s, body(patch(access), Map.of("enabled", false)), 200);
+      request(s, body(patch(access), Map.of("enabled", false)), 400);
       assertInstitutionalInitialAccess(s, personId, role);
 
       final var alreadyPrivileged = setup();
@@ -928,6 +985,7 @@ class EnrollmentApplicationGuardianshipPostgresIntegrationTest {
     final var initialRoles =
         request(actor(s, personId.toString()), get(profile(s, personId.toString())), 200)
             .get("roles");
+    allowMail(personId);
     request(s, body(post(path), email), 200);
     final var first = latestInvitation(personId);
     // Verify the real list contract by document, not a test-only identifier filter.
@@ -941,7 +999,7 @@ class EnrollmentApplicationGuardianshipPostgresIntegrationTest {
             () ->
                 entityManager
                     .createQuery(
-                        "select i from PersonAccessInvitation i where i.person.id = :person and i.consumedAt is null",
+                        "select i from PersonAccessInvitation i where i.person.id = :person and i.consumedAt is null and i.cancelledAt is null",
                         PersonAccessInvitation.class)
                     .setParameter("person", personId)
                     .getSingleResult());
@@ -974,12 +1032,14 @@ class EnrollmentApplicationGuardianshipPostgresIntegrationTest {
             return null;
           });
     }
+    allowMail(personId);
     request(s, body(post(path), email), 200);
     final var replacement = latestInvitation(personId);
     assertThat(replacement.token()).isNotEqualTo(first.token());
     activate(first, 400);
     request(s, delete(path), 204);
     activate(replacement, 400);
+    allowMail(personId);
     request(s, body(post(path), email), 200);
     final var revokedIssuer = latestInvitation(personId);
     tx(
@@ -1021,8 +1081,10 @@ class EnrollmentApplicationGuardianshipPostgresIntegrationTest {
         .hasStackTraceContaining("person_access_invitation_origin_check");
     request(foreign, body(post(path), email), 403);
     final var subjectActor = actor(s, personId.toString());
+    allowMail(personId);
     mvc.perform(body(post(path), email).with(authentication(subjectActor)))
-        .andExpect(status().isForbidden());
+        .andExpect(status().isOk());
+    allowMail(personId);
     request(s, body(post(path), email), 200);
     final var approved = latestInvitation(personId);
     assertThat(
@@ -1060,7 +1122,7 @@ class EnrollmentApplicationGuardianshipPostgresIntegrationTest {
     request(
         s, body(patch(base(s) + "/people/" + personId + "/status"), Map.of("enabled", false)), 204);
     request(s, body(post(path), email), 400);
-    request(s, delete(path), 400);
+    request(s, delete(path), 204);
     assertThat(
             tx(
                 () ->
@@ -1114,6 +1176,10 @@ class EnrollmentApplicationGuardianshipPostgresIntegrationTest {
         .filter(event -> event.personId().equals(personId))
         .reduce((previous, current) -> current)
         .orElseThrow();
+  }
+
+  private void allowMail(UUID personId) {
+    redis.delete("bemol:auth:action:mail:" + personId);
   }
 
   private void activate(PersonAccessInvited invitation, int expectedStatus) throws Exception {
@@ -1262,6 +1328,9 @@ class EnrollmentApplicationGuardianshipPostgresIntegrationTest {
     return tx(
         () -> {
           final var person = entityManager.getReference(Person.class, UUID.fromString(personId));
+          if (!personId.equals(s.tutor().getId().toString())) {
+            assignRoles.execute(person, SystemRoleCode.STUDENT);
+          }
           final var student =
               Student.builder()
                   .institution(s.institution())
