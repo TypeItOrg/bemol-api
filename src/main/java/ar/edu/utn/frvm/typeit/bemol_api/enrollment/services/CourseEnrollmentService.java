@@ -137,4 +137,40 @@ public class CourseEnrollmentService {
     return responses.from(
         enrollments.findForTeacherClass(institutionId, personId, classId, pageable));
   }
+
+  @Transactional(readOnly = true)
+  public CourseEnrollmentResponse getForTeacherClass(
+      final UUID institutionId, final UUID classId, final UUID enrollmentId) {
+    return responses.from(findInClass(institutionId, classId, enrollmentId));
+  }
+
+  @Transactional(readOnly = true)
+  public List<CourseEnrollmentHistoryResponse> historyForTeacherClass(
+      final UUID institutionId, final UUID classId, final UUID enrollmentId) {
+    findInClass(institutionId, classId, enrollmentId);
+    return history.findByCourseEnrollment_IdOrderByChangedAtDesc(enrollmentId).stream()
+        .map(CourseEnrollmentHistoryResponse::from)
+        .toList();
+  }
+
+  @Transactional
+  public CourseEnrollmentResponse updateForTeacherClass(
+      final UUID institutionId,
+      final UUID classId,
+      final UUID enrollmentId,
+      final UpdateAcademicEnrollmentStatusRequest request,
+      final UUID personId) {
+    return statusChanges.academicStatusForTeacher(
+        institutionId, classId, enrollmentId, request, personId);
+  }
+
+  private ar.edu.utn.frvm.typeit.bemol_api.enrollment.entities.CourseEnrollment findInClass(
+      final UUID institutionId, final UUID classId, final UUID enrollmentId) {
+    return enrollments
+        .findByIdAndInstitutionId(enrollmentId, institutionId)
+        .filter(enrollment -> enrollment.getCourseClass().getId().equals(classId))
+        .orElseThrow(
+            () ->
+                new EnrollmentValidationException(EnrollmentMessages.COURSE_ENROLLMENT_NOT_FOUND));
+  }
 }

@@ -1,7 +1,12 @@
 package ar.edu.utn.frvm.typeit.bemol_api.enrollment.services;
 
+import static ar.edu.utn.frvm.typeit.bemol_api.security.handlers.SecurityErrorMessages.DEFAULT_FORBIDDEN_MESSAGE;
+
+import ar.edu.utn.frvm.typeit.bemol_api.academic.interfaces.CourseClassTeacherRepository;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.enums.PermissionCode;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.enums.ScopedResource;
+import ar.edu.utn.frvm.typeit.bemol_api.authorization.enums.SystemRoleCode;
+import ar.edu.utn.frvm.typeit.bemol_api.authorization.interfaces.PersonRoleAssignmentRepository;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.services.AcademicAccessGuard;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.entities.CourseEnrollment;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.enums.CourseEnrollmentStatus;
@@ -16,6 +21,7 @@ import java.time.Clock;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.jspecify.annotations.Nullable;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -30,6 +36,8 @@ public class ChangeCourseEnrollmentStatusUseCase {
   private final CourseEnrollmentAudit audit;
   private final CourseEnrollmentResponseFactory responses;
   private final Clock clock;
+  private final CourseClassTeacherRepository teachers;
+  private final PersonRoleAssignmentRepository roles;
 
   @Transactional
   public CourseEnrollmentResponse withdraw(
@@ -88,6 +96,33 @@ public class ChangeCourseEnrollmentStatusUseCase {
 
     final var institution = context.lockInstitution(institutionId);
     final var enrollment = lockEnrollment(institutionId, enrollmentId);
+    return recordAcademicStatus(institution, enrollment, request, authorityPersonId);
+  }
+
+  @Transactional
+  public CourseEnrollmentResponse academicStatusForTeacher(
+      final UUID institutionId,
+      final UUID classId,
+      final UUID enrollmentId,
+      final UpdateAcademicEnrollmentStatusRequest request,
+      final UUID teacherId) {
+    final var institution = context.lockInstitution(institutionId);
+    final var enrollment = lockEnrollment(institutionId, enrollmentId);
+    if (!enrollment.getCourseClass().getId().equals(classId)
+        || !roles.existsByPerson_IdAndInstitution_IdAndRole_Code(
+            teacherId, institutionId, SystemRoleCode.TEACHER.name())
+        || !teachers.existsByInstitution_IdAndPerson_IdAndCourseClass_Id(
+            institutionId, teacherId, classId)) {
+      throw new AccessDeniedException(DEFAULT_FORBIDDEN_MESSAGE);
+    }
+    return recordAcademicStatus(institution, enrollment, request, teacherId);
+  }
+
+  private CourseEnrollmentResponse recordAcademicStatus(
+      final ar.edu.utn.frvm.typeit.bemol_api.institutional.entities.Institution institution,
+      final CourseEnrollment enrollment,
+      final UpdateAcademicEnrollmentStatusRequest request,
+      final @Nullable UUID authorityPersonId) {
     CourseEnrollmentContext.requireExpectedVersion(
         enrollment.getVersion(), request.expectedVersion());
 

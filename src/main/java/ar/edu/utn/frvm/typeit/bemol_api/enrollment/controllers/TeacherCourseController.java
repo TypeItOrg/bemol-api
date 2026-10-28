@@ -6,11 +6,15 @@ import ar.edu.utn.frvm.typeit.bemol_api.auth.filters.JwtAuthenticatedUser;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.RequiresInstitutionAccess;
 import ar.edu.utn.frvm.typeit.bemol_api.common.web.PaginatedResponse;
 import ar.edu.utn.frvm.typeit.bemol_api.common.web.Version;
+import ar.edu.utn.frvm.typeit.bemol_api.enrollment.payloads.CourseEnrollmentHistoryResponse;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.payloads.CourseEnrollmentResponse;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.payloads.TeacherCourseClassResponse;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.payloads.TeacherWeeklySchedulesResponse;
+import ar.edu.utn.frvm.typeit.bemol_api.enrollment.payloads.UpdateAcademicEnrollmentStatusRequest;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.services.TeacherCourseService;
+import jakarta.validation.Valid;
 import java.time.LocalDate;
+import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
@@ -51,6 +55,46 @@ public class TeacherCourseController {
       final Authentication authentication,
       @PageableDefault(size = 20) final Pageable pageable) {
     return service.listEnrollments(institutionId, personId(authentication), classId, pageable);
+  }
+
+  @GetMapping(value = "/{classId}", version = Version.V1)
+  public TeacherCourseClassResponse getClass(
+      @PathVariable final UUID institutionId,
+      @PathVariable final UUID classId,
+      final Authentication authentication) {
+    return service.getClass(institutionId, personId(authentication), classId);
+  }
+
+  @GetMapping(value = "/{classId}/enrollments/{enrollmentId}", version = Version.V1)
+  public CourseEnrollmentResponse enrollment(
+      @PathVariable final UUID institutionId,
+      @PathVariable final UUID classId,
+      @PathVariable final UUID enrollmentId,
+      final Authentication authentication) {
+    return service.getEnrollment(institutionId, personId(authentication), classId, enrollmentId);
+  }
+
+  @GetMapping(value = "/{classId}/enrollments/{enrollmentId}/history", version = Version.V1)
+  public List<CourseEnrollmentHistoryResponse> history(
+      @PathVariable final UUID institutionId,
+      @PathVariable final UUID classId,
+      @PathVariable final UUID enrollmentId,
+      final Authentication authentication) {
+    return service.enrollmentHistory(
+        institutionId, personId(authentication), classId, enrollmentId);
+  }
+
+  @PatchMapping(
+      value = "/{classId}/enrollments/{enrollmentId}/academic-status",
+      version = Version.V1)
+  public CourseEnrollmentResponse updateResult(
+      @PathVariable final UUID institutionId,
+      @PathVariable final UUID classId,
+      @PathVariable final UUID enrollmentId,
+      @Valid @RequestBody final UpdateAcademicEnrollmentStatusRequest request,
+      final Authentication authentication) {
+    return service.updateEnrollmentResult(
+        institutionId, personId(authentication), classId, enrollmentId, request);
   }
 
   private UUID personId(final Authentication authentication) {

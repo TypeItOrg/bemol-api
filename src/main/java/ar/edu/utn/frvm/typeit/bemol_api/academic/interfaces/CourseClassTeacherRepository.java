@@ -4,6 +4,7 @@ import ar.edu.utn.frvm.typeit.bemol_api.academic.entities.CourseClass;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.entities.CourseClassTeacher;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -73,5 +74,8 @@ public interface CourseClassTeacherRepository extends JpaRepository<CourseClassT
       @Param("weekEnd") LocalDate weekEnd);
 
   boolean existsByInstitution_IdAndPerson_IdAndCourseClass_Id(
+      UUID institutionId, UUID personId, UUID classId);
+
+  Optional<CourseClassTeacher> findByInstitution_IdAndPerson_IdAndCourseClass_Id(
       UUID institutionId, UUID personId, UUID classId);
 }

@@ -726,6 +726,7 @@ class CourseEnrollmentFlowPostgresIntegrationTest extends DatabaseMigrationTestS
   @Test
   void teacherHttpAccessDoesNotGrantAdministrationAndRejectsOtherInstitutions() throws Exception {
     final var f = fixture(false);
+    final var enrollment = enroll(f, approved(f, "00009002"));
     final var teacher =
         tx(
             () -> {
@@ -755,6 +756,41 @@ class CourseEnrollmentFlowPostgresIntegrationTest extends DatabaseMigrationTestS
                       "/api/v1/institutions/{id}/course-enrollments", f.institutionId())
                   .principal(authentication))
           .andExpect(MockMvcResultMatchers.status().isForbidden());
+      final String detail =
+          "/api/v1/institutions/{id}/teacher/classes/{classId}/enrollments/{enrollmentId}";
+      http.perform(
+              MockMvcRequestBuilders.get(detail, f.institutionId(), f.classId(), enrollment.id())
+                  .principal(authentication))
+          .andExpect(MockMvcResultMatchers.status().isOk())
+          .andExpect(MockMvcResultMatchers.jsonPath("$.id").value(enrollment.id().toString()));
+      http.perform(
+              MockMvcRequestBuilders.get(
+                      detail + "/history", f.institutionId(), f.classId(), enrollment.id())
+                  .principal(authentication))
+          .andExpect(MockMvcResultMatchers.status().isOk());
+      http.perform(
+              MockMvcRequestBuilders.get(
+                      detail, f.institutionId(), UUID.randomUUID(), enrollment.id())
+                  .principal(authentication))
+          .andExpect(MockMvcResultMatchers.status().isForbidden());
+      http.perform(
+              MockMvcRequestBuilders.patch(
+                      detail + "/academic-status",
+                      f.institutionId(),
+                      UUID.randomUUID(),
+                      enrollment.id())
+                  .principal(authentication)
+                  .contentType("application/json")
+                  .content("{\"status\":\"PASSED\",\"reason\":\"Resultado\"}"))
+          .andExpect(MockMvcResultMatchers.status().isForbidden());
+      http.perform(
+              MockMvcRequestBuilders.patch(
+                      detail + "/academic-status", f.institutionId(), f.classId(), enrollment.id())
+                  .principal(authentication)
+                  .contentType("application/json")
+                  .content("{\"status\":\"PASSED\",\"reason\":\"Resultado\"}"))
+          .andExpect(MockMvcResultMatchers.status().isOk())
+          .andExpect(MockMvcResultMatchers.jsonPath("$.academicStatus").value("PASSED"));
       http.perform(
               MockMvcRequestBuilders.get(
                       "/api/v1/institutions/{id}/teacher/classes", UUID.randomUUID())

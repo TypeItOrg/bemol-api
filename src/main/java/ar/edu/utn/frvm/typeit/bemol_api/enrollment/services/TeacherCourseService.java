@@ -13,9 +13,11 @@ import ar.edu.utn.frvm.typeit.bemol_api.common.time.BusinessDateProvider;
 import ar.edu.utn.frvm.typeit.bemol_api.common.web.PaginatedResponse;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.exceptions.EnrollmentMessages;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.exceptions.EnrollmentValidationException;
+import ar.edu.utn.frvm.typeit.bemol_api.enrollment.payloads.CourseEnrollmentHistoryResponse;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.payloads.CourseEnrollmentResponse;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.payloads.TeacherCourseClassResponse;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.payloads.TeacherWeeklySchedulesResponse;
+import ar.edu.utn.frvm.typeit.bemol_api.enrollment.payloads.UpdateAcademicEnrollmentStatusRequest;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.temporal.TemporalAdjusters;
@@ -87,6 +89,50 @@ public class TeacherCourseService {
       throw new EnrollmentValidationException(EnrollmentMessages.COURSE_CLASS_INVALID);
     }
     return enrollments.listForTeacherClass(institutionId, personId, classId, pageable);
+  }
+
+  public TeacherCourseClassResponse getClass(
+      final UUID institutionId, final UUID personId, final UUID classId) {
+    requireTeacher(institutionId, personId);
+    final var assignment =
+        assignments
+            .findByInstitution_IdAndPerson_IdAndCourseClass_Id(institutionId, personId, classId)
+            .orElseThrow(
+                () -> new EnrollmentValidationException(EnrollmentMessages.COURSE_CLASS_INVALID));
+    return toResponses(List.of(assignment.getCourseClass())).getFirst();
+  }
+
+  public CourseEnrollmentResponse getEnrollment(
+      final UUID institutionId, final UUID personId, final UUID classId, final UUID enrollmentId) {
+    requireAssignedClass(institutionId, personId, classId);
+    return enrollments.getForTeacherClass(institutionId, classId, enrollmentId);
+  }
+
+  public List<CourseEnrollmentHistoryResponse> enrollmentHistory(
+      final UUID institutionId, final UUID personId, final UUID classId, final UUID enrollmentId) {
+    requireAssignedClass(institutionId, personId, classId);
+    return enrollments.historyForTeacherClass(institutionId, classId, enrollmentId);
+  }
+
+  @Transactional
+  public CourseEnrollmentResponse updateEnrollmentResult(
+      final UUID institutionId,
+      final UUID personId,
+      final UUID classId,
+      final UUID enrollmentId,
+      final UpdateAcademicEnrollmentStatusRequest request) {
+    requireAssignedClass(institutionId, personId, classId);
+    return enrollments.updateForTeacherClass(
+        institutionId, classId, enrollmentId, request, personId);
+  }
+
+  private void requireAssignedClass(
+      final UUID institutionId, final UUID personId, final UUID classId) {
+    requireTeacher(institutionId, personId);
+    if (!assignments.existsByInstitution_IdAndPerson_IdAndCourseClass_Id(
+        institutionId, personId, classId)) {
+      throw new AccessDeniedException(DEFAULT_FORBIDDEN_MESSAGE);
+    }
   }
 
   private void requireTeacher(final UUID institutionId, final UUID personId) {
