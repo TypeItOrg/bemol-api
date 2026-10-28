@@ -95,9 +95,8 @@ Los requisitos se asignan a los trayectos utilizados por los escenarios:
 
 | Requisito | Exigencia | Demostración |
 | --- | --- | --- |
-| Documento Nacional de Identidad (DNI) | Obligatorio al enviar | Bloqueo sin archivo, revisión, observación y reemplazo. |
-| Certificado de aptitud física | Obligatorio para confirmar | Admisión provisoria, carga posterior y confirmación. |
-| Presentación musical personal | Opcional | Una entrega opcional no bloquea la admisión. |
+| Documento Nacional de Identidad | Obligatorio al enviar | Bloqueo sin archivo, revisión, observación y reemplazo. |
+| Certificado de Aptitud Física | Obligatorio para confirmar | Admisión provisoria, carga posterior y confirmación. |
 
 Se admiten PDF, JPEG y PNG. Los PDFs están en src/main/resources/db/seed/assets.
 Los documentos nuevos se identifican como muestras ficticias sin validez:

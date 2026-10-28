@@ -70,7 +70,7 @@ INSERT INTO seed_members VALUES
     (29, '44741325', 'Martín', 'Torres', 34, 'APPLICANT', NULL);
 
 CREATE TEMP TABLE seed_custom_roles (code text PRIMARY KEY, name text NOT NULL, template_code text NOT NULL) ON COMMIT DROP;
-INSERT INTO seed_custom_roles VALUES ('DEMO_ADMINISTRATIVE', 'Administración CAVB (demo)', 'ADMINISTRATIVE');
+INSERT INTO seed_custom_roles VALUES ('DEMO_ADMINISTRATIVE', 'Administración CAVB', 'ADMINISTRATIVE');
 
 CREATE TEMP TABLE seed_instruments (
     name text PRIMARY KEY, offered boolean NOT NULL,
@@ -107,12 +107,10 @@ CREATE TEMP TABLE seed_documents (
     position integer NOT NULL, asset text NOT NULL
 ) ON COMMIT DROP;
 INSERT INTO seed_documents VALUES
-    ('dni', 'Documento Nacional de Identidad (DNI)', 'Adjuntá una copia legible del frente y dorso de tu DNI.',
+    ('dni', 'Documento Nacional de Identidad', 'Adjuntá una copia legible del frente y dorso de tu DNI.',
      'AT_SUBMISSION', 10, 'dni-muestra.pdf'),
-    ('aptitud-fisica', 'Certificado de aptitud física', 'Presentá un certificado de aptitud física vigente para completar la inscripción.',
-     'BEFORE_CONFIRMATION', 20, 'certificado-aptitud-fisica-muestra.pdf'),
-    ('musical-presentation', 'Presentación musical personal', 'Contanos qué te interesa aprender y tu experiencia con la música.',
-     'OPTIONAL', 100, 'presentacion-musical.pdf');
+    ('aptitud-fisica', 'Certificado de Aptitud Física', 'Presentá un certificado de aptitud física vigente para completar la inscripción.',
+     'BEFORE_CONFIRMATION', 20, 'certificado-aptitud-fisica-muestra.pdf');
 
 CREATE TEMP TABLE seed_applications (
     scenario text PRIMARY KEY, member_number integer NOT NULL UNIQUE REFERENCES seed_members,

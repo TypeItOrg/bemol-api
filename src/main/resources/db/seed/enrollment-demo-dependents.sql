@@ -4,8 +4,7 @@ INSERT INTO seed_assets VALUES
     ('dni-muestra.pdf', :'seed_dni_size'::bigint),
     ('dni-observado-muestra.pdf', :'seed_old_dni_size'::bigint),
     ('certificado-aptitud-fisica-muestra.pdf', :'seed_health_size'::bigint),
-    ('partida-nacimiento-muestra.pdf', :'seed_guardian_size'::bigint),
-    ('presentacion-musical.pdf', :'seed_music_size'::bigint);
+    ('partida-nacimiento-muestra.pdf', :'seed_guardian_size'::bigint);
 CREATE TEMP TABLE seed_asset_context (prefix text NOT NULL) ON COMMIT DROP;
 INSERT INTO seed_asset_context VALUES (:'seed_asset_prefix');
 

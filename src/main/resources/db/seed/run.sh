@@ -42,8 +42,7 @@ args=(-X -v ON_ERROR_STOP=1
     -v "seed_dni_size=$(wc -c < "$asset_dir/dni-muestra.pdf")"
     -v "seed_old_dni_size=$(wc -c < "$asset_dir/dni-observado-muestra.pdf")"
     -v "seed_health_size=$(wc -c < "$asset_dir/certificado-aptitud-fisica-muestra.pdf")"
-    -v "seed_guardian_size=$(wc -c < "$asset_dir/partida-nacimiento-muestra.pdf")"
-    -v "seed_music_size=$(wc -c < "$asset_dir/presentacion-musical.pdf")")
+    -v "seed_guardian_size=$(wc -c < "$asset_dir/partida-nacimiento-muestra.pdf")")
 compose=(docker compose)
 if [[ -n "${SEED_COMPOSE_FILE:-}" ]]; then compose+=(-f "$SEED_COMPOSE_FILE"); fi
 
@@ -61,7 +60,7 @@ copy_asset='set -eu
         chmod 644 "$temporary"
         ln "$temporary" "$target"
     fi'
-for asset_name in dni-muestra.pdf dni-observado-muestra.pdf certificado-aptitud-fisica-muestra.pdf partida-nacimiento-muestra.pdf presentacion-musical.pdf; do
+for asset_name in dni-muestra.pdf dni-observado-muestra.pdf certificado-aptitud-fisica-muestra.pdf partida-nacimiento-muestra.pdf; do
     asset="$asset_dir/$asset_name"
     key="$asset_prefix/$asset_name"
     case "$SEED_TRANSPORT" in
