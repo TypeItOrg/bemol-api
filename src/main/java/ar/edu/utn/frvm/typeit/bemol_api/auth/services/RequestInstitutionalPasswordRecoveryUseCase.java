@@ -32,6 +32,7 @@ public class RequestInstitutionalPasswordRecoveryUseCase {
   private final InstitutionalPasswordResetTokenRepository passwordResetTokenRepository;
   private final ApplicationEventPublisher eventPublisher;
   private final PasswordRecoveryProperties passwordRecoveryProperties;
+  private final AccountActionRateLimiter limiter;
   private final SecureRandom secureRandom = new SecureRandom();
 
   @Transactional
@@ -41,8 +42,24 @@ public class RequestInstitutionalPasswordRecoveryUseCase {
     userRepository
         .findWithPersonAndInstitutionForPasswordRecovery(
             request.documentNumber(), request.institutionId())
-        .filter(this::canRecoverPassword)
-        .ifPresent(this::createTokenAndPublishEvent);
+        .ifPresent(
+            user -> {
+              try {
+                requestForUser(user);
+              } catch (
+                  final ar.edu.utn.frvm.typeit.bemol_api.auth.exceptions
+                          .EmailVerificationCooldownException
+                      ignored) {
+                // Public recovery keeps the same response for absent and rate-limited accounts.
+              }
+            });
+  }
+
+  public void requestForUser(final User user) {
+    if (canRecoverPassword(user)) {
+      limiter.mail(user.getPerson().getId());
+      createTokenAndPublishEvent(user);
+    }
   }
 
   private boolean canRecoverPassword(final User user) {

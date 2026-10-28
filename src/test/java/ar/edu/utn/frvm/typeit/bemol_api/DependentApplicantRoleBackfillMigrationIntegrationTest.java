@@ -14,7 +14,13 @@ import org.springframework.core.io.ClassPathResource;
 import org.springframework.util.StreamUtils;
 
 @IntegrationTest
-class DependentApplicantRoleBackfillMigrationIntegrationTest extends DatabaseMigrationTestSupport {
+class DependentApplicantRoleBackfillMigrationIntegrationTest {
+
+  private static final ar.edu.utn.frvm.typeit.bemol_api.support.PostgresTestDatabase DATABASE =
+      new ar.edu.utn.frvm.typeit.bemol_api.support.PostgresTestDatabase(
+          "postgres:18-alpine", "historical_dependent_backfill");
+  private org.springframework.jdbc.core.JdbcTemplate jdbcTemplate;
+  private MigrationFixtures fixtures;
 
   private static final String BACKFILL_MIGRATION =
       "db/migration/20260930185419__backfill_applicant_role_for_dependents.sql";
@@ -29,6 +35,18 @@ class DependentApplicantRoleBackfillMigrationIntegrationTest extends DatabaseMig
 
   @BeforeEach
   void seedLegacyData() {
+    final var dataSource =
+        new org.springframework.jdbc.datasource.DriverManagerDataSource(
+            DATABASE.getJdbcUrl(), DATABASE.getUsername(), DATABASE.getPassword());
+    org.flywaydb.core.Flyway.configure()
+        .dataSource(dataSource)
+        .locations("classpath:db/migration", "classpath:db/dev")
+        .sqlMigrationPrefix("")
+        .target("20261025205535")
+        .load()
+        .migrate();
+    jdbcTemplate = new org.springframework.jdbc.core.JdbcTemplate(dataSource);
+    fixtures = new MigrationFixtures(jdbcTemplate);
     fixtures.insertTestInstitution(institutionId);
     applicantRoleId = insertRole("APPLICANT");
     studentRoleId = insertRole("STUDENT");

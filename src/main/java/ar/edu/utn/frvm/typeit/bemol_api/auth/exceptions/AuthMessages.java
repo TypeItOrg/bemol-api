@@ -83,7 +83,7 @@ public final class AuthMessages {
   public static final String EMAIL_VERIFICATION_TOKEN_INVALID =
       "El enlace de verificación es inválido o venció. Solicitá uno nuevo.";
   public static final String EMAIL_VERIFICATION_COOLDOWN =
-      "Esperá un minuto entre envíos antes de corregir el email.";
+      "Esperá un minuto antes de solicitar otro correo.";
   public static final String EMAIL_VERIFICATION_CONFLICT =
       "No se pudo generar el enlace. Intentá nuevamente.";
   public static final String EMAIL_VERIFICATION_TOKEN_REQUIRED =

@@ -1,6 +1,5 @@
 package ar.edu.utn.frvm.typeit.bemol_api.auth.controllers;
 
-import ar.edu.utn.frvm.typeit.bemol_api.auth.payloads.requests.ChangePendingEmailRequest;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.payloads.requests.ConfirmEmailVerificationRequest;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.payloads.requests.ResendEmailVerificationRequest;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.services.InstitutionalEmailVerificationUseCase;
@@ -30,11 +29,5 @@ public class EmailVerificationController {
   @ResponseStatus(HttpStatus.NO_CONTENT)
   public void resend(@Valid @RequestBody final ResendEmailVerificationRequest request) {
     verification.resend(request);
-  }
-
-  @PostMapping(path = "/change-email", version = Version.V1)
-  @ResponseStatus(HttpStatus.NO_CONTENT)
-  public void changeEmail(@Valid @RequestBody final ChangePendingEmailRequest request) {
-    verification.changeEmail(request);
   }
 }

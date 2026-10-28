@@ -2,7 +2,6 @@ package ar.edu.utn.frvm.typeit.bemol_api.institutional.payloads.guardian;
 
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.entities.GuardianLinkStatus;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.entities.GuardianRelationship;
-import ar.edu.utn.frvm.typeit.bemol_api.institutional.entities.Person;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.entities.PersonGuardian;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.time.Instant;
@@ -29,7 +28,7 @@ import org.jspecify.annotations.Nullable;
     })
 public record GuardianDependentResponse(
     UUID personGuardianId,
-    UUID dependentPersonId,
+    @Nullable @Schema(nullable = true) UUID dependentPersonId,
     GuardianLinkStatus status,
     String documentNumber,
     @Nullable @Schema(nullable = true) String firstName,
@@ -57,17 +56,16 @@ public record GuardianDependentResponse(
       final long activeApplicationsCount,
       final List<String> roles,
       final String ownAccessStatus) {
-    final Person dependent = link.getDependentPerson();
     final boolean visible = link.isActive();
 
     return new GuardianDependentResponse(
         link.getId(),
-        dependent.getId(),
+        link.getDependentPersonId(),
         link.getStatus(),
-        dependent.getDocumentNumber(),
-        visible ? dependent.getFirstName() : link.getDeclaredFirstName(),
-        visible ? dependent.getLastName() : link.getDeclaredLastName(),
-        visible ? dependent.getBirthDate() : link.getDeclaredBirthDate(),
+        visible ? link.getDependentPerson().getDocumentNumber() : link.getDocumentNumber(),
+        visible ? link.getDependentPerson().getFirstName() : link.getDeclaredFirstName(),
+        visible ? link.getDependentPerson().getLastName() : link.getDeclaredLastName(),
+        visible ? link.getDependentPerson().getBirthDate() : link.getDeclaredBirthDate(),
         link.getRelationship(),
         link.isPrimaryContact(),
         visible ? activeApplicationsCount : 0,

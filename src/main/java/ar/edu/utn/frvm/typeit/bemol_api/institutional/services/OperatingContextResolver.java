@@ -1,6 +1,9 @@
 package ar.edu.utn.frvm.typeit.bemol_api.institutional.services;
 
+import static ar.edu.utn.frvm.typeit.bemol_api.security.handlers.SecurityErrorMessages.DEFAULT_FORBIDDEN_MESSAGE;
+
 import ar.edu.utn.frvm.typeit.bemol_api.auth.filters.JwtAuthenticatedUser;
+import ar.edu.utn.frvm.typeit.bemol_api.authorization.enums.SystemRoleCode;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.interfaces.PersonRoleAssignmentRepository;
 import ar.edu.utn.frvm.typeit.bemol_api.common.exceptions.InvalidRequestParameterException;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.entities.GuardianLinkStatus;
@@ -14,6 +17,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -35,6 +39,18 @@ public class OperatingContextResolver {
       throw new UnauthorizedGuardianshipException();
     }
     return requireAccessible(institutionId, selectedPersonId, actor);
+  }
+
+  @Transactional(readOnly = true)
+  public Person requireStudent(
+      final UUID institutionId, final UUID selectedPersonId, final JwtAuthenticatedUser actor) {
+    final var person = require(institutionId, selectedPersonId, actor);
+    if (!roles.existsByPerson_IdAndInstitution_IdAndRole_Code(
+        selectedPersonId, institutionId, SystemRoleCode.STUDENT.name())) {
+      throw new AccessDeniedException(DEFAULT_FORBIDDEN_MESSAGE);
+    }
+
+    return person;
   }
 
   @Transactional(readOnly = true)

@@ -1,15 +1,9 @@
 package ar.edu.utn.frvm.typeit.bemol_api.institutional.services;
 
-import static java.util.Objects.requireNonNull;
-
 import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditAction;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditEntityType;
-import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditOrigin;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.services.AuditEventRecorder;
-import ar.edu.utn.frvm.typeit.bemol_api.auth.entities.User;
-import ar.edu.utn.frvm.typeit.bemol_api.auth.interfaces.UserRepository;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.services.SessionRevocationService;
-import ar.edu.utn.frvm.typeit.bemol_api.authorization.services.InstitutionPersonResolver;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.entities.Person;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.exceptions.PersonNotFoundException;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.interfaces.PersonRepository;
@@ -17,11 +11,9 @@ import ar.edu.utn.frvm.typeit.bemol_api.institutional.payloads.person.PersonResp
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.payloads.person.UpdatePersonByAdminRequest;
 import jakarta.validation.ConstraintViolationException;
 import jakarta.validation.Validator;
-import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -30,17 +22,36 @@ import org.springframework.transaction.annotation.Transactional;
 public class UpdatePersonByAdminUseCase {
   private final AuditEventRecorder auditRecorder;
 
-  private final InstitutionPersonResolver institutionPersonResolver;
   private final PersonRepository personRepository;
-  private final UserRepository userRepository;
-  private final PasswordEncoder passwordEncoder;
+  private final ar.edu.utn.frvm.typeit.bemol_api.auth.services.AccountAccessAuthorization access;
+  private final ar.edu.utn.frvm.typeit.bemol_api.institutional.interfaces.InstitutionRepository
+      institutions;
   private final SessionRevocationService sessionRevocationService;
   private final Validator validator;
 
   @Transactional
   public PersonResponse execute(
       final UUID institutionId, final UUID personId, final UpdatePersonByAdminRequest request) {
-    Person person = institutionPersonResolver.requirePersonInInstitution(institutionId, personId);
+    institutions
+        .findByIdForUpdate(institutionId)
+        .orElseThrow(
+            ar.edu.utn.frvm.typeit.bemol_api.institutional.exceptions.InstitutionNotFoundException
+                ::new);
+    access.requireIdentityCorrection(institutionId);
+    Person person =
+        personRepository
+            .findByIdAndInstitutionIdForUpdate(personId, institutionId)
+            .filter(value -> !value.isDeleted())
+            .orElseThrow(PersonNotFoundException::new);
+    final boolean documentChanged =
+        request.documentNumber() != null
+            && !request.documentNumber().equals(person.getDocumentNumber());
+    if (documentChanged
+        && personRepository.existsByDocumentNumberAndInstitution_Id(
+            java.util.Objects.requireNonNull(request.documentNumber()), institutionId)) {
+      throw new ar.edu.utn.frvm.typeit.bemol_api.institutional.exceptions
+          .PersonAlreadyExistsException();
+    }
     final var before = PersonAuditDetails.snapshot(person);
     if (request.isEmpty()) {
       throw new ConstraintViolationException(Set.of());
@@ -49,17 +60,34 @@ public class UpdatePersonByAdminUseCase {
     person.updateIdentity(
         request.firstName() != null ? request.firstName() : person.getFirstName(),
         request.lastName() != null ? request.lastName() : person.getLastName(),
-        person.getBirthDate(),
+        request.birthDate() != null ? request.birthDate() : person.getBirthDate(),
         person.getBirthCity(),
         person.getNationalityCountry());
     person.updateContact(
-        request.email() != null ? request.email() : person.getEmail(),
+        person.getEmail(),
         request.phoneNumber() != null ? request.phoneNumber() : person.getPhoneNumber());
+    if (documentChanged) {
+      person.correctDocumentNumber(java.util.Objects.requireNonNull(request.documentNumber()));
+    }
     final var violations = validator.validate(person);
     if (!violations.isEmpty()) {
       throw new ConstraintViolationException(violations);
     }
-    personRepository.save(person);
+    try {
+      personRepository.saveAndFlush(person);
+    } catch (org.springframework.dao.DataIntegrityViolationException exception) {
+      for (Throwable cause = exception; cause != null; cause = cause.getCause()) {
+        if (cause instanceof org.hibernate.exception.ConstraintViolationException violation
+            && "people_active_document_number_unique".equals(violation.getConstraintName())) {
+          throw new ar.edu.utn.frvm.typeit.bemol_api.institutional.exceptions
+              .PersonAlreadyExistsException();
+        }
+      }
+      throw exception;
+    }
+    if (documentChanged) {
+      sessionRevocationService.revokeInstitutionalSessionsForPerson(personId, institutionId);
+    }
     auditRecorder.recordChange(
         person.getInstitution(),
         person.getId(),
@@ -69,24 +97,6 @@ public class UpdatePersonByAdminUseCase {
         "Persona",
         before,
         PersonAuditDetails.snapshot(person));
-
-    if (request.hasPassword()) {
-      User user =
-          userRepository
-              .findByPerson_IdAndInstitution_Id(personId, institutionId)
-              .orElseThrow(PersonNotFoundException::new);
-      user.changePassword(requireNonNull(passwordEncoder.encode(request.password())));
-      userRepository.save(user);
-      auditRecorder.recordCurrentActor(
-          user.getInstitution(),
-          person.getId(),
-          AuditAction.PASSWORD_CHANGED,
-          AuditEntityType.USER,
-          user.getId(),
-          AuditOrigin.administration(),
-          Map.of());
-      sessionRevocationService.revokeInstitutionalSessionsForUser(user.getId());
-    }
 
     return personRepository
         .findWithDetailsByIdAndInstitution_Id(personId, institutionId)

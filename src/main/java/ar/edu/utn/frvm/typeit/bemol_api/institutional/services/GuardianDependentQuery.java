@@ -4,6 +4,7 @@ import ar.edu.utn.frvm.typeit.bemol_api.institutional.entities.GuardianLinkStatu
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.entities.GuardianRelationship;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.entities.PersonGuardian;
 import jakarta.persistence.criteria.Expression;
+import jakarta.persistence.criteria.JoinType;
 import jakarta.persistence.criteria.Predicate;
 import java.text.Normalizer;
 import java.util.ArrayList;
@@ -26,7 +27,7 @@ final class GuardianDependentQuery {
       final String sortField,
       final String sortDirection) {
     return (root, query, cb) -> {
-      final var person = root.join("dependentPerson");
+      final var person = root.join("dependentPerson", JoinType.LEFT);
       final var active = cb.equal(root.get("status"), GuardianLinkStatus.ACTIVE);
       // Search and ordering must not leak names before institutional approval.
       final Expression<String> firstName =
@@ -37,6 +38,10 @@ final class GuardianDependentQuery {
           cb.<String>selectCase()
               .when(active, person.get("lastName"))
               .otherwise(root.get("declaredLastName"));
+      final Expression<String> documentNumber =
+          cb.<String>selectCase()
+              .when(active, person.get("documentNumber"))
+              .otherwise(root.get("declaredDocumentNumber"));
       final List<Predicate> predicates = new ArrayList<>();
       predicates.add(cb.equal(root.get("institution").get("id"), institutionId));
       predicates.add(cb.equal(root.get("tutorPerson").get("id"), tutorId));
@@ -45,7 +50,8 @@ final class GuardianDependentQuery {
               .in(
                   GuardianLinkStatus.PENDING,
                   GuardianLinkStatus.ACTIVE,
-                  GuardianLinkStatus.REJECTED));
+                  GuardianLinkStatus.REJECTED,
+                  GuardianLinkStatus.ENDED));
 
       if (status != null) {
         predicates.add(cb.equal(root.get("status"), status));
@@ -79,7 +85,7 @@ final class GuardianDependentQuery {
                         cb.literal("aeiouun")),
                     pattern,
                     '!'),
-                cb.like(person.get("documentNumber"), pattern, '!')));
+                cb.like(documentNumber, pattern, '!')));
       }
 
       if (query != null && query.getResultType() != Long.class) {
@@ -87,7 +93,7 @@ final class GuardianDependentQuery {
             switch (sortField) {
               case "firstName" -> cb.lower(cb.coalesce(firstName, ""));
               case "lastName" -> cb.lower(cb.coalesce(lastName, ""));
-              case "documentNumber" -> person.get("documentNumber");
+              case "documentNumber" -> documentNumber;
               case "status" -> root.get("status");
               case "relationship" -> root.get("relationship");
               default -> root.get("createdAt");

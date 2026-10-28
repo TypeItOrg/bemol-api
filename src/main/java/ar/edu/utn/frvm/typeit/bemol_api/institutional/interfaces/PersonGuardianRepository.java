@@ -52,6 +52,25 @@ public interface PersonGuardianRepository
   Optional<PersonGuardian> findForUpdate(
       @Param("id") UUID id, @Param("institutionId") UUID institutionId);
 
+  @Query(
+      "SELECT link FROM PersonGuardian link LEFT JOIN link.dependentPerson dependent WHERE link.institution.id = :institutionId "
+          + "AND (dependent.id = :personId OR link.declaredDocumentNumber = :documentNumber) "
+          + "AND link.status IN :statuses")
+  List<PersonGuardian> findRepresentationsForPerson(
+      UUID institutionId,
+      UUID personId,
+      String documentNumber,
+      Collection<GuardianLinkStatus> statuses);
+
+  boolean existsByInstitution_IdAndTutorPerson_IdAndDeclaredDocumentNumberAndStatusIn(
+      UUID institutionId,
+      UUID tutorPersonId,
+      String documentNumber,
+      Collection<GuardianLinkStatus> statuses);
+
+  List<PersonGuardian> findByInstitution_IdAndDeclaredDocumentNumberAndStatusIn(
+      UUID institutionId, String documentNumber, Collection<GuardianLinkStatus> statuses);
+
   boolean existsByInstitution_IdAndTutorPerson_IdAndDependentPerson_IdAndStatusIn(
       UUID institutionId,
       UUID tutorPersonId,

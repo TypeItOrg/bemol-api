@@ -5,6 +5,7 @@ import ar.edu.utn.frvm.typeit.bemol_api.authorization.enums.PlatformRoleCode;
 import ar.edu.utn.frvm.typeit.bemol_api.common.web.PaginatedResponse;
 import ar.edu.utn.frvm.typeit.bemol_api.common.web.Version;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.entities.GuardianLinkStatus;
+import ar.edu.utn.frvm.typeit.bemol_api.institutional.payloads.guardian.ApproveGuardianLinkRequest;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.payloads.guardian.GuardianLinkAttachmentResponse;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.payloads.guardian.GuardianLinkReviewResponse;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.services.GuardianLinkAttachmentService;
@@ -23,6 +24,7 @@ import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -57,8 +59,11 @@ public class PlatformGuardianLinkController {
 
   @PostMapping(value = "/{institutionId}/{linkId}/approve", version = Version.V1)
   public GuardianLinkReviewResponse approve(
-      @PathVariable final UUID institutionId, @PathVariable final UUID linkId) {
-    return resolveGuardianLinkUseCase.approveForPlatform(institutionId, linkId);
+      @PathVariable final UUID institutionId,
+      @PathVariable final UUID linkId,
+      @RequestBody(required = false) final ApproveGuardianLinkRequest request) {
+    return resolveGuardianLinkUseCase.approveForPlatform(
+        institutionId, linkId, request == null ? null : request.confirmedPersonId());
   }
 
   @PostMapping(value = "/{institutionId}/{linkId}/reject", version = Version.V1)

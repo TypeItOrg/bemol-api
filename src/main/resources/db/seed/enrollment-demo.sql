@@ -26,10 +26,12 @@ BEGIN
                 ((SELECT reference_date FROM seed_context) - make_interval(years => member.age))::date, false, now(), now())
         ON CONFLICT (person_id) DO NOTHING;
 
-        INSERT INTO users (user_id, institution_id, person_id, password, enabled,
+        IF member.number <> 1 THEN
+        INSERT INTO users (user_id, institution_id, person_id, password, enabled, self_access_enabled,
                            email_verification_status, email_verified_at, created_at, updated_at)
         VALUES (pg_temp.demo_id('user:' || member.number), tenant, person_key, settings.password_hash,
-                true, 'VERIFIED', now(), now(), now()) ON CONFLICT (user_id) DO NOTHING;
+                true, member.number <> 3, 'VERIFIED', now(), now(), now()) ON CONFLICT (user_id) DO NOTHING;
+        END IF;
 
         INSERT INTO person_role_assignments (person_role_assignment_id, institution_id, person_id,
                                             role_id, access_scope, created_at, updated_at)

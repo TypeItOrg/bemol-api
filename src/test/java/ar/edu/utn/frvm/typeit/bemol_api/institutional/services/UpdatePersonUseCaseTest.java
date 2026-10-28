@@ -29,10 +29,8 @@ import ar.edu.utn.frvm.typeit.bemol_api.institutional.interfaces.CountryReposito
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.interfaces.PersonRepository;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.payloads.person.UpdateAddressRequest;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.payloads.person.UpdatePersonRequest;
-import jakarta.validation.ConstraintViolationException;
 import jakarta.validation.Validation;
 import jakarta.validation.ValidatorFactory;
-import java.time.LocalDate;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.AfterAll;
@@ -118,7 +116,7 @@ class UpdatePersonUseCaseTest {
   }
 
   @Test
-  @DisplayName("Updates the complete identity and contact without changing the tenant or account")
+  @DisplayName("Updates ordinary contact fields while preserving verified identity")
   void execute_updatesIdentityAndContact() {
     stubUpdatedDetails();
     UUID provinceId = UUID.fromString("00000000-0000-0000-0000-000000000003");
@@ -129,16 +127,15 @@ class UpdatePersonUseCaseTest {
     Country country = Country.builder().id(countryId).name("Argentina").isoCode("ARG").build();
     when(cityRepository.findById(cityId)).thenReturn(Optional.of(city));
     when(countryRepository.findById(countryId)).thenReturn(Optional.of(country));
-    LocalDate birthDate = LocalDate.of(1990, 5, 15);
 
     var response =
         updatePersonUseCase.execute(
             principal,
             new UpdatePersonRequest(
-                "Carlos",
-                "García",
-                birthDate,
-                "carlos@test.com",
+                "Juan",
+                "Pérez",
+                person.getBirthDate(),
+                "juan@example.com",
                 "0353-123456",
                 cityId,
                 countryId,
@@ -148,12 +145,12 @@ class UpdatePersonUseCaseTest {
         .isEqualTo(
             new ar.edu.utn.frvm.typeit.bemol_api.institutional.payloads.person.PersonResponse(
                 personId,
-                "Carlos",
-                "García",
+                "Juan",
+                "Pérez",
                 "12345678",
-                birthDate,
+                person.getBirthDate(),
                 "0353-123456",
-                "carlos@test.com",
+                "juan@example.com",
                 institutionId,
                 "Conservatorio Boero",
                 null,
@@ -296,13 +293,13 @@ class UpdatePersonUseCaseTest {
     stubUpdatedDetails();
     person.updateContact(person.getEmail(), "0353-123456");
     UpdatePersonRequest request =
-        new UpdatePersonRequest(null, "García", null, null, null, null, null, null);
+        new UpdatePersonRequest(null, null, null, null, "0353-999999", null, null, null);
 
     var response = updatePersonUseCase.execute(principal, request);
 
     assertThat(response.firstName()).isEqualTo("Juan");
-    assertThat(response.lastName()).isEqualTo("García");
-    assertThat(response.phoneNumber()).isEqualTo("0353-123456");
+    assertThat(response.lastName()).isEqualTo("Pérez");
+    assertThat(response.phoneNumber()).isEqualTo("0353-999999");
     assertThat(response.email()).isEqualTo("juan@example.com");
     assertThat(response.documentNumber()).isEqualTo("12345678");
     verifyNoInteractions(userRepository, passwordEncoder, sessionRevocationService);
@@ -371,12 +368,8 @@ class UpdatePersonUseCaseTest {
         new UpdatePersonRequest("A", null, null, null, null, null, null, null);
 
     assertThatThrownBy(() -> updatePersonUseCase.execute(principal, request))
-        .isInstanceOfSatisfying(
-            ConstraintViolationException.class,
-            exception ->
-                assertThat(exception.getConstraintViolations())
-                    .extracting(violation -> violation.getPropertyPath().toString())
-                    .containsExactly("firstName"));
+        .isInstanceOf(
+            ar.edu.utn.frvm.typeit.bemol_api.institutional.exceptions.OwnAccessException.class);
 
     verify(personRepository, never()).save(any());
   }

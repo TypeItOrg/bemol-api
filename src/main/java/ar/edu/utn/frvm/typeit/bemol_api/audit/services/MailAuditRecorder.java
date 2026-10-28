@@ -43,7 +43,15 @@ public class MailAuditRecorder {
             false,
             context.requestId(),
             AuditOrigin.MAIL_DELIVERY,
-            Map.of("recipient", recipient, "mailType", type.getLabel()),
+            context.invitationId() == null
+                ? Map.of("recipient", recipient, "mailType", type.getLabel())
+                : Map.of(
+                    "recipient",
+                    recipient,
+                    "mailType",
+                    type.getLabel(),
+                    "invitationId",
+                    context.invitationId().toString()),
             clock.instant(),
             null));
   }

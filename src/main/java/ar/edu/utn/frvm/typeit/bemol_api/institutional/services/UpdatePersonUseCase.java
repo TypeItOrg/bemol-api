@@ -53,6 +53,21 @@ public class UpdatePersonUseCase {
         personRepository
             .findByIdAndInstitution_Id(principal.personId(), principal.institutionId())
             .orElseThrow(PersonNotFoundException::new);
+    if ((request.firstName() != null && !request.firstName().equals(person.getFirstName()))
+        || (request.lastName() != null && !request.lastName().equals(person.getLastName()))
+        || (request.birthDate() != null && !request.birthDate().equals(person.getBirthDate()))) {
+      throw new ar.edu.utn.frvm.typeit.bemol_api.institutional.exceptions.OwnAccessException(
+          ar.edu.utn.frvm.typeit.bemol_api.institutional.exceptions.InstitutionMessages
+              .VERIFIED_IDENTITY_ADMIN_ONLY);
+    }
+    if (request.email() != null && !request.email().equals(person.getEmail())) {
+      throw new ar.edu.utn.frvm.typeit.bemol_api.institutional.exceptions.OwnAccessException(
+          ar.edu.utn.frvm.typeit.bemol_api.institutional.exceptions.InstitutionMessages
+              .ACCOUNT_EMAIL_CHANGE_REQUIRED);
+    }
+    if (request.password() != null && !request.password().isEmpty() && principal.delegated()) {
+      throw new InvalidCurrentPasswordException();
+    }
     final var before = PersonAuditDetails.snapshot(person);
     final String password = request.password();
     final Optional<User> passwordUser = verifyCurrentPassword(principal, request);
@@ -72,13 +87,13 @@ public class UpdatePersonUseCase {
     }
 
     person.updateIdentity(
-        request.firstName() != null ? request.firstName() : person.getFirstName(),
-        request.lastName() != null ? request.lastName() : person.getLastName(),
-        request.birthDate() != null ? request.birthDate() : person.getBirthDate(),
+        person.getFirstName(),
+        person.getLastName(),
+        person.getBirthDate(),
         birthCity,
         nationalityCountry);
     person.updateContact(
-        request.email() != null ? request.email() : person.getEmail(),
+        person.getEmail(),
         request.phoneNumber() != null ? request.phoneNumber() : person.getPhoneNumber());
 
     if (request.address() != null) {

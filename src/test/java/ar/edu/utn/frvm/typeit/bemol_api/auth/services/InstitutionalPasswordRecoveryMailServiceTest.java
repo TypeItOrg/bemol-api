@@ -78,11 +78,40 @@ class InstitutionalPasswordRecoveryMailServiceTest {
         .contains("http://localhost:3000/auth/password-recovery/reset?token=token-123")
         .contains("Bemol")
         .contains("http://localhost:3000/brand/logo-email.png")
+        .contains("Manrope")
+        .contains("#f5f3f0")
+        .contains("#6f0926")
         .contains("Conservatorio Superior de Música Felipe Boero")
         .contains("Hola,")
         .contains("Ana García")
         .contains("30 minutos")
         .doesNotContain("${resetUrl}", "th:href", "th:src", "th:text");
+  }
+
+  @Test
+  void listenerRendersInstitutionLogoWhenInstitutionHasLogoVersion() {
+    final UUID institutionId = UUID.randomUUID();
+    final InstitutionalPasswordRecoveryRequested event =
+        new InstitutionalPasswordRecoveryRequested(
+            UUID.randomUUID(),
+            "ana@example.com",
+            "Conservatorio Superior de Música Felipe Boero",
+            "Ana García",
+            "token-123",
+            "cboero",
+            "logo-v1",
+            MailAuditContext.capture(institutionId, UUID.randomUUID()));
+
+    new InstitutionalPasswordRecoveryMailListener(mailService).on(event);
+
+    final ArgumentCaptor<MailMessage> mailCaptor = ArgumentCaptor.forClass(MailMessage.class);
+    verify(mailSender).send(mailCaptor.capture());
+
+    assertThat(mailCaptor.getValue().htmlBody())
+        .contains(
+            "http://localhost:3000/api/public/institutions/" + institutionId + "/logo?v=logo-v1")
+        .contains("Logo de Conservatorio Superior de Música Felipe Boero")
+        .doesNotContain("http://localhost:3000/brand/logo-email.png");
   }
 
   @Test

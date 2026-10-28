@@ -15,7 +15,7 @@ public record PersonResponse(
     String documentNumber,
     LocalDate birthDate,
     @Nullable String phoneNumber,
-    String email,
+    @Nullable @io.swagger.v3.oas.annotations.media.Schema(nullable = true) String email,
     UUID institutionId,
     String institutionName,
     @Nullable AddressResponse address,

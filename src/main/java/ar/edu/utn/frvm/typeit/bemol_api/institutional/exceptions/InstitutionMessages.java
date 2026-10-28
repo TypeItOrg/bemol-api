@@ -1,14 +1,16 @@
 package ar.edu.utn.frvm.typeit.bemol_api.institutional.exceptions;
 
 public final class InstitutionMessages {
+
+  public static final String GUARDIAN_REQUEST_LIMIT =
+      "Alcanzaste el límite de cinco solicitudes por minuto. Esperá un minuto antes de volver a intentar.";
   public static final String OWN_ACCESS_ACCOUNT_EXISTS =
       "La persona ya tiene una cuenta. Gestioná su estado de acceso o la recuperación de contraseña.";
   public static final String OWN_ACCESS_EMAIL_CHANGED =
       "El correo no coincide con el registrado. Actualizá los datos de la persona antes de invitarla.";
   public static final String OWN_ACCESS_INSTITUTION_REQUIRED =
       "El alta inicial de cuentas con funciones administrativas o docentes debe realizarla la institución.";
-  public static final String OWN_ACCESS_EMAIL_REQUIRED =
-      "Indicá un correo propio de la persona para enviar la invitación.";
+  public static final String OWN_ACCESS_EMAIL_REQUIRED = "El correo es requerido.";
   public static final String OWN_ACCESS_INSTITUTION_BLOCKED =
       "El acceso está bloqueado por la institución. El representante no puede habilitarlo.";
   public static final String OWN_ACCESS_TOKEN_INVALID =
@@ -59,6 +61,21 @@ public final class InstitutionMessages {
       "El logo debe ser una imagen PNG, JPEG o WebP estática válida.";
   public static final String LOGO_TOO_LARGE = "El logo supera el tamaño máximo permitido.";
   public static final String LOGO_NOT_FOUND = "La institución no tiene un logo disponible.";
+
+  public static final String GUARDIAN_SELF_APPROVAL_FORBIDDEN =
+      "No podés aprobar tu propia solicitud de representación.";
+  public static final String GUARDIAN_IDENTITY_CONFIRMATION_REQUIRED =
+      "Los datos declarados difieren de la ficha registrada. Revisala y confirmá expresamente su identidad.";
+  public static final String VERIFIED_IDENTITY_ADMIN_ONLY =
+      "La identidad verificada se corrige mediante la administración institucional.";
+  public static final String ACCOUNT_EMAIL_CHANGE_REQUIRED =
+      "El correo de acceso debe cambiarse mediante su verificación.";
+
+  public static final String AUTONOMY_OTHER_ADMIN_REQUIRED =
+      "Otra autoridad debe gestionar tu propia autonomía.";
+
+  public static final String OWN_ACCESS_NEW_PASSWORD_REQUIRED =
+      "La toma de control requiere una contraseña distinta de la anterior.";
 
   private InstitutionMessages() {}
 }

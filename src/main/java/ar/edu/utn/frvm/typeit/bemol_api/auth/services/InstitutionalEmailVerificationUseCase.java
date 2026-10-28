@@ -9,13 +9,9 @@ import ar.edu.utn.frvm.typeit.bemol_api.auth.entities.InstitutionalEmailVerifica
 import ar.edu.utn.frvm.typeit.bemol_api.auth.entities.User;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.events.InstitutionalEmailVerificationRequested;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.exceptions.EmailVerificationConflictException;
-import ar.edu.utn.frvm.typeit.bemol_api.auth.exceptions.EmailVerificationCooldownException;
-import ar.edu.utn.frvm.typeit.bemol_api.auth.exceptions.InvalidCredentialsException;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.exceptions.InvalidEmailVerificationTokenException;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.interfaces.InstitutionalEmailVerificationTokenRepository;
-import ar.edu.utn.frvm.typeit.bemol_api.auth.interfaces.InstitutionalPasswordResetTokenRepository;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.interfaces.UserRepository;
-import ar.edu.utn.frvm.typeit.bemol_api.auth.payloads.requests.ChangePendingEmailRequest;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.payloads.requests.ConfirmEmailVerificationRequest;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.payloads.requests.ResendEmailVerificationRequest;
 import java.security.SecureRandom;
@@ -28,7 +24,6 @@ import lombok.RequiredArgsConstructor;
 import org.hibernate.exception.ConstraintViolationException;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -39,8 +34,6 @@ public class InstitutionalEmailVerificationUseCase {
   private final InstitutionalHostContext hostContext;
   private final UserRepository users;
   private final InstitutionalEmailVerificationTokenRepository tokens;
-  private final InstitutionalPasswordResetTokenRepository passwordResetTokens;
-  private final PasswordEncoder passwordEncoder;
   private final ApplicationEventPublisher events;
   private final EmailVerificationProperties properties;
   private final Clock clock;
@@ -97,40 +90,6 @@ public class InstitutionalEmailVerificationUseCase {
         user.getId(),
         AuditOrigin.EMAIL_VERIFICATION,
         Map.of());
-  }
-
-  @Transactional
-  public void changeEmail(final ChangePendingEmailRequest request) {
-    hostContext.requireInstitution(request.institutionId());
-
-    final User user =
-        users
-            .findActiveUserId(request.documentNumber(), request.institutionId())
-            .flatMap(users::findForEmailVerificationById)
-            .filter(
-                candidate -> candidate.isAccountActive() && candidate.requiresEmailVerification())
-            .filter(
-                candidate -> passwordEncoder.matches(request.password(), candidate.getPassword()))
-            .orElseThrow(InvalidCredentialsException::new);
-    final Instant now = clock.instant();
-    final var existingToken = tokens.findByUser_Id(user.getId());
-    if (!canResend(existingToken, now)) {
-      throw new EmailVerificationCooldownException();
-    }
-    final var previousEmail = user.getPerson().getEmail();
-    user.getPerson().updateContact(request.email(), user.getPerson().getPhoneNumber());
-    if (!previousEmail.equals(user.getPerson().getEmail())) {
-      auditEventRecorder.recordCurrentActor(
-          user.getInstitution(),
-          user.getPerson().getId(),
-          AuditAction.INSTITUTIONAL_EMAIL_CHANGED,
-          AuditEntityType.USER,
-          user.getId(),
-          AuditOrigin.SELF_SERVICE,
-          Map.of("changedFields", java.util.List.of("email")));
-    }
-    passwordResetTokens.deleteByUserId(user.getId());
-    issue(user, now, existingToken);
   }
 
   private boolean canResend(

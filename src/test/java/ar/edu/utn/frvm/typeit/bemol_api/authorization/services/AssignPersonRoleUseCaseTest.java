@@ -10,8 +10,10 @@ import ar.edu.utn.frvm.typeit.bemol_api.audit.services.AuditEventRecorder;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.entities.PersonRoleAssignment;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.entities.Role;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.enums.AccessScope;
+import ar.edu.utn.frvm.typeit.bemol_api.authorization.enums.PermissionCode;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.enums.RoleScope;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.enums.SystemRoleCode;
+import ar.edu.utn.frvm.typeit.bemol_api.authorization.exceptions.PermissionDelegationNotAllowedException;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.exceptions.PersonNotFoundInInstitutionException;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.exceptions.RoleNotAssignableException;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.interfaces.PersonRoleAssignmentRepository;
@@ -26,6 +28,8 @@ import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -121,6 +125,77 @@ class AssignPersonRoleUseCaseTest {
                     new AssignRoleRequest(roleId, AccessScope.INSTITUTION, Set.of()),
                     false))
         .isInstanceOf(RoleNotAssignableException.class);
+  }
+
+  @ParameterizedTest
+  @EnumSource(
+      value = SystemRoleCode.class,
+      names = {"APPLICANT", "REPRESENTATIVE"})
+  void execute_doesNotRequireRevocationForCompatiblePair(final SystemRoleCode assigned) {
+    final UUID institutionId = UUID.randomUUID(), personId = UUID.randomUUID();
+    final var person = personWith(institutionId, personId);
+    final var role = roleWith(assigned);
+    final var retained =
+        roleWith(
+            assigned == SystemRoleCode.APPLICANT
+                ? SystemRoleCode.REPRESENTATIVE
+                : SystemRoleCode.APPLICANT);
+    final var current = assignmentWith(person, retained, institutionId);
+    final var added = assignmentWith(person, role, institutionId);
+    when(institutionPersonResolver.requirePersonInInstitutionForUpdate(institutionId, personId))
+        .thenReturn(person);
+    when(roleRepository.findByIdAndScopeAndInstitution_Id(
+            role.getId(), RoleScope.INSTITUTION, institutionId))
+        .thenReturn(Optional.of(role));
+    when(personRoleAssignmentRepository.findByPerson_IdAndRole_IdAndInstitution_Id(
+            personId, role.getId(), institutionId))
+        .thenReturn(Optional.empty())
+        .thenReturn(Optional.of(added));
+    when(personRoleAssignmentRepository.findByPerson_IdAndInstitution_Id(personId, institutionId))
+        .thenReturn(List.of(current))
+        .thenReturn(List.of(current, added));
+
+    assignPersonRoleUseCase.execute(
+        institutionId,
+        personId,
+        new AssignRoleRequest(role.getId(), AccessScope.INSTITUTION, Set.of()),
+        false);
+
+    verify(roleAssignmentScopeValidator).requireOperation(PermissionCode.INSTITUTION_ROLE_ASSIGN);
+    verify(roleAssignmentScopeValidator, org.mockito.Mockito.never())
+        .requireOperation(PermissionCode.INSTITUTION_ROLE_REVOKE);
+    verify(roleAssignmentScopeValidator, org.mockito.Mockito.never()).requireDelegation(current);
+    verify(assignPersonSystemRoleUseCase).execute(person, role, true);
+  }
+
+  @Test
+  void execute_rejectsRepresentativeWithoutFreshDelegation() {
+    final UUID institutionId = UUID.randomUUID(), personId = UUID.randomUUID();
+    final var person = personWith(institutionId, personId);
+    final var representative = roleWith(SystemRoleCode.REPRESENTATIVE);
+    when(institutionPersonResolver.requirePersonInInstitutionForUpdate(institutionId, personId))
+        .thenReturn(person);
+    when(roleRepository.findByIdAndScopeAndInstitution_Id(
+            representative.getId(), RoleScope.INSTITUTION, institutionId))
+        .thenReturn(Optional.of(representative));
+    org.mockito.Mockito.doThrow(new PermissionDelegationNotAllowedException())
+        .when(roleAssignmentScopeValidator)
+        .requireDelegation(representative, AccessScope.INSTITUTION, Set.of());
+
+    assertThatThrownBy(
+            () ->
+                assignPersonRoleUseCase.execute(
+                    institutionId,
+                    personId,
+                    new AssignRoleRequest(
+                        representative.getId(), AccessScope.INSTITUTION, Set.of()),
+                    false))
+        .isInstanceOf(PermissionDelegationNotAllowedException.class);
+    verify(assignPersonSystemRoleUseCase, org.mockito.Mockito.never())
+        .execute(
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(Role.class),
+            org.mockito.ArgumentMatchers.anyBoolean());
   }
 
   private static Person personWith(UUID institutionId, UUID personId) {

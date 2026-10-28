@@ -24,6 +24,17 @@ public class AuthorizationService {
     return resolvePermissions(authentication).contains(permission);
   }
 
+  public boolean hasActorPermission(
+      final @Nullable Authentication authentication, final PermissionCode permission) {
+    if (authentication != null
+        && authentication.getPrincipal() instanceof JwtAuthenticatedUser user) {
+      return authorityResolver
+          .resolveForPerson(user.actorPersonId(), user.institutionId())
+          .contains(permission);
+    }
+    return hasPermission(authentication, permission);
+  }
+
   public boolean hasAnyPermission(
       @Nullable Authentication authentication, PermissionCode... permissions) {
     Set<PermissionCode> granted = resolvePermissions(authentication);

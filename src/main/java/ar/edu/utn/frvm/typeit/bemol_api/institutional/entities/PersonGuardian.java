@@ -3,6 +3,7 @@ package ar.edu.utn.frvm.typeit.bemol_api.institutional.entities;
 import ar.edu.utn.frvm.typeit.bemol_api.common.persistence.Auditable;
 import ar.edu.utn.frvm.typeit.bemol_api.common.persistence.GeneratedUUIDv7;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.exceptions.GuardianLinkAlreadyResolvedException;
+import ar.edu.utn.frvm.typeit.bemol_api.institutional.payloads.guardian.GuardianDependentRequestMode;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -11,6 +12,7 @@ import jakarta.persistence.FetchType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
+import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -48,10 +50,18 @@ public class PersonGuardian extends Auditable {
   @Audited(targetAuditMode = RelationTargetAuditMode.NOT_AUDITED)
   private Person tutorPerson;
 
-  @ManyToOne(fetch = FetchType.LAZY, optional = false)
-  @JoinColumn(name = "dependent_person_id", nullable = false)
+  @ManyToOne(fetch = FetchType.LAZY)
+  @JoinColumn(name = "dependent_person_id")
   @Audited(targetAuditMode = RelationTargetAuditMode.NOT_AUDITED)
-  private Person dependentPerson;
+  private @Nullable Person dependentPerson;
+
+  @Column(name = "declared_document_number", nullable = false, length = 8)
+  private String declaredDocumentNumber;
+
+  @Enumerated(EnumType.STRING)
+  @Column(name = "request_mode", nullable = false, length = 20)
+  @Builder.Default
+  private GuardianDependentRequestMode requestMode = GuardianDependentRequestMode.NEW;
 
   // Requester-provided identity, never copied from an existing person's protected data.
   @Column(name = "declared_first_name", length = 255)
@@ -110,6 +120,7 @@ public class PersonGuardian extends Auditable {
         .institution(institution)
         .tutorPerson(tutor)
         .dependentPerson(dependent)
+        .declaredDocumentNumber(dependent.getDocumentNumber())
         .relationship(relationship)
         .primaryContact(primaryContact)
         .build();
@@ -151,11 +162,66 @@ public class PersonGuardian extends Auditable {
     return link;
   }
 
+  public static PersonGuardian requestUnmaterialized(
+      final Institution institution,
+      final Person tutor,
+      final String documentNumber,
+      final GuardianDependentRequestMode mode,
+      final GuardianRelationship relationship,
+      final boolean primaryContact,
+      final @Nullable String firstName,
+      final @Nullable String lastName,
+      final @Nullable LocalDate birthDate) {
+    return PersonGuardian.builder()
+        .institution(institution)
+        .tutorPerson(tutor)
+        .declaredDocumentNumber(documentNumber)
+        .requestMode(mode)
+        .relationship(relationship)
+        .primaryContact(primaryContact)
+        .declaredFirstName(firstName)
+        .declaredLastName(lastName)
+        .declaredBirthDate(birthDate)
+        .build();
+  }
+
+  public Person getDependentPerson() {
+    return java.util.Objects.requireNonNull(dependentPerson, "The request is not materialized");
+  }
+
+  public @Nullable UUID getDependentPersonId() {
+    return dependentPerson == null ? null : dependentPerson.getId();
+  }
+
+  public String getDocumentNumber() {
+    return declaredDocumentNumber != null
+        ? declaredDocumentNumber
+        : getDependentPerson().getDocumentNumber();
+  }
+
+  @PrePersist
+  void prepareDocument() {
+    if (declaredDocumentNumber == null && dependentPerson != null) {
+      declaredDocumentNumber = dependentPerson.getDocumentNumber();
+    }
+  }
+
+  public void materialize(final Person person) {
+    if (status != GuardianLinkStatus.PENDING
+        || !person.getInstitution().getId().equals(institution.getId())
+        || !person.getDocumentNumber().equals(getDocumentNumber())
+        || person.getId().equals(tutorPerson.getId())) {
+      throw new IllegalStateException("Invalid representation subject");
+    }
+    dependentPerson = person;
+  }
+
   public boolean isActive() {
     return status == GuardianLinkStatus.ACTIVE;
   }
 
   public void approve(final @Nullable Person reviewer) {
+    getDependentPerson();
     resolve(GuardianLinkStatus.ACTIVE, reviewer);
   }
 

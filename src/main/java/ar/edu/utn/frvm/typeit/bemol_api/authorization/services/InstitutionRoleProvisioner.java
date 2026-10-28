@@ -30,6 +30,8 @@ public class InstitutionRoleProvisioner {
       Map.of(
           SystemRoleCode.APPLICANT,
           EnumSet.of(PermissionCode.ACADEMIC_OFFER_READ),
+          SystemRoleCode.REPRESENTATIVE,
+          EnumSet.of(PermissionCode.GUARDIAN_LINK_REQUEST),
           SystemRoleCode.STUDENT,
           EnumSet.of(PermissionCode.ACADEMIC_OFFER_READ),
           SystemRoleCode.TEACHER,
@@ -46,6 +48,7 @@ public class InstitutionRoleProvisioner {
     for (SystemRoleCode code :
         Set.of(
             SystemRoleCode.APPLICANT,
+            SystemRoleCode.REPRESENTATIVE,
             SystemRoleCode.STUDENT,
             SystemRoleCode.TEACHER,
             SystemRoleCode.INSTITUTIONAL_AUTHORITY)) {

@@ -453,7 +453,7 @@ class PeopleControllerWebMvcTest {
   }
 
   private void stubPermission(PermissionCode permission, boolean allowed) {
-    when(authorizationService.hasPermission(any(), eq(permission))).thenReturn(allowed);
+    when(authorizationService.hasActorPermission(any(), eq(permission))).thenReturn(allowed);
   }
 
   private void stubPlatformAdminAccess(boolean allowed) {

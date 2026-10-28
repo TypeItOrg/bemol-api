@@ -119,8 +119,7 @@ public class Person extends Auditable {
   @Column(name = "phone_number", length = 30)
   private @Nullable String phoneNumber;
 
-  // Null for dependents (e.g. minors) who have no email of their own. Accounts still require one
-  // at registration (RegisterRequest).
+  // People without personal access may have no email.
   @Email(message = ValidationMessages.PERSON_EMAIL_FORMAT)
   @Size(max = 150, message = ValidationMessages.PERSON_EMAIL_MAX_LENGTH)
   @Column(length = 150)
@@ -130,6 +129,10 @@ public class Person extends Auditable {
   @Builder.Default
   @Audited
   private boolean deleted = false;
+
+  public void correctDocumentNumber(final String documentNumber) {
+    this.documentNumber = documentNumber;
+  }
 
   public void updateIdentity(
       final String firstName,

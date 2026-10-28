@@ -26,9 +26,12 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class ListGuardianDependentsUseCase {
 
-  // Ended links are history; the tutor still sees what is pending or was rejected.
   private static final List<GuardianLinkStatus> VISIBLE_STATUSES =
-      List.of(GuardianLinkStatus.PENDING, GuardianLinkStatus.ACTIVE, GuardianLinkStatus.REJECTED);
+      List.of(
+          GuardianLinkStatus.PENDING,
+          GuardianLinkStatus.ACTIVE,
+          GuardianLinkStatus.REJECTED,
+          GuardianLinkStatus.ENDED);
 
   private final PersonGuardianRepository personGuardianRepository;
   private final PersonOwnAccessService ownAccess;
@@ -84,15 +87,12 @@ public class ListGuardianDependentsUseCase {
     }
 
     final List<UUID> dependentIds =
-        links.stream().map(link -> link.getDependentPerson().getId()).toList();
-    final Map<UUID, String> ownAccessStatuses =
-        ownAccess.statuses(
-            institutionId,
-            links.stream()
-                .filter(link -> link.isActive())
-                .map(link -> link.getDependentPerson().getId())
-                .distinct()
-                .toList());
+        links.stream()
+            .filter(link -> link.isActive())
+            .map(link -> link.getDependentPerson().getId())
+            .distinct()
+            .toList();
+    final Map<UUID, String> ownAccessStatuses = ownAccess.statuses(institutionId, dependentIds);
     final Map<UUID, Long> counts =
         personGuardianRepository
             .countActiveApplicationsByApplicant(institutionId, dependentIds)
@@ -112,14 +112,14 @@ public class ListGuardianDependentsUseCase {
     return links.stream()
         .map(
             link -> {
-              final UUID dependentId = link.getDependentPerson().getId();
+              final UUID dependentId = link.getDependentPersonId();
 
               return GuardianDependentResponse.from(
                   link,
-                  counts.getOrDefault(dependentId, 0L),
-                  roles.getOrDefault(dependentId, List.of()),
+                  dependentId == null ? 0L : counts.getOrDefault(dependentId, 0L),
+                  dependentId == null ? List.of() : roles.getOrDefault(dependentId, List.of()),
                   link.isActive()
-                      ? requireNonNull(ownAccessStatuses.get(dependentId))
+                      ? requireNonNull(ownAccessStatuses.get(requireNonNull(dependentId)))
                       : "UNAVAILABLE");
             })
         .toList();

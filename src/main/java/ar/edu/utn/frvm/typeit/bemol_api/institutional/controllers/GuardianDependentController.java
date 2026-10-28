@@ -122,6 +122,16 @@ public class GuardianDependentController {
         institutionId, currentPersonId(authentication), dependentPersonId);
   }
 
+  @DeleteMapping(value = "/requests/{personGuardianId}", version = Version.V1)
+  @ResponseStatus(HttpStatus.NO_CONTENT)
+  public void cancelRequest(
+      @PathVariable final UUID institutionId,
+      @PathVariable final UUID personGuardianId,
+      final Authentication authentication) {
+    unlinkGuardianDependentUseCase.cancelRequest(
+        institutionId, currentPersonId(authentication), personGuardianId);
+  }
+
   @PostMapping(
       value = "/{personGuardianId}/attachments",
       consumes = MediaType.MULTIPART_FORM_DATA_VALUE,
@@ -172,6 +182,6 @@ public class GuardianDependentController {
   private UUID currentPersonId(final Authentication authentication) {
     institutionalCallerGuard.ensureInstitutionalPrincipal(authentication);
 
-    return ((JwtAuthenticatedUser) requireNonNull(authentication.getPrincipal())).personId();
+    return ((JwtAuthenticatedUser) requireNonNull(authentication.getPrincipal())).actorPersonId();
   }
 }

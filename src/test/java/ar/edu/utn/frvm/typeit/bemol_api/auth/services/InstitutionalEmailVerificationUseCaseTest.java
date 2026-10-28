@@ -16,14 +16,11 @@ import ar.edu.utn.frvm.typeit.bemol_api.auth.entities.InstitutionalEmailVerifica
 import ar.edu.utn.frvm.typeit.bemol_api.auth.entities.User;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.enums.EmailVerificationStatus;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.events.InstitutionalEmailVerificationRequested;
-import ar.edu.utn.frvm.typeit.bemol_api.auth.exceptions.EmailVerificationCooldownException;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.exceptions.InvalidCredentialsException;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.exceptions.InvalidEmailVerificationTokenException;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.interfaces.InstitutionalEmailVerificationTokenRepository;
-import ar.edu.utn.frvm.typeit.bemol_api.auth.interfaces.InstitutionalPasswordResetTokenRepository;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.interfaces.PasskeyCredentialRepository;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.interfaces.UserRepository;
-import ar.edu.utn.frvm.typeit.bemol_api.auth.payloads.requests.ChangePendingEmailRequest;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.payloads.requests.ConfirmEmailVerificationRequest;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.payloads.requests.IdentifyLoginRequest;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.payloads.requests.ResendEmailVerificationRequest;
@@ -41,15 +38,11 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.context.ApplicationEventPublisher;
-import org.springframework.security.crypto.password.PasswordEncoder;
 
 class InstitutionalEmailVerificationUseCaseTest {
   final UserRepository users = mock(UserRepository.class);
   final InstitutionalEmailVerificationTokenRepository tokens =
       mock(InstitutionalEmailVerificationTokenRepository.class);
-  final InstitutionalPasswordResetTokenRepository resets =
-      mock(InstitutionalPasswordResetTokenRepository.class);
-  final PasswordEncoder encoder = mock(PasswordEncoder.class);
   final ApplicationEventPublisher events = mock(ApplicationEventPublisher.class);
   final Instant now = Instant.parse("2026-09-12T00:00:00Z");
   final String raw = "a".repeat(43);
@@ -60,8 +53,6 @@ class InstitutionalEmailVerificationUseCaseTest {
           org.mockito.Mockito.mock(InstitutionalHostContext.class),
           users,
           tokens,
-          resets,
-          encoder,
           events,
           new EmailVerificationProperties(
               "http://localhost:3000", Duration.ofHours(24), Duration.ofMinutes(1)),
@@ -107,11 +98,6 @@ class InstitutionalEmailVerificationUseCaseTest {
     when(tokens.findUserIdByTokenHash(hash)).thenReturn(Optional.of(user.getId()));
     when(users.findForEmailVerificationById(user.getId())).thenReturn(Optional.of(user));
     when(tokens.findByTokenHash(hash)).thenReturn(Optional.of(token));
-  }
-
-  ChangePendingEmailRequest correction(String password) {
-    return new ChangePendingEmailRequest(
-        user.getInstitutionId(), "12345678", password, "correct@example.com");
   }
 
   @Test
@@ -202,39 +188,6 @@ class InstitutionalEmailVerificationUseCaseTest {
   void unknownAccountResendDoesNotDiscloseOrSend() {
     useCase.resend(new ResendEmailVerificationRequest("87654321", user.getInstitutionId()));
     verifyNoInteractions(tokens, events);
-  }
-
-  @Test
-  void incorrectPasswordCannotChangeEmailOrInvalidateTokens() {
-    lockIdentity();
-    assertThatThrownBy(() -> useCase.changeEmail(correction("wrong")))
-        .isInstanceOf(InvalidCredentialsException.class);
-    assertThat(user.getPerson().getEmail()).isEqualTo("ana@example.com");
-    verifyNoInteractions(resets, events);
-  }
-
-  @Test
-  void correctionReplacesEmailAndRevokesRecoveryToken() {
-    lockIdentity();
-    when(encoder.matches("correct", "encoded")).thenReturn(true);
-    useCase.changeEmail(correction("correct"));
-    assertThat(user.getPerson().getEmail()).isEqualTo("correct@example.com");
-    assertThat(token.getRecipientEmail()).isEqualTo("correct@example.com");
-    assertThat(user.requiresEmailVerification()).isTrue();
-    verify(resets).deleteByUserId(user.getId());
-    verify(events).publishEvent(any(InstitutionalEmailVerificationRequested.class));
-  }
-
-  @Test
-  void cooldownCorrectionPreservesEmailAndTokens() {
-    token.replace(hash, now, Duration.ofHours(24));
-    lockIdentity();
-    when(encoder.matches("correct", "encoded")).thenReturn(true);
-    assertThatThrownBy(() -> useCase.changeEmail(correction("correct")))
-        .isInstanceOf(EmailVerificationCooldownException.class);
-    assertThat(user.getPerson().getEmail()).isEqualTo("ana@example.com");
-    assertThat(token.getTokenHash()).isEqualTo(hash);
-    verifyNoInteractions(resets, events);
   }
 
   @Test

@@ -26,6 +26,10 @@ public class RenamePasskeyUseCase {
   @Transactional
   public PasskeyResponse execute(
       final JwtAuthenticatedUser principal, final UUID passkeyId, final String label) {
+    if (principal.delegated() || principal.accountUserId().isEmpty()) {
+      throw new ar.edu.utn.frvm.typeit.bemol_api.auth.exceptions.InvalidCredentialsException();
+    }
+
     final var credential =
         passkeyCredentialRepository
             .findWithLockByIdAndUserId(passkeyId, principal.userId())

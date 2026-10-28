@@ -143,8 +143,7 @@ public class User extends Auditable implements UserDetails {
     if (!isAccountActive() || !requiresEmailVerification()) {
       throw new InvalidEmailVerificationTokenException();
     }
-    emailVerificationStatus = EmailVerificationStatus.VERIFIED;
-    emailVerifiedAt = now;
+    confirmAccountEmail(now);
   }
 
   public boolean isAccessEnabled() {
@@ -158,6 +157,17 @@ public class User extends Auditable implements UserDetails {
 
     this.enabled = enabled;
     return true;
+  }
+
+  public void activateOwnAccess(final String password, final Instant now) {
+    this.password = password;
+    selfAccessEnabled = true;
+    confirmAccountEmail(now);
+  }
+
+  public void confirmAccountEmail(final Instant now) {
+    emailVerificationStatus = EmailVerificationStatus.VERIFIED;
+    emailVerifiedAt = now;
   }
 
   public void changePassword(final String password) {

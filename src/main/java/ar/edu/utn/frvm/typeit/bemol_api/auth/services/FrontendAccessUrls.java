@@ -2,6 +2,7 @@ package ar.edu.utn.frvm.typeit.bemol_api.auth.services;
 
 import ar.edu.utn.frvm.typeit.bemol_api.auth.config.FrontendPublicProperties;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.validation.PublicSubdomainPolicy;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.jspecify.annotations.Nullable;
 import org.springframework.stereotype.Service;
@@ -38,5 +39,20 @@ public class FrontendAccessUrls {
 
   public String brandLogoUrl() {
     return base(null) + "/brand/logo-email.png";
+  }
+
+  public String logoUrl(
+      final @Nullable String publicSubdomain,
+      final @Nullable UUID institutionId,
+      final @Nullable String logoVersion) {
+    if (institutionId == null || logoVersion == null || logoVersion.isBlank()) {
+      return brandLogoUrl();
+    }
+    return UriComponentsBuilder.fromUriString(base(publicSubdomain))
+        .path("/api/public/institutions/{institutionId}/logo")
+        .queryParam("v", logoVersion)
+        .buildAndExpand(institutionId)
+        .encode()
+        .toUriString();
   }
 }

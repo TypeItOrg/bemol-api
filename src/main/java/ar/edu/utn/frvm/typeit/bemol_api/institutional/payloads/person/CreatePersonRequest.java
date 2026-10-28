@@ -5,8 +5,6 @@ import static ar.edu.utn.frvm.typeit.bemol_api.common.validation.PersonFieldCons
 import static ar.edu.utn.frvm.typeit.bemol_api.common.validation.PersonFieldConstraints.NAME_MAX;
 import static ar.edu.utn.frvm.typeit.bemol_api.common.validation.PersonFieldConstraints.NAME_MIN;
 import static ar.edu.utn.frvm.typeit.bemol_api.common.validation.PersonFieldConstraints.NAME_PATTERN;
-import static ar.edu.utn.frvm.typeit.bemol_api.common.validation.PersonFieldConstraints.PASSWORD_MAX;
-import static ar.edu.utn.frvm.typeit.bemol_api.common.validation.PersonFieldConstraints.PASSWORD_MIN;
 
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.enums.SystemRoleCode;
 import ar.edu.utn.frvm.typeit.bemol_api.common.validation.MinimumAge;
@@ -44,10 +42,4 @@ public record CreatePersonRequest(
     @Nullable String phoneNumber,
     @NotNull(message = ValidationMessages.BIRTH_DATE_REQUIRED) @MinimumAge(MINIMUM_AGE)
         LocalDate birthDate,
-    @NotBlank(message = ValidationMessages.PASSWORD_REQUIRED)
-        @Size.List({
-          @Size(min = PASSWORD_MIN, message = ValidationMessages.PASSWORD_MIN_LENGTH),
-          @Size(max = PASSWORD_MAX, message = ValidationMessages.PASSWORD_MAX_LENGTH)
-        })
-        String password,
     @Nullable SystemRoleCode initialRole) {}

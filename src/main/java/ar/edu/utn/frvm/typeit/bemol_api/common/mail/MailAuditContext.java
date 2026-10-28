@@ -16,14 +16,36 @@ public record MailAuditContext(
     AuditActorKind actorKind,
     @Nullable UUID actorPersonId,
     @Nullable UUID actorPlatformAccountId,
-    @Nullable String requestId) {
+    @Nullable String requestId,
+    @Nullable UUID invitationId) {
+  public MailAuditContext(
+      final UUID institutionId,
+      final UUID personId,
+      final AuditActorKind actorKind,
+      final @Nullable UUID actorPersonId,
+      final @Nullable UUID actorPlatformAccountId,
+      final @Nullable String requestId) {
+    this(
+        institutionId, personId, actorKind, actorPersonId, actorPlatformAccountId, requestId, null);
+  }
+
+  public MailAuditContext forInvitation(final UUID id) {
+    return new MailAuditContext(
+        institutionId, personId, actorKind, actorPersonId, actorPlatformAccountId, requestId, id);
+  }
+
   public static MailAuditContext capture(final UUID institutionId, final UUID personId) {
     final var authentication = SecurityContextHolder.getContext().getAuthentication();
     final Object principal = authentication == null ? null : authentication.getPrincipal();
     final String requestId = MDC.get(RequestLoggingFilter.MDC_REQUEST_ID_KEY);
     if (principal instanceof JwtAuthenticatedUser user) {
       return new MailAuditContext(
-          institutionId, personId, AuditActorKind.INSTITUTION, user.personId(), null, requestId);
+          institutionId,
+          personId,
+          AuditActorKind.INSTITUTION,
+          user.actorPersonId(),
+          null,
+          requestId);
     }
     if (principal instanceof JwtAuthenticatedPlatformAccount account) {
       return new MailAuditContext(

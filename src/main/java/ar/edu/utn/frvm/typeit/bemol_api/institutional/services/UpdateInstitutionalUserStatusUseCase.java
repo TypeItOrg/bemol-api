@@ -25,6 +25,7 @@ public class UpdateInstitutionalUserStatusUseCase {
   private final SessionRevocationService sessionRevocationService;
 
   private final AuditEventRecorder auditEventRecorder;
+  private final ar.edu.utn.frvm.typeit.bemol_api.auth.services.AccountAccessAuthorization access;
 
   @Transactional
   public void execute(
@@ -39,6 +40,11 @@ public class UpdateInstitutionalUserStatusUseCase {
     institutionRepository
         .findByIdForUpdate(institutionId)
         .orElseThrow(InstitutionNotFoundException::new);
+    access.requirePermission(
+        institutionId,
+        actorPersonId,
+        ar.edu.utn.frvm.typeit.bemol_api.authorization.enums.PermissionCode
+            .INSTITUTION_USER_STATUS_UPDATE);
     final var user =
         userRepository
             .findByPerson_IdAndInstitution_Id(personId, institutionId)

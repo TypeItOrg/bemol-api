@@ -1,0 +1,17 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "broken-image",
+        "value": "*",
+        "files": [
+          "src/main/resources/templates/mail/institutional-email-verification.html"
+        ],
+        "createdAt": "2026-10-28T01:47:43.507Z",
+        "reason": "Agent: Thymeleaf sets the rendered src through th:src=${logoUrl}; mail rendering tests verify a real institutional or fallback logo URL."
+      }
+    ]
+  }
+}

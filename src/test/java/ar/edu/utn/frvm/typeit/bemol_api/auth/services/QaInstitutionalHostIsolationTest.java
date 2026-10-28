@@ -86,7 +86,8 @@ class QaInstitutionalHostIsolationTest {
             users,
             mock(InstitutionalPasswordResetTokenRepository.class),
             mock(ApplicationEventPublisher.class),
-            new PasswordRecoveryProperties("http://localhost:3000", Duration.ofMinutes(30)));
+            new PasswordRecoveryProperties("http://localhost:3000", Duration.ofMinutes(30)),
+            org.mockito.Mockito.mock(AccountActionRateLimiter.class));
     assertThatThrownBy(
             () -> recovery.execute(new PasswordRecoveryRequest("87654321", other.getId())))
         .isInstanceOf(InstitutionalContextMismatchException.class);
@@ -94,40 +95,13 @@ class QaInstitutionalHostIsolationTest {
   }
 
   @Test
-  void A03_payloadContext_registrationResendAndChangeEmailBeforeEffects() {
+  void A03_payloadContext_resendBeforeEffects() {
     final var users = mock(UserRepository.class);
-    final var registration =
-        new RegisterUserUseCase(
-            host,
-            mock(InstitutionalEmailVerificationUseCase.class),
-            users,
-            institutions,
-            mock(ar.edu.utn.frvm.typeit.bemol_api.institutional.interfaces.PersonRepository.class),
-            mock(PasswordEncoder.class),
-            mock(jakarta.validation.Validator.class),
-            mock(
-                ar.edu.utn.frvm.typeit.bemol_api.authorization.services
-                    .AssignPersonSystemRoleUseCase.class),
-            org.mockito.Mockito.mock(AuditEventRecorder.class));
-    assertThatThrownBy(
-            () ->
-                registration.execute(
-                    new RegisterRequest(
-                        "Ana",
-                        "Garcia",
-                        LocalDate.of(1990, 1, 1),
-                        "87654321",
-                        "ana@example.com",
-                        "long-password",
-                        other.getId())))
-        .isInstanceOf(InstitutionalContextMismatchException.class);
     final var verification =
         new InstitutionalEmailVerificationUseCase(
             host,
             users,
             mock(InstitutionalEmailVerificationTokenRepository.class),
-            mock(InstitutionalPasswordResetTokenRepository.class),
-            mock(PasswordEncoder.class),
             mock(ApplicationEventPublisher.class),
             new EmailVerificationProperties(
                 "http://localhost:3000", Duration.ofHours(24), Duration.ofMinutes(1)),
@@ -136,12 +110,6 @@ class QaInstitutionalHostIsolationTest {
     assertThatThrownBy(
             () ->
                 verification.resend(new ResendEmailVerificationRequest("87654321", other.getId())))
-        .isInstanceOf(InstitutionalContextMismatchException.class);
-    assertThatThrownBy(
-            () ->
-                verification.changeEmail(
-                    new ChangePendingEmailRequest(
-                        other.getId(), "87654321", "password", "other@example.com")))
         .isInstanceOf(InstitutionalContextMismatchException.class);
     verifyNoInteractions(users);
   }
@@ -253,8 +221,6 @@ class QaInstitutionalHostIsolationTest {
             host,
             users,
             verificationTokens,
-            resetTokens,
-            encoder,
             events,
             new EmailVerificationProperties(
                 "http://localhost:3000", Duration.ofHours(24), Duration.ofMinutes(1)),

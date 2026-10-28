@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="es" xmlns:th="http://www.thymeleaf.org">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Correo de acceso</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body
+    style="
+      margin: 0;
+      padding: 0;
+      background-color: #f5f3f0;
+      color: #1a1516;
+      font-family:
+        'Manrope',
+        -apple-system,
+        BlinkMacSystemFont,
+        'Segoe UI',
+        Roboto,
+        Helvetica,
+        Arial,
+        sans-serif;
+      font-size: 17.6px;
+      height: 100%;
+      min-height: 100vh;
+      -webkit-font-smoothing: antialiased;
+    "
+  >
+    <table
+      role="presentation"
+      width="100%"
+      height="100%"
+      cellspacing="0"
+      cellpadding="0"
+      bgcolor="#f5f3f0"
+      style="background-color: #f5f3f0; min-height: 100vh; padding: 36px 18px"
+    >
+      <tr>
+        <td align="center" valign="middle">
+          <table
+            role="presentation"
+            width="100%"
+            cellspacing="0"
+            cellpadding="0"
+            bgcolor="#ffffff"
+            style="
+              max-width: 493px;
+              background-color: #ffffff;
+              border: 1px solid #e6e4e2;
+              border-radius: 15.4px;
+            "
+          >
+            <tr>
+              <td align="center" style="padding: 35px 35px 0">
+                <img
+                  th:src="${logoUrl}"
+                  th:alt="${logoAlt}"
+                  alt="Bemol"
+                  width="96"
+                  height="96"
+                  style="
+                    display: block;
+                    width: auto;
+                    height: 96px;
+                    max-width: 192px;
+                    max-height: 96px;
+                    object-fit: contain;
+                    border: 0;
+                  "
+                />
+              </td>
+            </tr>
+            <tr>
+              <td align="center" style="padding: 20px 35px 0">
+                <h1
+                  th:text="${confirmation ? 'Confirmá tu nuevo correo' : 'Se actualizó tu correo'}"
+                  style="
+                    margin: 0 0 12px;
+                    color: #1a1516;
+                    font-family:
+                      'Manrope',
+                      -apple-system,
+                      BlinkMacSystemFont,
+                      'Segoe UI',
+                      Roboto,
+                      Helvetica,
+                      Arial,
+                      sans-serif;
+                    font-size: 26.4px;
+                    font-weight: 700;
+                    line-height: 35.2px;
+                  "
+                >
+                  Confirmá tu nuevo correo
+                </h1>
+                <p
+                  style="
+                    margin: 0;
+                    color: #716866;
+                    font-family:
+                      'Manrope',
+                      -apple-system,
+                      BlinkMacSystemFont,
+                      'Segoe UI',
+                      Roboto,
+                      Helvetica,
+                      Arial,
+                      sans-serif;
+                    font-size: 15.4px;
+                    line-height: 22px;
+                  "
+                >
+                  Hola,
+                  <strong th:text="${fullName}" style="color: #1a1516; font-weight: 600"
+                    >Ana García</strong
+                  >.
+                  <span
+                    th:text="${confirmation ? 'Confirmá esta dirección para vincularla a tu cuenta de ' : 'Se modificó el correo asociado a tu cuenta de '}"
+                    >Confirmá esta dirección para vincularla a tu cuenta de </span
+                  ><strong th:text="${institutionName}" style="color: #1a1516; font-weight: 600"
+                    >Tu institución</strong
+                  >.
+                </p>
+              </td>
+            </tr>
+            <tr th:if="${confirmation}">
+              <td style="padding: 26px 35px 0">
+                <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
+                  <tr>
+                    <td align="center">
+                      <a
+                        th:href="${verificationUrl}"
+                        style="
+                          display: block;
+                          box-sizing: border-box;
+                          background-color: #6f0926;
+                          border: 1px solid #6f0926;
+                          border-radius: 11px;
+                          color: #fcfbfa;
+                          padding: 8px 11px;
+                          text-decoration: none;
+                          font-family:
+                            'Manrope',
+                            -apple-system,
+                            BlinkMacSystemFont,
+                            'Segoe UI',
+                            Roboto,
+                            Helvetica,
+                            Arial,
+                            sans-serif;
+                          font-size: 15.4px;
+                          font-weight: 500;
+                          line-height: 22px;
+                          text-align: center;
+                        "
+                      >
+                        Confirmar nuevo correo
+                      </a>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+            <tr>
+              <td align="center" style="padding: 22px 35px 35px">
+                <p
+                  style="
+                    margin: 0;
+                    color: #716866;
+                    font-family:
+                      'Manrope',
+                      -apple-system,
+                      BlinkMacSystemFont,
+                      'Segoe UI',
+                      Roboto,
+                      Helvetica,
+                      Arial,
+                      sans-serif;
+                    font-size: 15.4px;
+                    line-height: 22px;
+                  "
+                >
+                  <span th:if="${confirmation}">
+                    Este enlace vence en
+                    <strong style="color: #1a1516; font-weight: 600">24 horas</strong> y puede
+                    usarse una sola vez.
+                  </span>
+                  <span
+                    th:text="${confirmation ? 'Si no pediste este cambio, podés ignorar este correo.' : 'Si no reconocés este cambio, contactá a tu institución.'}"
+                    >Si no pediste este cambio, podés ignorar este correo.</span
+                  >
+                </p>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>

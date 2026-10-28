@@ -16,12 +16,14 @@ public interface PersonAccessInvitationRepository
 
   List<PersonAccessInvitation> findByPerson_Id(UUID personId);
 
+  Optional<PersonAccessInvitation> findFirstByPerson_IdOrderByIssuedAtDesc(UUID personId);
+
   @EntityGraph(attributePaths = "representation")
   @Query(
       """
       select i from PersonAccessInvitation i
       where i.person.id in :personIds and i.person.institution.id = :institutionId
-        and i.consumedAt is null and i.expiresAt > :now
+        and i.consumedAt is null and i.cancelledAt is null and i.expiresAt > :now
       """)
   List<PersonAccessInvitation> findPendingByPersonIds(
       @Param("personIds") List<UUID> personIds,
@@ -31,8 +33,8 @@ public interface PersonAccessInvitationRepository
   @Query(
       """
       select i.person.id from PersonAccessInvitation i
-      where i.person.id in :personIds and i.institutionalIssuer is not null
-        and i.consumedAt is null and i.expiresAt > :now
+      where i.person.id in :personIds and (i.institutionalIssuer is not null or i.platformIssuer is not null)
+        and i.consumedAt is null and i.cancelledAt is null and i.expiresAt > :now
       """)
   List<UUID> findPendingInstitutionalPersonIds(
       @Param("personIds") List<UUID> personIds, @Param("now") Instant now);

@@ -55,6 +55,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 import tools.jackson.databind.ObjectMapper;
 
 @IntegrationTest
+@org.springframework.test.context.event.RecordApplicationEvents
 @TestPropertySource(properties = "spring.jpa.properties.hibernate.integration.envers.enabled=true")
 class EnversCoveragePostgresIntegrationTest extends DatabaseMigrationTestSupport {
   private static final PostgresTestDatabase DATABASE =
@@ -88,6 +89,8 @@ class EnversCoveragePostgresIntegrationTest extends DatabaseMigrationTestSupport
   @Autowired InstitutionRoleProvisioner provisionRoles;
   @Autowired ReplacePersonRolesUseCase replaceRoles;
   @Autowired CreatePersonUseCase createPerson;
+  @Autowired ar.edu.utn.frvm.typeit.bemol_api.auth.services.ActivatePersonOwnAccessUseCase activate;
+  @Autowired org.springframework.test.context.event.ApplicationEvents applicationEvents;
   @Autowired UpdatePersonByAdminUseCase updatePerson;
   @Autowired DeletePersonUseCase deletePerson;
   @Autowired CreateEnrollmentPeriodUseCase createPeriod;
@@ -247,11 +250,22 @@ class EnversCoveragePostgresIntegrationTest extends DatabaseMigrationTestSupport
                     UUID.randomUUID() + "@example.test",
                     null,
                     LocalDate.of(2000, 1, 1),
-                    "DummyPassword123!",
                     SystemRoleCode.APPLICANT))
             .personId();
+    final String activationToken =
+        applicationEvents.stream(
+                ar.edu.utn.frvm.typeit.bemol_api.auth.events.PersonAccessInvited.class)
+            .filter(event -> event.personId().equals(person))
+            .findFirst()
+            .orElseThrow()
+            .token();
+    activate.execute(
+        new ar.edu.utn.frvm.typeit.bemol_api.auth.payloads.requests.ActivateOwnAccessRequest(
+            activationToken, "DummyPassword2026!", "DummyPassword2026!"));
     updatePerson.execute(
-        institution, person, new UpdatePersonByAdminRequest("Nombre Privado", null, null, null));
+        institution,
+        person,
+        new UpdatePersonByAdminRequest("Nombre Privado", null, null, null, null));
     assertThat(revisions(Person.class, person)).hasSize(1);
     assertThat(eventCount(person, "PERSON_UPDATED")).isEqualTo(1);
     final UUID role =

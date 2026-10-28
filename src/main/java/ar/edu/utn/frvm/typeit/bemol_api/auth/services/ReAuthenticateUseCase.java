@@ -21,13 +21,15 @@ public class ReAuthenticateUseCase {
   public void execute(final JwtAuthenticatedUser principal, final String password) {
     final User user =
         userRepository
-            .findWithPersonAndInstitutionById(principal.userId())
+            .findWithPersonAndInstitutionById(principal.actorUserId())
             .orElseThrow(InvalidCredentialsException::new);
     final String username =
         InstitutionalUsername.format(user.getInstitutionId(), user.getDocumentNumber());
     credentialsAuthenticator.authenticate(username, password);
     recentAuthService.mark(
-        principal.sessionId(), principal.userId(), AuthenticationSessionIssuer.METHOD_PASSWORD);
-    log.info("[Auth] Re-authentication succeeded, userId: {}", principal.userId());
+        principal.sessionId(),
+        principal.actorUserId(),
+        AuthenticationSessionIssuer.METHOD_PASSWORD);
+    log.info("[Auth] Re-authentication succeeded, userId: {}", principal.actorUserId());
   }
 }

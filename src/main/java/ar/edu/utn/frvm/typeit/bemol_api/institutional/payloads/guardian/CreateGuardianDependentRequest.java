@@ -58,6 +58,11 @@ public record CreateGuardianDependentRequest(
             && birthDate != null);
   }
 
+  @AssertTrue(message = ValidationMessages.OWN_ACCESS_EMAIL_REQUIRED)
+  public boolean isOwnAccessEmailPresent() {
+    return !ownAccessRequested || (email != null && !email.isBlank());
+  }
+
   public CreateGuardianDependentRequest(
       String documentNumber,
       String firstName,

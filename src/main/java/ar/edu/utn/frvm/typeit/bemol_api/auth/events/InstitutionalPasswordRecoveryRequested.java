@@ -14,6 +14,7 @@ public record InstitutionalPasswordRecoveryRequested(
     String fullName,
     String token,
     @Nullable String publicSubdomain,
+    @Nullable String logoVersion,
     MailAuditContext auditContext) {
   public InstitutionalPasswordRecoveryRequested(
       final UUID userId,
@@ -22,7 +23,7 @@ public record InstitutionalPasswordRecoveryRequested(
       final String fullName,
       final String token,
       final MailAuditContext auditContext) {
-    this(userId, recipientEmail, institutionName, fullName, token, null, auditContext);
+    this(userId, recipientEmail, institutionName, fullName, token, null, null, auditContext);
   }
 
   public static InstitutionalPasswordRecoveryRequested from(final User user, final String token) {
@@ -33,6 +34,7 @@ public record InstitutionalPasswordRecoveryRequested(
         user.getName() + " " + user.getLastName(),
         token,
         user.getInstitution().getPublicSubdomain(),
+        user.getInstitution().getLogoVersion(),
         MailAuditContext.capture(user.getInstitution().getId(), user.getPerson().getId()));
   }
 }

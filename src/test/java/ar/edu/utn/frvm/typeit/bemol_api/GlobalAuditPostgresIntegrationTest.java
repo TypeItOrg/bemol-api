@@ -15,15 +15,11 @@ import ar.edu.utn.frvm.typeit.bemol_api.audit.exceptions.AuditEventNotFoundExcep
 import ar.edu.utn.frvm.typeit.bemol_api.audit.payloads.InstitutionalActivityFilter;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.services.AuditEventRecorder;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.services.InstitutionalActivityUseCase;
-import ar.edu.utn.frvm.typeit.bemol_api.auth.events.InstitutionalEmailVerificationRequested;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.filters.JwtAuthenticatedUser;
-import ar.edu.utn.frvm.typeit.bemol_api.auth.payloads.requests.ConfirmEmailVerificationRequest;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.payloads.requests.CreatePlatformAccountRequest;
-import ar.edu.utn.frvm.typeit.bemol_api.auth.payloads.requests.RegisterRequest;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.payloads.requests.UpdatePlatformAccountRequest;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.services.CreatePlatformAccountUseCase;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.services.InstitutionalEmailVerificationUseCase;
-import ar.edu.utn.frvm.typeit.bemol_api.auth.services.RegisterUserUseCase;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.services.UpdatePlatformAccountStatusUseCase;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.services.UpdatePlatformAccountUseCase;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.enums.AccessScope;
@@ -85,11 +81,11 @@ class GlobalAuditPostgresIntegrationTest extends DatabaseMigrationTestSupport {
   @Autowired ObjectMapper json;
   @Autowired CreatePlatformAccountUseCase createPlatformAccount;
   @Autowired CreatePersonUseCase createPerson;
+  @Autowired ar.edu.utn.frvm.typeit.bemol_api.auth.services.ActivatePersonOwnAccessUseCase activate;
   @Autowired UpdatePersonByAdminUseCase updatePerson;
   @Autowired UpdatePersonUseCase updateSelf;
   @Autowired DeletePersonUseCase deletePerson;
   @Autowired UpdatePlatformAccountUseCase updatePlatform;
-  @Autowired RegisterUserUseCase register;
   @Autowired InstitutionalEmailVerificationUseCase verification;
   @Autowired InstitutionRoleManagementService roles;
   @Autowired ReplacePersonRolesUseCase replaceRoles;
@@ -270,7 +266,8 @@ class GlobalAuditPostgresIntegrationTest extends DatabaseMigrationTestSupport {
     final UUID institution = fixtures.firstInstitutionId();
     final UUID person = createPerson.execute(institution, personRequest()).personId();
     final UUID user = userId(person);
-    final var change = new UpdatePersonByAdminRequest("Nombre Privado", null, null, "3515551212");
+    final var change =
+        new UpdatePersonByAdminRequest("Nombre Privado", null, null, null, "3515551212");
     updatePerson.execute(institution, person, change);
     updatePerson.execute(institution, person, change);
     assertThat(countForEntity(person, "PERSON_UPDATED")).isEqualTo(1);
@@ -279,20 +276,13 @@ class GlobalAuditPostgresIntegrationTest extends DatabaseMigrationTestSupport {
     assertThat(details)
         .contains("firstName", "phoneNumber")
         .doesNotContain("Nombre Privado", "3515551212");
-    final var passwordChange =
-        new UpdatePersonByAdminRequest(null, null, null, null, "OtherPassword123!");
-    updatePerson.execute(institution, person, passwordChange);
-    assertThat(event(user, "PASSWORD_CHANGED").get("actor_platform_account_id"))
-        .isEqualTo(adminId());
-    assertThat(countForEntity(person, "PERSON_UPDATED")).isEqualTo(1);
     final var principal =
         new JwtAuthenticatedUser(user, person, "12345678", institution, UUID.randomUUID(), "test");
     SecurityContextHolder.getContext()
         .setAuthentication(
             new TestingAuthenticationToken(principal, "", "ROLE_INSTITUTIONAL_USER"));
     updateSelf.execute(
-        principal,
-        new UpdatePersonRequest(null, "Apellido Privado", null, null, null, null, null, null));
+        principal, new UpdatePersonRequest(null, null, null, null, "3515553434", null, null, null));
     final var self =
         jdbcTemplate.queryForMap(
             "SELECT * FROM audit_events WHERE entity_id = ? AND origin = 'SELF_SERVICE' AND action = 'PERSON_UPDATED'",
@@ -300,13 +290,15 @@ class GlobalAuditPostgresIntegrationTest extends DatabaseMigrationTestSupport {
     assertThat(self.get("actor_person_id")).isEqualTo(person);
     assertThat(self.get("subject_person_id")).isEqualTo(person);
     assertThat(requireNonNull(self.get("details")).toString())
-        .contains("lastName")
+        .contains("phoneNumber")
         .doesNotContain("Apellido Privado");
     authenticatePlatformAdministrator();
     transaction.executeWithoutResult(
         state -> {
           updatePerson.execute(
-              institution, person, new UpdatePersonByAdminRequest("Rollback", null, null, null));
+              institution,
+              person,
+              new UpdatePersonByAdminRequest("Rollback", null, null, null, null));
           state.setRollbackOnly();
         });
     assertThat(countForEntity(person, "PERSON_UPDATED")).isEqualTo(2);
@@ -325,7 +317,7 @@ class GlobalAuditPostgresIntegrationTest extends DatabaseMigrationTestSupport {
     deletePerson.execute(institution, person);
     assertThat(countForEntity(person, "PERSON_DELETED")).isEqualTo(1);
     final var result = asAdmin(get(BASE).param("personId", person.toString()).param("size", "1"));
-    assertThat(result.path("totalItems").asLong()).isGreaterThanOrEqualTo(5);
+    assertThat(result.path("totalItems").asLong()).isGreaterThanOrEqualTo(4);
     assertThat(result.path("items").size()).isEqualTo(1);
     assertThat(
             jdbcTemplate.queryForObject(
@@ -349,42 +341,14 @@ class GlobalAuditPostgresIntegrationTest extends DatabaseMigrationTestSupport {
     assertThat(event(userId, "INSTITUTIONAL_ACCOUNT_CREATED").get("subject_person_id"))
         .isEqualTo(personId);
     assertThat(event(userId, "INSTITUTIONAL_ACCOUNT_CREATED").get("actor_kind"))
-        .isEqualTo("PLATFORM");
+        .isEqualTo("ANONYMOUS");
     assertThat(countForSubject(personId, "PERSON_ROLES_CHANGED")).isZero();
 
-    SecurityContextHolder.clearContext();
-    final var registered =
-        register.execute(
-            new RegisterRequest(
-                "Maria",
-                "Perez",
-                LocalDate.of(2000, 1, 1),
-                fixtures.randomDocumentNumber(),
-                UUID.randomUUID() + "@example.test",
-                PASSWORD,
-                institutionId));
-    final var created = event(registered.userId(), "INSTITUTIONAL_ACCOUNT_CREATED");
-    assertThat(created.get("actor_kind")).isEqualTo("ANONYMOUS");
-    assertThat(created.get("actor_person_id")).isNull();
-    assertThat(created.get("origin")).isEqualTo("SELF_REGISTRATION");
-    assertThat(requireNonNull(created.get("details")).toString())
-        .contains("PENDING")
-        .doesNotContain(PASSWORD);
-    final String token =
-        events.stream(InstitutionalEmailVerificationRequested.class)
-            .filter(event -> event.userId().equals(registered.userId()))
-            .findFirst()
-            .orElseThrow()
-            .token();
-    verification.confirm(new ConfirmEmailVerificationRequest(token));
-    final var verified = event(registered.userId(), "INSTITUTIONAL_EMAIL_VERIFIED");
-    assertThat(verified.get("actor_kind")).isEqualTo("ANONYMOUS");
-    assertThat(requireNonNull(verified.get("details")).toString()).doesNotContain(token, PASSWORD);
     assertThat(
             jdbcTemplate.queryForObject(
                 "SELECT email_verification_status FROM users WHERE user_id = ?",
                 String.class,
-                registered.userId()))
+                userId))
         .isEqualTo("VERIFIED");
   }
 
@@ -393,6 +357,7 @@ class GlobalAuditPostgresIntegrationTest extends DatabaseMigrationTestSupport {
     authenticatePlatformAdministrator();
     final UUID institutionId = fixtures.firstInstitutionId();
     final UUID personId = createPerson.execute(institutionId, personRequest()).personId();
+    userId(personId);
     final var role =
         roles.createAsPlatformAdmin(
             institutionId,
@@ -450,8 +415,31 @@ class GlobalAuditPostgresIntegrationTest extends DatabaseMigrationTestSupport {
     assertThat(countForEntity(roleId, "ROLE_CREATED")).isEqualTo(1);
     assertThat(countForEntity(roleId, "ROLE_DELETED")).isEqualTo(1);
 
-    institutionalAccess.execute(institutionId, UUID.randomUUID(), personId, false);
-    institutionalAccess.execute(institutionId, UUID.randomUUID(), personId, false);
+    final var reviewer =
+        createPerson.execute(
+            institutionId,
+            new CreatePersonRequest(
+                "Audit",
+                "Reviewer",
+                fixtures.randomDocumentNumber(),
+                UUID.randomUUID() + "@example.test",
+                null,
+                LocalDate.of(2000, 1, 1),
+                ar.edu.utn.frvm.typeit.bemol_api.authorization.enums.SystemRoleCode
+                    .INSTITUTIONAL_AUTHORITY));
+    final UUID reviewerUser = userId(reviewer.personId());
+    SecurityContextHolder.getContext()
+        .setAuthentication(
+            new TestingAuthenticationToken(
+                JwtAuthenticatedUser.builder()
+                    .userId(reviewerUser)
+                    .personId(reviewer.personId())
+                    .institutionId(institutionId)
+                    .build(),
+                ""));
+    institutionalAccess.execute(institutionId, reviewer.personId(), personId, false);
+    institutionalAccess.execute(institutionId, reviewer.personId(), personId, false);
+    authenticatePlatformAdministrator();
     assertThat(countForEntity(userId(personId), "INSTITUTIONAL_ACCESS_CHANGED")).isEqualTo(1);
     final UUID accountId = createPlatformAccount.execute(accountRequest()).platformAccountId();
     platformAccess.execute(accountId, adminId(), false);
@@ -669,12 +657,13 @@ class GlobalAuditPostgresIntegrationTest extends DatabaseMigrationTestSupport {
     jdbcTemplate.update(
         """
         INSERT INTO person_guardians (person_guardian_id, institution_id, tutor_person_id,
-          dependent_person_id, relationship, status, created_at, updated_at)
-        VALUES (?, ?, ?, ?, 'LEGAL_GUARDIAN', 'ENDED', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+          dependent_person_id, declared_document_number, relationship, status, created_at, updated_at)
+        VALUES (?, ?, ?, ?, (SELECT document_number FROM people WHERE person_id = ?), 'LEGAL_GUARDIAN', 'ENDED', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
         """,
         link,
         institution,
         tutor,
+        dependent,
         dependent);
     final String requestId = "audit-related-" + UUID.randomUUID();
     insertEvent(
@@ -992,7 +981,6 @@ class GlobalAuditPostgresIntegrationTest extends DatabaseMigrationTestSupport {
         UUID.randomUUID() + "@example.test",
         null,
         LocalDate.of(2000, 1, 1),
-        PASSWORD,
         null);
   }
 
@@ -1004,6 +992,25 @@ class GlobalAuditPostgresIntegrationTest extends DatabaseMigrationTestSupport {
   }
 
   private UUID userId(UUID personId) {
+    if (requireNonNull(
+            jdbcTemplate.queryForObject(
+                "SELECT count(*) FROM users WHERE person_id = ?", Integer.class, personId))
+        == 0) {
+      final var invitation =
+          events.stream(ar.edu.utn.frvm.typeit.bemol_api.auth.events.PersonAccessInvited.class)
+              .filter(event -> event.personId().equals(personId))
+              .reduce((left, right) -> right)
+              .orElseThrow();
+      final var authentication = SecurityContextHolder.getContext().getAuthentication();
+      SecurityContextHolder.clearContext();
+      try {
+        activate.execute(
+            new ar.edu.utn.frvm.typeit.bemol_api.auth.payloads.requests.ActivateOwnAccessRequest(
+                invitation.token(), PASSWORD, PASSWORD));
+      } finally {
+        SecurityContextHolder.getContext().setAuthentication(authentication);
+      }
+    }
     return requireNonNull(
         jdbcTemplate.queryForObject(
             "SELECT user_id FROM users WHERE person_id = ?", UUID.class, personId));

@@ -67,6 +67,8 @@ class GetCurrentUserUseCaseTest {
     assertThat(response.user().permissions())
         .containsExactly(PermissionCode.INSTITUTION_PERSON_READ_ANY.getCode());
     assertThat(response.user().roles()).containsExactly("Preceptor");
+    assertThat(response.user().actorPermissions())
+        .containsExactly(PermissionCode.INSTITUTION_PERSON_READ_ANY.getCode());
   }
 
   @Test
@@ -94,6 +96,45 @@ class GetCurrentUserUseCaseTest {
 
     assertThatThrownBy(() -> getCurrentUserUseCase.execute(principal))
         .isInstanceOf(DisabledException.class);
+  }
+
+  @Test
+  void delegatedPayloadKeepsActorCapabilitiesSeparateFromSelectedPermissions() {
+    final UUID institution = UUID.randomUUID();
+    final UUID selected = UUID.randomUUID();
+    final UUID actor = UUID.randomUUID();
+    final UUID selectedUser = UUID.randomUUID();
+    final var principal =
+        new ar.edu.utn.frvm.typeit.bemol_api.auth.filters.JwtAuthenticatedUser(
+            selectedUser,
+            selected,
+            "12345678",
+            institution,
+            UUID.randomUUID(),
+            "dummy",
+            UUID.randomUUID(),
+            actor);
+    when(userRepository.findWithPersonAndInstitutionById(selectedUser))
+        .thenReturn(
+            Optional.of(
+                userWith(selectedUser, institution, "12345678", "Persona", "Representada", true)));
+    when(authorityResolver.resolvePersonAuthorities(selected, institution))
+        .thenReturn(
+            new InstitutionalAuthoritySnapshot(
+                Set.of(PermissionCode.INSTITUTION_PERSON_READ_ANY), List.of("Autoridad")));
+    when(authorityResolver.resolvePersonAuthorities(actor, institution))
+        .thenReturn(
+            new InstitutionalAuthoritySnapshot(
+                Set.of(PermissionCode.GUARDIAN_LINK_REQUEST), List.of("Postulante")));
+
+    final var payload = getCurrentUserUseCase.execute(principal).user();
+
+    assertThat(payload.permissions())
+        .containsExactly(PermissionCode.INSTITUTION_PERSON_READ_ANY.getCode());
+    assertThat(payload.actorPermissions())
+        .containsExactly(PermissionCode.GUARDIAN_LINK_REQUEST.getCode());
+    assertThat(payload.actorPersonId()).isEqualTo(actor);
+    assertThat(payload.canRequestGuardianLinks()).isTrue();
   }
 
   private static User userWith(

@@ -29,6 +29,8 @@ import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
@@ -171,6 +173,74 @@ class ReplacePersonRolesUseCaseTest {
 
     verify(assignmentRepository).delete(authorityAssignment);
     verify(assignmentRepository).save(any(PersonRoleAssignment.class));
+  }
+
+  @ParameterizedTest
+  @EnumSource(
+      value = SystemRoleCode.class,
+      names = {"APPLICANT", "REPRESENTATIVE"})
+  void execute_keepsCompatiblePairWithoutRevocation(final SystemRoleCode existing) {
+    final UUID institutionId = UUID.randomUUID(), personId = UUID.randomUUID();
+    final var person = personWith(institutionId, personId);
+    final var applicant = roleWith(SystemRoleCode.APPLICANT);
+    final var representative = roleWith(SystemRoleCode.REPRESENTATIVE);
+    final var retained = existing == SystemRoleCode.APPLICANT ? applicant : representative;
+    final var added = existing == SystemRoleCode.APPLICANT ? representative : applicant;
+    givenPersonAndCurrentRoles(
+        institutionId, personId, person, List.of(assignmentWith(person, retained)));
+    givenRole(institutionId, applicant);
+    givenRole(institutionId, representative);
+    when(roleAssignmentScopeValidator.freshPermissions())
+        .thenReturn(Set.of(PermissionCode.INSTITUTION_ROLE_ASSIGN));
+
+    replacePersonRolesUseCase.execute(
+        institutionId,
+        personId,
+        new ReplacePersonRolesRequest(
+            List.of(
+                new AssignRoleRequest(applicant.getId(), AccessScope.INSTITUTION, Set.of()),
+                new AssignRoleRequest(representative.getId(), AccessScope.INSTITUTION, Set.of()))),
+        false,
+        Set.of());
+
+    assertSavedAssignment(added, person);
+    verify(assignmentRepository, never()).delete(any());
+    verify(sessionRevocationService).revokeInstitutionalSessionsForPerson(personId, institutionId);
+    verify(authorizationCacheInvalidator).evictPerson(personId, institutionId);
+  }
+
+  @Test
+  void execute_stillNormalizesApplicantWhenStaffAndRepresentativeAreSelected() {
+    final UUID institutionId = UUID.randomUUID(), personId = UUID.randomUUID();
+    final var person = personWith(institutionId, personId);
+    final var applicant = roleWith(SystemRoleCode.APPLICANT);
+    final var representative = roleWith(SystemRoleCode.REPRESENTATIVE);
+    final var teacher = roleWith(SystemRoleCode.TEACHER);
+    final var applicantAssignment = assignmentWith(person, applicant);
+    final var representativeAssignment = assignmentWith(person, representative);
+    givenPersonAndCurrentRoles(
+        institutionId, personId, person, List.of(applicantAssignment, representativeAssignment));
+    givenRole(institutionId, applicant);
+    givenRole(institutionId, representative);
+    givenRole(institutionId, teacher);
+    when(roleAssignmentScopeValidator.freshPermissions())
+        .thenReturn(
+            Set.of(PermissionCode.INSTITUTION_ROLE_ASSIGN, PermissionCode.INSTITUTION_ROLE_REVOKE));
+
+    replacePersonRolesUseCase.execute(
+        institutionId,
+        personId,
+        new ReplacePersonRolesRequest(
+            List.of(
+                new AssignRoleRequest(applicant.getId(), AccessScope.INSTITUTION, Set.of()),
+                new AssignRoleRequest(representative.getId(), AccessScope.INSTITUTION, Set.of()),
+                new AssignRoleRequest(teacher.getId(), AccessScope.INSTITUTION, Set.of()))),
+        false,
+        Set.of());
+
+    verify(assignmentRepository).delete(applicantAssignment);
+    verify(assignmentRepository, never()).delete(representativeAssignment);
+    assertSavedAssignment(teacher, person);
   }
 
   private void assertSavedAssignment(Role expectedRole, Person expectedPerson) {

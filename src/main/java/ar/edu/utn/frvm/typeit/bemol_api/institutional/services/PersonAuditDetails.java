@@ -10,6 +10,7 @@ final class PersonAuditDetails {
   // These values are only compared in memory; AuditChangeDetails persists the changed field names.
   static Map<String, Object> snapshot(final Person person) {
     final Map<String, Object> result = new LinkedHashMap<>();
+    result.put("documentNumber", person.getDocumentNumber());
     result.put("firstName", person.getFirstName());
     result.put("lastName", person.getLastName());
     result.put("email", person.getEmail());

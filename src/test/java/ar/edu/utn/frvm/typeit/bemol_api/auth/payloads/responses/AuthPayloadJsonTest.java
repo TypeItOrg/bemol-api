@@ -23,7 +23,6 @@ class AuthPayloadJsonTest {
   @Autowired private JacksonTester<IdentifyLoginResponse> identifyLoginResponseJson;
   @Autowired private JacksonTester<AuthResponse> authResponseJson;
   @Autowired private JacksonTester<UserResponse> userResponseJson;
-  @Autowired private JacksonTester<UserRegisteredResponse> userRegisteredResponseJson;
   @Autowired private JacksonTester<TokenResponse> tokenResponseJson;
 
   @Test
@@ -72,24 +71,6 @@ class AuthPayloadJsonTest {
     assertThat(json).extractingJsonPathStringValue("$.user.userId").isEqualTo(USER_ID.toString());
     assertThat(json).extractingJsonPathStringValue("$.user.roles[0]").isEqualTo("Preceptor");
     assertThat(json).doesNotHaveJsonPath("$.userId");
-  }
-
-  @Test
-  @DisplayName("Should serialize registered user id as userId")
-  void shouldSerializeRegisteredUserIdAsUserId() throws IOException {
-    UserRegisteredResponse response =
-        UserRegisteredResponse.builder()
-            .emailVerificationRequired(true)
-            .userId(USER_ID)
-            .documentNumber("12345678")
-            .institutionId(INSTITUTION_ID)
-            .build();
-
-    var json = userRegisteredResponseJson.write(response);
-
-    assertThat(json).extractingJsonPathStringValue("$.userId").isEqualTo(USER_ID.toString());
-    assertThat(json).doesNotHaveJsonPath("$.id");
-    assertThat(json).extractingJsonPathBooleanValue("$.emailVerificationRequired").isTrue();
   }
 
   @Test

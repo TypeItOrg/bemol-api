@@ -74,9 +74,7 @@ public class AssignPersonRoleUseCase {
     final var before = RoleAuditDetails.assignments(current);
     if (!allowAuthority) {
       for (var assignment : current) {
-        if (role.isApplicant()
-            ? !assignment.getRole().isApplicant()
-            : assignment.getRole().isApplicant()) {
+        if (role.replacesOnAssignment(assignment.getRole())) {
           scopeValidator.requireOperation(PermissionCode.INSTITUTION_ROLE_REVOKE);
           scopeValidator.requireDelegation(assignment);
         }

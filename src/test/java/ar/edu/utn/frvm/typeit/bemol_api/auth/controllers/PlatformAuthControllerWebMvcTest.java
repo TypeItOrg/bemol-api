@@ -87,7 +87,7 @@ class PlatformAuthControllerWebMvcTest {
         .andExpect(status().isBadRequest())
         .andExpect(jsonPath("$.status").value(400))
         .andExpect(jsonPath("$.message").value("Se encontraron errores de validación."))
-        .andExpect(jsonPath("$.fieldErrors.email").value("El correo electrónico es requerido."))
+        .andExpect(jsonPath("$.fieldErrors.email").value("El correo es requerido."))
         .andExpect(jsonPath("$.fieldErrors.password").value("La contraseña es requerida."));
 
     verifyNoInteractions(platformLoginUseCase);
@@ -110,9 +110,7 @@ class PlatformAuthControllerWebMvcTest {
         .andExpect(status().isBadRequest())
         .andExpect(jsonPath("$.status").value(400))
         .andExpect(jsonPath("$.message").value("Se encontraron errores de validación."))
-        .andExpect(
-            jsonPath("$.fieldErrors.email")
-                .value("El correo electrónico debe tener un formato válido."));
+        .andExpect(jsonPath("$.fieldErrors.email").value("El correo es inválido."));
 
     verifyNoInteractions(platformLoginUseCase);
   }

@@ -10,7 +10,7 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 import lombok.Builder;
 
-@Builder
+@Builder(toBuilder = true)
 @io.swagger.v3.oas.annotations.media.Schema(
     requiredProperties = {
       "userId",
@@ -21,7 +21,11 @@ import lombok.Builder;
       "institutionId",
       "roles",
       "permissions",
-      "permissionScopes"
+      "permissionScopes",
+      "actorPersonId",
+      "delegated",
+      "canRequestGuardianLinks",
+      "actorPermissions"
     })
 public record UserPayload(
     @io.swagger.v3.oas.annotations.media.Schema(nullable = true) @org.jspecify.annotations.Nullable
@@ -33,26 +37,39 @@ public record UserPayload(
     UUID institutionId,
     List<String> roles,
     Set<String> permissions,
-    Map<String, PermissionAccess> permissionScopes) {
+    Map<String, PermissionAccess> permissionScopes,
+    @org.jspecify.annotations.Nullable @io.swagger.v3.oas.annotations.media.Schema(nullable = true)
+        UUID actorPersonId,
+    boolean delegated,
+    boolean canRequestGuardianLinks,
+    Set<String> actorPermissions) {
 
   public UserPayload {
     permissionScopes = permissionScopes == null ? Map.of() : Map.copyOf(permissionScopes);
+    actorPermissions = actorPermissions == null ? Set.of() : Set.copyOf(actorPermissions);
     roles = roles == null ? List.of() : List.copyOf(roles);
     permissions = permissions == null ? Set.of() : Set.copyOf(permissions);
   }
 
   public UserPayload withScopes(Map<PermissionCode, PermissionAccess> scopes) {
-    return new UserPayload(
-        userId,
-        personId,
-        name,
-        lastName,
-        documentNumber,
-        institutionId,
-        roles,
-        permissions,
-        scopes.entrySet().stream()
-            .collect(Collectors.toMap(e -> e.getKey().getCode(), entry -> entry.getValue())));
+    return toBuilder()
+        .permissionScopes(
+            scopes.entrySet().stream()
+                .collect(Collectors.toMap(e -> e.getKey().getCode(), entry -> entry.getValue())))
+        .build();
+  }
+
+  public UserPayload withActor(
+      final UUID actorId,
+      final boolean representing,
+      final boolean canRequest,
+      final Set<String> actorGrants) {
+    return toBuilder()
+        .actorPersonId(actorId)
+        .delegated(representing)
+        .canRequestGuardianLinks(canRequest)
+        .actorPermissions(actorGrants)
+        .build();
   }
 
   public static UserPayload from(User user, UUID personId, Set<PermissionCode> permissions) {

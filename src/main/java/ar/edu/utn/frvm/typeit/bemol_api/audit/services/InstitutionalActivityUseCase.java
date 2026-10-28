@@ -72,7 +72,7 @@ public class InstitutionalActivityUseCase {
     final boolean platformActor = event.actorKind() == AuditActorKind.PLATFORM;
     final Map<String, Object> details = new HashMap<>();
     if (event.entityType() == AuditEntityType.EMAIL) {
-      for (final String key : List.of("recipient", "mailType")) {
+      for (final String key : List.of("recipient", "mailType", "invitationId")) {
         if (event.details().get(key) instanceof String value) {
           details.put(key, value);
         }

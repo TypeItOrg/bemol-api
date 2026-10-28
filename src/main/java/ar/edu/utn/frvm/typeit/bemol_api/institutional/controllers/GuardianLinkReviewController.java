@@ -10,6 +10,7 @@ import ar.edu.utn.frvm.typeit.bemol_api.authorization.services.InstitutionalCall
 import ar.edu.utn.frvm.typeit.bemol_api.common.web.PaginatedResponse;
 import ar.edu.utn.frvm.typeit.bemol_api.common.web.Version;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.entities.GuardianLinkStatus;
+import ar.edu.utn.frvm.typeit.bemol_api.institutional.payloads.guardian.ApproveGuardianLinkRequest;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.payloads.guardian.GuardianLinkAttachmentResponse;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.payloads.guardian.GuardianLinkReviewResponse;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.services.GuardianLinkAttachmentService;
@@ -29,6 +30,7 @@ import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -47,7 +49,7 @@ public class GuardianLinkReviewController {
   private final GuardianLinkAttachmentService guardianLinkAttachmentService;
 
   @GetMapping(version = Version.V1)
-  @RequiresPermission(PermissionCode.GUARDIAN_LINK_REVIEW)
+  @RequiresPermission(value = PermissionCode.GUARDIAN_LINK_REVIEW, actor = true)
   public List<GuardianLinkReviewResponse> list(
       @PathVariable final UUID institutionId,
       @RequestParam(defaultValue = "PENDING") final GuardianLinkStatus status) {
@@ -55,7 +57,7 @@ public class GuardianLinkReviewController {
   }
 
   @GetMapping(value = "/page", version = Version.V1)
-  @RequiresPermission(PermissionCode.GUARDIAN_LINK_REVIEW)
+  @RequiresPermission(value = PermissionCode.GUARDIAN_LINK_REVIEW, actor = true)
   public PaginatedResponse<GuardianLinkReviewResponse> page(
       @PathVariable final UUID institutionId,
       @RequestParam(defaultValue = "0") @Min(0) final int page,
@@ -68,17 +70,21 @@ public class GuardianLinkReviewController {
   }
 
   @PostMapping(value = "/{linkId}/approve", version = Version.V1)
-  @RequiresPermission(PermissionCode.GUARDIAN_LINK_REVIEW)
+  @RequiresPermission(value = PermissionCode.GUARDIAN_LINK_REVIEW, actor = true)
   public GuardianLinkReviewResponse approve(
       @PathVariable final UUID institutionId,
       @PathVariable final UUID linkId,
+      @RequestBody(required = false) final ApproveGuardianLinkRequest request,
       final Authentication authentication) {
     return resolveGuardianLinkUseCase.approve(
-        institutionId, currentPersonId(authentication), linkId);
+        institutionId,
+        currentPersonId(authentication),
+        linkId,
+        request == null ? null : request.confirmedPersonId());
   }
 
   @PostMapping(value = "/{linkId}/reject", version = Version.V1)
-  @RequiresPermission(PermissionCode.GUARDIAN_LINK_REVIEW)
+  @RequiresPermission(value = PermissionCode.GUARDIAN_LINK_REVIEW, actor = true)
   public GuardianLinkReviewResponse reject(
       @PathVariable final UUID institutionId,
       @PathVariable final UUID linkId,
@@ -88,14 +94,14 @@ public class GuardianLinkReviewController {
   }
 
   @GetMapping(value = "/{linkId}/attachments", version = Version.V1)
-  @RequiresPermission(PermissionCode.GUARDIAN_LINK_REVIEW)
+  @RequiresPermission(value = PermissionCode.GUARDIAN_LINK_REVIEW, actor = true)
   public List<GuardianLinkAttachmentResponse> listAttachments(
       @PathVariable final UUID institutionId, @PathVariable final UUID linkId) {
     return guardianLinkAttachmentService.list(institutionId, null, linkId);
   }
 
   @GetMapping(value = "/{linkId}/attachments/{attachmentId}/content", version = Version.V1)
-  @RequiresPermission(PermissionCode.GUARDIAN_LINK_REVIEW)
+  @RequiresPermission(value = PermissionCode.GUARDIAN_LINK_REVIEW, actor = true)
   public ResponseEntity<Resource> downloadAttachment(
       @PathVariable final UUID institutionId,
       @PathVariable final UUID linkId,
@@ -107,6 +113,6 @@ public class GuardianLinkReviewController {
   private UUID currentPersonId(final Authentication authentication) {
     institutionalCallerGuard.ensureInstitutionalPrincipal(authentication);
 
-    return ((JwtAuthenticatedUser) requireNonNull(authentication.getPrincipal())).personId();
+    return ((JwtAuthenticatedUser) requireNonNull(authentication.getPrincipal())).actorPersonId();
   }
 }

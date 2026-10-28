@@ -20,7 +20,11 @@ import org.jspecify.annotations.Nullable;
       "tutor",
       "dependent",
       "createdAt",
-      "resolvedAt"
+      "resolvedAt",
+      "declaredFirstName",
+      "declaredLastName",
+      "declaredBirthDate",
+      "matchingPerson"
     })
 public record GuardianLinkReviewResponse(
     UUID personGuardianId,
@@ -31,16 +35,17 @@ public record GuardianLinkReviewResponse(
     PersonSummary dependent,
     Instant createdAt,
     @Nullable @Schema(nullable = true) Instant resolvedAt,
-    @Nullable String declaredFirstName,
-    @Nullable String declaredLastName,
-    @Nullable LocalDate declaredBirthDate) {
+    @Nullable @Schema(nullable = true) String declaredFirstName,
+    @Nullable @Schema(nullable = true) String declaredLastName,
+    @Nullable @Schema(nullable = true) LocalDate declaredBirthDate,
+    @Nullable @Schema(nullable = true) PersonSummary matchingPerson) {
 
   @Schema(requiredProperties = {"personId", "documentNumber", "firstName", "lastName", "birthDate"})
   public record PersonSummary(
-      UUID personId,
+      @Nullable @Schema(nullable = true) UUID personId,
       String documentNumber,
-      String firstName,
-      String lastName,
+      @Nullable @Schema(nullable = true) String firstName,
+      @Nullable @Schema(nullable = true) String lastName,
       @Nullable @Schema(nullable = true) LocalDate birthDate) {
 
     static PersonSummary from(final Person person) {
@@ -62,17 +67,30 @@ public record GuardianLinkReviewResponse(
   }
 
   public static GuardianLinkReviewResponse from(final PersonGuardian link) {
+    return from(link, null);
+  }
+
+  public static GuardianLinkReviewResponse from(
+      final PersonGuardian link, final @Nullable Person matchingPerson) {
     return new GuardianLinkReviewResponse(
         link.getId(),
         link.getStatus(),
         link.getRelationship(),
         InstitutionSummary.from(link.getInstitution()),
         PersonSummary.from(link.getTutorPerson()),
-        PersonSummary.from(link.getDependentPerson()),
+        link.getDependentPersonId() != null
+            ? PersonSummary.from(link.getDependentPerson())
+            : new PersonSummary(
+                null,
+                link.getDocumentNumber(),
+                link.getDeclaredFirstName(),
+                link.getDeclaredLastName(),
+                link.getDeclaredBirthDate()),
         link.getCreatedAt(),
         link.getResolvedAt(),
         link.getDeclaredFirstName(),
         link.getDeclaredLastName(),
-        link.getDeclaredBirthDate());
+        link.getDeclaredBirthDate(),
+        matchingPerson == null ? null : PersonSummary.from(matchingPerson));
   }
 }

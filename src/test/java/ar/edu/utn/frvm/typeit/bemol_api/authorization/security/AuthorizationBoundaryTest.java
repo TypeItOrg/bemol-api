@@ -174,6 +174,36 @@ class AuthorizationBoundaryTest {
     assertThat(target.calls).isEqualTo(2);
   }
 
+  @Test
+  void actorPermissionsDoNotFollowTheSelectedIdentity() {
+    final UUID selected = UUID.randomUUID();
+    final var principal =
+        new ar.edu.utn.frvm.typeit.bemol_api.auth.filters.JwtAuthenticatedUser(
+            UUID.randomUUID(),
+            selected,
+            "12345678",
+            INSTITUTION_ID,
+            UUID.randomUUID(),
+            "dummy",
+            ACCOUNT_ID,
+            ACCOUNT_ID);
+    SecurityContextHolder.getContext()
+        .setAuthentication(new TestingAuthenticationToken(principal, ""));
+    when(resolver.resolveForPerson(selected, INSTITUTION_ID))
+        .thenReturn(Set.of(PermissionCode.INSTITUTION_PERSON_READ_ANY));
+    when(resolver.resolveForPerson(ACCOUNT_ID, INSTITUTION_ID)).thenReturn(Set.of());
+
+    assertThat(operations.read()).isEqualTo("person data");
+    assertDenied(operations::actorRead);
+
+    when(resolver.resolveForPerson(ACCOUNT_ID, INSTITUTION_ID))
+        .thenReturn(Set.of(PermissionCode.INSTITUTION_PERSON_READ_ANY));
+    when(resolver.resolveForPerson(selected, INSTITUTION_ID)).thenReturn(Set.of());
+
+    assertThat(operations.actorRead()).isEqualTo("actor data");
+    assertDenied(operations::read);
+  }
+
   private void authenticateInstitutional(Set<PermissionCode> permissions) {
     var principal = institutionalPrincipal(ACCOUNT_ID, INSTITUTION_ID);
     SecurityContextHolder.getContext()
@@ -187,6 +217,12 @@ class AuthorizationBoundaryTest {
 
   static class SecuredOperations {
     private int calls;
+
+    @RequiresPermission(value = PermissionCode.INSTITUTION_PERSON_READ_ANY, actor = true)
+    public String actorRead() {
+      calls++;
+      return "actor data";
+    }
 
     @RequiresPermission(PermissionCode.INSTITUTION_PERSON_READ_ANY)
     public String read() {

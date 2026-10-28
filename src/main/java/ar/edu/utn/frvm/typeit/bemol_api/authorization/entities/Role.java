@@ -84,6 +84,18 @@ public class Role extends Auditable {
     return system && SystemRoleCode.INSTITUTIONAL_AUTHORITY.name().equals(code);
   }
 
+  public boolean isRepresentative() {
+    return system && SystemRoleCode.REPRESENTATIVE.name().equals(code);
+  }
+
+  public boolean replacesOnAssignment(final Role currentRole) {
+    if (isRepresentative() || currentRole.isRepresentative()) {
+      return false;
+    }
+
+    return isApplicant() ? !currentRole.isApplicant() : currentRole.isApplicant();
+  }
+
   public boolean isApplicant() {
     return system && SystemRoleCode.APPLICANT.name().equals(code);
   }

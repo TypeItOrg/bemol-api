@@ -95,7 +95,7 @@ public class AssignPersonSystemRoleUseCase {
         currentAssignments.stream()
             .anyMatch(assignment -> assignment.getRole().getId().equals(role.getId()));
 
-    applyApplicantRolePolicy(currentAssignments, technicalCode);
+    applyApplicantRolePolicy(currentAssignments, role);
     if (alreadyAssigned) {
       return;
     }
@@ -109,14 +109,9 @@ public class AssignPersonSystemRoleUseCase {
   }
 
   private void applyApplicantRolePolicy(
-      final List<PersonRoleAssignment> currentAssignments,
-      final @Nullable SystemRoleCode roleCode) {
+      final List<PersonRoleAssignment> currentAssignments, final Role role) {
     for (final PersonRoleAssignment assignment : currentAssignments) {
-      final boolean assignmentIsApplicant =
-          assignment.getRole().getCode().equals(SystemRoleCode.APPLICANT.name());
-      final boolean shouldRemove =
-          roleCode == SystemRoleCode.APPLICANT ? !assignmentIsApplicant : assignmentIsApplicant;
-      if (shouldRemove) {
+      if (role.replacesOnAssignment(assignment.getRole())) {
         personRoleAssignmentRepository.delete(assignment);
       }
     }

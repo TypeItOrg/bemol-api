@@ -74,16 +74,45 @@ class InstitutionalEmailVerificationMailServiceTest {
     final MailMessage message = mailCaptor.getValue();
     assertThat(message.from()).isEqualTo("no-reply@example.com");
     assertThat(message.to()).isEqualTo("ana@example.com");
-    assertThat(message.subject()).isEqualTo("Confirmá tu email");
+    assertThat(message.subject()).isEqualTo("Confirmá tu correo electrónico");
     assertThat(message.htmlBody())
         .contains("http://localhost:3000/auth/email-verification/confirm?token=token-123")
         .contains("Bemol")
         .contains("http://localhost:3000/brand/logo-email.png")
+        .contains("Manrope")
+        .contains("#f5f3f0")
+        .contains("#6f0926")
         .contains("Conservatorio Superior de Música Felipe Boero")
         .contains("Hola,")
         .contains("Ana García")
         .contains("24 horas")
         .doesNotContain("${resetUrl}", "th:href", "th:src", "th:text");
+  }
+
+  @Test
+  void listenerRendersInstitutionLogoWhenInstitutionHasLogoVersion() {
+    final UUID institutionId = UUID.randomUUID();
+    final InstitutionalEmailVerificationRequested event =
+        new InstitutionalEmailVerificationRequested(
+            UUID.randomUUID(),
+            "ana@example.com",
+            "Conservatorio Superior de Música Felipe Boero",
+            "Ana García",
+            "token-123",
+            "cboero",
+            "logo-v1",
+            MailAuditContext.capture(institutionId, UUID.randomUUID()));
+
+    new InstitutionalEmailVerificationMailListener(mailService).on(event);
+
+    final ArgumentCaptor<MailMessage> mailCaptor = ArgumentCaptor.forClass(MailMessage.class);
+    verify(mailSender).send(mailCaptor.capture());
+
+    assertThat(mailCaptor.getValue().htmlBody())
+        .contains(
+            "http://localhost:3000/api/public/institutions/" + institutionId + "/logo?v=logo-v1")
+        .contains("Logo de Conservatorio Superior de Música Felipe Boero")
+        .doesNotContain("http://localhost:3000/brand/logo-email.png");
   }
 
   @Test

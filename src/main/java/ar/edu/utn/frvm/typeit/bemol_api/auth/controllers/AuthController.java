@@ -7,13 +7,11 @@ import ar.edu.utn.frvm.typeit.bemol_api.auth.payloads.requests.IdentifyLoginRequ
 import ar.edu.utn.frvm.typeit.bemol_api.auth.payloads.requests.PasswordLoginRequest;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.payloads.requests.PasswordRecoveryRequest;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.payloads.requests.RefreshTokenRequest;
-import ar.edu.utn.frvm.typeit.bemol_api.auth.payloads.requests.RegisterRequest;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.payloads.requests.ResetPasswordRequest;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.payloads.requests.SelectActiveIdentityRequest;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.payloads.responses.ActiveSessionResponse;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.payloads.responses.AuthResponse;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.payloads.responses.IdentifyLoginResponse;
-import ar.edu.utn.frvm.typeit.bemol_api.auth.payloads.responses.UserRegisteredResponse;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.payloads.responses.UserResponse;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.services.ActiveIdentityService;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.services.GetActiveSessionsUseCase;
@@ -22,7 +20,6 @@ import ar.edu.utn.frvm.typeit.bemol_api.auth.services.IdentifyLoginUseCase;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.services.LogoutUseCase;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.services.PasswordLoginWithAttemptUseCase;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.services.RefreshTokenUseCase;
-import ar.edu.utn.frvm.typeit.bemol_api.auth.services.RegisterUserUseCase;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.services.RequestInstitutionalPasswordRecoveryUseCase;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.services.ResetInstitutionalPasswordUseCase;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.services.InstitutionalCallerGuard;
@@ -58,17 +55,10 @@ public class AuthController {
   private final LogoutUseCase logoutUseCase;
   private final PasswordLoginWithAttemptUseCase passwordLoginWithAttemptUseCase;
   private final RefreshTokenUseCase refreshTokenUseCase;
-  private final RegisterUserUseCase registerUserUseCase;
   private final RequestInstitutionalPasswordRecoveryUseCase
       requestInstitutionalPasswordRecoveryUseCase;
   private final ResetInstitutionalPasswordUseCase resetInstitutionalPasswordUseCase;
   private final InstitutionalCallerGuard institutionalCallerGuard;
-
-  @PostMapping(version = Version.V1, path = "/register")
-  @ResponseStatus(HttpStatus.CREATED)
-  public UserRegisteredResponse register(@Valid @RequestBody RegisterRequest request) {
-    return registerUserUseCase.execute(request);
-  }
 
   @PostMapping(version = Version.V1, path = "/login/identify")
   public IdentifyLoginResponse identify(@Valid @RequestBody IdentifyLoginRequest request) {

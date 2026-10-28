@@ -28,6 +28,8 @@ class UpdateInstitutionalUserStatusUseCaseTest {
 
   @Mock private AuditEventRecorder auditEventRecorder;
 
+  @Mock private ar.edu.utn.frvm.typeit.bemol_api.auth.services.AccountAccessAuthorization access;
+
   @InjectMocks private UpdateInstitutionalUserStatusUseCase useCase;
 
   @Test

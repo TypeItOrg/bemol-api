@@ -79,8 +79,21 @@ class GuardianLinkAttachmentServiceTest {
   }
 
   @Test
-  @DisplayName("Should store the file and attach it to the tutor's pending link")
+  @DisplayName("Should attach documentation to an unmaterialized pending request")
   void upload_attachesFileToPendingLink() {
+    link =
+        PersonGuardian.requestUnmaterialized(
+            institution,
+            tutor,
+            "54123456",
+            ar.edu.utn.frvm.typeit.bemol_api.institutional.payloads.guardian
+                .GuardianDependentRequestMode.NEW,
+            GuardianRelationship.MOTHER,
+            true,
+            "Persona",
+            "Pendiente",
+            java.time.LocalDate.of(2018, 1, 1));
+    assertThat(link.getDependentPersonId()).isNull();
     when(personGuardianRepository.findForUpdate(linkId, institution.getId()))
         .thenReturn(Optional.of(link));
     when(attachmentRepository.countByPersonGuardian(link)).thenReturn(0L);

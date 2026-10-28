@@ -6,7 +6,6 @@ import static ar.edu.utn.frvm.typeit.bemol_api.support.InstitutionalTestData.per
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import ar.edu.utn.frvm.typeit.bemol_api.audit.services.AuditEventRecorder;
@@ -16,10 +15,8 @@ import ar.edu.utn.frvm.typeit.bemol_api.auth.entities.InstitutionalPasswordReset
 import ar.edu.utn.frvm.typeit.bemol_api.auth.entities.User;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.enums.EmailVerificationStatus;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.exceptions.InvalidEmailVerificationTokenException;
-import ar.edu.utn.frvm.typeit.bemol_api.auth.exceptions.InvalidPasswordRecoveryTokenException;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.interfaces.InstitutionalEmailVerificationTokenRepository;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.interfaces.InstitutionalPasswordResetTokenRepository;
-import ar.edu.utn.frvm.typeit.bemol_api.auth.payloads.requests.ChangePendingEmailRequest;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.payloads.requests.ConfirmEmailVerificationRequest;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.payloads.requests.ResendEmailVerificationRequest;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.payloads.requests.ResetPasswordRequest;
@@ -68,7 +65,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 @IntegrationTest
 class EmailVerificationPostgresIntegrationTest {
   static final PostgresTestDatabase POSTGRES =
-      new PostgresTestDatabase("postgres:17-alpine", "email_verification");
+      new PostgresTestDatabase("postgres:18-alpine", "email_verification");
 
   @Autowired EntityManager em;
   @Autowired PlatformTransactionManager transactions;
@@ -103,7 +100,6 @@ class EmailVerificationPostgresIntegrationTest {
     when(clock.getZone()).thenReturn(ZoneOffset.UTC);
     when(properties.tokenExpiration()).thenReturn(Duration.ofHours(24));
     when(properties.resendInterval()).thenReturn(Duration.ofMinutes(1));
-    when(encoder.matches("correct-password", "encoded-password")).thenReturn(true);
   }
 
   <T> T tx(Supplier<T> action) {
@@ -251,35 +247,6 @@ class EmailVerificationPostgresIntegrationTest {
   }
 
   @Test
-  void correctionInvalidatesBothKindsOfOldLinkAndPreservesPendingState() {
-    final Fixture f = fixture();
-    tx(
-        () -> {
-          em.persist(
-              InstitutionalPasswordResetToken.builder()
-                  .user(em.find(User.class, f.userId()))
-                  .tokenHash(RequestInstitutionalPasswordRecoveryUseCase.hash(f.raw() + "-reset"))
-                  .expiresAt(now.plusSeconds(600))
-                  .build());
-          return null;
-        });
-    verification.changeEmail(
-        new ChangePendingEmailRequest(
-            f.institutionId(), f.document(), "correct-password", "correct@example.com"));
-    assertThatThrownBy(() -> verification.confirm(new ConfirmEmailVerificationRequest(f.raw())))
-        .isInstanceOf(InvalidEmailVerificationTokenException.class);
-    assertThatThrownBy(
-            () ->
-                resetPassword.execute(
-                    new ResetPasswordRequest(f.raw() + "-reset", "password123", "password123")))
-        .isInstanceOf(InvalidPasswordRecoveryTokenException.class);
-    assertThat(tx(() -> em.find(User.class, f.userId()).getPerson().getEmail()))
-        .isEqualTo("correct@example.com");
-    assertThat(tx(() -> em.find(User.class, f.userId()).requiresEmailVerification())).isTrue();
-    verifyNoInteractions(sessions);
-  }
-
-  @Test
   void disabledAndDeletedAccountsPreserveUnusedTokenOnRejectedConfirmation() {
     final Fixture disabled = fixture();
     tx(
@@ -323,58 +290,6 @@ class EmailVerificationPostgresIntegrationTest {
     assertThat(tx(() -> em.find(User.class, f.userId()).getPassword())).isEqualTo("new-hash");
     assertThat(tx(() -> em.find(User.class, f.userId()).isEnabled())).isFalse();
     verify(sessions).revokeInstitutionalSessionsForUser(f.userId());
-  }
-
-  @Test
-  void correctionAndPasswordResetSerializeWithoutUsingOldRecipient() throws Exception {
-    final Fixture f = fixture();
-    final String rawReset = f.raw() + "-reset";
-    tx(
-        () -> {
-          em.persist(
-              InstitutionalPasswordResetToken.builder()
-                  .user(em.find(User.class, f.userId()))
-                  .tokenHash(RequestInstitutionalPasswordRecoveryUseCase.hash(rawReset))
-                  .expiresAt(now.plusSeconds(600))
-                  .build());
-          return null;
-        });
-    final var locked = new CountDownLatch(1);
-    final var release = new CountDownLatch(1);
-    try (final var executor = Executors.newFixedThreadPool(2)) {
-      final var correction =
-          executor.submit(
-              () ->
-                  tx(
-                      () -> {
-                        em.find(
-                            User.class,
-                            f.userId(),
-                            jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
-                        locked.countDown();
-                        await(release);
-                        verification.changeEmail(
-                            new ChangePendingEmailRequest(
-                                f.institutionId(),
-                                f.document(),
-                                "correct-password",
-                                "correct@example.com"));
-                        return null;
-                      }));
-      assertThat(locked.await(10, TimeUnit.SECONDS)).isTrue();
-      final var reset =
-          executor.submit(
-              () ->
-                  resetPassword.execute(
-                      new ResetPasswordRequest(rawReset, "password123", "password123")));
-      release.countDown();
-      correction.get(15, TimeUnit.SECONDS);
-      assertThatThrownBy(() -> reset.get(15, TimeUnit.SECONDS))
-          .hasCauseInstanceOf(InvalidPasswordRecoveryTokenException.class);
-    }
-    assertThat(tx(() -> em.find(User.class, f.userId()).getPassword()))
-        .isEqualTo("encoded-password");
-    verifyNoInteractions(sessions);
   }
 
   static void await(CountDownLatch latch) {

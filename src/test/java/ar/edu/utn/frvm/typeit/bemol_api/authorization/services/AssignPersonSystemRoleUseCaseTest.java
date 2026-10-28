@@ -20,6 +20,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -142,6 +144,73 @@ class AssignPersonSystemRoleUseCaseTest {
 
     verify(personRoleAssignmentRepository).delete(applicantAssignment);
     verify(personRoleAssignmentRepository).save(org.mockito.ArgumentMatchers.any());
+  }
+
+  @ParameterizedTest
+  @EnumSource(
+      value = SystemRoleCode.class,
+      names = {"APPLICANT", "REPRESENTATIVE"})
+  void execute_keepsApplicantAndRepresentativeInEitherOrder(final SystemRoleCode assigned) {
+    final var role = roleWith(assigned);
+    final var retained =
+        assignmentWith(
+            roleWith(
+                assigned == SystemRoleCode.APPLICANT
+                    ? SystemRoleCode.REPRESENTATIVE
+                    : SystemRoleCode.APPLICANT));
+    when(roleRepository.findByScopeAndCodeAndInstitution_Id(
+            RoleScope.INSTITUTION, assigned.name(), institutionId))
+        .thenReturn(Optional.of(role));
+    when(personRoleAssignmentRepository.findByPerson_IdAndInstitution_Id(
+            person.getId(), institutionId))
+        .thenReturn(List.of(retained));
+
+    assignPersonSystemRoleUseCase.execute(person, assigned, true);
+
+    verify(personRoleAssignmentRepository, org.mockito.Mockito.never())
+        .delete(org.mockito.ArgumentMatchers.any());
+    verify(personRoleAssignmentRepository).save(org.mockito.ArgumentMatchers.any());
+    verify(sessionRevocationService)
+        .revokeInstitutionalSessionsForPerson(person.getId(), institutionId);
+    verify(authorizationCacheInvalidator).evictPerson(person.getId(), institutionId);
+  }
+
+  @Test
+  void execute_promotesApplicantToStudentWithoutRemovingRepresentative() {
+    final var student = roleWith(SystemRoleCode.STUDENT);
+    final var applicant = assignmentWith(roleWith(SystemRoleCode.APPLICANT));
+    final var representative = assignmentWith(roleWith(SystemRoleCode.REPRESENTATIVE));
+    when(roleRepository.findByScopeAndCodeAndInstitution_Id(
+            RoleScope.INSTITUTION, SystemRoleCode.STUDENT.name(), institutionId))
+        .thenReturn(Optional.of(student));
+    when(personRoleAssignmentRepository.findByPerson_IdAndInstitution_Id(
+            person.getId(), institutionId))
+        .thenReturn(List.of(applicant, representative));
+
+    assignPersonSystemRoleUseCase.execute(person, SystemRoleCode.STUDENT, true);
+
+    verify(personRoleAssignmentRepository).delete(applicant);
+    verify(personRoleAssignmentRepository, org.mockito.Mockito.never()).delete(representative);
+    verify(personRoleAssignmentRepository).save(org.mockito.ArgumentMatchers.any());
+  }
+
+  @Test
+  void executePreservingRoles_doesNotAddApplicantToRepresentative() {
+    final var applicant = roleWith(SystemRoleCode.APPLICANT);
+    final var representative = assignmentWith(roleWith(SystemRoleCode.REPRESENTATIVE));
+    when(roleRepository.findByScopeAndCodeAndInstitution_Id(
+            RoleScope.INSTITUTION, SystemRoleCode.APPLICANT.name(), institutionId))
+        .thenReturn(Optional.of(applicant));
+    when(personRoleAssignmentRepository.findByPerson_IdAndInstitution_Id(
+            person.getId(), institutionId))
+        .thenReturn(List.of(representative));
+
+    assignPersonSystemRoleUseCase.executePreservingRoles(person, SystemRoleCode.APPLICANT);
+
+    verify(personRoleAssignmentRepository, org.mockito.Mockito.never())
+        .delete(org.mockito.ArgumentMatchers.any());
+    verify(personRoleAssignmentRepository, org.mockito.Mockito.never())
+        .save(org.mockito.ArgumentMatchers.any());
   }
 
   private Role roleWith(SystemRoleCode roleCode) {

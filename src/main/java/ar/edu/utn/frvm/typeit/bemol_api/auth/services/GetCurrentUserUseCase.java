@@ -43,7 +43,7 @@ public class GetCurrentUserUseCase {
     var payload =
         UserPayload.from(
             user, principal.personId(), authorities.permissions(), authorities.roles());
-    return new UserResponse(payload.withScopes(authorities.permissionScopes()));
+    return withActor(principal, payload.withScopes(authorities.permissionScopes()));
   }
 
   private UserResponse withoutAccount(final JwtAuthenticatedUser principal) {
@@ -66,6 +66,30 @@ public class GetCurrentUserUseCase {
                     .map(value -> value.getCode())
                     .collect(Collectors.toUnmodifiableSet()))
             .build();
-    return new UserResponse(payload.withScopes(access.permissionScopes()));
+    return withActor(principal, payload.withScopes(access.permissionScopes()));
+  }
+
+  private UserResponse withActor(final JwtAuthenticatedUser principal, final UserPayload payload) {
+    final var permissions =
+        principal.delegated()
+            ? authorityResolver
+                .resolvePersonAuthorities(principal.actorPersonId(), principal.institutionId())
+                .permissionScopes()
+                .entrySet()
+                .stream()
+                .collect(
+                    Collectors.toMap(entry -> entry.getKey().getCode(), entry -> entry.getValue()))
+            : payload.permissionScopes();
+    final boolean canRequest =
+        permissions
+            .getOrDefault(
+                ar.edu.utn.frvm.typeit.bemol_api.authorization.enums.PermissionCode
+                    .GUARDIAN_LINK_REQUEST
+                    .getCode(),
+                ar.edu.utn.frvm.typeit.bemol_api.authorization.services.PermissionAccess.none())
+            .institutional();
+    return new UserResponse(
+        payload.withActor(
+            principal.actorPersonId(), principal.delegated(), canRequest, permissions.keySet()));
   }
 }

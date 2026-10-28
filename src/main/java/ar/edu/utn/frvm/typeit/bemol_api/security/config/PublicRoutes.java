@@ -5,11 +5,10 @@ import java.util.stream.Stream;
 public final class PublicRoutes {
 
   private static final String[] AUTH_ROUTES = {
-    "/api/v1/auth/register",
     "/api/v1/auth/own-access/activate",
+    "/api/v1/auth/email-changes/confirm",
     "/api/v1/auth/email-verification/confirm",
     "/api/v1/auth/email-verification/resend",
-    "/api/v1/auth/email-verification/change-email",
     "/api/v1/auth/login/identify",
     "/api/v1/auth/login/password",
     "/api/v1/auth/login/auto",

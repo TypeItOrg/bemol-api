@@ -10,6 +10,7 @@ public enum SystemRoleCode {
   ADMINISTRATIVE("Administrativo"),
   TEACHER("Profesor"),
   APPLICANT("Postulante"),
+  REPRESENTATIVE("Representante"),
   STUDENT("Estudiante");
 
   private final String displayName;

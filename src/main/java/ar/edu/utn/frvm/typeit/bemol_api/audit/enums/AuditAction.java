@@ -6,6 +6,8 @@ import lombok.RequiredArgsConstructor;
 @Getter
 @RequiredArgsConstructor
 public enum AuditAction {
+  ACCOUNT_EMAIL_CHANGE_REQUESTED(AuditModule.USERS, "Cambio de correo solicitado"),
+  PERSON_AUTONOMY_GRANTED(AuditModule.USERS, "Autonomía personal otorgada"),
   PERSON_CREATED(AuditModule.USERS, "Persona creada"),
   INSTITUTIONAL_ACCOUNT_CREATED(AuditModule.USERS, "Cuenta institucional creada"),
   PLATFORM_ACCOUNT_CREATED(AuditModule.USERS, "Administrador de plataforma creado"),

@@ -115,7 +115,7 @@ class GuardianLinkReviewControllerWebMvcTest {
   @DisplayName("Should approve a request as the authenticated reviewer")
   void approve_resolvesAsReviewer() throws Exception {
     allowReviewing();
-    when(resolveGuardianLinkUseCase.approve(INSTITUTION_ID, REVIEWER_ID, LINK_ID))
+    when(resolveGuardianLinkUseCase.approve(INSTITUTION_ID, REVIEWER_ID, LINK_ID, null))
         .thenReturn(response(GuardianLinkStatus.ACTIVE));
 
     mockMvc
@@ -145,7 +145,7 @@ class GuardianLinkReviewControllerWebMvcTest {
   @DisplayName("Should answer with a conflict when the request was already resolved")
   void approve_conflictWhenAlreadyResolved() throws Exception {
     allowReviewing();
-    when(resolveGuardianLinkUseCase.approve(INSTITUTION_ID, REVIEWER_ID, LINK_ID))
+    when(resolveGuardianLinkUseCase.approve(INSTITUTION_ID, REVIEWER_ID, LINK_ID, null))
         .thenThrow(new GuardianLinkAlreadyResolvedException());
 
     mockMvc
@@ -199,7 +199,7 @@ class GuardianLinkReviewControllerWebMvcTest {
   @Test
   @DisplayName("Should forbid callers without the review permission")
   void resolve_forbiddenWithoutPermission() throws Exception {
-    when(authorizationService.hasPermission(any(), eq(PermissionCode.GUARDIAN_LINK_REVIEW)))
+    when(authorizationService.hasActorPermission(any(), eq(PermissionCode.GUARDIAN_LINK_REVIEW)))
         .thenReturn(false);
     final var auth = authentication();
 
@@ -220,7 +220,7 @@ class GuardianLinkReviewControllerWebMvcTest {
   }
 
   private void allowReviewing() {
-    when(authorizationService.hasPermission(any(), eq(PermissionCode.GUARDIAN_LINK_REVIEW)))
+    when(authorizationService.hasActorPermission(any(), eq(PermissionCode.GUARDIAN_LINK_REVIEW)))
         .thenReturn(true);
   }
 
@@ -234,6 +234,7 @@ class GuardianLinkReviewControllerWebMvcTest {
         new PersonSummary(
             UUID.randomUUID(), "54123456", "Mateo", "Gonzalez", LocalDate.of(2018, 9, 10)),
         Instant.parse("2026-09-24T12:00:00Z"),
+        null,
         null,
         null,
         null,

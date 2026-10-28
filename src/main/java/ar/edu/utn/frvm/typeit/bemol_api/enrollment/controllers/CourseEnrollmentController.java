@@ -16,6 +16,7 @@ import ar.edu.utn.frvm.typeit.bemol_api.enrollment.payloads.UpdateAcademicEnroll
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.payloads.WithdrawCourseEnrollmentRequest;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.services.CourseEnrollmentService;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.services.ListOwnWeeklySchedulesUseCase;
+import ar.edu.utn.frvm.typeit.bemol_api.institutional.services.OperatingContextResolver;
 import ar.edu.utn.frvm.typeit.bemol_api.security.handlers.SecurityErrorMessages;
 import jakarta.validation.Valid;
 import java.time.LocalDate;
@@ -45,6 +46,7 @@ public class CourseEnrollmentController {
 
   private final CourseEnrollmentService courseEnrollmentService;
   private final ListOwnWeeklySchedulesUseCase listOwnWeeklySchedulesUseCase;
+  private final OperatingContextResolver operatingContext;
 
   @GetMapping(version = Version.V1)
   @RequiresPermission(PermissionCode.COURSE_ENROLLMENT_READ)
@@ -67,6 +69,9 @@ public class CourseEnrollmentController {
     if (!(authentication.getPrincipal() instanceof JwtAuthenticatedUser principal)) {
       throw new AccessDeniedException(SecurityErrorMessages.DEFAULT_FORBIDDEN_MESSAGE);
     }
+
+    operatingContext.requireStudent(institutionId, principal.personId(), principal);
+
     return courseEnrollmentService.listOwn(
         institutionId, principal.personId(), status, academicStatus, pageable);
   }
@@ -80,6 +85,8 @@ public class CourseEnrollmentController {
     if (!(authentication.getPrincipal() instanceof JwtAuthenticatedUser principal)) {
       throw new AccessDeniedException(SecurityErrorMessages.DEFAULT_FORBIDDEN_MESSAGE);
     }
+
+    operatingContext.requireStudent(institutionId, principal.personId(), principal);
 
     return listOwnWeeklySchedulesUseCase.execute(institutionId, principal.personId(), week);
   }

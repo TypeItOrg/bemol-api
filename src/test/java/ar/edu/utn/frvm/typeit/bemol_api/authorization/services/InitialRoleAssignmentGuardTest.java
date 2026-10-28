@@ -13,6 +13,8 @@ import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -33,12 +35,15 @@ class InitialRoleAssignmentGuardTest {
     verifyNoInteractions(authorizationService);
   }
 
-  @Test
+  @ParameterizedTest
+  @EnumSource(
+      value = SystemRoleCode.class,
+      names = {"INSTITUTIONAL_AUTHORITY", "REPRESENTATIVE"})
   @DisplayName("Should reject a privileged initial role without role assignment permission")
-  void check_rejectsPrivilegedRoleWithoutPermission() {
+  void check_rejectsPrivilegedRoleWithoutPermission(final SystemRoleCode role) {
     final var authentication = new TestingAuthenticationToken("user", "");
 
-    assertThatThrownBy(() -> guard.check(authentication, SystemRoleCode.INSTITUTIONAL_AUTHORITY))
+    assertThatThrownBy(() -> guard.check(authentication, role))
         .isInstanceOf(AccessDeniedException.class);
   }
 
@@ -64,7 +69,8 @@ class InitialRoleAssignmentGuardTest {
   @DisplayName("Should allow a privileged initial role with assignment permission")
   void check_allowsPrivilegedRoleWithPermission() {
     final var authentication = new TestingAuthenticationToken("authority", "");
-    when(authorizationService.hasPermission(authentication, PermissionCode.INSTITUTION_ROLE_ASSIGN))
+    when(authorizationService.hasActorPermission(
+            authentication, PermissionCode.INSTITUTION_ROLE_ASSIGN))
         .thenReturn(true);
 
     assertThatCode(() -> guard.check(authentication, SystemRoleCode.TEACHER))

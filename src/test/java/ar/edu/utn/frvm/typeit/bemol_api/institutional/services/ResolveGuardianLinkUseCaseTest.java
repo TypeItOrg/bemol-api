@@ -65,7 +65,10 @@ class ResolveGuardianLinkUseCaseTest {
                 ar.edu.utn.frvm.typeit.bemol_api.auth.services.PersonOwnAccessService.class),
             personRepository,
             assignPersonSystemRoleUseCase,
-            auditEventRecorder);
+            auditEventRecorder,
+            org.mockito.Mockito.mock(
+                ar.edu.utn.frvm.typeit.bemol_api.auth.services.AccountAccessAuthorization.class),
+            org.mockito.Mockito.mock(jakarta.validation.Validator.class));
     institution = Institution.builder().id(UUID.randomUUID()).build();
     when(institutions.findByIdForUpdate(institution.getId())).thenReturn(Optional.of(institution));
     reviewer = Person.builder().id(UUID.randomUUID()).institution(institution).build();
@@ -76,6 +79,10 @@ class ResolveGuardianLinkUseCaseTest {
             .institution(institution)
             .documentNumber("54123456")
             .build();
+    org.mockito.Mockito.lenient()
+        .when(
+            personRepository.findByDocumentNumberAndInstitution_Id("54123456", institution.getId()))
+        .thenReturn(Optional.of(dependent));
     link = PersonGuardian.request(institution, tutor, dependent, GuardianRelationship.MOTHER, true);
   }
 

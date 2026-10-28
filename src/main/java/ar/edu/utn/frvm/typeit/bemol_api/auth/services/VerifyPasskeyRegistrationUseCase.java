@@ -54,6 +54,10 @@ public class VerifyPasskeyRegistrationUseCase {
       final JwtAuthenticatedUser principal,
       final String ceremonyId,
       final JsonNode credentialNode) {
+    if (principal.delegated() || principal.accountUserId().isEmpty()) {
+      throw new ar.edu.utn.frvm.typeit.bemol_api.auth.exceptions.InvalidCredentialsException();
+    }
+
     final RegistrationCeremony ceremony =
         ceremonyService.consumeRegistration(ceremonyId).orElse(null);
     if (ceremony == null) {

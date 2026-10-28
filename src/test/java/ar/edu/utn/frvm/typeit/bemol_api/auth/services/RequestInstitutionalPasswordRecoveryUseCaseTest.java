@@ -57,7 +57,8 @@ class RequestInstitutionalPasswordRecoveryUseCaseTest {
             userRepository,
             passwordResetTokenRepository,
             eventPublisher,
-            new PasswordRecoveryProperties("http://localhost:3000", TOKEN_EXPIRATION));
+            new PasswordRecoveryProperties("http://localhost:3000", TOKEN_EXPIRATION),
+            org.mockito.Mockito.mock(AccountActionRateLimiter.class));
   }
 
   @Test

@@ -50,4 +50,24 @@ public class UnlinkGuardianDependentUseCase {
         AuditEntityType.PERSON_GUARDIAN,
         link.getId());
   }
+
+  @Transactional
+  public void cancelRequest(final UUID institutionId, final UUID tutorPersonId, final UUID linkId) {
+    institutions.findByIdForUpdate(institutionId).orElseThrow(InstitutionNotFoundException::new);
+    final var link =
+        personGuardianRepository
+            .findForUpdate(linkId, institutionId)
+            .filter(value -> value.getTutorPerson().getId().equals(tutorPersonId))
+            .filter(value -> value.getStatus() == GuardianLinkStatus.PENDING)
+            .orElseThrow(DependentNotFoundException::new);
+    link.end();
+    auditEventRecorder.recordCurrentActor(
+        link.getInstitution(),
+        link.getDependentPersonId(),
+        AuditAction.GUARDIAN_DEPENDENT_UNLINKED,
+        AuditEntityType.PERSON_GUARDIAN,
+        link.getId(),
+        ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditOrigin.SELF_SERVICE,
+        java.util.Map.of());
+  }
 }

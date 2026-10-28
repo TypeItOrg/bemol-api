@@ -35,6 +35,10 @@ public class RequestPasskeyRegistrationOptionsUseCase {
   @Transactional
   public PasskeyRegistrationOptionsResponse execute(
       final JwtAuthenticatedUser principal, final String label) {
+    if (principal.delegated() || principal.accountUserId().isEmpty()) {
+      throw new ar.edu.utn.frvm.typeit.bemol_api.auth.exceptions.InvalidCredentialsException();
+    }
+
     recentAuthService.requireRecent(principal.sessionId(), principal.userId());
     final String trimmed = label == null ? "" : label.trim();
     final boolean validLabel = !trimmed.isEmpty() && trimmed.length() <= 100;

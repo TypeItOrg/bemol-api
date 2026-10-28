@@ -28,6 +28,10 @@ public class RevokePasskeyUseCase {
 
   @Transactional
   public void execute(final JwtAuthenticatedUser principal, final UUID passkeyId) {
+    if (principal.delegated() || principal.accountUserId().isEmpty()) {
+      throw new ar.edu.utn.frvm.typeit.bemol_api.auth.exceptions.InvalidCredentialsException();
+    }
+
     recentAuthService.requireRecent(principal.sessionId(), principal.userId());
     final var credential =
         passkeyCredentialRepository

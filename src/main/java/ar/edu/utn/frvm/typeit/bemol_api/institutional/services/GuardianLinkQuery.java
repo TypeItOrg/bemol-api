@@ -4,6 +4,7 @@ import ar.edu.utn.frvm.typeit.bemol_api.common.search.SearchNormalization;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.entities.GuardianLinkStatus;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.entities.PersonGuardian;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.entities.PersonGuardianAttachment;
+import jakarta.persistence.criteria.JoinType;
 import jakarta.persistence.criteria.Predicate;
 import java.util.ArrayList;
 import java.util.List;
@@ -53,7 +54,7 @@ final class GuardianLinkQuery {
         final List<Predicate> people = new ArrayList<>();
 
         for (final String association : List.of("tutorPerson", "dependentPerson")) {
-          final var person = root.join(association);
+          final var person = root.join(association, JoinType.LEFT);
           people.add(
               cb.like(
                   SearchNormalization.unaccentLower(
@@ -65,6 +66,16 @@ final class GuardianLinkQuery {
                   '\\'));
           people.add(cb.like(person.get("documentNumber"), pattern, '\\'));
         }
+        people.add(cb.like(root.get("declaredDocumentNumber"), pattern, '\\'));
+        people.add(
+            cb.like(
+                SearchNormalization.unaccentLower(
+                    cb,
+                    cb.concat(
+                        cb.concat(cb.coalesce(root.get("declaredFirstName"), ""), " "),
+                        cb.coalesce(root.get("declaredLastName"), ""))),
+                pattern,
+                '\\'));
         predicates.add(cb.or(people.toArray(Predicate[]::new)));
       }
 

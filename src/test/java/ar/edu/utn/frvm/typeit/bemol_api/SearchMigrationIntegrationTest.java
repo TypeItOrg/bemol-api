@@ -307,13 +307,14 @@ class SearchMigrationIntegrationTest extends DatabaseMigrationTestSupport {
     jdbcTemplate.update(
         """
         INSERT INTO person_guardians (
-          person_guardian_id, institution_id, tutor_person_id, dependent_person_id,
+          person_guardian_id, institution_id, tutor_person_id, dependent_person_id, declared_document_number,
           relationship, is_primary_contact, status, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, 'MOTHER', false, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+        ) VALUES (?, ?, ?, ?, (SELECT document_number FROM people WHERE person_id = ?), 'MOTHER', false, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
         """,
         UUID.randomUUID(),
         institutionId,
         tutorId,
+        dependentId,
         dependentId,
         status);
   }

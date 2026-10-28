@@ -15,14 +15,12 @@ import ar.edu.utn.frvm.typeit.bemol_api.auth.enums.EmailVerificationStatus;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.interfaces.PersonAccessInvitationRepository;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.interfaces.UserRepository;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.interfaces.PersonRoleAssignmentRepository;
-import ar.edu.utn.frvm.typeit.bemol_api.authorization.services.CachedAuthoritySnapshotResolver;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.entities.GuardianLinkStatus;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.entities.Institution;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.entities.Person;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.entities.PersonGuardian;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.interfaces.InstitutionRepository;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.interfaces.PersonGuardianRepository;
-import ar.edu.utn.frvm.typeit.bemol_api.institutional.interfaces.PersonRepository;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.List;
@@ -46,11 +44,11 @@ class PersonOwnAccessServiceTest {
   @Mock private PersonAccessInvitationRepository invitations;
   @Mock private Clock clock;
   @Mock private InstitutionRepository institutions;
-  @Mock private PersonRepository people;
-  @Mock private CachedAuthoritySnapshotResolver authorities;
   @Mock private ApplicationEventPublisher events;
   @Mock private PersonGuardianRepository links;
   @Mock private AuditEventRecorder audit;
+  @Mock private AccountAccessAuthorization access;
+  @Mock private AccountActionRateLimiter limiter;
   @InjectMocks private PersonOwnAccessProvisioning provisioning;
   private PersonOwnAccessService service;
 
@@ -58,7 +56,15 @@ class PersonOwnAccessServiceTest {
   void setUp() {
     service =
         new PersonOwnAccessService(
-            institutions, people, links, users, invitations, clock, audit, provisioning);
+            institutions,
+            links,
+            users,
+            invitations,
+            clock,
+            access,
+            audit,
+            provisioning,
+            org.mockito.Mockito.mock(InstitutionalAccountManagementUseCase.class));
   }
 
   @Test
@@ -95,7 +101,7 @@ class PersonOwnAccessServiceTest {
                 enabled.getPerson().getId(), "ENABLED"));
     verify(users).findByPerson_IdInAndInstitution_Id(personIds, institution.getId());
     verifyNoMoreInteractions(users);
-    verifyNoInteractions(roles, invitations, clock);
+    verifyNoInteractions(invitations, clock);
   }
 
   @Test
@@ -118,7 +124,7 @@ class PersonOwnAccessServiceTest {
     when(users.findByPerson_IdInAndInstitution_Id(allIds, institution.getId()))
         .thenReturn(List.of(account));
     when(roles.findPersonIdsRequiringInstitutionalAccess(
-            eq(withoutAccount), eq(institution.getId()), anySet(), anySet()))
+            eq(allIds), eq(institution.getId()), anySet(), anySet()))
         .thenReturn(List.of(privilegedRepresented.getId(), privilegedInstitutional.getId()));
     when(clock.instant()).thenReturn(NOW);
     when(invitations.findPendingByPersonIds(withoutAccount, institution.getId(), NOW))
@@ -142,11 +148,11 @@ class PersonOwnAccessServiceTest {
                 represented.getId(), "INVITATION_PENDING",
                 endedRepresentation.getId(), "NO_ACCOUNT",
                 privilegedRepresented.getId(), "INSTITUTION_REQUIRED",
-                privilegedInstitutional.getId(), "INVITATION_PENDING"));
+                privilegedInstitutional.getId(), "INSTITUTION_REQUIRED"));
     verify(users).findByPerson_IdInAndInstitution_Id(allIds, institution.getId());
     verify(roles)
         .findPersonIdsRequiringInstitutionalAccess(
-            eq(withoutAccount), eq(institution.getId()), anySet(), anySet());
+            eq(allIds), eq(institution.getId()), anySet(), anySet());
     verify(invitations).findPendingByPersonIds(withoutAccount, institution.getId(), NOW);
     verify(clock).instant();
     verifyNoMoreInteractions(users, roles, invitations, clock);

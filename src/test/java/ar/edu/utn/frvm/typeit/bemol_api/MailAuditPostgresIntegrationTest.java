@@ -21,8 +21,6 @@ import ar.edu.utn.frvm.typeit.bemol_api.auth.events.InstitutionalEmailVerificati
 import ar.edu.utn.frvm.typeit.bemol_api.auth.events.InstitutionalPasswordRecoveryRequested;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.events.PersonAccessInvited;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.filters.JwtAuthenticatedPlatformAccount;
-import ar.edu.utn.frvm.typeit.bemol_api.auth.payloads.requests.RegisterRequest;
-import ar.edu.utn.frvm.typeit.bemol_api.auth.services.RegisterUserUseCase;
 import ar.edu.utn.frvm.typeit.bemol_api.common.logging.RequestLoggingFilter;
 import ar.edu.utn.frvm.typeit.bemol_api.common.mail.MailAuditContext;
 import ar.edu.utn.frvm.typeit.bemol_api.common.mail.MailMessage;
@@ -35,7 +33,6 @@ import ar.edu.utn.frvm.typeit.bemol_api.support.AuthTestData;
 import ar.edu.utn.frvm.typeit.bemol_api.support.IntegrationTest;
 import jakarta.mail.Session;
 import jakarta.mail.internet.MimeMessage;
-import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
@@ -79,7 +76,6 @@ class MailAuditPostgresIntegrationTest extends DatabaseMigrationTestSupport {
   @Autowired ApplicationEventPublisher publisher;
   @Autowired TransactionTemplate transaction;
   @Autowired MailSender sender;
-  @Autowired RegisterUserUseCase register;
   @Autowired AuditEventRepository events;
   @Autowired MockMvc mvc;
   @Autowired ObjectMapper json;
@@ -193,7 +189,11 @@ class MailAuditPostgresIntegrationTest extends DatabaseMigrationTestSupport {
                 .asInt())
         .isEqualTo(1);
     assertThat(admin(get(BASE).param("requestId", requestId)).get("totalItems").asInt()).isZero();
-    for (final MailType type : MailType.values()) {
+    for (final MailType type :
+        java.util.List.of(
+            MailType.EMAIL_VERIFICATION,
+            MailType.PASSWORD_RECOVERY,
+            MailType.PERSON_ACCESS_INVITATION)) {
       final var filtered =
           admin(
               get(BASE)
@@ -225,21 +225,23 @@ class MailAuditPostgresIntegrationTest extends DatabaseMigrationTestSupport {
         .when(smtp)
         .send(any(MimeMessage.class));
     final UUID institutionId = fixtures.firstInstitutionId();
-    final var account =
-        register.execute(
-            new RegisterRequest(
-                "Ana",
-                "García",
-                LocalDate.of(2000, 1, 1),
-                fixtures.randomDocumentNumber(),
-                UUID.randomUUID() + "@example.test",
-                PASSWORD,
-                institutionId));
+    final UUID personId = UUID.randomUUID();
+    fixtures.insertPerson(personId, institutionId, fixtures.randomDocumentNumber(), false);
+    final var institution = Institution.builder().id(institutionId).name("Institución").build();
+    final var person =
+        Person.builder()
+            .id(personId)
+            .institution(institution)
+            .email("legacy@example.test")
+            .firstName("Ana")
+            .lastName("García")
+            .build();
+    final var user =
+        User.builder().id(UUID.randomUUID()).institution(institution).person(person).build();
+    transaction.executeWithoutResult(
+        ignored ->
+            publisher.publishEvent(InstitutionalEmailVerificationRequested.from(user, TOKEN)));
     awaitMailEvents(requestId, 1);
-    assertThat(
-            jdbcTemplate.queryForObject(
-                "SELECT count(*) FROM users WHERE user_id = ?", Integer.class, account.userId()))
-        .isEqualTo(1);
     assertThat(mailEvents(requestId))
         .singleElement()
         .satisfies(
@@ -247,10 +249,6 @@ class MailAuditPostgresIntegrationTest extends DatabaseMigrationTestSupport {
                 assertThat(event)
                     .containsEntry("action", "EMAIL_FAILED")
                     .containsEntry("actor_kind", "ANONYMOUS"));
-    final UUID personId =
-        requireNonNull(
-            jdbcTemplate.queryForObject(
-                "SELECT person_id FROM users WHERE user_id = ?", UUID.class, account.userId()));
     transaction.executeWithoutResult(
         ignored ->
             publisher.publishEvent(

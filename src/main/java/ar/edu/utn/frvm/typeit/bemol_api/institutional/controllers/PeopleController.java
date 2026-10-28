@@ -3,16 +3,13 @@ package ar.edu.utn.frvm.typeit.bemol_api.institutional.controllers;
 import static java.util.Objects.requireNonNull;
 
 import ar.edu.utn.frvm.typeit.bemol_api.auth.filters.JwtAuthenticatedUser;
-import ar.edu.utn.frvm.typeit.bemol_api.auth.services.PersonOwnAccessService;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.RequiresInstitutionAccess;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.RequiresPermission;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.enums.PermissionCode;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.services.InitialRoleAssignmentGuard;
 import ar.edu.utn.frvm.typeit.bemol_api.common.web.PaginatedResponse;
 import ar.edu.utn.frvm.typeit.bemol_api.common.web.Version;
-import ar.edu.utn.frvm.typeit.bemol_api.institutional.payloads.OwnAccessResponse;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.payloads.person.CreatePersonRequest;
-import ar.edu.utn.frvm.typeit.bemol_api.institutional.payloads.person.InvitePersonAccessRequest;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.payloads.person.PersonResponse;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.payloads.person.PersonSummaryResponse;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.payloads.person.UpdatePersonByAdminRequest;
@@ -23,7 +20,6 @@ import ar.edu.utn.frvm.typeit.bemol_api.institutional.services.GetPersonByIdUseC
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.services.ListPeopleUseCase;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.services.UpdateInstitutionalUserStatusUseCase;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.services.UpdatePersonByAdminUseCase;
-import io.swagger.v3.oas.annotations.Operation;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Size;
 import java.util.UUID;
@@ -53,7 +49,6 @@ import org.springframework.web.bind.annotation.RestController;
 @RequiresInstitutionAccess
 public class PeopleController {
 
-  private final PersonOwnAccessService ownAccess;
   private final ListPeopleUseCase listPeopleUseCase;
   private final GetPersonByIdUseCase getPersonByIdUseCase;
   private final CreatePersonUseCase createPersonUseCase;
@@ -63,7 +58,7 @@ public class PeopleController {
   private final UpdateInstitutionalUserStatusUseCase updateInstitutionalUserStatusUseCase;
 
   @GetMapping(version = Version.V1)
-  @RequiresPermission(PermissionCode.INSTITUTION_PERSON_READ_ANY)
+  @RequiresPermission(value = PermissionCode.INSTITUTION_PERSON_READ_ANY, actor = true)
   public PaginatedResponse<PersonSummaryResponse> list(
       @PathVariable final UUID institutionId,
       @RequestParam(required = false) @Size(max = 100) final String search,
@@ -75,7 +70,7 @@ public class PeopleController {
   }
 
   @GetMapping(value = "/{personId}", version = Version.V1)
-  @RequiresPermission(PermissionCode.INSTITUTION_PERSON_READ_ANY)
+  @RequiresPermission(value = PermissionCode.INSTITUTION_PERSON_READ_ANY, actor = true)
   public PersonResponse get(
       @PathVariable final UUID institutionId,
       @PathVariable final UUID personId,
@@ -85,7 +80,7 @@ public class PeopleController {
 
   @PostMapping(version = Version.V1)
   @ResponseStatus(HttpStatus.CREATED)
-  @RequiresPermission(PermissionCode.INSTITUTION_PERSON_CREATE)
+  @RequiresPermission(value = PermissionCode.INSTITUTION_PERSON_CREATE, actor = true)
   public PersonResponse create(
       @PathVariable final UUID institutionId,
       @Valid @RequestBody final CreatePersonRequest request,
@@ -95,7 +90,7 @@ public class PeopleController {
   }
 
   @PutMapping(value = "/{personId}", version = Version.V1)
-  @RequiresPermission(PermissionCode.INSTITUTION_PERSON_UPDATE_ANY)
+  @RequiresPermission(value = PermissionCode.INSTITUTION_PERSON_UPDATE_ANY, actor = true)
   public PersonResponse update(
       @PathVariable final UUID institutionId,
       @PathVariable final UUID personId,
@@ -106,7 +101,7 @@ public class PeopleController {
 
   @DeleteMapping(value = "/{personId}", version = Version.V1)
   @ResponseStatus(HttpStatus.NO_CONTENT)
-  @RequiresPermission(PermissionCode.INSTITUTION_PERSON_DELETE)
+  @RequiresPermission(value = PermissionCode.INSTITUTION_PERSON_DELETE, actor = true)
   public void delete(
       @PathVariable final UUID institutionId,
       @PathVariable final UUID personId,
@@ -114,34 +109,9 @@ public class PeopleController {
     deletePersonUseCase.execute(institutionId, personId);
   }
 
-  @PostMapping(value = "/{personId}/access-invitations", version = Version.V1)
-  @RequiresPermission(PermissionCode.INSTITUTION_USER_STATUS_UPDATE)
-  @Operation(summary = "Invitar a una persona existente sin cuenta a activar su acceso inicial")
-  public OwnAccessResponse inviteAccess(
-      @PathVariable final UUID institutionId,
-      @PathVariable final UUID personId,
-      @Valid @RequestBody final InvitePersonAccessRequest request,
-      final Authentication authentication) {
-    final var actor = (JwtAuthenticatedUser) requireNonNull(authentication.getPrincipal());
-    return ownAccess.inviteInstitutionally(
-        institutionId, actor.personId(), personId, request.email());
-  }
-
-  @DeleteMapping(value = "/{personId}/access-invitations", version = Version.V1)
-  @RequiresPermission(PermissionCode.INSTITUTION_USER_STATUS_UPDATE)
-  @ResponseStatus(HttpStatus.NO_CONTENT)
-  @Operation(summary = "Cancelar la invitación de acceso inicial sin afectar cuentas existentes")
-  public void cancelAccessInvitation(
-      @PathVariable final UUID institutionId,
-      @PathVariable final UUID personId,
-      final Authentication authentication) {
-    final var actor = (JwtAuthenticatedUser) requireNonNull(authentication.getPrincipal());
-    ownAccess.cancelInstitutionalInvitation(institutionId, actor.personId(), personId);
-  }
-
   @PatchMapping(value = "/{personId}/status", version = Version.V1)
   @ResponseStatus(HttpStatus.NO_CONTENT)
-  @RequiresPermission(PermissionCode.INSTITUTION_USER_STATUS_UPDATE)
+  @RequiresPermission(value = PermissionCode.INSTITUTION_USER_STATUS_UPDATE, actor = true)
   public void updateStatus(
       @PathVariable final UUID institutionId,
       @PathVariable final UUID personId,
@@ -150,6 +120,6 @@ public class PeopleController {
     final JwtAuthenticatedUser actor =
         (JwtAuthenticatedUser) requireNonNull(authentication.getPrincipal());
     updateInstitutionalUserStatusUseCase.execute(
-        institutionId, actor.personId(), personId, request.enabled());
+        institutionId, actor.actorPersonId(), personId, request.enabled());
   }
 }

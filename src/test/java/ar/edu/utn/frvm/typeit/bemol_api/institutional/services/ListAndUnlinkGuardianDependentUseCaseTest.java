@@ -58,7 +58,11 @@ class ListAndUnlinkGuardianDependentUseCaseTest {
   @Mock private AuditEventRecorder auditEventRecorder;
 
   private static final List<GuardianLinkStatus> VISIBLE_STATUSES =
-      List.of(GuardianLinkStatus.PENDING, GuardianLinkStatus.ACTIVE, GuardianLinkStatus.REJECTED);
+      List.of(
+          GuardianLinkStatus.PENDING,
+          GuardianLinkStatus.ACTIVE,
+          GuardianLinkStatus.REJECTED,
+          GuardianLinkStatus.ENDED);
 
   @Test
   @DisplayName("Should list dependents with their active applications count")

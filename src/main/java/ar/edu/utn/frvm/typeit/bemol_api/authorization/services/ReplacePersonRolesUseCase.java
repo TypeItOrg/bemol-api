@@ -215,7 +215,8 @@ public class ReplacePersonRolesUseCase {
   }
 
   private void removeApplicantWhenAnotherRoleIsSelected(Map<UUID, Role> roles) {
-    boolean hasNonApplicant = roles.values().stream().anyMatch(role -> !role.isApplicant());
+    boolean hasNonApplicant =
+        roles.values().stream().anyMatch(role -> !role.isApplicant() && !role.isRepresentative());
     if (hasNonApplicant) {
       roles.values().removeIf(mappedRole -> mappedRole.isApplicant());
     }

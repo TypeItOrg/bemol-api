@@ -1,13 +1,9 @@
 package ar.edu.utn.frvm.typeit.bemol_api.institutional.services;
 
-import static java.util.Objects.requireNonNull;
-
 import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditAction;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditEntityType;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditOrigin;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.services.AuditEventRecorder;
-import ar.edu.utn.frvm.typeit.bemol_api.auth.entities.User;
-import ar.edu.utn.frvm.typeit.bemol_api.auth.interfaces.UserRepository;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.enums.SystemRoleCode;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.services.AssignPersonSystemRoleUseCase;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.entities.Institution;
@@ -24,7 +20,6 @@ import java.util.Map;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -34,8 +29,8 @@ public class CreatePersonUseCase {
 
   private final InstitutionRepository institutionRepository;
   private final PersonRepository personRepository;
-  private final UserRepository userRepository;
-  private final PasswordEncoder passwordEncoder;
+  private final ar.edu.utn.frvm.typeit.bemol_api.auth.services.InstitutionalAccountManagementUseCase
+      accounts;
   private final Validator validator;
   private final AssignPersonSystemRoleUseCase assignPersonSystemRoleUseCase;
 
@@ -45,7 +40,7 @@ public class CreatePersonUseCase {
   public PersonResponse execute(final UUID institutionId, final CreatePersonRequest request) {
     Institution institution =
         institutionRepository
-            .findById(institutionId)
+            .findByIdForUpdate(institutionId)
             .orElseThrow(InstitutionNotFoundException::new);
 
     if (personRepository.existsByDocumentNumberAndInstitution_Id(
@@ -72,36 +67,34 @@ public class CreatePersonUseCase {
       person = personRepository.save(person);
       personRepository.flush();
     } catch (DataIntegrityViolationException exception) {
-      throw new PersonAlreadyExistsException();
+      for (Throwable cause = exception; cause != null; cause = cause.getCause()) {
+        if (cause instanceof org.hibernate.exception.ConstraintViolationException violation
+            && "people_active_document_number_unique".equals(violation.getConstraintName())) {
+          throw new PersonAlreadyExistsException();
+        }
+      }
+      throw exception;
     }
-
-    User user =
-        User.builder()
-            .institution(institution)
-            .person(person)
-            .password(requireNonNull(passwordEncoder.encode(request.password())))
-            .build();
-
-    user = userRepository.save(user);
 
     SystemRoleCode role =
         request.initialRole() != null ? request.initialRole() : SystemRoleCode.APPLICANT;
     assignPersonSystemRoleUseCase.execute(person, role);
+    accounts.invite(institutionId, person.getId(), request.email());
 
     auditEventRecorder.recordCurrentActor(
         institution,
         person.getId(),
-        AuditAction.INSTITUTIONAL_ACCOUNT_CREATED,
-        AuditEntityType.USER,
-        user.getId(),
+        AuditAction.PERSON_CREATED,
+        AuditEntityType.PERSON,
+        person.getId(),
         AuditOrigin.administration(),
         Map.of(
             "initialRole",
             role.name(),
             "emailVerificationRequired",
-            false,
+            true,
             "emailVerificationStatus",
-            user.getEmailVerificationStatus().name(),
+            "PENDING",
             "personCreated",
             true));
 

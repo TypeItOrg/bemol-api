@@ -7,7 +7,6 @@ import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditEntityType;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditOrigin;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.services.AuditEventRecorder;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.entities.User;
-import ar.edu.utn.frvm.typeit.bemol_api.auth.enums.EmailVerificationStatus;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.interfaces.PersonAccessInvitationRepository;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.interfaces.UserRepository;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.payloads.requests.ActivateOwnAccessRequest;
@@ -36,6 +35,7 @@ public class ActivatePersonOwnAccessUseCase {
   private final AuditEventRecorder audit;
   private final EntityManager entityManager;
   private final PersonOwnAccessProvisioning provisioning;
+  private final AccountAccessAuthorization access;
 
   @Transactional
   public void execute(final ActivateOwnAccessRequest request) {
@@ -64,50 +64,68 @@ public class ActivatePersonOwnAccessUseCase {
     entityManager.refresh(current.getPerson(), LockModeType.PESSIMISTIC_WRITE);
     entityManager.refresh(institution);
     if (!current.isUsableAt(clock.instant())
-        || (!current.isInstitutional() && !current.hasActiveRepresentation())
         || current.getPerson().isDeleted()
         || !institution.isActive()
-        || (current.getPerson().getEmail() != null
-            && !current.getPerson().getEmail().equalsIgnoreCase(current.getEmail()))
-        || users
-            .findByPerson_IdAndInstitution_Id(current.getPerson().getId(), institution.getId())
-            .isPresent()) {
+        || !java.util.Objects.equals(current.getPerson().getEmail(), current.getExpectedEmail())) {
       throw new OwnAccessException(InstitutionMessages.OWN_ACCESS_TOKEN_INVALID);
     }
-    final var issuer = current.getInstitutionalIssuer();
-    if (issuer != null) {
-      entityManager.refresh(issuer);
-      if (!provisioning.canProvisionInstitutionally(issuer, current.getPerson())) {
+    if (current.isInstitutional()) {
+      final var issuer = current.getInstitutionalIssuer();
+      final var platform = current.getPlatformIssuer();
+      if (issuer != null) {
+        entityManager.refresh(issuer);
+        if (!access.canProvisionInstitutionally(issuer, current.getPerson())) {
+          throw new OwnAccessException(InstitutionMessages.OWN_ACCESS_TOKEN_INVALID);
+        }
+      } else if (platform == null || !access.isPlatformAdministrator(platform.getId())) {
         throw new OwnAccessException(InstitutionMessages.OWN_ACCESS_TOKEN_INVALID);
       }
-    } else if (provisioning.requiresInstitutionalAccountCreation(current.getPerson())) {
-      throw new OwnAccessException(InstitutionMessages.OWN_ACCESS_INSTITUTION_REQUIRED);
+    } else {
+      if (!current.hasActiveRepresentation()
+          || provisioning.requiresInstitutionalAccountCreation(current.getPerson())
+          || !access.canManageInstitutionally(
+              java.util.Objects.requireNonNull(representation).getTutorPerson().getId(),
+              current.getPerson())) {
+        throw new OwnAccessException(InstitutionMessages.OWN_ACCESS_TOKEN_INVALID);
+      }
     }
     if (!request.password().equals(request.confirmPassword())) {
       throw new OwnAccessException(InstitutionMessages.OWN_ACCESS_PASSWORD_MISMATCH);
     }
-    if (current.getPerson().getEmail() == null) {
-      current.getPerson().updateContact(current.getEmail(), current.getPerson().getPhoneNumber());
+    final var existing =
+        users.findByPerson_IdAndInstitution_Id(current.getPerson().getId(), institution.getId());
+    if (existing.isPresent()
+        && current.getPurpose()
+            != ar.edu.utn.frvm.typeit.bemol_api.auth.enums.AccessInvitationPurpose.AUTONOMY) {
+      throw new OwnAccessException(InstitutionMessages.OWN_ACCESS_TOKEN_INVALID);
     }
-    users.save(
-        User.builder()
-            .person(current.getPerson())
-            .institution(institution)
-            .password(requireNonNull(passwords.encode(request.password())))
-            .emailVerificationStatus(EmailVerificationStatus.VERIFIED)
-            .emailVerifiedAt(clock.instant())
-            .build());
+    if (existing.isPresent()
+        && passwords.matches(request.password(), existing.get().getPassword())) {
+      throw new OwnAccessException(InstitutionMessages.OWN_ACCESS_NEW_PASSWORD_REQUIRED);
+    }
+    current.getPerson().updateContact(current.getEmail(), current.getPerson().getPhoneNumber());
+    final var user =
+        existing.orElseGet(
+            () -> User.builder().person(current.getPerson()).institution(institution).build());
+    user.activateOwnAccess(requireNonNull(passwords.encode(request.password())), clock.instant());
+    users.saveAndFlush(user);
+    if (existing.isEmpty()) {
+      audit.recordCurrentActor(
+          institution,
+          current.getPerson().getId(),
+          AuditAction.INSTITUTIONAL_ACCOUNT_CREATED,
+          AuditEntityType.USER,
+          user.getId(),
+          AuditOrigin.EMAIL_VERIFICATION,
+          Map.of("created", true));
+    }
     current.consume(clock.instant());
     audit.recordCurrentActor(
         institution,
         current.getPerson().getId(),
         AuditAction.PERSON_OWN_ACCESS_ACTIVATED,
-        current.isInstitutional()
-            ? AuditEntityType.PERSON_ACCESS_INVITATION
-            : AuditEntityType.PERSON_GUARDIAN,
-        current.isInstitutional()
-            ? current.getId()
-            : java.util.Objects.requireNonNull(representation).getId(),
+        AuditEntityType.PERSON_ACCESS_INVITATION,
+        current.getId(),
         AuditOrigin.SELF_SERVICE,
         Map.of());
   }

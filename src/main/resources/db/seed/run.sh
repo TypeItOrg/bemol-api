@@ -30,7 +30,8 @@ cat src/main/resources/db/seed/enrollment-demo-context.sql \
     src/main/resources/db/seed/datasets/scenario.sql \
     src/main/resources/db/seed/enrollment-demo-validate.sql \
     src/main/resources/db/seed/enrollment-demo.sql \
-    src/main/resources/db/seed/enrollment-demo-dependents.sql > "$sql"
+    src/main/resources/db/seed/enrollment-demo-dependents.sql \
+    src/main/resources/db/seed/enrollment-demo-representatives.sql > "$sql"
 printf '\nCOMMIT;\n' >> "$sql"
 args=(-X -v ON_ERROR_STOP=1
     -v "seed_institution=$SEED_INSTITUTION" -v "seed_year=$SEED_YEAR"

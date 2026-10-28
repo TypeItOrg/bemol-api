@@ -89,16 +89,14 @@ public class GuardianLinkAttachmentService {
                 .build());
     auditRecorder.recordCurrentActor(
         link.getInstitution(),
-        link.getDependentPerson().getId(),
+        link.getDependentPersonId(),
         AuditAction.GUARDIAN_ATTACHMENT_UPLOADED,
         AuditEntityType.PERSON_GUARDIAN_ATTACHMENT,
         attachment.getId(),
         AuditOrigin.SELF_SERVICE,
         Map.of(
             "relatedPersonIds",
-            List.of(
-                link.getTutorPerson().getId().toString(),
-                link.getDependentPerson().getId().toString()),
+            List.of(link.getTutorPerson().getId().toString()),
             "after",
             Map.of("contentType", stored.contentType(), "size", stored.size())));
     return GuardianLinkAttachmentResponse.from(attachment);
@@ -116,16 +114,12 @@ public class GuardianLinkAttachmentService {
     attachmentRepository.delete(attachment);
     auditRecorder.recordCurrentActor(
         link.getInstitution(),
-        link.getDependentPerson().getId(),
+        link.getDependentPersonId(),
         AuditAction.GUARDIAN_ATTACHMENT_DELETED,
         AuditEntityType.PERSON_GUARDIAN_ATTACHMENT,
         attachmentId,
         AuditOrigin.SELF_SERVICE,
-        Map.of(
-            "relatedPersonIds",
-            List.of(
-                link.getTutorPerson().getId().toString(),
-                link.getDependentPerson().getId().toString())));
+        Map.of("relatedPersonIds", List.of(link.getTutorPerson().getId().toString())));
     TransactionSynchronizationManager.registerSynchronization(
         new TransactionSynchronization() {
           @Override

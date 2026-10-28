@@ -7,7 +7,6 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import ar.edu.utn.frvm.typeit.bemol_api.auth.exceptions.EmailVerificationCooldownException;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.exceptions.InvalidEmailVerificationTokenException;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.filters.JwtAuthenticationFilter;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.services.ActiveIdentityService;
@@ -71,7 +70,7 @@ class EmailVerificationControllerWebMvcTest {
       "\"institutionId\":\"22222222-2222-2222-2222-222222222222\",\"documentNumber\":\"12345678\"";
 
   @Test
-  void endpointsArePublicAndReturnNoContent() throws Exception {
+  void confirmationAndResendRemainPublic() throws Exception {
     mvc.perform(
             post("/api/v1/auth/email-verification/resend")
                 .contentType(MediaType.APPLICATION_JSON)
@@ -82,14 +81,6 @@ class EmailVerificationControllerWebMvcTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"token\":\"" + "a".repeat(43) + "\"}"))
         .andExpect(status().isNoContent());
-    mvc.perform(
-            post("/api/v1/auth/email-verification/change-email")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(
-                    "{"
-                        + identity
-                        + ",\"email\":\"correct@example.com\",\"password\":\"password123\"}"))
-        .andExpect(status().isNoContent());
   }
 
   @Test
@@ -99,11 +90,17 @@ class EmailVerificationControllerWebMvcTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"token\":\"invalid\"}"))
         .andExpect(status().isBadRequest());
+    verifyNoInteractions(verification);
+  }
+
+  @Test
+  void directPublicEmailCorrectionIsRetired() throws Exception {
     mvc.perform(
             post("/api/v1/auth/email-verification/change-email")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("{" + identity + ",\"email\":\"bad\"}"))
-        .andExpect(status().isBadRequest());
+                .content(
+                    "{" + identity + ",\"email\":\"changed@example.test\",\"password\":\"dummy\"}"))
+        .andExpect(status().isUnauthorized());
     verifyNoInteractions(verification);
   }
 
@@ -116,14 +113,5 @@ class EmailVerificationControllerWebMvcTest {
                 .content("{\"token\":\"" + "a".repeat(43) + "\"}"))
         .andExpect(status().isBadRequest())
         .andExpect(jsonPath("$.status").value(400));
-    doThrow(new EmailVerificationCooldownException()).when(verification).changeEmail(any());
-    mvc.perform(
-            post("/api/v1/auth/email-verification/change-email")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(
-                    "{"
-                        + identity
-                        + ",\"email\":\"correct@example.com\",\"password\":\"password123\"}"))
-        .andExpect(status().isConflict());
   }
 }

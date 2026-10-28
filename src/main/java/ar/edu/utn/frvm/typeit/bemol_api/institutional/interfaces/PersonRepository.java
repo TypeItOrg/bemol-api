@@ -15,6 +15,10 @@ import org.springframework.data.repository.query.Param;
 
 public interface PersonRepository extends JpaRepository<Person, UUID> {
 
+  @EntityGraph(attributePaths = "institution")
+  java.util.List<Person> findByDocumentNumberInAndInstitution_IdInAndDeletedFalse(
+      java.util.Collection<String> documents, java.util.Collection<UUID> institutions);
+
   Optional<Person> findByIdAndInstitution_Id(UUID personId, UUID institutionId);
 
   @Lock(LockModeType.PESSIMISTIC_WRITE)

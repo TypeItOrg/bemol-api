@@ -80,7 +80,7 @@ public class OperatingProfileController {
       @RequestParam(required = false) CourseEnrollmentStatus status,
       @RequestParam(required = false) AcademicEnrollmentStatus academicStatus,
       Pageable pageable) {
-    contexts.require(institutionId, selectedPersonId, actor(authentication));
+    contexts.requireStudent(institutionId, selectedPersonId, actor(authentication));
     return courses.listOwn(institutionId, selectedPersonId, status, academicStatus, pageable);
   }
 
@@ -91,7 +91,7 @@ public class OperatingProfileController {
       Authentication authentication,
       @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
           LocalDate week) {
-    contexts.require(institutionId, selectedPersonId, actor(authentication));
+    contexts.requireStudent(institutionId, selectedPersonId, actor(authentication));
     return schedules.execute(institutionId, selectedPersonId, week);
   }
 

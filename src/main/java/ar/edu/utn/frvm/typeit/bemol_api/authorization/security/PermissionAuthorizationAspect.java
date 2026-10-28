@@ -22,7 +22,10 @@ public class PermissionAuthorizationAspect {
   @Before("@annotation(requiresPermission)")
   public void checkPermission(RequiresPermission requiresPermission) {
     Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-    denyUnless(authorizationService.hasPermission(authentication, requiresPermission.value()));
+    denyUnless(
+        requiresPermission.actor()
+            ? authorizationService.hasActorPermission(authentication, requiresPermission.value())
+            : authorizationService.hasPermission(authentication, requiresPermission.value()));
   }
 
   @Before("@annotation(requiresAnyPermission)")

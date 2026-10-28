@@ -16,6 +16,10 @@ public class ListPasskeysUseCase {
 
   @Transactional(readOnly = true)
   public List<PasskeyResponse> execute(final JwtAuthenticatedUser principal) {
+    if (principal.delegated() || principal.accountUserId().isEmpty()) {
+      throw new ar.edu.utn.frvm.typeit.bemol_api.auth.exceptions.InvalidCredentialsException();
+    }
+
     return passkeyCredentialRepository.findActiveByUserId(principal.userId()).stream()
         .map(PasskeyResponse::from)
         .toList();

@@ -1,6 +1,8 @@
 package ar.edu.utn.frvm.typeit.bemol_api.common.validation;
 
 public final class ValidationMessages {
+  public static final String OWN_ACCESS_EMAIL_REQUIRED =
+      "Indicá un correo para solicitar acceso propio.";
 
   public static final String ACTIVE_REQUIRED = "El estado activo es requerido.";
   public static final String APARTMENT_MAX_LENGTH =
@@ -19,10 +21,9 @@ public final class ValidationMessages {
   public static final String DOCUMENT_FORMAT =
       "El número de documento debe tener exactamente 8 dígitos numéricos.";
   public static final String DOCUMENT_REQUIRED = "El número de documento es requerido.";
-  public static final String EMAIL_FORMAT = "El correo electrónico debe tener un formato válido.";
-  public static final String EMAIL_MAX_LENGTH =
-      "El correo electrónico debe tener menos de 150 caracteres.";
-  public static final String EMAIL_REQUIRED = "El correo electrónico es requerido.";
+  public static final String EMAIL_FORMAT = "El correo es inválido.";
+  public static final String EMAIL_MAX_LENGTH = "El correo admite hasta 150 caracteres.";
+  public static final String EMAIL_REQUIRED = "El correo es requerido.";
   public static final String NAME_MAX_LENGTH = "El nombre debe tener menos de 255 caracteres.";
   public static final String NAME_REQUIRED = "El nombre es requerido.";
   public static final String FIRST_NAME_FORMAT = "El nombre solo puede contener letras y espacios.";
@@ -53,10 +54,9 @@ public final class ValidationMessages {
   public static final String PASSWORD_REQUIRED = "La contraseña es requerida.";
   public static final String PERMISSION_CATALOG_UNKNOWN =
       "El catálogo contiene un permiso desconocido.";
-  public static final String PERSON_EMAIL_FORMAT = "El email debe tener un formato válido.";
-  public static final String PERSON_EMAIL_MAX_LENGTH =
-      "El email debe tener menos de 150 caracteres.";
-  public static final String PERSON_EMAIL_REQUIRED = "El email es requerido.";
+  public static final String PERSON_EMAIL_FORMAT = "El correo es inválido.";
+  public static final String PERSON_EMAIL_MAX_LENGTH = "El correo admite hasta 150 caracteres.";
+  public static final String PERSON_EMAIL_REQUIRED = "El correo es requerido.";
   public static final String PHONE_MAX_LENGTH = "El teléfono debe tener menos de 30 caracteres.";
   public static final String REFRESH_TOKEN_REQUIRED = "El token de actualización es requerido.";
   public static final String ROLE_REQUIRED = "El rol es requerido.";

@@ -33,7 +33,12 @@ public class InstitutionalEmailVerificationMailService {
         "verificationUrl",
         accessUrls.tokenUrl(
             event.publicSubdomain(), "/auth/email-verification/confirm", event.token()));
-    context.setVariable("logoUrl", accessUrls.brandLogoUrl());
+    context.setVariable(
+        "logoUrl",
+        accessUrls.logoUrl(
+            event.publicSubdomain(), event.auditContext().institutionId(), event.logoVersion()));
+    context.setVariable(
+        "logoAlt", event.logoVersion() != null ? "Logo de " + event.institutionName() : "Bemol");
     context.setVariable("institutionName", event.institutionName());
     context.setVariable("fullName", event.fullName());
     context.setVariable("expirationHours", emailVerificationProperties.tokenExpiration().toHours());

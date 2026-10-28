@@ -34,7 +34,8 @@ public class InitialRoleAssignmentGuard {
     }
 
     final boolean canAssignRoles =
-        authorizationService.hasPermission(authentication, PermissionCode.INSTITUTION_ROLE_ASSIGN);
+        authorizationService.hasActorPermission(
+            authentication, PermissionCode.INSTITUTION_ROLE_ASSIGN);
     if (!canAssignRoles) {
       throw new AccessDeniedException(DEFAULT_FORBIDDEN_MESSAGE);
     }

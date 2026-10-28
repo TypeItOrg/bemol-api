@@ -12,6 +12,8 @@ public final class DefaultRolePermissions {
       Map.of(
           SystemRoleCode.APPLICANT,
           Set.of(PermissionCode.ACADEMIC_OFFER_READ),
+          SystemRoleCode.REPRESENTATIVE,
+          Set.of(PermissionCode.GUARDIAN_LINK_REQUEST),
           SystemRoleCode.STUDENT,
           Set.of(PermissionCode.ACADEMIC_OFFER_READ),
           SystemRoleCode.ADMINISTRATIVE,
@@ -36,6 +38,7 @@ public final class DefaultRolePermissions {
               PermissionCode.COURSE_WAITLIST_READ),
           SystemRoleCode.INSTITUTIONAL_AUTHORITY,
           Set.of(
+              PermissionCode.GUARDIAN_LINK_REQUEST,
               PermissionCode.DOCUMENT_CATALOG_MANAGE,
               PermissionCode.INSTITUTION_ROLE_ASSIGN,
               PermissionCode.INSTITUTION_ROLE_REVOKE,

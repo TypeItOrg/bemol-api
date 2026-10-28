@@ -11,4 +11,26 @@ public record PersonAccessInvited(
     String fullName,
     String token,
     @Nullable String publicSubdomain,
-    MailAuditContext auditContext) {}
+    @Nullable String logoVersion,
+    MailAuditContext auditContext,
+    UUID invitationId) {
+  public PersonAccessInvited(
+      final UUID personId,
+      final String email,
+      final String institutionName,
+      final String fullName,
+      final String token,
+      final @Nullable String publicSubdomain,
+      final MailAuditContext auditContext) {
+    this(
+        personId,
+        email,
+        institutionName,
+        fullName,
+        token,
+        publicSubdomain,
+        null,
+        auditContext,
+        personId);
+  }
+}
