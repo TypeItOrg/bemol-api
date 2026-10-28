@@ -88,20 +88,18 @@ class SearchServiceTest {
         .institutionalSummary(definitions.capture(), any(), eq(institutionId), eq(personId), eq(6));
     assertThat(definitions.getValue())
         .extracting(mappedSearchDefinition -> mappedSearchDefinition.type())
-        .containsExactly(
-            SearchEntityType.USER,
-            SearchEntityType.STUDY_PLAN,
-            SearchEntityType.GUARDIAN_DEPENDENT);
+        .containsExactly(SearchEntityType.USER, SearchEntityType.STUDY_PLAN);
   }
 
   @Test
-  void institutionalSummaryIncludesOwnRepresentationsWithoutSpecialPermissions() {
+  void institutionalSummaryIncludesOwnRepresentationsWithPermission() {
     final UUID institutionId = UUID.randomUUID();
     final UUID personId = UUID.randomUUID();
     when(repository.institutionalSummary(any(), any(), eq(institutionId), eq(personId), anyInt()))
         .thenReturn(Map.of());
 
-    searchService.institutionalSummary(institutionId, personId, "mateo", 5, Set.of());
+    searchService.institutionalSummary(
+        institutionId, personId, "mateo", 5, Set.of(PermissionCode.GUARDIAN_LINK_REQUEST));
 
     @SuppressWarnings("unchecked")
     final ArgumentCaptor<List<SearchDefinition>> definitions = ArgumentCaptor.forClass(List.class);

@@ -5,6 +5,8 @@ import static java.util.Objects.requireNonNull;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.filters.JwtAuthenticatedUser;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.services.PersonOwnAccessService;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.RequiresInstitutionAccess;
+import ar.edu.utn.frvm.typeit.bemol_api.authorization.RequiresPermission;
+import ar.edu.utn.frvm.typeit.bemol_api.authorization.enums.PermissionCode;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.services.InstitutionalCallerGuard;
 import ar.edu.utn.frvm.typeit.bemol_api.common.web.PaginatedResponse;
 import ar.edu.utn.frvm.typeit.bemol_api.common.web.Version;
@@ -60,6 +62,7 @@ public class GuardianDependentController {
   private final GuardianLinkAttachmentService guardianLinkAttachmentService;
 
   @PatchMapping(value = "/{personGuardianId}/own-access", version = Version.V1)
+  @RequiresPermission(PermissionCode.GUARDIAN_LINK_REQUEST)
   public OwnAccessResponse updateOwnAccess(
       @PathVariable UUID institutionId,
       @PathVariable UUID personGuardianId,
@@ -70,12 +73,14 @@ public class GuardianDependentController {
   }
 
   @GetMapping(version = Version.V1)
+  @RequiresPermission(PermissionCode.GUARDIAN_LINK_REQUEST)
   public List<GuardianDependentResponse> list(
       @PathVariable final UUID institutionId, final Authentication authentication) {
     return listGuardianDependentsUseCase.execute(institutionId, currentPersonId(authentication));
   }
 
   @GetMapping(value = "/page", version = Version.V1)
+  @RequiresPermission(PermissionCode.GUARDIAN_LINK_REQUEST)
   public PaginatedResponse<GuardianDependentResponse> page(
       @PathVariable final UUID institutionId,
       @RequestParam(defaultValue = "0") @Min(0) final int page,
@@ -104,6 +109,7 @@ public class GuardianDependentController {
 
   @PostMapping(version = Version.V1)
   @ResponseStatus(HttpStatus.CREATED)
+  @RequiresPermission(PermissionCode.GUARDIAN_LINK_REQUEST)
   public GuardianDependentResponse create(
       @PathVariable final UUID institutionId,
       @Valid @RequestBody final CreateGuardianDependentRequest request,
@@ -114,6 +120,7 @@ public class GuardianDependentController {
 
   @DeleteMapping(value = "/{dependentPersonId}", version = Version.V1)
   @ResponseStatus(HttpStatus.NO_CONTENT)
+  @RequiresPermission(PermissionCode.GUARDIAN_LINK_REQUEST)
   public void delete(
       @PathVariable final UUID institutionId,
       @PathVariable final UUID dependentPersonId,
@@ -124,6 +131,7 @@ public class GuardianDependentController {
 
   @DeleteMapping(value = "/requests/{personGuardianId}", version = Version.V1)
   @ResponseStatus(HttpStatus.NO_CONTENT)
+  @RequiresPermission(PermissionCode.GUARDIAN_LINK_REQUEST)
   public void cancelRequest(
       @PathVariable final UUID institutionId,
       @PathVariable final UUID personGuardianId,
@@ -137,6 +145,7 @@ public class GuardianDependentController {
       consumes = MediaType.MULTIPART_FORM_DATA_VALUE,
       version = Version.V1)
   @ResponseStatus(HttpStatus.CREATED)
+  @RequiresPermission(PermissionCode.GUARDIAN_LINK_REQUEST)
   public GuardianLinkAttachmentResponse uploadAttachment(
       @PathVariable final UUID institutionId,
       @PathVariable final UUID personGuardianId,
@@ -147,6 +156,7 @@ public class GuardianDependentController {
   }
 
   @GetMapping(value = "/{personGuardianId}/attachments", version = Version.V1)
+  @RequiresPermission(PermissionCode.GUARDIAN_LINK_REQUEST)
   public List<GuardianLinkAttachmentResponse> listAttachments(
       @PathVariable final UUID institutionId,
       @PathVariable final UUID personGuardianId,
@@ -158,6 +168,7 @@ public class GuardianDependentController {
   @GetMapping(
       value = "/{personGuardianId}/attachments/{attachmentId}/content",
       version = Version.V1)
+  @RequiresPermission(PermissionCode.GUARDIAN_LINK_REQUEST)
   public ResponseEntity<Resource> downloadAttachment(
       @PathVariable final UUID institutionId,
       @PathVariable final UUID personGuardianId,
@@ -170,6 +181,7 @@ public class GuardianDependentController {
 
   @DeleteMapping(value = "/{personGuardianId}/attachments/{attachmentId}", version = Version.V1)
   @ResponseStatus(HttpStatus.NO_CONTENT)
+  @RequiresPermission(PermissionCode.GUARDIAN_LINK_REQUEST)
   public void deleteAttachment(
       @PathVariable final UUID institutionId,
       @PathVariable final UUID personGuardianId,

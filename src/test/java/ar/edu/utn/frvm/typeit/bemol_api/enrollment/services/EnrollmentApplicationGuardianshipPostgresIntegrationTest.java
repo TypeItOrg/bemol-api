@@ -637,7 +637,14 @@ class EnrollmentApplicationGuardianshipPostgresIntegrationTest {
               return child.getId();
             });
     request(session, body(post(identity), Map.of("personId", indirect)), 403);
-    request(s, delete(base(s) + "/representations/" + selected), 204);
+    request(s, delete(base(s) + "/representations/" + selected), 403);
+    tx(
+        () -> {
+          entityManager
+              .find(PersonGuardian.class, UUID.fromString(link.get("personGuardianId").asString()))
+              .end();
+          return null;
+        });
     request(session, get("/api/v1/auth/me"), 403);
     request(
         session, body(post(identity), java.util.Collections.singletonMap("personId", null)), 204);

@@ -229,7 +229,7 @@ class SearchMigrationIntegrationTest extends DatabaseMigrationTestSupport {
     final UUID pendingDependentId = UUID.randomUUID();
     final String dependentADocument = fixtures.randomDocumentNumber();
     final String surname = "Zzdependiente" + System.nanoTime();
-    final Set<PermissionCode> permissions = Set.of();
+    final Set<PermissionCode> permissions = Set.of(PermissionCode.GUARDIAN_LINK_REQUEST);
     try {
       for (final UUID tutorId : List.of(tutorAId, tutorBId)) {
         fixtures.insertPerson(tutorId, institutionId, fixtures.randomDocumentNumber(), false);

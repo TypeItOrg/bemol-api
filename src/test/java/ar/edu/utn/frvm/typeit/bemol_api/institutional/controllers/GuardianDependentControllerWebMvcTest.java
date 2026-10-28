@@ -19,6 +19,7 @@ import ar.edu.utn.frvm.typeit.bemol_api.auth.services.IsPlatformSessionActiveUse
 import ar.edu.utn.frvm.typeit.bemol_api.auth.services.IsSessionActiveUseCase;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.services.JwtService;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.services.TokenBlacklistService;
+import ar.edu.utn.frvm.typeit.bemol_api.authorization.enums.PermissionCode;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.security.InstitutionAccessAspect;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.security.PermissionAuthorizationAspect;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.security.RoleAuthorizationAspect;
@@ -107,6 +108,22 @@ class GuardianDependentControllerWebMvcTest {
   @AfterEach
   void clearSecurityContext() {
     SecurityContextHolder.clearContext();
+  }
+
+  @Test
+  @DisplayName("Should deny access to dependents without the active identity permission")
+  void list_forbiddenWithoutActivePermission() throws Exception {
+    final var auth = authentication();
+    when(authorizationService.hasPermission(any(), eq(PermissionCode.GUARDIAN_LINK_REQUEST)))
+        .thenReturn(false);
+
+    mockMvc
+        .perform(get(BASE_PATH, INSTITUTION_ID).principal(auth))
+        .andExpect(status().isForbidden());
+    mockMvc
+        .perform(get(BASE_PATH + "/page", INSTITUTION_ID).principal(auth))
+        .andExpect(status().isForbidden());
+    verifyNoInteractions(listGuardianDependentsUseCase);
   }
 
   @Test
@@ -325,6 +342,9 @@ class GuardianDependentControllerWebMvcTest {
             .build();
     final var auth = new TestingAuthenticationToken(user, "");
     auth.setAuthenticated(true);
+    SecurityContextHolder.getContext().setAuthentication(auth);
+    when(authorizationService.hasPermission(any(), eq(PermissionCode.GUARDIAN_LINK_REQUEST)))
+        .thenReturn(true);
     return auth;
   }
 }

@@ -22,6 +22,7 @@ import ar.edu.utn.frvm.typeit.bemol_api.authorization.payloads.AssignRoleRequest
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.payloads.ReplacePersonRolesRequest;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.services.AssignPersonSystemRoleUseCase;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.services.AuthorityResolver;
+import ar.edu.utn.frvm.typeit.bemol_api.authorization.services.AuthorizationCacheInvalidator;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.services.InstitutionRoleProvisioner;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.services.PermissionRoleSeed;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.services.ReplacePersonRolesUseCase;
@@ -61,6 +62,7 @@ class RepresentativeRolePostgresIntegrationTest extends DatabaseMigrationTestSup
   @Autowired ReplacePersonRolesUseCase replaceRoles;
   @Autowired RevokePersonRoleUseCase revokeRole;
   @Autowired AuthorityResolver authorities;
+  @Autowired AuthorizationCacheInvalidator authorizationCacheInvalidator;
   @Autowired UserRepository users;
   @Autowired AuthenticationSessionIssuer sessions;
   @Autowired RegisterGuardianDependentUseCase requests;
@@ -298,9 +300,9 @@ class RepresentativeRolePostgresIntegrationTest extends DatabaseMigrationTestSup
                     "{\"documentNumber\":\""
                         + fixtures.randomDocumentNumber()
                         + "\",\"firstName\":\"Ana\",\"lastName\":\"Garcia\",\"birthDate\":\"2016-01-01\",\"relationship\":\"LEGAL_GUARDIAN\",\"isPrimaryContact\":false,\"ownAccessRequested\":false,\"requestMode\":\"NEW\"}"))
-        .andExpect(status().isCreated());
+        .andExpect(status().isForbidden());
     assertThat(count("SELECT count(*) FROM person_guardians WHERE tutor_person_id = ?", tutor))
-        .isEqualTo(2);
+        .isEqualTo(1);
     assertThat(count("SELECT count(*) FROM person_guardians WHERE tutor_person_id = ?", student))
         .isZero();
     final UUID otherInstitution = UUID.randomUUID();
@@ -331,6 +333,7 @@ class RepresentativeRolePostgresIntegrationTest extends DatabaseMigrationTestSup
     final var second = requests.execute(institution, tutor, existingRequest(pendingDependent));
     jdbcTemplate.update(
         "DELETE FROM role_permissions WHERE role_id = ?", role(SystemRoleCode.REPRESENTATIVE));
+    authorizationCacheInvalidator.evictPerson(tutor, institution);
     assertThatThrownBy(() -> requests.execute(institution, tutor, existingRequest(person())))
         .isInstanceOf(PermissionDelegationNotAllowedException.class);
     assertThat(
@@ -343,14 +346,14 @@ class RepresentativeRolePostgresIntegrationTest extends DatabaseMigrationTestSup
     mvc.perform(
             get("/api/v1/institutions/{institution}/representations", institution)
                 .header("Authorization", "Bearer " + bearer))
-        .andExpect(status().isOk());
+        .andExpect(status().isForbidden());
     mvc.perform(
             delete(
                     "/api/v1/institutions/{institution}/representations/requests/{link}",
                     institution,
                     second.personGuardianId())
                 .header("Authorization", "Bearer " + bearer))
-        .andExpect(status().isNoContent());
+        .andExpect(status().isForbidden());
     assertThat(
             jdbcTemplate.queryForObject(
                 "SELECT status FROM person_guardians WHERE person_guardian_id = ?",
