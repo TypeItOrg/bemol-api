@@ -428,7 +428,7 @@ class AuthorizedAccountsPostgresIntegrationTest extends DatabaseMigrationTestSup
             org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get(
                     "/api/v1/institutions/{institutionId}/guardian-links", institution)
                 .header("Authorization", "Bearer " + bearer))
-        .andExpect(status().isForbidden());
+        .andExpect(status().isOk());
     mvc.perform(
             org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch(
                     "/api/v1/institutions/{institutionId}/people/{personId}/status",
@@ -444,6 +444,25 @@ class AuthorizedAccountsPostgresIntegrationTest extends DatabaseMigrationTestSup
                 .contentType("application/json")
                 .content("{\"label\":\"unauthorized\"}"))
         .andExpect(status().isUnauthorized());
+  }
+
+  @Test
+  void guardianLinkReviewFollowsSelectedIdentityNotActor() throws Exception {
+    final UUID actor = createActivated(SystemRoleCode.INSTITUTIONAL_AUTHORITY);
+    authenticatePlatformAdministrator();
+    final UUID selected = createActivated(SystemRoleCode.APPLICANT);
+    link(actor, selected);
+    final var account = user(actor);
+    final String bearer =
+        sessionIssuer.issue(account, "127.0.0.1", "QA", false, "PASSWORD").tokens().accessToken();
+    jdbcTemplate.update(
+        "UPDATE user_sessions SET active_person_id=? WHERE user_id=?", selected, account.getId());
+
+    mvc.perform(
+            org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get(
+                    "/api/v1/institutions/{institutionId}/guardian-links", institution)
+                .header("Authorization", "Bearer " + bearer))
+        .andExpect(status().isForbidden());
   }
 
   @Test

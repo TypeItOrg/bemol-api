@@ -23,6 +23,7 @@ import ar.edu.utn.frvm.typeit.bemol_api.institutional.entities.Person;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.entities.PersonGuardian;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.exceptions.GuardianLinkAlreadyResolvedException;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.exceptions.GuardianLinkNotFoundException;
+import ar.edu.utn.frvm.typeit.bemol_api.institutional.exceptions.OwnAccessException;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.interfaces.PersonGuardianRepository;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.interfaces.PersonRepository;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.payloads.guardian.GuardianLinkReviewResponse;
@@ -117,6 +118,24 @@ class ResolveGuardianLinkUseCaseTest {
             link.getId(),
             AuditOrigin.INSTITUTIONAL_ADMINISTRATION,
             Map.of());
+  }
+
+  @Test
+  @DisplayName("Should not let a tutor approve their request through a represented reviewer")
+  void approve_rejectsTutorActingThroughReviewer() {
+    givenPendingLinkAndReviewer();
+
+    assertThatThrownBy(
+            () ->
+                useCase.approve(
+                    institution.getId(),
+                    reviewer.getId(),
+                    linkId,
+                    null,
+                    link.getTutorPerson().getId()))
+        .isInstanceOf(OwnAccessException.class);
+    assertThat(link.getStatus()).isEqualTo(GuardianLinkStatus.PENDING);
+    verifyNoInteractions(auditEventRecorder, assignPersonSystemRoleUseCase);
   }
 
   @Test

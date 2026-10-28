@@ -60,11 +60,22 @@ public class ResolveGuardianLinkUseCase {
       final UUID reviewerPersonId,
       final UUID linkId,
       final @Nullable UUID confirmedPersonId) {
+    return approve(institutionId, reviewerPersonId, linkId, confirmedPersonId, reviewerPersonId);
+  }
+
+  @Transactional
+  public GuardianLinkReviewResponse approve(
+      final UUID institutionId,
+      final UUID reviewerPersonId,
+      final UUID linkId,
+      final @Nullable UUID confirmedPersonId,
+      final UUID actorPersonId) {
     institutions.findByIdForUpdate(institutionId).orElseThrow(InstitutionNotFoundException::new);
     access.requirePermission(institutionId, reviewerPersonId, PermissionCode.GUARDIAN_LINK_REVIEW);
     final PersonGuardian link = findLink(institutionId, linkId);
     final Person reviewer = findReviewer(institutionId, reviewerPersonId);
-    if (reviewerPersonId.equals(link.getTutorPerson().getId())) {
+    if (reviewerPersonId.equals(link.getTutorPerson().getId())
+        || actorPersonId.equals(link.getTutorPerson().getId())) {
       throw new OwnAccessException(InstitutionMessages.GUARDIAN_SELF_APPROVAL_FORBIDDEN);
     }
     materialize(link, reviewerPersonId, confirmedPersonId);

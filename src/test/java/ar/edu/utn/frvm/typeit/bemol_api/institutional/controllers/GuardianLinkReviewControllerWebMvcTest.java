@@ -115,13 +115,41 @@ class GuardianLinkReviewControllerWebMvcTest {
   @DisplayName("Should approve a request as the authenticated reviewer")
   void approve_resolvesAsReviewer() throws Exception {
     allowReviewing();
-    when(resolveGuardianLinkUseCase.approve(INSTITUTION_ID, REVIEWER_ID, LINK_ID, null))
+    when(resolveGuardianLinkUseCase.approve(
+            INSTITUTION_ID, REVIEWER_ID, LINK_ID, null, REVIEWER_ID))
         .thenReturn(response(GuardianLinkStatus.ACTIVE));
 
     mockMvc
         .perform(
             post(BASE_PATH + "/{linkId}/approve", INSTITUTION_ID, LINK_ID)
                 .principal(authentication()))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.status").value("ACTIVE"));
+  }
+
+  @Test
+  @DisplayName("Should use the selected reviewer rather than the authenticated actor")
+  void approve_usesSelectedIdentity() throws Exception {
+    final var actorId = UUID.randomUUID();
+    final var user =
+        JwtAuthenticatedUser.builder()
+            .userId(UUID.randomUUID())
+            .personId(REVIEWER_ID)
+            .authenticatedPersonId(actorId)
+            .documentNumber("20111222")
+            .institutionId(INSTITUTION_ID)
+            .sessionId(UUID.randomUUID())
+            .tokenId("token-id")
+            .build();
+    final var auth = new TestingAuthenticationToken(user, "");
+    auth.setAuthenticated(true);
+    SecurityContextHolder.getContext().setAuthentication(auth);
+    allowReviewing();
+    when(resolveGuardianLinkUseCase.approve(INSTITUTION_ID, REVIEWER_ID, LINK_ID, null, actorId))
+        .thenReturn(response(GuardianLinkStatus.ACTIVE));
+
+    mockMvc
+        .perform(post(BASE_PATH + "/{linkId}/approve", INSTITUTION_ID, LINK_ID).principal(auth))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.status").value("ACTIVE"));
   }
@@ -145,7 +173,8 @@ class GuardianLinkReviewControllerWebMvcTest {
   @DisplayName("Should answer with a conflict when the request was already resolved")
   void approve_conflictWhenAlreadyResolved() throws Exception {
     allowReviewing();
-    when(resolveGuardianLinkUseCase.approve(INSTITUTION_ID, REVIEWER_ID, LINK_ID, null))
+    when(resolveGuardianLinkUseCase.approve(
+            INSTITUTION_ID, REVIEWER_ID, LINK_ID, null, REVIEWER_ID))
         .thenThrow(new GuardianLinkAlreadyResolvedException());
 
     mockMvc
@@ -199,7 +228,7 @@ class GuardianLinkReviewControllerWebMvcTest {
   @Test
   @DisplayName("Should forbid callers without the review permission")
   void resolve_forbiddenWithoutPermission() throws Exception {
-    when(authorizationService.hasActorPermission(any(), eq(PermissionCode.GUARDIAN_LINK_REVIEW)))
+    when(authorizationService.hasPermission(any(), eq(PermissionCode.GUARDIAN_LINK_REVIEW)))
         .thenReturn(false);
     final var auth = authentication();
 
@@ -220,7 +249,7 @@ class GuardianLinkReviewControllerWebMvcTest {
   }
 
   private void allowReviewing() {
-    when(authorizationService.hasActorPermission(any(), eq(PermissionCode.GUARDIAN_LINK_REVIEW)))
+    when(authorizationService.hasPermission(any(), eq(PermissionCode.GUARDIAN_LINK_REVIEW)))
         .thenReturn(true);
   }
 
