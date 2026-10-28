@@ -9,10 +9,14 @@ BEGIN
                WHERE NOT EXISTS (SELECT 1 FROM seed_program_periods assignment WHERE assignment.program = p.code)) THEN
         RAISE EXCEPTION 'Cada trayecto del dataset debe tener un período de inscripción.';
     END IF;
-    IF EXISTS (SELECT 1 FROM seed_dependents d JOIN seed_program_periods assignment ON assignment.program = d.program
+    IF EXISTS (SELECT 1 FROM seed_applications d JOIN seed_program_periods assignment ON assignment.program = d.program
                JOIN seed_periods p ON p.code = assignment.period_code CROSS JOIN seed_context c
                WHERE c.reference_date NOT BETWEEN p.start_date AND p.end_date) THEN
         RAISE EXCEPTION 'La fecha de referencia debe estar dentro del período de las solicitudes demo.';
+    END IF;
+    IF EXISTS (SELECT 1 FROM seed_periods p CROSS JOIN seed_context c
+               WHERE (CURRENT_TIMESTAMP AT TIME ZONE c.timezone)::date NOT BETWEEN p.start_date AND p.end_date) THEN
+        RAISE EXCEPTION 'La fecha actual debe estar dentro de los períodos del dataset para usar la oferta en la demo.';
     END IF;
     IF EXISTS (SELECT 1 FROM seed_program_periods assignment CROSS JOIN seed_context c
                JOIN enrollment_period_offerings o
@@ -21,12 +25,29 @@ BEGIN
         RAISE EXCEPTION 'La demo existente usa otra distribución de períodos; consolidarla por separado antes de repetir el seed.';
     END IF;
 
+    IF (SELECT academic_year <> extract(year FROM CURRENT_TIMESTAMP AT TIME ZONE timezone) FROM seed_context) THEN
+        RAISE EXCEPTION 'La demo operativa requiere SEED_YEAR del año actual para mantener abiertos los períodos.';
+    END IF;
+    IF EXISTS (
+        SELECT 1 FROM seed_applications f JOIN seed_context c ON true
+        JOIN enrollment_applications a ON a.enrollment_application_id =
+             pg_temp.demo_id('application:' || f.scenario || ':' || c.academic_year)
+        WHERE a.study_plan_id IS NOT NULL OR a.enrollment_period_id IS NOT NULL
+    ) THEN
+        RAISE EXCEPTION 'Hay solicitudes del seed anterior por plan. Recrear la base de prueba antes de cargar este dataset.';
+    END IF;
     SELECT string_agg(m.role_code, ', ' ORDER BY m.role_code) INTO missing
     FROM (SELECT DISTINCT role_code FROM seed_members) m
-    WHERE NOT EXISTS (SELECT 1 FROM roles r JOIN seed_context c USING (institution_id)
+    WHERE NOT EXISTS (SELECT 1 FROM seed_custom_roles f WHERE f.code = m.role_code)
+      AND NOT EXISTS (SELECT 1 FROM roles r JOIN seed_context c USING (institution_id)
                       WHERE r.code = m.role_code AND r.is_system);
     IF missing IS NOT NULL THEN
         RAISE EXCEPTION 'Faltan roles de sistema para la institución: %. Inicializar la API primero.', missing;
+    END IF;
+    IF EXISTS (SELECT 1 FROM seed_custom_roles f WHERE NOT EXISTS (
+        SELECT 1 FROM roles r WHERE r.code = f.template_code AND r.institution_id IS NULL
+          AND r.scope = 'INSTITUTION' AND r.is_system)) THEN
+        RAISE EXCEPTION 'Falta el rol plantilla para los permisos administrativos. Inicializar la API primero.';
     END IF;
     IF EXISTS (SELECT 1 FROM seed_instruments i JOIN seed_members m ON m.number = i.teacher_number
                WHERE i.offered AND m.role_code <> 'TEACHER')

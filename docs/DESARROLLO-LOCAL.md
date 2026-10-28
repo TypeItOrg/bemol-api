@@ -156,40 +156,33 @@ conserva la columna histórica en `institutions_aud`. Respaldar la base antes de
 aplicarla; revertir el código anterior requiere restaurar los slugs y su esquema
 desde ese respaldo, no alcanza con volver al binario anterior.
 
-### Escenario conectado del seed
+### Períodos de inscripción del dataset
 
-El dataset incluye dos períodos del año indicado por `SEED_YEAR`:
+El seed conserva dos períodos: Ciclos Artísticos Vocacionales (01/08–30/11,
+cinco trayectos) y Profesorado de Música (01/09–15/12, un trayecto).
+SEED_REFERENCE_DATE debe quedar dentro del período de las solicitudes demo;
+por defecto es el 1 de septiembre. El día de ejecución también debe estar dentro
+de esos períodos para que la oferta se pueda usar.
 
-| Período | Fechas | Trayectos |
-|---|---|---|
-| Ciclos Artísticos Vocacionales | 01/08–30/11 | CAVI, CAVB Instrumento/Canto y CAVA Instrumento/Canto |
-| Profesorado de Música | 01/09–15/12 | Profesorado (ISFD) |
+### Escenarios del seed
 
-Así se prueban un período con varios planes y otro con uno solo, ambos con el nivel
-de oferta configurado en el escenario. `SEED_REFERENCE_DATE` debe quedar dentro del
-período de las solicitudes demo (Vocacionales); por defecto es el 1 de septiembre.
-
-`SEED_INSTITUTION=<uuid> SEED_YEAR=2026 make seed-demo` agrega a Mariana Suárez
-dos personas a cargo con vínculos activos: Lucía Ferreyra, postulante con solicitud
-enviada al CAVI, y Camila Roldán, estudiante con solicitud aprobada y tres cursadas
-del CAVB instrumental (Lenguaje Musical, Ensamble y Piano). Las cursadas reutilizan
-comisiones, docentes y horarios existentes; incluyen el turno individual y sus
-historiales, sin superposiciones. Ambas solicitudes tienen un PDF real de presentación
-musical; el de Lucía está pendiente de revisión y el de Camila está aceptado.
+`SEED_INSTITUTION=<uuid> make seed-demo` carga casos independientes para iniciar
+una inscripción, retomar un borrador, revisar DNI, observar y reemplazar documentos,
+admitir provisoriamente, confirmar, rechazar, resolver vínculos, consultar cursadas
+y horarios y operar una lista de espera con cupos agotados. Incluye una cuenta
+familiar, docentes, autoridad y una administrativa limitada a un trayecto.
+El [recorrido de demo](DEMO.md) detalla cuentas, documentos, estados y preparación.
 
 El seed es aditivo y transaccional, fuera de Flyway. Los IDs son estables por
 institución/dataset y las solicitudes existentes no se reinician al repetirlo.
-Si ya se cargó la versión con un período por trayecto, el seed se detiene antes de
-insertar datos de negocio: no consolida períodos ni mueve solicitudes existentes.
 No reemplaza contraseñas, permisos ni archivos. Requiere almacenamiento local:
 con Compose copia los PDFs al servicio `SEED_API_SERVICE` (default `dev`); con
 `SEED_TRANSPORT=psql` indicar `SEED_STORAGE_DIR`, el directorio de la API accesible
 desde la shell. `COMPOSE_FILE` y `COMPOSE_ENV_FILES` permiten seleccionar los
 archivos de infraestructura al ejecutarlo explícitamente en un entorno compartido.
-Los PDFs se preparan antes de la transacción; si SQL falla, pueden quedar estos
-dos archivos de muestra sin referencias, pero no registros parciales en la base.
-Hacer backup e inventario antes de ejecutarlo sobre una base persistente; no usar
-`reset-data` para ampliar una demo existente.
+Los PDFs se preparan antes de la transacción; si SQL falla, pueden quedar archivos
+de muestra sin referencias, pero no registros parciales en la base.
+Para reemplazar el dataset anterior, recrear la base de prueba descartable.
 
 ## 7. Relación con Staging y Producción
 

@@ -5,3 +5,5 @@
 
 * -linguist-detectable
 *.java linguist-detectable
+# Preserve binary document bytes and PDF cross-reference offsets.
+src/main/resources/db/seed/assets/*.pdf binary

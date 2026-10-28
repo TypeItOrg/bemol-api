@@ -18,7 +18,7 @@ fi
 if [[ ! "$SEED_INSTITUTION" =~ ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$ ]]; then
     echo 'SEED_INSTITUTION debe ser un UUID válido.' >&2; exit 2
 fi
-asset=src/main/resources/db/seed/assets/presentacion-musical.pdf
+asset_dir=src/main/resources/db/seed/assets
 asset_prefix="seed-demo/$SEED_INSTITUTION/$SEED_YEAR"
 
 # Assemble completely before connecting: a missing file must not commit a partial load.
@@ -31,13 +31,19 @@ cat src/main/resources/db/seed/enrollment-demo-context.sql \
     src/main/resources/db/seed/enrollment-demo-validate.sql \
     src/main/resources/db/seed/enrollment-demo.sql \
     src/main/resources/db/seed/enrollment-demo-dependents.sql \
-    src/main/resources/db/seed/enrollment-demo-representatives.sql > "$sql"
+    src/main/resources/db/seed/enrollment-demo-representatives.sql \
+    src/main/resources/db/seed/enrollment-demo-summary.sql > "$sql"
 printf '\nCOMMIT;\n' >> "$sql"
 args=(-X -v ON_ERROR_STOP=1
     -v "seed_institution=$SEED_INSTITUTION" -v "seed_year=$SEED_YEAR"
     -v "seed_dataset=$seed_dataset" -v "seed_reference_date=${SEED_REFERENCE_DATE:-}"
     -v "seed_timezone=$SEED_TIMEZONE"
-    -v "seed_asset_prefix=$asset_prefix" -v "seed_asset_size=$(wc -c < "$asset")")
+    -v "seed_asset_prefix=$asset_prefix"
+    -v "seed_dni_size=$(wc -c < "$asset_dir/dni-muestra.pdf")"
+    -v "seed_old_dni_size=$(wc -c < "$asset_dir/dni-observado-muestra.pdf")"
+    -v "seed_health_size=$(wc -c < "$asset_dir/certificado-aptitud-fisica-muestra.pdf")"
+    -v "seed_guardian_size=$(wc -c < "$asset_dir/partida-nacimiento-muestra.pdf")"
+    -v "seed_music_size=$(wc -c < "$asset_dir/presentacion-musical.pdf")")
 compose=(docker compose)
 if [[ -n "${SEED_COMPOSE_FILE:-}" ]]; then compose+=(-f "$SEED_COMPOSE_FILE"); fi
 
@@ -55,8 +61,9 @@ copy_asset='set -eu
         chmod 644 "$temporary"
         ln "$temporary" "$target"
     fi'
-for member in 1 3; do
-    key="$asset_prefix/application-$member.pdf"
+for asset_name in dni-muestra.pdf dni-observado-muestra.pdf certificado-aptitud-fisica-muestra.pdf partida-nacimiento-muestra.pdf presentacion-musical.pdf; do
+    asset="$asset_dir/$asset_name"
+    key="$asset_prefix/$asset_name"
     case "$SEED_TRANSPORT" in
         compose) "${compose[@]}" exec -T "${SEED_API_SERVICE:-dev}" sh -c "$copy_asset" sh "$key" < "$asset" ;;
         psql) STORAGE_LOCAL_DIR="${SEED_STORAGE_DIR:?Indicar SEED_STORAGE_DIR para los adjuntos}" sh -c "$copy_asset" sh "$key" < "$asset" ;;

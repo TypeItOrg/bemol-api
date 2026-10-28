@@ -1,6 +1,7 @@
 -- Enrollment dataset loader. Configuration and fixtures are supplied by run.sh.
 -- Atomic, explicit execution only. No Flyway migration and no startup hook.
 -- Run with the shared IDs and catalog scripts through make seed-demo.
+CREATE TEMP TABLE seed_new_members (number integer PRIMARY KEY) ON COMMIT DROP;
 DO $$
 DECLARE
     tenant uuid := (SELECT institution_id FROM seed_context);
@@ -8,15 +9,30 @@ DECLARE
     cycle_year integer := (SELECT academic_year FROM seed_context);
     role_key uuid;
     person_key uuid;
+    created_person uuid;
     member record;
+    custom_role record;
     settings record;
 BEGIN
     SELECT * INTO STRICT settings FROM seed_settings;
 
+    FOR custom_role IN SELECT * FROM seed_custom_roles LOOP
+        INSERT INTO roles (role_id, institution_id, scope, code, name, is_system, created_at, updated_at)
+        VALUES (pg_temp.demo_id('custom-role:' || custom_role.code), tenant, 'INSTITUTION',
+                custom_role.code, custom_role.name, false, now(), now())
+        ON CONFLICT (role_id) DO NOTHING RETURNING role_id INTO role_key;
+        IF role_key IS NOT NULL THEN
+            INSERT INTO role_permissions (role_id, permission_id)
+            SELECT role_key, p.permission_id
+            FROM role_permissions p JOIN roles r ON r.role_id = p.role_id
+            WHERE r.institution_id IS NULL AND r.scope = 'INSTITUTION' AND r.code = custom_role.template_code;
+        END IF;
+    END LOOP;
     FOR member IN SELECT * FROM seed_members ORDER BY number
     LOOP
         SELECT role_id INTO STRICT role_key FROM roles
-        WHERE institution_id = tenant AND code = member.role_code AND is_system;
+        WHERE institution_id = tenant AND code = member.role_code
+          AND (is_system OR code IN (SELECT code FROM seed_custom_roles));
         person_key := pg_temp.demo_id('person:' || member.number);
 
         INSERT INTO people (person_id, institution_id, document_number, first_name, last_name,
@@ -24,19 +40,26 @@ BEGIN
         VALUES (person_key, tenant, member.document, member.first_name, member.last_name,
                 lower(translate(member.first_name || '.' || member.last_name, 'áéíóúñÁÉÍÓÚÑ', 'aeiounAEIOUN')) || '@' || settings.email_domain,
                 ((SELECT reference_date FROM seed_context) - make_interval(years => member.age))::date, false, now(), now())
-        ON CONFLICT (person_id) DO NOTHING;
-
-        IF member.number <> 1 THEN
-        INSERT INTO users (user_id, institution_id, person_id, password, enabled, self_access_enabled,
-                           email_verification_status, email_verified_at, created_at, updated_at)
-        VALUES (pg_temp.demo_id('user:' || member.number), tenant, person_key, settings.password_hash,
-                true, member.number <> 3, 'VERIFIED', now(), now(), now()) ON CONFLICT (user_id) DO NOTHING;
+        ON CONFLICT (person_id) DO NOTHING RETURNING person_id INTO created_person;
+        IF created_person IS NOT NULL THEN
+            INSERT INTO seed_new_members VALUES (member.number);
         END IF;
 
-        INSERT INTO person_role_assignments (person_role_assignment_id, institution_id, person_id,
-                                            role_id, access_scope, created_at, updated_at)
-        VALUES (pg_temp.demo_id('role:' || member.number), tenant, person_key, role_key,
-                'INSTITUTION', now(), now()) ON CONFLICT (person_role_assignment_id) DO NOTHING;
+        IF member.age >= 18 THEN
+            INSERT INTO users (user_id, institution_id, person_id, password, enabled, self_access_enabled,
+                               email_verification_status, email_verified_at, created_at, updated_at)
+            VALUES (pg_temp.demo_id('user:' || member.number), tenant, person_key, settings.password_hash,
+                    true, member.number <> 3, 'VERIFIED', now(), now(), now()) ON CONFLICT (user_id) DO NOTHING;
+        END IF;
+
+        IF created_person IS NOT NULL THEN
+            INSERT INTO person_role_assignments (person_role_assignment_id, institution_id, person_id,
+                                                role_id, access_scope, created_at, updated_at)
+            VALUES (pg_temp.demo_id('role:' || member.number), tenant, person_key, role_key,
+                    CASE WHEN EXISTS (SELECT 1 FROM seed_role_scopes WHERE member_number = member.number)
+                         THEN 'TRAINING_PATHS' ELSE 'INSTITUTION' END,
+                    now(), now());
+        END IF;
 
         IF member.role_code = 'STUDENT' THEN
             INSERT INTO students (student_id, institution_id, person_id, enrollment_date,
@@ -59,6 +82,9 @@ BEGIN
     END IF;
     IF EXISTS (SELECT 1 FROM academic_years WHERE academic_year_id = cycle AND status = 'CLOSED') THEN
         RAISE EXCEPTION 'El ciclo actual está cerrado; preparar un ciclo vigente antes de cargar los datos.';
+    END IF;
+    IF EXISTS (SELECT 1 FROM academic_years WHERE academic_year_id = cycle AND status <> 'ACTIVE') THEN
+        RAISE EXCEPTION 'SEED_YEAR debe identificar el ciclo activo; no se cargó una oferta inutilizable en un ciclo planificado.';
     END IF;
 
     INSERT INTO academic_years (academic_year_id, institution_id, year, start_date, end_date, status, created_at, updated_at)
@@ -251,3 +277,8 @@ BEGIN
         END LOOP;
     END LOOP;
 END $$;
+
+INSERT INTO person_role_assignment_training_paths (person_role_assignment_id, training_path_id, institution_id)
+SELECT pg_temp.demo_id('role:' || s.member_number), pg_temp.academic_id('path:' || s.program), c.institution_id
+FROM seed_role_scopes s JOIN seed_new_members n ON n.number = s.member_number CROSS JOIN seed_context c
+ON CONFLICT (person_role_assignment_id, training_path_id) DO NOTHING;
