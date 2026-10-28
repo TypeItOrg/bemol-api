@@ -51,35 +51,43 @@ El loader requiere almacenamiento local; no carga los archivos en S3.
 ## Cuentas de demostración
 
 La contraseña pública para cuentas nuevas es **BemolDemo2026!**. Las cuentas
-existentes conservan su contraseña. El administrador de plataforma se crea por
+existentes conservan su contraseña y documento; la tabla corresponde a personas nuevas.
+El administrador de plataforma se crea por
 el bootstrap configurado de la API, no por este dataset.
 
 | Documento | Persona | Uso |
 | --- | --- | --- |
-| 99000001 | Lucía Ferreyra | Solicitud enviada al CAVI, DNI pendiente de revisión. |
-| 99000002 | Mateo Soria | Postulante sin solicitudes: iniciar una inscripción desde cero. |
-| 99000003 | Camila Roldán | Tres cursadas activas de CAVB Instrumento, con horarios. |
-| 99000004 | Julián Pereyra | Piano ocupa el segundo turno; Lenguaje Musical ya está aprobado y tiene historial. |
-| 99000005 | Valeria Molina | Docente de Piano y de clases grupales; consultar estudiantes y horarios. |
-| 99000006 | Gabriel Acosta | Docente de Guitarra y de clases grupales. |
-| 99000007 | Mariana Suárez | Responsable familiar sin privilegios administrativos. |
-| 99000008 | Nicolás Herrera | Autoridad institucional para configuración, revisión y resolución. |
-| 99000009 | Ana Vega | Representante sin perfil de postulante o estudiante. |
-| 99000010 | Sofia Rios | Postulante y representante. |
-| 99000011 | Diego Luna | Estudiante y representante. |
-| 99000021 | Sofía Ferreyra | Borrador completo, cursos elegidos y documentación pendiente de cargar. |
-| 99000022 | Bruno Ferreyra | Vinculación pendiente con Mariana, con partida de nacimiento de muestra. |
-| 99000023 | Elena Vega | Admisión provisoria y cursadas; falta certificado de aptitud física para confirmar. |
-| 99000024 | Tomás Benítez | Solicitud enviada con DNI observado, disponible para demostrar rechazo. |
-| 99000025 | Paula Castro | DNI reemplazado: versión anterior observada y nueva pendiente de revisión. |
-| 99000026 | Santiago Luna | Admitido, en espera para Piano de CAVB Instrumento, sin turnos libres. |
-| 99000027 | Laura Díaz | Administrativa con acceso limitado a CAVB Instrumento. |
-| 99000028 | Florencia Ruiz | Solicitud ya rechazada, con motivo e historial. |
-| 99000029 | Martín Torres | Borrador cancelado y cursos cancelados. |
+| 44741306 | Lucía Ferreyra | Solicitud enviada al CAVI, DNI pendiente de revisión. |
+| 44741307 | Mateo Soria | Postulante sin solicitudes: iniciar una inscripción desde cero. |
+| 44741308 | Camila Roldán | Tres cursadas activas de CAVB Instrumento, con horarios. |
+| 44741309 | Julián Pereyra | Piano ocupa el segundo turno; Lenguaje Musical ya está aprobado y tiene historial. |
+| 44741310 | Valeria Molina | Docente de Piano y de clases grupales; consultar estudiantes y horarios. |
+| 44741311 | Gabriel Acosta | Docente de Guitarra y de clases grupales. |
+| 44741312 | Mariana Suárez | Responsable familiar sin privilegios administrativos. |
+| 44741313 | Nicolás Herrera | Autoridad institucional para configuración, revisión y resolución. |
+| 44741314 | Ana Vega | Representante sin perfil de postulante o estudiante. |
+| 44741315 | Sofia Rios | Postulante y representante. |
+| 44741316 | Diego Luna | Estudiante y representante. |
+| 44741327 | Andrea Medina | Autoridad institucional con acceso propio y sin personas a cargo. |
+| 44741328 | Martina Gómez | Representante con acceso propio y sin personas a cargo. |
+| 44741317 | Sofía Ferreyra | Borrador completo, cursos elegidos y documentación pendiente de cargar. |
+| 44741318 | Bruno Ferreyra | Vinculación pendiente con Mariana, con partida de nacimiento de muestra. |
+| 44741319 | Elena Vega | Admisión provisoria y cursadas; falta certificado de aptitud física para confirmar. |
+| 44741320 | Tomás Benítez | Solicitud enviada con DNI observado, disponible para demostrar rechazo. |
+| 44741321 | Paula Castro | DNI reemplazado: versión anterior observada y nueva pendiente de revisión. |
+| 44741322 | Santiago Luna | Admitido, en espera para Piano de CAVB Instrumento, sin turnos libres. |
+| 44741323 | Laura Díaz | Administrativa con acceso limitado a CAVB Instrumento. |
+| 44741324 | Florencia Ruiz | Solicitud ya rechazada, con motivo e historial. |
+| 44741325 | Martín Torres | Borrador cancelado y cursos cancelados. |
 
 Mariana tiene vínculos activos con Lucía, Camila y Sofía; el de Bruno requiere
 resolución institucional. Seleccionar a cada persona para operar con su identidad.
 Los vínculos y personas son ficticios. Lucía y Sofía no tienen cuenta propia; Camila tiene el ingreso propio suspendido y sigue siendo representable. Los casos de representación agregados en develop se conservan.
+
+Para demostrar una vinculación desde cero, Andrea es una autoridad institucional
+y Martina una representante, ambas sin personas a cargo. Mateo (postulante),
+Julián (estudiante) y Gabriel (docente) tienen acceso propio y no tienen vínculos
+de representación en el dataset inicial.
 
 ## Documentación
 

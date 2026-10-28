@@ -49,23 +49,25 @@ CREATE TEMP TABLE seed_members (
 ) ON COMMIT DROP;
 -- Ages are relative to SEED_REFERENCE_DATE, not tied to a calendar year.
 INSERT INTO seed_members VALUES
-    (1, '99000001', 'Lucía', 'Ferreyra', 8, 'APPLICANT', NULL),
-    (2, '99000002', 'Mateo', 'Soria', 37, 'APPLICANT', NULL),
-    (3, '99000003', 'Camila', 'Roldán', 23, 'STUDENT', '0001'),
-    (4, '99000004', 'Julián', 'Pereyra', 25, 'STUDENT', '0002'),
-    (5, '99000005', 'Valeria', 'Molina', 40, 'TEACHER', NULL),
-    (6, '99000006', 'Gabriel', 'Acosta', 47, 'TEACHER', NULL),
-    (7, '99000007', 'Mariana', 'Suárez', 44, 'REPRESENTATIVE', NULL),
-    (8, '99000008', 'Nicolás', 'Herrera', 36, 'INSTITUTIONAL_AUTHORITY', NULL),
-    (21, '99000021', 'Sofía', 'Ferreyra', 9, 'APPLICANT', NULL),
-    (22, '99000022', 'Bruno', 'Ferreyra', 10, 'APPLICANT', NULL),
-    (23, '99000023', 'Elena', 'Vega', 31, 'STUDENT', '0003'),
-    (24, '99000024', 'Tomás', 'Benítez', 29, 'APPLICANT', NULL),
-    (25, '99000025', 'Paula', 'Castro', 30, 'APPLICANT', NULL),
-    (26, '99000026', 'Santiago', 'Luna', 28, 'APPLICANT', NULL),
-    (27, '99000027', 'Laura', 'Díaz', 35, 'DEMO_ADMINISTRATIVE', NULL),
-    (28, '99000028', 'Florencia', 'Ruiz', 32, 'APPLICANT', NULL),
-    (29, '99000029', 'Martín', 'Torres', 34, 'APPLICANT', NULL);
+    (1, '44741306', 'Lucía', 'Ferreyra', 8, 'APPLICANT', NULL),
+    (2, '44741307', 'Mateo', 'Soria', 37, 'APPLICANT', NULL),
+    (3, '44741308', 'Camila', 'Roldán', 23, 'STUDENT', '0001'),
+    (4, '44741309', 'Julián', 'Pereyra', 25, 'STUDENT', '0002'),
+    (5, '44741310', 'Valeria', 'Molina', 40, 'TEACHER', NULL),
+    (6, '44741311', 'Gabriel', 'Acosta', 47, 'TEACHER', NULL),
+    (7, '44741312', 'Mariana', 'Suárez', 44, 'REPRESENTATIVE', NULL),
+    (8, '44741313', 'Nicolás', 'Herrera', 36, 'INSTITUTIONAL_AUTHORITY', NULL),
+    (12, '44741327', 'Andrea', 'Medina', 39, 'INSTITUTIONAL_AUTHORITY', NULL),
+    (13, '44741328', 'Martina', 'Gómez', 38, 'REPRESENTATIVE', NULL),
+    (21, '44741317', 'Sofía', 'Ferreyra', 9, 'APPLICANT', NULL),
+    (22, '44741318', 'Bruno', 'Ferreyra', 10, 'APPLICANT', NULL),
+    (23, '44741319', 'Elena', 'Vega', 31, 'STUDENT', '0003'),
+    (24, '44741320', 'Tomás', 'Benítez', 29, 'APPLICANT', NULL),
+    (25, '44741321', 'Paula', 'Castro', 30, 'APPLICANT', NULL),
+    (26, '44741322', 'Santiago', 'Luna', 28, 'APPLICANT', NULL),
+    (27, '44741323', 'Laura', 'Díaz', 35, 'DEMO_ADMINISTRATIVE', NULL),
+    (28, '44741324', 'Florencia', 'Ruiz', 32, 'APPLICANT', NULL),
+    (29, '44741325', 'Martín', 'Torres', 34, 'APPLICANT', NULL);
 
 CREATE TEMP TABLE seed_custom_roles (code text PRIMARY KEY, name text NOT NULL, template_code text NOT NULL) ON COMMIT DROP;
 INSERT INTO seed_custom_roles VALUES ('DEMO_ADMINISTRATIVE', 'Administración CAVB (demo)', 'ADMINISTRATIVE');

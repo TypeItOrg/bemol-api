@@ -13,9 +13,9 @@ BEGIN
     SELECT * INTO STRICT settings FROM seed_settings;
 
     FOR fixture IN SELECT * FROM (VALUES
-        (9, '99000009', 'Ana', 'Vega', 42, ARRAY['REPRESENTATIVE']),
-        (10, '99000010', 'Sofia', 'Rios', 27, ARRAY['APPLICANT', 'REPRESENTATIVE']),
-        (11, '99000011', 'Diego', 'Luna', 31, ARRAY['STUDENT', 'REPRESENTATIVE'])
+        (9, '44741314', 'Ana', 'Vega', 42, ARRAY['REPRESENTATIVE']),
+        (10, '44741315', 'Sofia', 'Rios', 27, ARRAY['APPLICANT', 'REPRESENTATIVE']),
+        (11, '44741316', 'Diego', 'Luna', 31, ARRAY['STUDENT', 'REPRESENTATIVE'])
     ) AS scenarios(number, document, first_name, last_name, age, role_codes)
     LOOP
         INSERT INTO people (person_id, institution_id, document_number, first_name, last_name,
@@ -59,7 +59,7 @@ BEGIN
                                      relationship, is_primary_contact, status, resolved_by_person_id,
                                      resolved_at, created_at, updated_at)
         VALUES (pg_temp.demo_id('guardian:' || fixture.number || ':3'), tenant, created_person,
-                dependent, '99000003', 'EXISTING', 'OTHER', false, 'ACTIVE',
+                dependent, (SELECT document_number FROM people WHERE person_id = dependent), 'EXISTING', 'OTHER', false, 'ACTIVE',
                 pg_temp.demo_id('person:8'), now(), now(), now());
     END LOOP;
 END $$;

@@ -1,5 +1,5 @@
 -- Report current state rather than promise the original state after a rerun.
-SELECT m.document AS documento, m.first_name || ' ' || m.last_name AS persona,
+SELECT p.document_number AS documento, m.first_name || ' ' || m.last_name AS persona,
        f.scenario AS caso, a.status AS solicitud,
        (SELECT count(*) FROM enrollment_document_requirements r
         WHERE r.application_id = a.enrollment_application_id AND NOT EXISTS (
@@ -9,6 +9,7 @@ SELECT m.document AS documento, m.first_name || ' ' || m.last_name AS persona,
         FROM enrollment_application_courses s WHERE s.enrollment_application_id = a.enrollment_application_id) AS cursos
 FROM seed_applications f JOIN seed_members m ON m.number = f.member_number
 JOIN seed_context c ON true
+JOIN people p ON p.person_id = pg_temp.demo_id('person:' || m.number)
 JOIN enrollment_applications a ON a.enrollment_application_id =
      pg_temp.demo_id('application:' || f.scenario || ':' || c.academic_year)
 ORDER BY m.number;
