@@ -54,8 +54,6 @@ public final class AuthMessages {
       "La propiedad app.auth.refresh-replay.encryption-key debe contener una clave Base64 válida.";
   public static final String REFRESH_REPLAY_ENCRYPTION_KEY_INVALID_SIZE =
       "La propiedad app.auth.refresh-replay.encryption-key debe decodificar a 32 bytes.";
-  public static final String LOGIN_ACCOUNT_NOT_FOUND =
-      "No encontramos una cuenta asociada a ese DNI en esta institución.";
   public static final String LOGIN_ATTEMPT_INVALID =
       "El intento de inicio de sesión es inválido o ha expirado.";
   public static final String LOGIN_STATE_INCONSISTENT =
