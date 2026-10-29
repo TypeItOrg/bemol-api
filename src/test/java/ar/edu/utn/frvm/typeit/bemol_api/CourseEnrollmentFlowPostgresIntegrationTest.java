@@ -20,6 +20,8 @@ import ar.edu.utn.frvm.typeit.bemol_api.authorization.services.InstitutionRolePr
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.entities.*;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.enums.*;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.enums.EducationLevel;
+import ar.edu.utn.frvm.typeit.bemol_api.enrollment.exceptions.EnrollmentApplicationNotFoundException;
+import ar.edu.utn.frvm.typeit.bemol_api.enrollment.exceptions.EnrollmentMessages;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.exceptions.EnrollmentPeriodClosedException;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.exceptions.EnrollmentValidationException;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.payloads.*;
@@ -525,7 +527,7 @@ class CourseEnrollmentFlowPostgresIntegrationTest extends DatabaseMigrationTestS
             () ->
                 enrollments.enrollApplicationCourse(
                     f.institutionId(), UUID.randomUUID(), childId, request, null))
-        .isInstanceOf(RuntimeException.class);
+        .isInstanceOf(EnrollmentApplicationNotFoundException.class);
     assertThatThrownBy(
             () ->
                 enrollments.enrollApplicationCourse(
@@ -581,7 +583,8 @@ class CourseEnrollmentFlowPostgresIntegrationTest extends DatabaseMigrationTestS
             () ->
                 teaching.listEnrollments(
                     f.institutionId(), teachers.getLast(), f.classId(), PageRequest.of(0, 20)))
-        .isInstanceOf(RuntimeException.class);
+        .isInstanceOf(EnrollmentValidationException.class)
+        .hasMessage(EnrollmentMessages.COURSE_CLASS_INVALID);
     assertThat(
             enrollments
                 .listOwn(f.institutionId(), teachers.getLast(), null, null, PageRequest.of(0, 20))

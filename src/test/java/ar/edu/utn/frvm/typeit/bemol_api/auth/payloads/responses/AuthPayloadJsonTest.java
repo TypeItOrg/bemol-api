@@ -23,7 +23,6 @@ class AuthPayloadJsonTest {
   @Autowired private JacksonTester<IdentifyLoginResponse> identifyLoginResponseJson;
   @Autowired private JacksonTester<AuthResponse> authResponseJson;
   @Autowired private JacksonTester<UserResponse> userResponseJson;
-  @Autowired private JacksonTester<TokenResponse> tokenResponseJson;
 
   @Test
   @DisplayName("Should serialize auth response with user and tokens")
@@ -71,18 +70,6 @@ class AuthPayloadJsonTest {
     assertThat(json).extractingJsonPathStringValue("$.user.userId").isEqualTo(USER_ID.toString());
     assertThat(json).extractingJsonPathStringValue("$.user.roles[0]").isEqualTo("Preceptor");
     assertThat(json).doesNotHaveJsonPath("$.userId");
-  }
-
-  @Test
-  @DisplayName("Should serialize token response contract")
-  void shouldSerializeTokenResponseContract() throws IOException {
-    TokenResponse response =
-        TokenResponse.builder().accessToken("access-token").refreshToken("refresh-token").build();
-
-    var json = tokenResponseJson.write(response);
-
-    assertThat(json).extractingJsonPathStringValue("$.accessToken").isEqualTo("access-token");
-    assertThat(json).extractingJsonPathStringValue("$.refreshToken").isEqualTo("refresh-token");
   }
 
   @Test

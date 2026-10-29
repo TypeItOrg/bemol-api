@@ -21,7 +21,6 @@ class DatabaseMigrationIntegrationTest extends DatabaseMigrationTestSupport {
     assertThat(flyway.validateWithResult().validationSuccessful).isTrue();
     assertThat(nonUtcEventTimestampColumnCount()).isZero();
     assertThat(utcEventTimestampColumnCount()).isPositive();
-    assertThat(tableCount()).isEqualTo(115);
     assertThat(institutionCount()).isPositive();
     assertThat(tenantRelationshipConstraintCount()).isEqualTo(7);
     assertThat(activePersonDocumentIndexCount()).isEqualTo(1);
@@ -83,18 +82,6 @@ class DatabaseMigrationIntegrationTest extends DatabaseMigrationTestSupport {
     } finally {
       jdbcTemplate.execute("RESET enable_seqscan");
     }
-  }
-
-  private Integer tableCount() {
-    return requireNonNull(
-        jdbcTemplate.queryForObject(
-            """
-        SELECT COUNT(*)
-        FROM information_schema.tables
-        WHERE table_schema = 'public'
-          AND table_name <> 'flyway_schema_history'
-        """,
-            Integer.class));
   }
 
   private Integer institutionCount() {

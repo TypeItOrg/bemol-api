@@ -37,6 +37,7 @@ import ar.edu.utn.frvm.typeit.bemol_api.institutional.entities.Person;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.entities.Student;
 import ar.edu.utn.frvm.typeit.bemol_api.search.SearchService;
 import ar.edu.utn.frvm.typeit.bemol_api.support.IntegrationTest;
+import java.sql.SQLException;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
@@ -184,7 +185,9 @@ class RoleScopePostgresIntegrationTest extends DatabaseMigrationTestSupport {
                             jdbcTemplate.update(
                                 "UPDATE person_role_assignments SET access_scope = 'TRAINING_PATHS' WHERE person_role_assignment_id = ?",
                                 assignment)))
-        .isInstanceOf(RuntimeException.class);
+        .rootCause()
+        .isInstanceOf(SQLException.class)
+        .hasMessageContaining("Invalid role assignment scope");
     assertThat(
             jdbcTemplate.queryForObject(
                 "SELECT access_scope FROM person_role_assignments WHERE person_role_assignment_id = ?",
@@ -225,7 +228,8 @@ class RoleScopePostgresIntegrationTest extends DatabaseMigrationTestSupport {
                               assignment,
                               foreignPath);
                         }))
-        .isInstanceOf(RuntimeException.class);
+        .isInstanceOf(DataIntegrityViolationException.class)
+        .hasMessageContaining("role_scope_training_path_tenant_fk");
     assertThat(
             jdbcTemplate.queryForObject(
                 "SELECT COUNT(*) FROM person_role_assignment_training_paths WHERE person_role_assignment_id = ?",

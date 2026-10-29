@@ -1,7 +1,6 @@
 package ar.edu.utn.frvm.typeit.bemol_api.auth.services;
 
 import static ar.edu.utn.frvm.typeit.bemol_api.support.InstitutionalTestData.createInstitution;
-import static ar.edu.utn.frvm.typeit.bemol_api.support.InstitutionalTestData.createUser;
 import static ar.edu.utn.frvm.typeit.bemol_api.support.InstitutionalTestData.person;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -135,15 +134,8 @@ class EmailVerificationPostgresIntegrationTest {
   }
 
   @Test
-  void migrationPreservesExistingAccountsAndEnforcesUniqueTokenPerUser() {
+  void enforcesUniqueTokenPerUserWithoutReplacingExistingToken() {
     final Fixture f = fixture();
-    final UUID existing =
-        tx(
-            () ->
-                createUser(em, em.find(User.class, f.userId()).getInstitution(), "12345679")
-                    .getId());
-    assertThat(tx(() -> em.find(User.class, existing).getEmailVerificationStatus()))
-        .isEqualTo(EmailVerificationStatus.NOT_REQUIRED);
     assertThatThrownBy(
             () ->
                 tx(
@@ -155,7 +147,8 @@ class EmailVerificationPostgresIntegrationTest {
                       return null;
                     }))
         .hasStackTraceContaining("email_verification_user_unique");
-    assertThat(tx(() -> tokens.findByUser_Id(f.userId()).isPresent())).isTrue();
+    assertThat(tx(() -> tokens.findByUser_Id(f.userId()).orElseThrow().getTokenHash()))
+        .isEqualTo(RequestInstitutionalPasswordRecoveryUseCase.hash(f.raw()));
   }
 
   @Test

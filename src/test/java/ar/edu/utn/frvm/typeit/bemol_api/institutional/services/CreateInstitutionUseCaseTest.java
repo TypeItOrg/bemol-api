@@ -19,6 +19,7 @@ import ar.edu.utn.frvm.typeit.bemol_api.institutional.interfaces.InstitutionRepo
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.payloads.requests.CreateInstitutionRequest;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -46,15 +47,16 @@ class CreateInstitutionUseCaseTest {
     UUID cityId = UUID.randomUUID();
     UUID savedId = UUID.randomUUID();
     City city = cityWith(cityId);
+    final AtomicReference<Institution> savedInstitution = new AtomicReference<>();
     CreateInstitutionRequest request =
         new CreateInstitutionRequest(
             "Conservatorio Boero",
-            null,
+            "  Boero  ",
             cityId,
             "San Martin",
             "123",
             "Centro",
-            null,
+            "Primer piso",
             "0353-123456",
             "info@boero.edu.ar",
             active);
@@ -64,39 +66,42 @@ class CreateInstitutionUseCaseTest {
         .thenAnswer(
             invocation -> {
               Institution institution = invocation.getArgument(0);
-              return Institution.builder()
-                  .id(savedId)
-                  .name(institution.getName())
-                  .city(institution.getCity())
-                  .street(institution.getStreet())
-                  .number(institution.getNumber())
-                  .neighborhood(institution.getNeighborhood())
-                  .phoneNumber(institution.getPhoneNumber())
-                  .email(institution.getEmail())
-                  .active(institution.isActive())
-                  .build();
+              Institution saved =
+                  Institution.builder()
+                      .id(savedId)
+                      .name(institution.getName())
+                      .shortName(institution.getShortName())
+                      .city(institution.getCity())
+                      .street(institution.getStreet())
+                      .number(institution.getNumber())
+                      .neighborhood(institution.getNeighborhood())
+                      .additionalInfo(institution.getAdditionalInfo())
+                      .phoneNumber(institution.getPhoneNumber())
+                      .email(institution.getEmail())
+                      .active(institution.isActive())
+                      .build();
+              savedInstitution.set(saved);
+              return saved;
             });
     when(institutionRepository.findWithLocationById(savedId))
-        .thenReturn(
-            Optional.of(
-                Institution.builder()
-                    .id(savedId)
-                    .name(request.name())
-                    .city(city)
-                    .street(request.street())
-                    .number(request.number())
-                    .neighborhood(request.neighborhood())
-                    .phoneNumber(request.phoneNumber())
-                    .email(request.email())
-                    .active(active)
-                    .build()));
+        .thenAnswer(invocation -> Optional.ofNullable(savedInstitution.get()));
 
     var response = createInstitutionUseCase.execute(request);
 
     ArgumentCaptor<Institution> captor = ArgumentCaptor.forClass(Institution.class);
     verify(institutionRepository).save(captor.capture());
-    verify(institutionRoleProvisioner).provision(any(Institution.class));
-    assertThat(captor.getValue().isActive()).isEqualTo(active);
+    verify(institutionRoleProvisioner).provision(savedInstitution.get());
+    final Institution created = captor.getValue();
+    assertThat(created.getName()).isEqualTo(request.name());
+    assertThat(created.getShortName()).isEqualTo("Boero");
+    assertThat(created.getCity()).isSameAs(city);
+    assertThat(created.getStreet()).isEqualTo(request.street());
+    assertThat(created.getNumber()).isEqualTo(request.number());
+    assertThat(created.getNeighborhood()).isEqualTo(request.neighborhood());
+    assertThat(created.getAdditionalInfo()).isEqualTo(request.additionalInfo());
+    assertThat(created.getPhoneNumber()).isEqualTo(request.phoneNumber());
+    assertThat(created.getEmail()).isEqualTo(request.email());
+    assertThat(created.isActive()).isEqualTo(active);
     assertThat(response.id()).isEqualTo(savedId);
     assertThat(response.name()).isEqualTo(request.name());
     assertThat(response.active()).isEqualTo(active);
