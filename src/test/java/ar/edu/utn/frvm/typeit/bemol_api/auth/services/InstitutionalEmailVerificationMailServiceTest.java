@@ -110,7 +110,9 @@ class InstitutionalEmailVerificationMailServiceTest {
 
     assertThat(mailCaptor.getValue().htmlBody())
         .contains(
-            "http://localhost:3000/api/public/institutions/" + institutionId + "/logo?v=logo-v1")
+            "http://localhost:3000/api/public/institutions/"
+                + institutionId
+                + "/logo?v=logo-v1&amp;format=png")
         .contains("Logo de Conservatorio Superior de Música Felipe Boero")
         .doesNotContain("http://localhost:3000/brand/logo-email.png");
   }

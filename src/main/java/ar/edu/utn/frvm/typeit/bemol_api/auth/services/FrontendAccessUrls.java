@@ -51,6 +51,7 @@ public class FrontendAccessUrls {
     return UriComponentsBuilder.fromUriString(base(publicSubdomain))
         .path("/api/public/institutions/{institutionId}/logo")
         .queryParam("v", logoVersion)
+        .queryParam("format", "png")
         .buildAndExpand(institutionId)
         .encode()
         .toUriString();

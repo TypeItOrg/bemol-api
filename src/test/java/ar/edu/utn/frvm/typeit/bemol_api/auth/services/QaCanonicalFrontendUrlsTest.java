@@ -34,7 +34,7 @@ class QaCanonicalFrontendUrlsTest {
                 + domain
                 + ":9443/api/public/institutions/"
                 + institutionId
-                + "/logo?v=v-1");
+                + "/logo?v=v-1&format=png");
     assertThat(urls.logoUrl("cboero", institutionId, null))
         .isEqualTo("https://" + domain + ":9443/brand/logo-email.png");
   }
