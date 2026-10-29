@@ -346,7 +346,7 @@ class EnrollmentApplicationGuardianshipPostgresIntegrationTest {
         () -> {
           final var link = ownAccessStatusLink(s, GuardianLinkStatus.ACTIVE);
           entityManager.persist(ownAccessInvitation(link, Instant.now().plusSeconds(3600)));
-          expected.put(link.getDependentPerson().getId(), "INVITATION_PENDING");
+          expected.put(link.getId(), "INVITATION_PENDING");
           return null;
         });
     final var statistics =
@@ -381,25 +381,25 @@ class EnrollmentApplicationGuardianshipPostgresIntegrationTest {
             for (int i = 0; i < 8; i++) {
               final var link = ownAccessStatusLink(s, GuardianLinkStatus.ACTIVE);
               entityManager.persist(ownAccessInvitation(link, Instant.now().plusSeconds(3600)));
-              expected.put(link.getDependentPerson().getId(), "INVITATION_PENDING");
+              expected.put(link.getId(), "INVITATION_PENDING");
             }
             final var expired = ownAccessStatusLink(s, GuardianLinkStatus.ACTIVE);
             entityManager.persist(ownAccessInvitation(expired, Instant.now().minusSeconds(60)));
-            expected.put(expired.getDependentPerson().getId(), "NO_ACCOUNT");
+            expected.put(expired.getId(), "NO_ACCOUNT");
             final var consumed = ownAccessStatusLink(s, GuardianLinkStatus.ACTIVE);
             final var consumedInvitation =
                 ownAccessInvitation(consumed, Instant.now().plusSeconds(3600));
             consumedInvitation.consume(Instant.now());
             entityManager.persist(consumedInvitation);
-            expected.put(consumed.getDependentPerson().getId(), "NO_ACCOUNT");
+            expected.put(consumed.getId(), "NO_ACCOUNT");
             final var account = ownAccessStatusLink(s, GuardianLinkStatus.ACTIVE);
             entityManager.persist(
                 InstitutionalTestData.user(account.getInstitution(), account.getDependentPerson()));
-            expected.put(account.getDependentPerson().getId(), "ENABLED");
+            expected.put(account.getId(), "ENABLED");
             final var pending = ownAccessStatusLink(s, GuardianLinkStatus.PENDING);
-            expected.put(pending.getDependentPerson().getId(), "UNAVAILABLE");
+            expected.put(pending.getId(), "UNAVAILABLE");
             final var rejected = ownAccessStatusLink(s, GuardianLinkStatus.REJECTED);
-            expected.put(rejected.getDependentPerson().getId(), "UNAVAILABLE");
+            expected.put(rejected.getId(), "UNAVAILABLE");
             return null;
           });
 
@@ -411,7 +411,7 @@ class EnrollmentApplicationGuardianshipPostgresIntegrationTest {
               listed.stream()
                   .collect(
                       Collectors.toMap(
-                          GuardianDependentResponse::dependentPersonId,
+                          GuardianDependentResponse::personGuardianId,
                           GuardianDependentResponse::ownAccessStatus)))
           .containsExactlyInAnyOrderEntriesOf(expected);
 
@@ -435,7 +435,7 @@ class EnrollmentApplicationGuardianshipPostgresIntegrationTest {
               paged.items().stream()
                   .collect(
                       Collectors.toMap(
-                          GuardianDependentResponse::dependentPersonId,
+                          GuardianDependentResponse::personGuardianId,
                           GuardianDependentResponse::ownAccessStatus)))
           .containsExactlyInAnyOrderEntriesOf(expected);
     } finally {

@@ -60,7 +60,7 @@ public record GuardianDependentResponse(
 
     return new GuardianDependentResponse(
         link.getId(),
-        link.getDependentPersonId(),
+        visible ? link.getDependentPersonId() : null,
         link.getStatus(),
         visible ? link.getDependentPerson().getDocumentNumber() : link.getDocumentNumber(),
         visible ? link.getDependentPerson().getFirstName() : link.getDeclaredFirstName(),
@@ -71,6 +71,6 @@ public record GuardianDependentResponse(
         visible ? activeApplicationsCount : 0,
         visible ? roles : List.of(),
         link.getCreatedAt(),
-        ownAccessStatus);
+        visible ? ownAccessStatus : "UNAVAILABLE");
   }
 }

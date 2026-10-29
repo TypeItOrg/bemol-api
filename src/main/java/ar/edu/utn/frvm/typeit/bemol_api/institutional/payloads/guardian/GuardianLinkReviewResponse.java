@@ -15,6 +15,7 @@ import org.jspecify.annotations.Nullable;
     requiredProperties = {
       "personGuardianId",
       "status",
+      "requestMode",
       "relationship",
       "institution",
       "tutor",
@@ -29,6 +30,7 @@ import org.jspecify.annotations.Nullable;
 public record GuardianLinkReviewResponse(
     UUID personGuardianId,
     GuardianLinkStatus status,
+    GuardianDependentRequestMode requestMode,
     GuardianRelationship relationship,
     InstitutionSummary institution,
     PersonSummary tutor,
@@ -75,6 +77,7 @@ public record GuardianLinkReviewResponse(
     return new GuardianLinkReviewResponse(
         link.getId(),
         link.getStatus(),
+        link.getRequestMode(),
         link.getRelationship(),
         InstitutionSummary.from(link.getInstitution()),
         PersonSummary.from(link.getTutorPerson()),

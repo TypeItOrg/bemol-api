@@ -33,6 +33,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -63,6 +65,24 @@ class ListAndUnlinkGuardianDependentUseCaseTest {
           GuardianLinkStatus.ACTIVE,
           GuardianLinkStatus.REJECTED,
           GuardianLinkStatus.ENDED);
+
+  @ParameterizedTest
+  @EnumSource(
+      value = GuardianLinkStatus.class,
+      names = {"PENDING", "REJECTED", "ENDED"})
+  void nonActiveResponsesHideRegisteredDataEvenIfTheCallerSuppliesIt(
+      final GuardianLinkStatus status) {
+    final var response =
+        GuardianDependentResponse.from(
+            link("Mateo", "54123456", status), 3, List.of("Estudiante"), "ENABLED");
+
+    assertThat(response.dependentPersonId()).isNull();
+    assertThat(response.firstName()).isNull();
+    assertThat(response.birthDate()).isNull();
+    assertThat(response.roles()).isEmpty();
+    assertThat(response.activeApplicationsCount()).isZero();
+    assertThat(response.ownAccessStatus()).isEqualTo("UNAVAILABLE");
+  }
 
   @Test
   @DisplayName("Should list dependents with their active applications count")
@@ -121,10 +141,11 @@ class ListAndUnlinkGuardianDependentUseCaseTest {
   void list_hidesDataOfNonActiveLinks() {
     final PersonGuardian pending = link("Mateo", "54123456", GuardianLinkStatus.PENDING);
     final PersonGuardian rejected = link("Lucia", "54123457", GuardianLinkStatus.REJECTED);
+    final PersonGuardian ended = link("Sofia", "54123458", GuardianLinkStatus.ENDED);
     when(personGuardianRepository
             .findByInstitution_IdAndTutorPerson_IdAndStatusInOrderByCreatedAtAsc(
                 INSTITUTION_ID, TUTOR_ID, VISIBLE_STATUSES))
-        .thenReturn(List.of(pending, rejected));
+        .thenReturn(List.of(pending, rejected, ended));
 
     final List<GuardianDependentResponse> result =
         new ListGuardianDependentsUseCase(
@@ -138,7 +159,16 @@ class ListAndUnlinkGuardianDependentUseCaseTest {
             GuardianDependentResponse::documentNumber)
         .containsExactly(
             org.assertj.core.groups.Tuple.tuple(GuardianLinkStatus.PENDING, null, "54123456"),
-            org.assertj.core.groups.Tuple.tuple(GuardianLinkStatus.REJECTED, null, "54123457"));
+            org.assertj.core.groups.Tuple.tuple(GuardianLinkStatus.REJECTED, null, "54123457"),
+            org.assertj.core.groups.Tuple.tuple(GuardianLinkStatus.ENDED, null, "54123458"));
+    assertThat(result).extracting(GuardianDependentResponse::dependentPersonId).containsOnlyNulls();
+    assertThat(result).extracting(GuardianDependentResponse::birthDate).containsOnlyNulls();
+    assertThat(result)
+        .allSatisfy(
+            value -> {
+              assertThat(value.roles()).isEmpty();
+              assertThat(value.activeApplicationsCount()).isZero();
+            });
     assertThat(result)
         .extracting(GuardianDependentResponse::ownAccessStatus)
         .containsOnly("UNAVAILABLE");

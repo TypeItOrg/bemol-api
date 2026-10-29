@@ -7,11 +7,9 @@ import ar.edu.utn.frvm.typeit.bemol_api.audit.services.AuditEventRecorder;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.services.AccountAccessAuthorization;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.services.AccountActionRateLimiter;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.enums.PermissionCode;
-import ar.edu.utn.frvm.typeit.bemol_api.institutional.entities.GuardianLinkStatus;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.entities.PersonGuardian;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.exceptions.CannotGuardianSelfException;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.exceptions.DependentAlreadyLinkedException;
-import ar.edu.utn.frvm.typeit.bemol_api.institutional.exceptions.GuardianLinkRequestException;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.exceptions.InstitutionNotFoundException;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.exceptions.PersonNotFoundException;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.interfaces.InstitutionRepository;
@@ -64,25 +62,8 @@ public class RegisterGuardianDependentUseCase {
     }
     final var mode =
         request.requestMode() == null ? GuardianDependentRequestMode.NEW : request.requestMode();
-    final var existing =
-        personRepository.findByDocumentNumberAndInstitution_Id(
-            request.documentNumber(), institutionId);
-    if (mode == GuardianDependentRequestMode.EXISTING && existing.isEmpty()) {
-      throw new GuardianLinkRequestException();
-    }
-    if (personGuardianRepository
-            .existsByInstitution_IdAndTutorPerson_IdAndDeclaredDocumentNumberAndStatusIn(
-                institutionId,
-                tutorPersonId,
-                request.documentNumber(),
-                List.of(GuardianLinkStatus.PENDING, GuardianLinkStatus.ACTIVE))
-        || (existing.isPresent()
-            && personGuardianRepository
-                .existsByInstitution_IdAndTutorPerson_IdAndDependentPerson_IdAndStatusIn(
-                    institutionId,
-                    tutorPersonId,
-                    existing.get().getId(),
-                    List.of(GuardianLinkStatus.ACTIVE)))) {
+    if (personGuardianRepository.existsOpenLinkForDocument(
+        institutionId, tutorPersonId, request.documentNumber())) {
       throw new DependentAlreadyLinkedException();
     }
     limiter.guardianRequest(institutionId, tutorPersonId);

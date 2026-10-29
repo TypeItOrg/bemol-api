@@ -19,6 +19,7 @@ import ar.edu.utn.frvm.typeit.bemol_api.institutional.entities.Institution;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.entities.Person;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.entities.PersonGuardian;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.exceptions.DependentAlreadyLinkedException;
+import ar.edu.utn.frvm.typeit.bemol_api.institutional.exceptions.GuardianRequestLimitException;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.interfaces.InstitutionRepository;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.interfaces.PersonGuardianRepository;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.interfaces.PersonRepository;
@@ -26,12 +27,13 @@ import ar.edu.utn.frvm.typeit.bemol_api.institutional.payloads.guardian.CreateGu
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.payloads.guardian.GuardianDependentRequestMode;
 import jakarta.validation.Validation;
 import java.time.LocalDate;
-import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.Spy;
@@ -83,23 +85,23 @@ class RegisterGuardianDependentUseCaseTest {
   }
 
   @Test
-  void existingRequestDisclosesOnlyDeclaredData() {
-    final var protectedPerson =
-        Person.builder()
-            .id(UUID.randomUUID())
-            .institution(institution)
-            .documentNumber("54123456")
-            .firstName("Nombre protegido")
-            .build();
-    when(personRepository.findByDocumentNumberAndInstitution_Id("54123456", institution.getId()))
-        .thenReturn(Optional.of(protectedPerson));
+  void existingRequestDoesNotLookUpOrDiscloseRegisteredIdentity() {
     final var result =
         useCase.execute(
             institution.getId(), tutor.getId(), request(GuardianDependentRequestMode.EXISTING));
     assertThat(result.dependentPersonId()).isNull();
     assertThat(result.firstName()).isNull();
+    assertThat(result.lastName()).isNull();
+    assertThat(result.birthDate()).isNull();
+    assertThat(result.status()).isEqualTo(GuardianLinkStatus.PENDING);
+    assertThat(result.documentNumber()).isEqualTo("54123456");
     assertThat(result.roles()).isEmpty();
     assertThat(result.activeApplicationsCount()).isZero();
+    assertThat(result.ownAccessStatus()).isEqualTo("UNAVAILABLE");
+    verify(personRepository, never()).findByDocumentNumberAndInstitution_Id(any(), any());
+    verify(personRepository, never()).save(any());
+    verify(personRepository, never()).saveAndFlush(any());
+    verify(limiter).guardianRequest(institution.getId(), tutor.getId());
   }
 
   @Test
@@ -116,41 +118,27 @@ class RegisterGuardianDependentUseCaseTest {
     verify(personGuardianRepository, never()).saveAndFlush(any());
   }
 
-  @Test
-  void duplicatePendingDocumentIsRejectedForThisTutor() {
-    when(personGuardianRepository
-            .existsByInstitution_IdAndTutorPerson_IdAndDeclaredDocumentNumberAndStatusIn(
-                institution.getId(),
-                tutor.getId(),
-                "54123456",
-                List.of(GuardianLinkStatus.PENDING, GuardianLinkStatus.ACTIVE)))
+  @ParameterizedTest
+  @EnumSource(GuardianDependentRequestMode.class)
+  void duplicateOpenDocumentIsRejectedForThisTutor(final GuardianDependentRequestMode mode) {
+    when(personGuardianRepository.existsOpenLinkForDocument(
+            institution.getId(), tutor.getId(), "54123456"))
         .thenReturn(true);
-    assertThatThrownBy(
-            () ->
-                useCase.execute(
-                    institution.getId(), tutor.getId(), request(GuardianDependentRequestMode.NEW)))
+    assertThatThrownBy(() -> useCase.execute(institution.getId(), tutor.getId(), request(mode)))
         .isInstanceOf(DependentAlreadyLinkedException.class);
     verify(personGuardianRepository, never()).saveAndFlush(any());
   }
 
-  @Test
-  void correctedDocumentDoesNotAllowDuplicatingAnActiveRepresentation() {
-    final var person = Person.builder().id(UUID.randomUUID()).build();
-    when(personRepository.findByDocumentNumberAndInstitution_Id("54123456", institution.getId()))
-        .thenReturn(Optional.of(person));
-    when(personGuardianRepository
-            .existsByInstitution_IdAndTutorPerson_IdAndDependentPerson_IdAndStatusIn(
-                institution.getId(),
-                tutor.getId(),
-                person.getId(),
-                List.of(GuardianLinkStatus.ACTIVE)))
-        .thenReturn(true);
+  @ParameterizedTest
+  @EnumSource(GuardianDependentRequestMode.class)
+  void requestsRemainRateLimitedWithoutLookingUpIdentity(final GuardianDependentRequestMode mode) {
+    doThrow(new GuardianRequestLimitException())
+        .when(limiter)
+        .guardianRequest(institution.getId(), tutor.getId());
 
-    assertThatThrownBy(
-            () ->
-                useCase.execute(
-                    institution.getId(), tutor.getId(), request(GuardianDependentRequestMode.NEW)))
-        .isInstanceOf(DependentAlreadyLinkedException.class);
+    assertThatThrownBy(() -> useCase.execute(institution.getId(), tutor.getId(), request(mode)))
+        .isInstanceOf(GuardianRequestLimitException.class);
+    verify(personRepository, never()).findByDocumentNumberAndInstitution_Id(any(), any());
     verify(personGuardianRepository, never()).saveAndFlush(any());
   }
 

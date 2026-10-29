@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import ar.edu.utn.frvm.typeit.bemol_api.auth.entities.User;
@@ -23,8 +24,11 @@ import ar.edu.utn.frvm.typeit.bemol_api.auth.services.RequestInstitutionalPasswo
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.enums.SystemRoleCode;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.exceptions.PermissionDelegationNotAllowedException;
 import ar.edu.utn.frvm.typeit.bemol_api.common.mail.MailSender;
+import ar.edu.utn.frvm.typeit.bemol_api.institutional.entities.GuardianLinkStatus;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.entities.GuardianRelationship;
+import ar.edu.utn.frvm.typeit.bemol_api.institutional.exceptions.DependentAlreadyLinkedException;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.exceptions.OwnAccessException;
+import ar.edu.utn.frvm.typeit.bemol_api.institutional.exceptions.PersonNotFoundException;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.interfaces.PersonRepository;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.payloads.UpdateOwnAccessRequest;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.payloads.guardian.CreateGuardianDependentRequest;
@@ -32,6 +36,7 @@ import ar.edu.utn.frvm.typeit.bemol_api.institutional.payloads.guardian.Guardian
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.payloads.person.CreatePersonRequest;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.services.CreatePersonUseCase;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.services.ListGuardianDependentsUseCase;
+import ar.edu.utn.frvm.typeit.bemol_api.institutional.services.ListGuardianLinksUseCase;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.services.RegisterGuardianDependentUseCase;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.services.ResolveGuardianLinkUseCase;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.services.UnlinkGuardianDependentUseCase;
@@ -81,6 +86,7 @@ class AuthorizedAccountsPostgresIntegrationTest extends DatabaseMigrationTestSup
   @Autowired ResolveGuardianLinkUseCase reviews;
   @Autowired UnlinkGuardianDependentUseCase unlink;
   @Autowired ListGuardianDependentsUseCase dependents;
+  @Autowired ListGuardianLinksUseCase reviewRequests;
   @Autowired PersonOwnAccessService ownAccess;
   @Autowired RequestInstitutionalPasswordRecoveryUseCase recovery;
   @Autowired UserRepository users;
@@ -280,6 +286,168 @@ class AuthorizedAccountsPostgresIntegrationTest extends DatabaseMigrationTestSup
                 institution,
                 document))
         .isZero();
+  }
+
+  @Test
+  void existingRequestsDoNotRevealWhetherTheDocumentIsRegistered() throws Exception {
+    final UUID registered = createActivated(SystemRoleCode.APPLICANT);
+    jdbcTemplate.update(
+        "UPDATE people SET first_name = 'IdentidadProtegida' WHERE person_id = ?", registered);
+    final String localDocument = user(registered).getDocumentNumber();
+    final String missingDocument = fixtures.randomDocumentNumber();
+    // Other fixtures select the first institution by ID, so keep this one after the seed.
+    final UUID otherInstitution = UUID.fromString("ffffffff-ffff-4fff-8fff-000000000001");
+    fixtures.insertTestInstitution(otherInstitution);
+    final String foreignDocument = fixtures.randomDocumentNumber();
+    fixtures.insertPerson(UUID.randomUUID(), otherInstitution, foreignDocument, false);
+    final UUID tutor = createActivated(SystemRoleCode.REPRESENTATIVE);
+    final String bearer =
+        sessionIssuer
+            .issue(user(tutor), "127.0.0.1", "QA", false, "PASSWORD")
+            .tokens()
+            .accessToken();
+
+    for (final String document : List.of(localDocument, missingDocument, foreignDocument)) {
+      mvc.perform(
+              post("/api/v1/institutions/{institutionId}/representations", institution)
+                  .header("Authorization", "Bearer " + bearer)
+                  .contentType("application/json")
+                  .content(
+                      """
+                  {"documentNumber":"%s","requestMode":"EXISTING","relationship":"LEGAL_GUARDIAN",
+                   "isPrimaryContact":false,"ownAccessRequested":false}
+                  """
+                          .formatted(document)))
+          .andExpect(status().isCreated())
+          .andExpect(jsonPath("$.status").value("PENDING"))
+          .andExpect(jsonPath("$.documentNumber").value(document))
+          .andExpect(jsonPath("$.dependentPersonId").isEmpty())
+          .andExpect(jsonPath("$.firstName").isEmpty())
+          .andExpect(jsonPath("$.lastName").isEmpty())
+          .andExpect(jsonPath("$.birthDate").isEmpty())
+          .andExpect(jsonPath("$.roles").isEmpty())
+          .andExpect(jsonPath("$.activeApplicationsCount").value(0))
+          .andExpect(jsonPath("$.ownAccessStatus").value("UNAVAILABLE"))
+          .andExpect(jsonPath("$.matchingPerson").doesNotExist());
+    }
+    mvc.perform(
+            get("/api/v1/institutions/{institutionId}/representations/page", institution)
+                .header("Authorization", "Bearer " + bearer)
+                .param("search", "IdentidadProtegida"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.totalItems").value(0));
+    mvc.perform(
+            get("/api/v1/institutions/{institutionId}/guardian-links/page", institution)
+                .header("Authorization", "Bearer " + bearer))
+        .andExpect(status().isForbidden());
+
+    final var ownRequests = dependents.execute(institution, tutor);
+    final var matching =
+        reviewRequests.page(
+            institution, 0, 10, "IdentidadProtegida", GuardianLinkStatus.PENDING, null);
+    assertThat(matching.items())
+        .singleElement()
+        .satisfies(
+            value -> {
+              assertThat(value.requestMode()).isEqualTo(GuardianDependentRequestMode.EXISTING);
+              assertThat(requireNonNull(value.matchingPerson()).personId()).isEqualTo(registered);
+            });
+    for (final String document : List.of(missingDocument, foreignDocument)) {
+      final var unmatched =
+          reviewRequests.page(institution, 0, 10, document, GuardianLinkStatus.PENDING, null);
+      assertThat(unmatched.items())
+          .singleElement()
+          .satisfies(value -> assertThat(value.matchingPerson()).isNull());
+      assertThat(
+              count(
+                  "SELECT count(*) FROM people WHERE institution_id=? AND document_number=?",
+                  institution,
+                  document))
+          .isZero();
+    }
+    assertThat(ownRequests)
+        .hasSize(3)
+        .allSatisfy(
+            value -> {
+              assertThat(value.dependentPersonId()).isNull();
+              assertThat(value.firstName()).isNull();
+            });
+  }
+
+  @Test
+  void anUnmatchedExistingRequestCanBeRejectedOrReviewedAgainAfterRegistration() {
+    final UUID tutor = createActivated(SystemRoleCode.REPRESENTATIVE);
+    as(tutor);
+    final String document = fixtures.randomDocumentNumber();
+    final UUID pending =
+        requests.execute(institution, tutor, existingRequest(document)).personGuardianId();
+    final String rejectedDocument = fixtures.randomDocumentNumber();
+    final UUID rejected =
+        requests.execute(institution, tutor, existingRequest(rejectedDocument)).personGuardianId();
+
+    authenticatePlatformAdministrator();
+    assertThatThrownBy(() -> reviews.approveForPlatform(institution, pending))
+        .isInstanceOf(PersonNotFoundException.class);
+    assertThat(
+            count(
+                "SELECT count(*) FROM person_guardians WHERE person_guardian_id=? AND status='PENDING' AND dependent_person_id IS NULL",
+                pending))
+        .isEqualTo(1);
+    reviews.rejectForPlatform(institution, rejected);
+    assertThat(
+            count(
+                "SELECT count(*) FROM people WHERE institution_id=? AND document_number=?",
+                institution,
+                rejectedDocument))
+        .isZero();
+
+    final UUID registered =
+        create
+            .execute(
+                institution,
+                new CreatePersonRequest(
+                    "Bruno",
+                    "Ferreyra",
+                    document,
+                    UUID.randomUUID() + "@example.test",
+                    null,
+                    LocalDate.of(2016, 1, 1),
+                    SystemRoleCode.APPLICANT))
+            .personId();
+    final var found =
+        reviewRequests.page(institution, 0, 10, document, GuardianLinkStatus.PENDING, null);
+    assertThat(found.items())
+        .singleElement()
+        .satisfies(
+            value ->
+                assertThat(requireNonNull(value.matchingPerson()).personId())
+                    .isEqualTo(registered));
+    assertThat(reviews.approveForPlatform(institution, pending).dependent().personId())
+        .isEqualTo(registered);
+    assertThat(
+            count(
+                "SELECT count(*) FROM people WHERE institution_id=? AND document_number=?",
+                institution,
+                document))
+        .isEqualTo(1);
+  }
+
+  @Test
+  void correctedDocumentsStillPreventDuplicateRequestsForAnActiveRepresentation() {
+    final UUID tutor = createActivated(SystemRoleCode.REPRESENTATIVE);
+    final UUID child = createActivated(SystemRoleCode.APPLICANT);
+    link(tutor, child);
+    final String document = fixtures.randomDocumentNumber();
+    authenticatePlatformAdministrator();
+    corrections.execute(
+        institution,
+        child,
+        new ar.edu.utn.frvm.typeit.bemol_api.institutional.payloads.person
+            .UpdatePersonByAdminRequest(null, null, document, null, null));
+    as(tutor);
+
+    assertThatThrownBy(() -> requests.execute(institution, tutor, existingRequest(document)))
+        .isInstanceOf(DependentAlreadyLinkedException.class);
   }
 
   @Test
@@ -849,6 +1017,19 @@ class AuthorizedAccountsPostgresIntegrationTest extends DatabaseMigrationTestSup
       LockSupport.parkNanos(TimeUnit.MILLISECONDS.toNanos(25));
     }
     assertThat(condition.getAsBoolean()).isTrue();
+  }
+
+  private CreateGuardianDependentRequest existingRequest(final String document) {
+    return new CreateGuardianDependentRequest(
+        document,
+        null,
+        null,
+        null,
+        GuardianRelationship.LEGAL_GUARDIAN,
+        false,
+        null,
+        false,
+        GuardianDependentRequestMode.EXISTING);
   }
 
   private CreateGuardianDependentRequest request(final String document) {

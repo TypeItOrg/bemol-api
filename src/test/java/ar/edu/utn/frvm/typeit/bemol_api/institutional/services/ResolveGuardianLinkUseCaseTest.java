@@ -24,8 +24,10 @@ import ar.edu.utn.frvm.typeit.bemol_api.institutional.entities.PersonGuardian;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.exceptions.GuardianLinkAlreadyResolvedException;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.exceptions.GuardianLinkNotFoundException;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.exceptions.OwnAccessException;
+import ar.edu.utn.frvm.typeit.bemol_api.institutional.exceptions.PersonNotFoundException;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.interfaces.PersonGuardianRepository;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.interfaces.PersonRepository;
+import ar.edu.utn.frvm.typeit.bemol_api.institutional.payloads.guardian.GuardianDependentRequestMode;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.payloads.guardian.GuardianLinkReviewResponse;
 import java.util.Map;
 import java.util.Optional;
@@ -34,6 +36,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -92,6 +96,55 @@ class ResolveGuardianLinkUseCaseTest {
         .thenReturn(Optional.of(link));
     when(personRepository.findByIdAndInstitution_Id(reviewer.getId(), institution.getId()))
         .thenReturn(Optional.of(reviewer));
+  }
+
+  @ParameterizedTest
+  @ValueSource(booleans = {false, true})
+  void existingRequestsRequireACurrentMatchBeforeEitherReviewerCanApprove(final boolean platform) {
+    final var dependent = link.getDependentPerson();
+    link =
+        PersonGuardian.requestUnmaterialized(
+            institution,
+            link.getTutorPerson(),
+            "54123456",
+            GuardianDependentRequestMode.EXISTING,
+            GuardianRelationship.MOTHER,
+            true,
+            null,
+            null,
+            null);
+    when(personGuardianRepository.findForUpdate(linkId, institution.getId()))
+        .thenReturn(Optional.of(link));
+    if (!platform) {
+      when(personRepository.findByIdAndInstitution_Id(reviewer.getId(), institution.getId()))
+          .thenReturn(Optional.of(reviewer));
+    }
+    when(personRepository.findByDocumentNumberAndInstitution_Id("54123456", institution.getId()))
+        .thenReturn(Optional.empty());
+
+    assertThatThrownBy(
+            () -> {
+              if (platform) {
+                useCase.approveForPlatform(institution.getId(), linkId);
+              } else {
+                useCase.approve(institution.getId(), reviewer.getId(), linkId);
+              }
+            })
+        .isInstanceOf(PersonNotFoundException.class);
+    assertThat(link.getStatus()).isEqualTo(GuardianLinkStatus.PENDING);
+    assertThat(link.getDependentPersonId()).isNull();
+    verifyNoInteractions(auditEventRecorder, assignPersonSystemRoleUseCase);
+
+    when(personRepository.findByDocumentNumberAndInstitution_Id("54123456", institution.getId()))
+        .thenReturn(Optional.of(dependent));
+    if (platform) {
+      useCase.approveForPlatform(institution.getId(), linkId);
+    } else {
+      useCase.approve(institution.getId(), reviewer.getId(), linkId);
+    }
+    assertThat(link.getStatus()).isEqualTo(GuardianLinkStatus.ACTIVE);
+    assertThat(link.getDependentPersonId()).isEqualTo(dependent.getId());
+    verify(personRepository, never()).saveAndFlush(any());
   }
 
   @Test

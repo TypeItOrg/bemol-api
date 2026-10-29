@@ -257,6 +257,8 @@ class GuardianLinkReviewControllerWebMvcTest {
     return new GuardianLinkReviewResponse(
         LINK_ID,
         status,
+        ar.edu.utn.frvm.typeit.bemol_api.institutional.payloads.guardian
+            .GuardianDependentRequestMode.EXISTING,
         GuardianRelationship.MOTHER,
         new InstitutionSummary(INSTITUTION_ID, "Conservatorio Boero"),
         new PersonSummary(UUID.randomUUID(), "35123456", "Ana", "Garcia", null),

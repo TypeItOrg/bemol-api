@@ -62,11 +62,18 @@ public interface PersonGuardianRepository
       String documentNumber,
       Collection<GuardianLinkStatus> statuses);
 
-  boolean existsByInstitution_IdAndTutorPerson_IdAndDeclaredDocumentNumberAndStatusIn(
-      UUID institutionId,
-      UUID tutorPersonId,
-      String documentNumber,
-      Collection<GuardianLinkStatus> statuses);
+  @Query(
+      """
+      SELECT COUNT(link) > 0 FROM PersonGuardian link
+      LEFT JOIN link.dependentPerson dependent
+      WHERE link.institution.id = :institutionId AND link.tutorPerson.id = :tutorPersonId
+        AND link.status IN (ar.edu.utn.frvm.typeit.bemol_api.institutional.entities.GuardianLinkStatus.PENDING,
+                            ar.edu.utn.frvm.typeit.bemol_api.institutional.entities.GuardianLinkStatus.ACTIVE)
+        AND (link.declaredDocumentNumber = :documentNumber
+          OR (link.status = ar.edu.utn.frvm.typeit.bemol_api.institutional.entities.GuardianLinkStatus.ACTIVE
+              AND dependent.documentNumber = :documentNumber))
+      """)
+  boolean existsOpenLinkForDocument(UUID institutionId, UUID tutorPersonId, String documentNumber);
 
   List<PersonGuardian> findByInstitution_IdAndDeclaredDocumentNumberAndStatusIn(
       UUID institutionId, String documentNumber, Collection<GuardianLinkStatus> statuses);

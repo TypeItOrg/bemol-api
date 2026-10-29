@@ -2,6 +2,7 @@ package ar.edu.utn.frvm.typeit.bemol_api.institutional.services;
 
 import ar.edu.utn.frvm.typeit.bemol_api.common.search.SearchNormalization;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.entities.GuardianLinkStatus;
+import ar.edu.utn.frvm.typeit.bemol_api.institutional.entities.Person;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.entities.PersonGuardian;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.entities.PersonGuardianAttachment;
 import jakarta.persistence.criteria.JoinType;
@@ -76,6 +77,23 @@ final class GuardianLinkQuery {
                         cb.coalesce(root.get("declaredLastName"), ""))),
                 pattern,
                 '\\'));
+        final var matchQuery = query.subquery(Integer.class);
+        final var match = matchQuery.from(Person.class);
+        matchQuery
+            .select(cb.literal(1))
+            .where(
+                cb.equal(match.get("institution"), root.get("institution")),
+                cb.equal(match.get("documentNumber"), root.get("declaredDocumentNumber")),
+                cb.isFalse(match.get("deleted")),
+                cb.like(
+                    SearchNormalization.unaccentLower(
+                        cb,
+                        cb.concat(
+                            cb.concat(cb.coalesce(match.get("firstName"), ""), " "),
+                            cb.coalesce(match.get("lastName"), ""))),
+                    pattern,
+                    '\\'));
+        people.add(cb.exists(matchQuery));
         predicates.add(cb.or(people.toArray(Predicate[]::new)));
       }
 
