@@ -344,7 +344,14 @@ class AuthorizedAccountsPostgresIntegrationTest extends DatabaseMigrationTestSup
     final var ownRequests = dependents.execute(institution, tutor);
     final var matching =
         reviewRequests.page(
-            institution, 0, 10, "IdentidadProtegida", GuardianLinkStatus.PENDING, null);
+            institution,
+            0,
+            10,
+            "IdentidadProtegida",
+            GuardianLinkStatus.PENDING,
+            null,
+            "createdAt",
+            "desc");
     assertThat(matching.items())
         .singleElement()
         .satisfies(
@@ -354,7 +361,8 @@ class AuthorizedAccountsPostgresIntegrationTest extends DatabaseMigrationTestSup
             });
     for (final String document : List.of(missingDocument, foreignDocument)) {
       final var unmatched =
-          reviewRequests.page(institution, 0, 10, document, GuardianLinkStatus.PENDING, null);
+          reviewRequests.page(
+              institution, 0, 10, document, GuardianLinkStatus.PENDING, null, "createdAt", "desc");
       assertThat(unmatched.items())
           .singleElement()
           .satisfies(value -> assertThat(value.matchingPerson()).isNull());
@@ -415,7 +423,8 @@ class AuthorizedAccountsPostgresIntegrationTest extends DatabaseMigrationTestSup
                     SystemRoleCode.APPLICANT))
             .personId();
     final var found =
-        reviewRequests.page(institution, 0, 10, document, GuardianLinkStatus.PENDING, null);
+        reviewRequests.page(
+            institution, 0, 10, document, GuardianLinkStatus.PENDING, null, "createdAt", "desc");
     assertThat(found.items())
         .singleElement()
         .satisfies(

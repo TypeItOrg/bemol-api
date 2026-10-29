@@ -66,11 +66,18 @@ public class ListGuardianLinksUseCase {
       final int size,
       final String search,
       final @Nullable GuardianLinkStatus status,
-      final @Nullable Boolean hasDocumentation) {
+      final @Nullable Boolean hasDocumentation,
+      final String sortField,
+      final String sortDirection) {
+    var sort = Sort.by(Sort.Direction.fromString(sortDirection), sortField);
+    if (!"createdAt".equals(sortField)) {
+      sort = sort.and(Sort.by(Sort.Direction.DESC, "createdAt"));
+    }
+
     final var result =
         personGuardianRepository.findAll(
             GuardianLinkQuery.matching(institutionId, search, status, hasDocumentation),
-            PageRequest.of(page, size, Sort.by("createdAt", "id")));
+            PageRequest.of(page, size, sort.and(Sort.by("id"))));
     final var matches = candidates(result.getContent());
     return PaginatedResponse.from(
         result.map(

@@ -64,9 +64,20 @@ public class GuardianLinkReviewController {
       @RequestParam(defaultValue = "10") @Pattern(regexp = "10|20|30|40|50") final String size,
       @RequestParam(defaultValue = "") @Size(max = 100) final String search,
       @RequestParam(required = false) final @Nullable GuardianLinkStatus status,
-      @RequestParam(required = false) final @Nullable Boolean hasDocumentation) {
+      @RequestParam(required = false) final @Nullable Boolean hasDocumentation,
+      @RequestParam(defaultValue = "createdAt") @Pattern(regexp = "createdAt|status")
+          final String sortField,
+      @RequestParam(defaultValue = "desc") @Pattern(regexp = "asc|desc")
+          final String sortDirection) {
     return listGuardianLinksUseCase.page(
-        institutionId, page, Integer.parseInt(size), search, status, hasDocumentation);
+        institutionId,
+        page,
+        Integer.parseInt(size),
+        search,
+        status,
+        hasDocumentation,
+        sortField,
+        sortDirection);
   }
 
   @PostMapping(value = "/{linkId}/approve", version = Version.V1)
