@@ -80,7 +80,7 @@ public class ResolveGuardianLinkUseCase {
     }
     materialize(link, reviewerPersonId, confirmedPersonId);
     link.approve(reviewer);
-    ownAccess.enableRequested(link);
+    ownAccess.applyRequestedAccess(link);
     assignPersonSystemRoleUseCase.executePreservingRoles(
         link.getDependentPerson(), SystemRoleCode.APPLICANT);
     audit(link, reviewer, AuditAction.GUARDIAN_LINK_APPROVED);
@@ -116,7 +116,7 @@ public class ResolveGuardianLinkUseCase {
     final PersonGuardian link = findLink(institutionId, linkId);
     materialize(link, null, confirmedPersonId);
     link.approve(null);
-    ownAccess.enableRequested(link);
+    ownAccess.applyRequestedAccess(link);
     assignPersonSystemRoleUseCase.executePreservingRoles(
         link.getDependentPerson(), SystemRoleCode.APPLICANT);
     audit(link, null, AuditAction.GUARDIAN_LINK_APPROVED);

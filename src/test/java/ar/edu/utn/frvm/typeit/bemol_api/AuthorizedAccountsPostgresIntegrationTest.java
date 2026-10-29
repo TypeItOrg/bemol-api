@@ -56,6 +56,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -557,6 +558,51 @@ class AuthorizedAccountsPostgresIntegrationTest extends DatabaseMigrationTestSup
                 rejectedDoc,
                 institution))
         .isZero();
+  }
+
+  @ParameterizedTest
+  @ValueSource(booleans = {false, true})
+  void approvingWithoutOwnAccessSuspendsTheAccountOrCancelsInvitations(
+      final boolean existingAccount) {
+    final UUID tutor = createActivated(SystemRoleCode.REPRESENTATIVE);
+    final UUID child =
+        existingAccount
+            ? createActivated(SystemRoleCode.APPLICANT)
+            : createPerson(SystemRoleCode.APPLICANT);
+    final String token = invitation(child);
+    final String document =
+        people.findByIdAndInstitution_Id(child, institution).orElseThrow().getDocumentNumber();
+    if (existingAccount) {
+      sessionIssuer.issue(user(child), "127.0.0.1", "QA", false, "PASSWORD");
+    }
+    as(tutor);
+    final UUID pending =
+        requests.execute(institution, tutor, existingRequest(document)).personGuardianId();
+
+    authenticatePlatformAdministrator();
+    reviews.approveForPlatform(institution, pending);
+
+    assertThat(
+            count(
+                "SELECT count(*) FROM person_guardians WHERE person_guardian_id=? AND status='ACTIVE'",
+                pending))
+        .isEqualTo(1);
+    if (existingAccount) {
+      assertThat(user(child).isSelfAccessEnabled()).isFalse();
+      assertThat(
+              count(
+                  "SELECT count(*) FROM user_sessions WHERE user_id=? AND active",
+                  user(child).getId()))
+          .isZero();
+    } else {
+      assertThat(count("SELECT count(*) FROM users WHERE person_id=?", child)).isZero();
+      assertThat(
+              count(
+                  "SELECT count(*) FROM person_access_invitations WHERE person_id=? AND consumed_at IS NULL AND cancelled_at IS NULL",
+                  child))
+          .isZero();
+      assertThatThrownBy(() -> anonymousActivation(token)).isInstanceOf(OwnAccessException.class);
+    }
   }
 
   @Test

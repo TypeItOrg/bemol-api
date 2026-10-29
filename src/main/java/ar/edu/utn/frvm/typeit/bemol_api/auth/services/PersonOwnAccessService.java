@@ -129,16 +129,21 @@ public class PersonOwnAccessService {
   }
 
   @Transactional
-  public void enableRequested(PersonGuardian link) {
+  public void applyRequestedAccess(final PersonGuardian link) {
+    final var person = link.getDependentPerson();
+    final var user =
+        users.findByPerson_IdAndInstitution_Id(person.getId(), link.getInstitution().getId());
+
     if (!link.isOwnAccessRequested()) {
+      if (user.isPresent()) {
+        accounts.enable(link.getInstitution().getId(), person.getId(), false);
+      } else {
+        provisioning.cancelInvitations(person.getId());
+      }
       return;
     }
-    // Representation never changes an existing account's access, including legacy requests.
-    final var user =
-        users.findByPerson_IdAndInstitution_Id(
-            link.getDependentPerson().getId(), link.getInstitution().getId());
-    if (user.isPresent()
-        || provisioning.requiresInstitutionalAccountCreation(link.getDependentPerson())) {
+
+    if (user.isPresent() || provisioning.requiresInstitutionalAccountCreation(person)) {
       return;
     }
     change(link, true, link.getDeclaredEmail());

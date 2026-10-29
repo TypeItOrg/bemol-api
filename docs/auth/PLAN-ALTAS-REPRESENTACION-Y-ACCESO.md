@@ -44,6 +44,7 @@ Los datos actuales son de prueba. No se implementa depuración histórica ni se 
 - Si una identidad aparecida después difiere de lo declarado, exigir confirmación expresa del revisor antes de reutilizarla.
 - Rechazo/cancelación no crean personas, cuentas o roles. Impedir autoaprobación.
 - Aprobar puede emitir invitación solicitada, pero no activar cuentas ni cambiar credenciales existentes.
+- Aprobar con acceso propio en «No» suspende el ingreso de una cuenta existente o cancela sus invitaciones pendientes; conserva el vínculo y exige la autorización de gestión de cuentas para suspenderla.
 
 ### R04 — Representación y acceso propio
 
