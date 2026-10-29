@@ -59,15 +59,11 @@ public class PasskeyUserEntityRepository implements PublicKeyCredentialUserEntit
     if (handle == null) {
       return null;
     }
+    final String fullName = user.getName() + " " + user.getLastName();
     return ImmutablePublicKeyCredentialUserEntity.builder()
         .id(new Bytes(handle.clone()))
-        .name(user.getId().toString())
-        .displayName(displayName(user))
+        .name(fullName)
+        .displayName(fullName)
         .build();
-  }
-
-  private static String displayName(final User user) {
-    final String institutionName = user.getInstitution().getName();
-    return user.getName() + " " + user.getLastName() + " - " + institutionName;
   }
 }
