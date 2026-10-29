@@ -26,14 +26,13 @@ public record InstitutionalCapabilities(
     final boolean canApply =
         roles.contains(SystemRoleCode.APPLICANT) || roles.contains(SystemRoleCode.STUDENT);
     final boolean canReadApplications =
-        granted(authorities, PermissionCode.OWN_ENROLLMENT_APPLICATION_READ);
+        canApply && granted(authorities, PermissionCode.OWN_ENROLLMENT_APPLICATION_READ);
     final boolean canReadTeaching =
         roles.contains(SystemRoleCode.TEACHER)
             && granted(authorities, PermissionCode.TEACHING_READ);
     return new InstitutionalCapabilities(
         canReadApplications,
         canReadApplications
-            && canApply
             && granted(authorities, PermissionCode.OWN_ENROLLMENT_APPLICATION_MANAGE),
         roles.contains(SystemRoleCode.STUDENT)
             && granted(authorities, PermissionCode.OWN_FORMATION_READ),

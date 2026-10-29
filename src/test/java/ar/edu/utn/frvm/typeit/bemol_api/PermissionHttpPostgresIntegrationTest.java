@@ -171,7 +171,10 @@ class PermissionHttpPostgresIntegrationTest extends DatabaseMigrationTestSupport
                   return request.getId();
                 });
     if (access.equals("OWNER")) {
-      grant(applicant, institution, PermissionCode.OWN_ENROLLMENT_APPLICATION_READ);
+      final UUID applicantRole =
+          grant(applicant, institution, PermissionCode.OWN_ENROLLMENT_APPLICATION_READ);
+      jdbcTemplate.update(
+          "UPDATE roles SET code = 'APPLICANT', is_system = true WHERE role_id = ?", applicantRole);
     }
     final UUID subject = access.equals("OWNER") ? applicant : reviewer;
     if (access.equals("APPROVER_ONLY")) {

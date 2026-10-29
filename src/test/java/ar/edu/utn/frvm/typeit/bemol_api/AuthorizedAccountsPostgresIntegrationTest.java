@@ -3,6 +3,7 @@ package ar.edu.utn.frvm.typeit.bemol_api;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -279,6 +280,42 @@ class AuthorizedAccountsPostgresIntegrationTest extends DatabaseMigrationTestSup
                 institution,
                 document))
         .isZero();
+  }
+
+  @Test
+  void administratorsKeepInstitutionalManagementButNotPersonalEnrollmentAccess() throws Exception {
+    final UUID admin = createActivated(SystemRoleCode.INSTITUTIONAL_AUTHORITY);
+    final String bearer =
+        sessionIssuer
+            .issue(user(admin), "127.0.0.1", "QA", false, "PASSWORD")
+            .tokens()
+            .accessToken();
+
+    mvc.perform(
+            get(
+                    "/api/v1/institutions/{institutionId}/self-service/{personId}/enrollment-applications",
+                    institution,
+                    admin)
+                .header("Authorization", "Bearer " + bearer))
+        .andExpect(status().isForbidden());
+    mvc.perform(
+            get("/api/v1/institutions/{institutionId}/enrollment-applications", institution)
+                .header("Authorization", "Bearer " + bearer))
+        .andExpect(status().isOk());
+
+    final UUID applicant = createActivated(SystemRoleCode.APPLICANT);
+    link(admin, applicant);
+    jdbcTemplate.update(
+        "UPDATE user_sessions SET active_person_id=? WHERE user_id=?",
+        applicant,
+        user(admin).getId());
+    mvc.perform(
+            get(
+                    "/api/v1/institutions/{institutionId}/self-service/{personId}/enrollment-applications",
+                    institution,
+                    applicant)
+                .header("Authorization", "Bearer " + bearer))
+        .andExpect(status().isOk());
   }
 
   @Test
