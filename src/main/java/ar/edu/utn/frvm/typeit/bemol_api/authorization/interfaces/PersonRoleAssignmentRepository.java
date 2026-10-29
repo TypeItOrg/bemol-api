@@ -18,6 +18,10 @@ public interface PersonRoleAssignmentRepository extends JpaRepository<PersonRole
   interface AuthorityRow {
     String getRoleName();
 
+    String getRoleCode();
+
+    boolean getSystemRole();
+
     @Nullable String getPermissionCode();
 
     AccessScope getAccessScope();
@@ -100,7 +104,7 @@ public interface PersonRoleAssignmentRepository extends JpaRepository<PersonRole
 
   @Query(
       """
-      SELECT pra.role.name AS roleName, permission.code AS permissionCode, pra.accessScope AS accessScope, pathId AS trainingPathId
+      SELECT pra.role.name AS roleName, pra.role.code AS roleCode, pra.role.system AS systemRole, permission.code AS permissionCode, pra.accessScope AS accessScope, pathId AS trainingPathId
       FROM PersonRoleAssignment pra
       LEFT JOIN pra.trainingPathIds pathId
       LEFT JOIN RolePermission rp ON rp.role.id = pra.role.id

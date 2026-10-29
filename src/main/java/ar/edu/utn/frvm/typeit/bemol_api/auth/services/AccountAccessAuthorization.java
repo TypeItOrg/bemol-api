@@ -117,7 +117,10 @@ public class AccountAccessAuthorization {
                 PermissionCode.ACADEMIC_OFFER_READ.getCode(),
                 PermissionCode.STUDY_PLAN_READ.getCode(),
                 PermissionCode.ACADEMIC_YEAR_READ.getCode(),
-                PermissionCode.GUARDIAN_LINK_REQUEST.getCode()))
+                PermissionCode.GUARDIAN_LINK_REQUEST.getCode(),
+                PermissionCode.OWN_ENROLLMENT_APPLICATION_READ.getCode(),
+                PermissionCode.OWN_ENROLLMENT_APPLICATION_MANAGE.getCode(),
+                PermissionCode.OWN_FORMATION_READ.getCode()))
         .isEmpty();
   }
 

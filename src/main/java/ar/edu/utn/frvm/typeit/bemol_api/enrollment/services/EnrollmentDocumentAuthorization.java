@@ -6,6 +6,8 @@ import ar.edu.utn.frvm.typeit.bemol_api.authorization.enums.PermissionCode;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.enums.PlatformRoleCode;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.services.AuthorityResolver;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.services.AuthorizationService;
+import ar.edu.utn.frvm.typeit.bemol_api.authorization.services.InstitutionalCapabilities;
+import ar.edu.utn.frvm.typeit.bemol_api.authorization.services.InstitutionalCapabilitiesService;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.services.PermissionAccess;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.entities.EnrollmentApplication;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.enums.EnrollmentDocumentAction;
@@ -27,19 +29,24 @@ public class EnrollmentDocumentAuthorization {
   private final OperatingContextResolver operatingContext;
   private final AuthorizationService authorizationService;
   private final EnrollmentDocumentAudit audit;
+  private final InstitutionalCapabilitiesService capabilities;
 
   public boolean canAccess(
       final EnrollmentApplication application,
       final @Nullable Authentication authentication,
       final PermissionCode permission) {
+    return canAccess(application, authentication, permission, false);
+  }
+
+  private boolean canAccess(
+      final EnrollmentApplication application,
+      final @Nullable Authentication authentication,
+      final PermissionCode permission,
+      final boolean fresh) {
     final var selected = operatingContext.currentPersonId();
     if (selected.isPresent()) {
       return selected.get().equals(application.getApplicantPerson().getId())
-          && Set.of(
-                  PermissionCode.ENROLLMENT_ATTACHMENT_READ,
-                  PermissionCode.ENROLLMENT_ATTACHMENT_UPLOAD,
-                  PermissionCode.ENROLLMENT_ATTACHMENT_DELETE)
-              .contains(permission);
+          && canAccessOwn(application, selected.get(), permission, fresh);
     }
     if (authentication == null || !authentication.isAuthenticated()) {
       return false;
@@ -57,7 +64,8 @@ public class EnrollmentDocumentAuthorization {
                   PermissionCode.ENROLLMENT_ATTACHMENT_UPLOAD,
                   PermissionCode.ENROLLMENT_ATTACHMENT_DELETE)
               .contains(permission)
-          && Objects.equals(user.personId(), application.getApplicantPerson().getId())) {
+          && Objects.equals(user.personId(), application.getApplicantPerson().getId())
+          && canAccessOwn(application, user.personId(), permission, fresh)) {
         return true;
       }
       return authorityResolver
@@ -69,13 +77,32 @@ public class EnrollmentDocumentAuthorization {
     return false;
   }
 
+  private boolean canAccessOwn(
+      final EnrollmentApplication application,
+      final UUID personId,
+      final PermissionCode permission,
+      final boolean fresh) {
+    final var institutionId = application.getInstitution().getId();
+    final var access =
+        fresh
+            ? capabilities.resolve(institutionId, personId)
+            : InstitutionalCapabilities.from(
+                authorityResolver.resolvePersonAuthorities(personId, institutionId));
+    return switch (permission) {
+      case ENROLLMENT_ATTACHMENT_READ -> access.canViewOwnEnrollmentApplications();
+      case ENROLLMENT_ATTACHMENT_UPLOAD, ENROLLMENT_ATTACHMENT_DELETE ->
+          access.canManageOwnEnrollmentApplications();
+      default -> false;
+    };
+  }
+
   public void require(
       final EnrollmentApplication application,
       final @Nullable Authentication authentication,
       final PermissionCode permission,
       final EnrollmentDocumentAction action,
       final @Nullable UUID attachmentId) {
-    if (canAccess(application, authentication, permission)) {
+    if (canAccess(application, authentication, permission, true)) {
       return;
     }
     audit.recordIndependent(

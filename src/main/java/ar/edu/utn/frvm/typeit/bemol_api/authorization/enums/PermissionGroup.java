@@ -6,6 +6,8 @@ import lombok.RequiredArgsConstructor;
 @Getter
 @RequiredArgsConstructor
 public enum PermissionGroup {
+  SELF_SERVICE("Autoservicio", "Acceso a trámites y formación de la persona seleccionada."),
+  TEACHING("Docencia", "Acceso y operaciones en clases asignadas al docente."),
   PEOPLE("Personas", "Acceso a datos y operaciones sobre usuarios institucionales."),
   ROLES("Roles y permisos", "Administración y asignación de responsabilidades."),
   GRADES("Calificaciones", "Carga y gestión de calificaciones académicas."),

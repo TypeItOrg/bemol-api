@@ -1,10 +1,8 @@
 package ar.edu.utn.frvm.typeit.bemol_api.institutional.services;
 
-import static ar.edu.utn.frvm.typeit.bemol_api.security.handlers.SecurityErrorMessages.DEFAULT_FORBIDDEN_MESSAGE;
-
 import ar.edu.utn.frvm.typeit.bemol_api.auth.filters.JwtAuthenticatedUser;
-import ar.edu.utn.frvm.typeit.bemol_api.authorization.enums.SystemRoleCode;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.interfaces.PersonRoleAssignmentRepository;
+import ar.edu.utn.frvm.typeit.bemol_api.authorization.services.InstitutionalCapabilitiesService;
 import ar.edu.utn.frvm.typeit.bemol_api.common.exceptions.InvalidRequestParameterException;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.entities.GuardianLinkStatus;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.entities.Person;
@@ -17,7 +15,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
-import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -31,6 +28,7 @@ public class OperatingContextResolver {
   private final PersonRepository people;
   private final PersonGuardianRepository links;
   private final PersonRoleAssignmentRepository roles;
+  private final InstitutionalCapabilitiesService capabilities;
 
   @Transactional(readOnly = true)
   public Person require(
@@ -45,10 +43,7 @@ public class OperatingContextResolver {
   public Person requireStudent(
       final UUID institutionId, final UUID selectedPersonId, final JwtAuthenticatedUser actor) {
     final var person = require(institutionId, selectedPersonId, actor);
-    if (!roles.existsByPerson_IdAndInstitution_IdAndRole_Code(
-        selectedPersonId, institutionId, SystemRoleCode.STUDENT.name())) {
-      throw new AccessDeniedException(DEFAULT_FORBIDDEN_MESSAGE);
-    }
+    capabilities.requireOwnFormation(institutionId, selectedPersonId);
 
     return person;
   }
@@ -86,9 +81,7 @@ public class OperatingContextResolver {
       final UUID institutionId, final Person person, final JwtAuthenticatedUser actor) {
     final UUID personId = person.getId();
     final var assignments = roles.findByPerson_IdAndInstitution_Id(personId, institutionId);
-    final boolean canEnroll =
-        assignments.stream()
-            .anyMatch(a -> List.of("APPLICANT", "STUDENT").contains(a.getRole().getCode()));
+    final var access = capabilities.resolve(institutionId, personId);
     return new OperatingProfileResponse(
         actor.actorPersonId(),
         personId,
@@ -96,7 +89,8 @@ public class OperatingContextResolver {
         person.getLastName(),
         person.getDocumentNumber(),
         actor.actorPersonId().equals(personId),
-        canEnroll,
+        access.canManageOwnEnrollmentApplications(),
+        access,
         assignments.stream().map(a -> a.getRole().getName()).toList());
   }
 

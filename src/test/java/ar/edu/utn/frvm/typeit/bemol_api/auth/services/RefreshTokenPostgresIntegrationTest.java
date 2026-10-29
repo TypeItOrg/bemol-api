@@ -14,6 +14,7 @@ import ar.edu.utn.frvm.typeit.bemol_api.auth.interfaces.RefreshTokenRepository;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.interfaces.UserSessionRepository;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.payloads.requests.RefreshTokenRequest;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.services.AuthorityResolver;
+import ar.edu.utn.frvm.typeit.bemol_api.authorization.services.InstitutionalAuthoritySnapshot;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.entities.Institution;
 import ar.edu.utn.frvm.typeit.bemol_api.support.InstitutionalTestData;
 import ar.edu.utn.frvm.typeit.bemol_api.support.IntegrationTest;
@@ -105,6 +106,8 @@ class RefreshTokenPostgresIntegrationTest {
   @DisplayName("Should serialize concurrent rotation and invalidate the reused token family")
   void execute_serializesConcurrentRotation() throws Exception {
     final Fixture fixture = createFixture(false);
+    when(authorityResolver.resolvePersonAuthorities(any(), any()))
+        .thenReturn(new InstitutionalAuthoritySnapshot(java.util.Set.of(), java.util.List.of()));
     when(jwtProperties.refreshExpiration(false)).thenReturn(Duration.ofDays(7));
     when(jwtService.generateAccessToken(any(InstitutionalAccessTokenInput.class)))
         .thenReturn("access-token");

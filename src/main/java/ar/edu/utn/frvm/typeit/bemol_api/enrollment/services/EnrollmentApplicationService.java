@@ -10,6 +10,7 @@ import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditEntityType;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditOrigin;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.services.AuditChangeDetails;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.services.AuditEventRecorder;
+import ar.edu.utn.frvm.typeit.bemol_api.authorization.services.InstitutionalCapabilitiesService;
 import ar.edu.utn.frvm.typeit.bemol_api.common.web.PaginatedResponse;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.entities.ApplicantResponsible;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.entities.EnrollmentApplication;
@@ -57,6 +58,7 @@ public class EnrollmentApplicationService {
   private final AcademicYearRepository academicYears;
   private final AuditEventRecorder auditEventRecorder;
   private final OperatingContextResolver operatingContext;
+  private final InstitutionalCapabilitiesService capabilities;
 
   @Transactional
   public EnrollmentApplicationResponse startOrGetApplication(
@@ -69,6 +71,7 @@ public class EnrollmentApplicationService {
 
     institutionLock.lock(institutionId);
     operatingContext.currentPersonId();
+    capabilities.requireOwnEnrollmentManage(institutionId, applicantPersonId);
     final var person =
         people
             .findByIdAndInstitution_Id(applicantPersonId, institutionId)
@@ -144,6 +147,8 @@ public class EnrollmentApplicationService {
   public EnrollmentApplicationResponse updateDraft(
       final UUID personId, final UUID applicationId, final UpdateEnrollmentDraftRequest request) {
     final var application = lockOwnedApplication(personId, applicationId);
+    capabilities.requireOwnEnrollmentManage(
+        application.getInstitution().getId(), application.getApplicantPerson().getId());
     requireOpenDraft(application);
 
     final var before = EnrollmentDraftAuditDetails.snapshot(application);
@@ -170,6 +175,8 @@ public class EnrollmentApplicationService {
   public EnrollmentApplicationResponse cancelApplication(
       final UUID personId, final UUID applicationId) {
     final var application = lockOwnedApplication(personId, applicationId);
+    capabilities.requireOwnEnrollmentManage(
+        application.getInstitution().getId(), application.getApplicantPerson().getId());
     application.cancel();
     history.record(application);
     for (final var selection : application.getCourseSelections()) {
@@ -187,6 +194,8 @@ public class EnrollmentApplicationService {
   public EnrollmentApplicationResponse submitApplication(
       final UUID personId, final UUID applicationId) {
     final var application = lockOwnedApplication(personId, applicationId);
+    capabilities.requireOwnEnrollmentManage(
+        application.getInstitution().getId(), application.getApplicantPerson().getId());
     requireOpenDraft(application);
     final UUID actorPersonId = operatingContext.currentActorPersonId().orElse(personId);
     submissionValidator.validate(application, actorPersonId);

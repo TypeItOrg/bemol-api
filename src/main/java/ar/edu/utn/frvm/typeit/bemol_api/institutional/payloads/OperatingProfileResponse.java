@@ -1,5 +1,6 @@
 package ar.edu.utn.frvm.typeit.bemol_api.institutional.payloads;
 
+import ar.edu.utn.frvm.typeit.bemol_api.authorization.services.InstitutionalCapabilities;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.util.List;
 import java.util.UUID;
@@ -13,6 +14,7 @@ import java.util.UUID;
       "documentNumber",
       "self",
       "canEnroll",
+      "capabilities",
       "roles"
     })
 public record OperatingProfileResponse(
@@ -23,4 +25,5 @@ public record OperatingProfileResponse(
     String documentNumber,
     boolean self,
     boolean canEnroll,
+    InstitutionalCapabilities capabilities,
     List<String> roles) {}

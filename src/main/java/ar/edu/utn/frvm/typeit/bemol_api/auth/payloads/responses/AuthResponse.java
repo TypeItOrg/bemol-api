@@ -2,12 +2,24 @@ package ar.edu.utn.frvm.typeit.bemol_api.auth.payloads.responses;
 
 import ar.edu.utn.frvm.typeit.bemol_api.auth.entities.User;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.enums.PermissionCode;
+import ar.edu.utn.frvm.typeit.bemol_api.authorization.services.InstitutionalAuthoritySnapshot;
 import java.util.Set;
 import java.util.UUID;
 import lombok.Builder;
 
 @Builder
 public record AuthResponse(UserPayload user, TokenResponse tokens) {
+
+  public static AuthResponse of(
+      User user,
+      UUID personId,
+      InstitutionalAuthoritySnapshot authorities,
+      String accessToken,
+      String refreshToken) {
+    return new AuthResponse(
+        UserPayload.from(user, personId, authorities),
+        new TokenResponse(accessToken, refreshToken));
+  }
 
   public static AuthResponse of(
       User user,

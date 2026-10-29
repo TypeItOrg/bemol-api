@@ -1,8 +1,8 @@
 package ar.edu.utn.frvm.typeit.bemol_api.authorization.services;
 
 import static ar.edu.utn.frvm.typeit.bemol_api.authorization.exceptions.AuthorizationMessages.PERMISSION_NOT_SEEDED;
-import static java.util.Objects.requireNonNull;
 
+import ar.edu.utn.frvm.typeit.bemol_api.authorization.config.DefaultRolePermissions;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.entities.Permission;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.entities.Role;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.entities.RolePermission;
@@ -25,19 +25,6 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @RequiredArgsConstructor
 public class InstitutionRoleProvisioner {
-
-  private static final Map<SystemRoleCode, Set<PermissionCode>> DEFAULT_PERMISSIONS =
-      Map.of(
-          SystemRoleCode.APPLICANT,
-          EnumSet.of(PermissionCode.ACADEMIC_OFFER_READ),
-          SystemRoleCode.REPRESENTATIVE,
-          EnumSet.of(PermissionCode.GUARDIAN_LINK_REQUEST),
-          SystemRoleCode.STUDENT,
-          EnumSet.of(PermissionCode.ACADEMIC_OFFER_READ),
-          SystemRoleCode.TEACHER,
-          Set.of(),
-          SystemRoleCode.INSTITUTIONAL_AUTHORITY,
-          EnumSet.allOf(PermissionCode.class));
 
   private final RoleRepository roleRepository;
   private final PermissionRepository permissionRepository;
@@ -67,13 +54,12 @@ public class InstitutionRoleProvisioner {
                           .institution(institution)
                           .build()));
 
-      if (!role.getName().equals(code.getDisplayName())) {
-        role.rename(code.getDisplayName());
-        roleRepository.save(role);
-      }
-
       if (existingRole.isEmpty() || code == SystemRoleCode.INSTITUTIONAL_AUTHORITY) {
-        assignDefaults(role, requireNonNull(DEFAULT_PERMISSIONS.get(code)));
+        assignDefaults(
+            role,
+            code == SystemRoleCode.INSTITUTIONAL_AUTHORITY
+                ? EnumSet.allOf(PermissionCode.class)
+                : DefaultRolePermissions.institutional(code));
       }
     }
   }

@@ -7,6 +7,7 @@ import ar.edu.utn.frvm.typeit.bemol_api.academic.payloads.StudyPlanSpaceResponse
 import ar.edu.utn.frvm.typeit.bemol_api.academic.payloads.TrainingPathResponse;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.filters.JwtAuthenticatedUser;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.services.InstitutionalCallerGuard;
+import ar.edu.utn.frvm.typeit.bemol_api.authorization.services.InstitutionalCapabilitiesService;
 import ar.edu.utn.frvm.typeit.bemol_api.common.web.PaginatedResponse;
 import ar.edu.utn.frvm.typeit.bemol_api.common.web.Version;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.enums.EnrollmentApplicationStatus;
@@ -16,7 +17,6 @@ import ar.edu.utn.frvm.typeit.bemol_api.enrollment.payloads.EnrollmentPeriodResp
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.payloads.EnrollmentStudyPlanSpaceInstrumentOptionsResponse;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.payloads.StartEnrollmentApplicationRequest;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.payloads.UpdateEnrollmentDraftRequest;
-import ar.edu.utn.frvm.typeit.bemol_api.enrollment.services.ApplicantEnrollmentGuard;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.services.EnrollmentApplicationService;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.services.ListAvailableEnrollmentTrainingPathsUseCase;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.services.ListEnrollmentApplicationCoursesUseCase;
@@ -54,7 +54,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class SelfServiceEnrollmentApplicationController {
 
   private final EnrollmentApplicationService applicationService;
-  private final ApplicantEnrollmentGuard applicantGuard;
+  private final InstitutionalCapabilitiesService capabilities;
   private final OperatingContextResolver operatingContext;
   private final ListMyEnrollmentApplicationsUseCase listMine;
   private final InstitutionalCallerGuard institutionalCallerGuard;
@@ -93,7 +93,6 @@ public class SelfServiceEnrollmentApplicationController {
       Authentication authentication,
       @Valid @RequestBody StartEnrollmentApplicationRequest request) {
     JwtAuthenticatedUser principal = requireInstitutionalUser(authentication);
-    applicantGuard.requireApplicant(principal);
     EnrollmentApplicationResponse response =
         applicationService.startOrGetApplication(
             principal.institutionId(), principal.personId(), request);
@@ -227,8 +226,10 @@ public class SelfServiceEnrollmentApplicationController {
 
   private JwtAuthenticatedUser requireInstitutionalUser(Authentication authentication) {
     institutionalCallerGuard.ensureInstitutionalPrincipal(authentication);
-    operatingContext.currentPersonId().orElseThrow();
+    final var personId = operatingContext.currentPersonId().orElseThrow();
+    final var principal = (JwtAuthenticatedUser) requireNonNull(authentication.getPrincipal());
+    capabilities.requireOwnEnrollmentRead(principal.institutionId(), personId);
 
-    return (JwtAuthenticatedUser) requireNonNull(authentication.getPrincipal());
+    return principal;
   }
 }

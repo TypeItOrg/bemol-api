@@ -26,6 +26,7 @@ import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditAction;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditEntityType;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.services.AuditEventRecorder;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.interfaces.PersonRoleAssignmentRepository;
+import ar.edu.utn.frvm.typeit.bemol_api.authorization.services.InstitutionalCapabilitiesService;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.services.ScopedAuthorizationService;
 import ar.edu.utn.frvm.typeit.bemol_api.common.time.BusinessDateProvider;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.entities.ApplicantEducationBackground;
@@ -171,12 +172,17 @@ class EnrollmentApplicationServiceTest {
             Mockito.mock(EnrollmentInstitutionLock.class),
             documentRequirements,
             admissionHistory,
-            new QueryEnrollmentApplicationsUseCase(applicationRepository, responses, authorization),
+            new QueryEnrollmentApplicationsUseCase(
+                Mockito.mock(InstitutionalCapabilitiesService.class),
+                applicationRepository,
+                responses,
+                authorization),
             academicYearRepository,
             auditEventRecorder,
             org.mockito.Mockito.mock(
                 ar.edu.utn.frvm.typeit.bemol_api.institutional.services.OperatingContextResolver
-                    .class));
+                    .class),
+            Mockito.mock(InstitutionalCapabilitiesService.class));
   }
 
   @Test
@@ -554,6 +560,7 @@ class EnrollmentApplicationServiceTest {
     EnrollmentApplication application =
         EnrollmentApplication.builder()
             .id(applicationId)
+            .institution(Institution.builder().id(institutionId).build())
             .applicantPerson(person)
             .status(EnrollmentApplicationStatus.SUBMITTED)
             .build();
@@ -632,6 +639,7 @@ class EnrollmentApplicationServiceTest {
     EnrollmentApplication application =
         EnrollmentApplication.builder()
             .id(applicationId)
+            .institution(Institution.builder().id(institutionId).build())
             .applicantPerson(person)
             .status(EnrollmentApplicationStatus.SUBMITTED)
             .build();
@@ -703,6 +711,7 @@ class EnrollmentApplicationServiceTest {
     EnrollmentApplication application =
         EnrollmentApplication.builder()
             .id(applicationId)
+            .institution(Institution.builder().id(institutionId).build())
             .applicantPerson(person)
             .educationBackground(edu)
             .preference(pref)
@@ -736,6 +745,7 @@ class EnrollmentApplicationServiceTest {
     EnrollmentApplication application =
         EnrollmentApplication.builder()
             .id(applicationId)
+            .institution(Institution.builder().id(institutionId).build())
             .applicantPerson(person)
             .status(EnrollmentApplicationStatus.DRAFT)
             .build();
@@ -783,6 +793,7 @@ class EnrollmentApplicationServiceTest {
     EnrollmentApplication application =
         EnrollmentApplication.builder()
             .id(applicationId)
+            .institution(Institution.builder().id(institutionId).build())
             .applicantPerson(person)
             .educationBackground(edu)
             .preference(pref)
@@ -818,6 +829,7 @@ class EnrollmentApplicationServiceTest {
     EnrollmentApplication application =
         EnrollmentApplication.builder()
             .id(applicationId)
+            .institution(Institution.builder().id(institutionId).build())
             .applicantPerson(person)
             .status(EnrollmentApplicationStatus.DRAFT)
             .build();
@@ -841,6 +853,7 @@ class EnrollmentApplicationServiceTest {
     EnrollmentApplication application =
         EnrollmentApplication.builder()
             .id(applicationId)
+            .institution(Institution.builder().id(institutionId).build())
             .applicantPerson(person)
             .status(EnrollmentApplicationStatus.DRAFT)
             .build();

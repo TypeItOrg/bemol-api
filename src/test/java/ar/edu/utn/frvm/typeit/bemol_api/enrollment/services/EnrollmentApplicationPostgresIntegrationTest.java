@@ -15,6 +15,9 @@ import ar.edu.utn.frvm.typeit.bemol_api.academic.enums.AcademicSpaceType;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.enums.AcademicYearStatus;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.enums.ApprovalMode;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.enums.RequirementType;
+import ar.edu.utn.frvm.typeit.bemol_api.authorization.enums.SystemRoleCode;
+import ar.edu.utn.frvm.typeit.bemol_api.authorization.services.AssignPersonSystemRoleUseCase;
+import ar.edu.utn.frvm.typeit.bemol_api.authorization.services.InstitutionRoleProvisioner;
 import ar.edu.utn.frvm.typeit.bemol_api.common.web.PaginatedResponse;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.entities.EnrollmentApplication;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.entities.EnrollmentApplicationSpace;
@@ -61,6 +64,8 @@ class EnrollmentApplicationPostgresIntegrationTest extends DatabaseMigrationTest
 
   @Autowired private EnrollmentApplicationService service;
   @Autowired private EntityManager entityManager;
+  @Autowired private InstitutionRoleProvisioner roles;
+  @Autowired private AssignPersonSystemRoleUseCase assignRole;
 
   @BeforeEach
   void authenticateManagementOperations() {
@@ -242,9 +247,11 @@ class EnrollmentApplicationPostgresIntegrationTest extends DatabaseMigrationTest
     String suffix = UUID.randomUUID().toString().substring(0, 8);
     Institution institution =
         InstitutionalTestData.createInstitution(entityManager, "enrollment-" + suffix);
+    roles.provision(institution);
     Person person =
         InstitutionalTestData.persist(
             entityManager, InstitutionalTestData.person(institution, docNumber()));
+    assignRole.execute(person, SystemRoleCode.APPLICANT, false);
 
     TrainingPath trainingPath =
         InstitutionalTestData.persist(

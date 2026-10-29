@@ -10,7 +10,7 @@ import ar.edu.utn.frvm.typeit.bemol_api.academic.entities.StudyPlan;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.entities.TrainingPath;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.interfaces.TrainingPathRepository;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.filters.JwtAuthenticatedUser;
-import ar.edu.utn.frvm.typeit.bemol_api.authorization.interfaces.PersonRoleAssignmentRepository;
+import ar.edu.utn.frvm.typeit.bemol_api.authorization.services.InstitutionalCapabilitiesService;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.entities.EnrollmentApplication;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.enums.EnrollmentApplicationStatus;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.exceptions.EnrollmentApplicationNotFoundException;
@@ -31,7 +31,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 class ListEnrollmentApplicationTrainingPathsUseCaseTest {
 
   @Mock private PersonRepository personRepository;
-  @Mock private PersonRoleAssignmentRepository personRoleAssignmentRepository;
+  @Mock private InstitutionalCapabilitiesService capabilities;
   @Mock private EnrollmentApplicationRepository enrollmentApplicationRepository;
   @Mock private TrainingPathRepository trainingPathRepository;
 
@@ -78,15 +78,11 @@ class ListEnrollmentApplicationTrainingPathsUseCaseTest {
             org.mockito.Mockito.mock(
                 ar.edu.utn.frvm.typeit.bemol_api.institutional.services.OperatingContextResolver
                     .class),
-            personRoleAssignmentRepository),
+            capabilities),
         enrollmentApplicationRepository);
   }
 
   private void givenApplicant(final JwtAuthenticatedUser principal, final Person person) {
-    given(
-            personRoleAssignmentRepository.existsByPerson_IdAndInstitution_IdAndRole_Code(
-                principal.personId(), principal.institutionId(), "APPLICANT"))
-        .willReturn(true);
     given(
             personRepository.findByIdAndInstitution_Id(
                 principal.personId(), principal.institutionId()))

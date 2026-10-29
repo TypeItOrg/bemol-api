@@ -77,6 +77,9 @@ final class PermissionDependencies {
           Set.of(
               PermissionCode.ENROLLMENT_APPLICATION_COURSE_READ,
               PermissionCode.ENROLLMENT_APPLICATION_READ);
+      case OWN_ENROLLMENT_APPLICATION_MANAGE ->
+          Set.of(PermissionCode.OWN_ENROLLMENT_APPLICATION_READ);
+      case TEACHING_ACADEMIC_STATUS_UPDATE -> Set.of(PermissionCode.TEACHING_READ);
       default -> Set.of();
     };
   }

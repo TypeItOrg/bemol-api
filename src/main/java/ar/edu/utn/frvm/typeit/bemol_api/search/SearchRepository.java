@@ -2,6 +2,7 @@ package ar.edu.utn.frvm.typeit.bemol_api.search;
 
 import static java.util.Objects.requireNonNull;
 
+import ar.edu.utn.frvm.typeit.bemol_api.authorization.services.InstitutionalCapabilities;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.services.ScopedAuthorizationService;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -33,54 +34,60 @@ class SearchRepository {
       final UUID institutionId,
       final UUID personId,
       final SearchQuery query,
-      final int fetchLimit) {
+      final int fetchLimit,
+      final InstitutionalCapabilities capabilities) {
     final var parameters =
         parameters(query, institutionId, personId).addValue("fetchLimit", fetchLimit);
     final Map<SearchEntityType, List<SearchResultResponse>> grouped =
         new EnumMap<>(SearchEntityType.class);
-    final var applications =
-        jdbcTemplate.query(
-            """
-        SELECT a.enrollment_application_id AS id, a.institution_id,
-               NULL::text AS institution_name, NULL::boolean AS institution_active,
-               t.name AS title, y.year::text AS subtitle, a.status,
-               NULL::text AS category, NULL::integer AS study_plan_version
-          FROM enrollment_applications a
-          JOIN training_paths t ON t.training_path_id = a.training_path_id AND t.institution_id = a.institution_id
-          LEFT JOIN academic_years y ON y.academic_year_id = a.academic_year_id AND y.institution_id = a.institution_id
-         WHERE a.institution_id = :institutionId AND a.applicant_person_id = :personId
-           AND a.deleted_at IS NULL
-           AND bemol_search_vector(t.name || ' ' || coalesce(y.year::text, '')) @@ to_tsquery('simple', :query)
-         ORDER BY bemol_search_rank(t.name, :query, :normalized) DESC, title, id
-         LIMIT :fetchLimit
-        """,
-            parameters,
-            (resultSet, rowNumber) -> mapResult(resultSet));
-    final var courses =
-        jdbcTemplate.query(
-            """
-        SELECT ce.course_enrollment_id AS id, ce.institution_id,
-               NULL::text AS institution_name, NULL::boolean AS institution_active,
-               e.name AS title, p.name AS subtitle, ce.status,
-               NULL::text AS category, p.version_number AS study_plan_version
-          FROM course_enrollments ce
-          JOIN students st ON st.student_id = ce.student_id AND st.institution_id = ce.institution_id
-          JOIN courses c ON c.course_id = ce.course_id AND c.institution_id = ce.institution_id
-          JOIN study_plan_spaces s ON s.study_plan_space_id = c.study_plan_space_id AND s.institution_id = c.institution_id
-          JOIN academic_spaces e ON e.academic_space_id = s.academic_space_id AND e.institution_id = c.institution_id
-          JOIN study_plans p ON p.study_plan_id = s.study_plan_id AND p.institution_id = c.institution_id
-         WHERE ce.institution_id = :institutionId AND st.person_id = :personId
-           AND bemol_search_vector(e.name || ' ' || p.name) @@ to_tsquery('simple', :query)
-         ORDER BY bemol_search_rank(e.name || ' ' || p.name, :query, :normalized) DESC, title, id
-         LIMIT :fetchLimit
-        """,
-            parameters,
-            (resultSet, rowNumber) -> mapResult(resultSet));
-    if (!applications.isEmpty()) {
-      grouped.put(SearchEntityType.ENROLLMENT_APPLICATION, applications);
+    if (capabilities.canViewOwnEnrollmentApplications()) {
+      final var applications =
+          jdbcTemplate.query(
+              """
+          SELECT a.enrollment_application_id AS id, a.institution_id,
+                 NULL::text AS institution_name, NULL::boolean AS institution_active,
+                 t.name AS title, y.year::text AS subtitle, a.status,
+                 NULL::text AS category, NULL::integer AS study_plan_version
+            FROM enrollment_applications a
+            JOIN training_paths t ON t.training_path_id = a.training_path_id AND t.institution_id = a.institution_id
+            LEFT JOIN academic_years y ON y.academic_year_id = a.academic_year_id AND y.institution_id = a.institution_id
+           WHERE a.institution_id = :institutionId AND a.applicant_person_id = :personId
+             AND a.deleted_at IS NULL
+             AND bemol_search_vector(t.name || ' ' || coalesce(y.year::text, '')) @@ to_tsquery('simple', :query)
+           ORDER BY bemol_search_rank(t.name, :query, :normalized) DESC, title, id
+           LIMIT :fetchLimit
+          """,
+              parameters,
+              (resultSet, rowNumber) -> mapResult(resultSet));
+      if (!applications.isEmpty()) {
+        grouped.put(SearchEntityType.ENROLLMENT_APPLICATION, applications);
+      }
     }
-    if (!courses.isEmpty()) {
-      grouped.put(SearchEntityType.COURSE_ENROLLMENT, courses);
+
+    if (capabilities.canViewOwnFormation()) {
+      final var courses =
+          jdbcTemplate.query(
+              """
+          SELECT ce.course_enrollment_id AS id, ce.institution_id,
+                 NULL::text AS institution_name, NULL::boolean AS institution_active,
+                 e.name AS title, p.name AS subtitle, ce.status,
+                 NULL::text AS category, p.version_number AS study_plan_version
+            FROM course_enrollments ce
+            JOIN students st ON st.student_id = ce.student_id AND st.institution_id = ce.institution_id
+            JOIN courses c ON c.course_id = ce.course_id AND c.institution_id = ce.institution_id
+            JOIN study_plan_spaces s ON s.study_plan_space_id = c.study_plan_space_id AND s.institution_id = c.institution_id
+            JOIN academic_spaces e ON e.academic_space_id = s.academic_space_id AND e.institution_id = c.institution_id
+            JOIN study_plans p ON p.study_plan_id = s.study_plan_id AND p.institution_id = c.institution_id
+           WHERE ce.institution_id = :institutionId AND st.person_id = :personId
+             AND bemol_search_vector(e.name || ' ' || p.name) @@ to_tsquery('simple', :query)
+           ORDER BY bemol_search_rank(e.name || ' ' || p.name, :query, :normalized) DESC, title, id
+           LIMIT :fetchLimit
+          """,
+              parameters,
+              (resultSet, rowNumber) -> mapResult(resultSet));
+      if (!courses.isEmpty()) {
+        grouped.put(SearchEntityType.COURSE_ENROLLMENT, courses);
+      }
     }
     return grouped;
   }

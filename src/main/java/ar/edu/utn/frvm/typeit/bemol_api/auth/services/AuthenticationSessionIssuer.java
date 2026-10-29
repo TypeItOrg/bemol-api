@@ -64,7 +64,8 @@ public class AuthenticationSessionIssuer {
     }
 
     final var authorities =
-        authorityResolver.resolveForPerson(user.getPerson().getId(), user.getInstitutionId());
+        authorityResolver.resolvePersonAuthorities(
+            user.getPerson().getId(), user.getInstitutionId());
     final LoginSessionPersistenceService.Result session =
         loginSessionPersistenceService.create(user.getId(), ipAddress, userAgent, rememberMe);
     final String accessToken =

@@ -10,6 +10,7 @@ import ar.edu.utn.frvm.typeit.bemol_api.authorization.exceptions.InstitutionInac
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.exceptions.InstitutionalAuthorityRoleImmutableException;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.exceptions.RoleNotFoundException;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.exceptions.RoleWithAssignmentsException;
+import ar.edu.utn.frvm.typeit.bemol_api.authorization.exceptions.SystemRoleImmutableException;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.exceptions.SystemRoleNotDeletableException;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.interfaces.PersonRoleAssignmentRepository;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.interfaces.RolePermissionRepository;
@@ -208,8 +209,8 @@ public class InstitutionRoleManagementService {
 
   private Role requireMutableRole(final UUID institutionId, final UUID roleId) {
     final var role = requireRole(institutionId, roleId);
-    if (role.isInstitutionalAuthority()) {
-      throw new InstitutionalAuthorityRoleImmutableException();
+    if (role.isSystem()) {
+      throw new SystemRoleImmutableException();
     }
     return role;
   }

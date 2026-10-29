@@ -64,7 +64,10 @@ class AuthorityResolverTest {
         authorityResolver.resolvePersonAuthorities(person.getId(), institution.getId());
 
     assertThat(authorities.permissions())
-        .containsExactlyInAnyOrder(PermissionCode.ACADEMIC_OFFER_READ);
+        .containsExactlyInAnyOrder(
+            PermissionCode.ACADEMIC_OFFER_READ,
+            PermissionCode.OWN_ENROLLMENT_APPLICATION_READ,
+            PermissionCode.OWN_ENROLLMENT_APPLICATION_MANAGE);
     assertThat(authorities.roles()).containsExactly(SystemRoleCode.APPLICANT.getDisplayName());
   }
 

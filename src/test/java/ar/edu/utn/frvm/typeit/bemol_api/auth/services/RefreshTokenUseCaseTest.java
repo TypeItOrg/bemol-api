@@ -24,6 +24,7 @@ import ar.edu.utn.frvm.typeit.bemol_api.auth.interfaces.UserSessionRepository;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.payloads.requests.RefreshTokenRequest;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.payloads.responses.AuthResponse;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.services.AuthorityResolver;
+import ar.edu.utn.frvm.typeit.bemol_api.authorization.services.InstitutionalAuthoritySnapshot;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.entities.Institution;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.entities.Person;
 import java.time.Clock;
@@ -123,6 +124,9 @@ class RefreshTokenUseCaseTest {
     when(refreshTokenRepository.findByTokenHash(tokenHash)).thenReturn(Optional.of(current));
     when(userSessionRepository.findById(sessionId)).thenReturn(Optional.of(session));
     when(userRepository.findWithPersonAndInstitutionById(userId)).thenReturn(Optional.of(user));
+    when(authorityResolver.resolvePersonAuthorities(
+            user.getPerson().getId(), user.getInstitution().getId()))
+        .thenReturn(new InstitutionalAuthoritySnapshot(java.util.Set.of(), List.of()));
     when(jwtService.generateAccessToken(any(InstitutionalAccessTokenInput.class)))
         .thenReturn("new-access-token");
 
@@ -165,6 +169,9 @@ class RefreshTokenUseCaseTest {
     when(replayCache.get(AuthRealm.INSTITUTIONAL, tokenHash)).thenReturn(Optional.of(replay));
     when(userSessionRepository.findById(sessionId)).thenReturn(Optional.of(session));
     when(userRepository.findWithPersonAndInstitutionById(userId)).thenReturn(Optional.of(user));
+    when(authorityResolver.resolvePersonAuthorities(
+            user.getPerson().getId(), user.getInstitution().getId()))
+        .thenReturn(new InstitutionalAuthoritySnapshot(java.util.Set.of(), List.of()));
 
     AuthResponse response = refreshTokenUseCase.execute(new RefreshTokenRequest(rawToken));
 
@@ -310,6 +317,9 @@ class RefreshTokenUseCaseTest {
     when(refreshTokenRepository.findByTokenHash(tokenHash)).thenReturn(Optional.of(current));
     when(userSessionRepository.findById(sessionId)).thenReturn(Optional.of(session));
     when(userRepository.findWithPersonAndInstitutionById(userId)).thenReturn(Optional.of(user));
+    when(authorityResolver.resolvePersonAuthorities(
+            user.getPerson().getId(), user.getInstitution().getId()))
+        .thenReturn(new InstitutionalAuthoritySnapshot(java.util.Set.of(), List.of()));
     when(jwtService.generateAccessToken(any(InstitutionalAccessTokenInput.class)))
         .thenReturn("access");
 

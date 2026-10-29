@@ -1,5 +1,6 @@
 package ar.edu.utn.frvm.typeit.bemol_api.enrollment.services;
 
+import ar.edu.utn.frvm.typeit.bemol_api.authorization.services.InstitutionalCapabilitiesService;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.enums.EnrollmentApplicationStatus;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.interfaces.EnrollmentApplicationRepository;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.payloads.EnrollmentApplicationResponse;
@@ -15,6 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class ListMyEnrollmentApplicationsUseCase {
 
+  private final InstitutionalCapabilitiesService capabilities;
   private final EnrollmentApplicationRepository enrollmentApplicationRepository;
   private final EnrollmentApplicationResponseFactory responses;
 
@@ -26,6 +28,8 @@ public class ListMyEnrollmentApplicationsUseCase {
       final @Nullable EnrollmentApplicationStatus status,
       final @Nullable Boolean pendingCourses,
       final Pageable pageable) {
+    capabilities.requireOwnEnrollmentRead(
+        institutionId, dependentPersonId == null ? personId : dependentPersonId);
     return enrollmentApplicationRepository
         .findMyApplications(
             institutionId, personId, dependentPersonId, status, pendingCourses, pageable)

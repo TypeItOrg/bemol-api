@@ -170,6 +170,9 @@ class PermissionHttpPostgresIntegrationTest extends DatabaseMigrationTestSupport
                   entityManager.persist(legacy);
                   return request.getId();
                 });
+    if (access.equals("OWNER")) {
+      grant(applicant, institution, PermissionCode.OWN_ENROLLMENT_APPLICATION_READ);
+    }
     final UUID subject = access.equals("OWNER") ? applicant : reviewer;
     if (access.equals("APPROVER_ONLY")) {
       jdbcTemplate.update(

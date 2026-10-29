@@ -1,6 +1,7 @@
 package ar.edu.utn.frvm.typeit.bemol_api.enrollment.services;
 
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.enums.PermissionCode;
+import ar.edu.utn.frvm.typeit.bemol_api.authorization.services.InstitutionalCapabilitiesService;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.services.ScopedAuthorizationService;
 import ar.edu.utn.frvm.typeit.bemol_api.common.search.SearchNormalization;
 import ar.edu.utn.frvm.typeit.bemol_api.common.web.PaginatedResponse;
@@ -23,6 +24,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @RequiredArgsConstructor
 public class QueryEnrollmentApplicationsUseCase {
+  private final InstitutionalCapabilitiesService capabilities;
   private final EnrollmentApplicationRepository applications;
   private final EnrollmentApplicationResponseFactory responses;
   private final ScopedAuthorizationService authorization;
@@ -59,7 +61,10 @@ public class QueryEnrollmentApplicationsUseCase {
         personId != null
             && (application.getApplicantPerson().getId().equals(personId)
                 || applications.isAccessibleByPerson(application.getId(), personId));
-    if (!ownOrDependent) {
+    if (ownOrDependent) {
+      capabilities.requireOwnEnrollmentRead(
+          application.getInstitution().getId(), application.getApplicantPerson().getId());
+    } else {
       authorization.require(
           PermissionCode.ENROLLMENT_APPLICATION_READ,
           application.getInstitution().getId(),

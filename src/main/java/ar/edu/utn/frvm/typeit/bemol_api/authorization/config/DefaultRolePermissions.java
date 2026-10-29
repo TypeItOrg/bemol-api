@@ -11,11 +11,20 @@ public final class DefaultRolePermissions {
   private static final Map<SystemRoleCode, Set<PermissionCode>> INSTITUTIONAL =
       Map.of(
           SystemRoleCode.APPLICANT,
-          Set.of(PermissionCode.ACADEMIC_OFFER_READ),
+          Set.of(
+              PermissionCode.ACADEMIC_OFFER_READ,
+              PermissionCode.OWN_ENROLLMENT_APPLICATION_READ,
+              PermissionCode.OWN_ENROLLMENT_APPLICATION_MANAGE),
           SystemRoleCode.REPRESENTATIVE,
           Set.of(PermissionCode.GUARDIAN_LINK_REQUEST),
           SystemRoleCode.STUDENT,
-          Set.of(PermissionCode.ACADEMIC_OFFER_READ),
+          Set.of(
+              PermissionCode.ACADEMIC_OFFER_READ,
+              PermissionCode.OWN_ENROLLMENT_APPLICATION_READ,
+              PermissionCode.OWN_ENROLLMENT_APPLICATION_MANAGE,
+              PermissionCode.OWN_FORMATION_READ),
+          SystemRoleCode.TEACHER,
+          Set.of(PermissionCode.TEACHING_READ, PermissionCode.TEACHING_ACADEMIC_STATUS_UPDATE),
           SystemRoleCode.ADMINISTRATIVE,
           Set.of(
               PermissionCode.DOCUMENT_CATALOG_READ,
@@ -38,6 +47,11 @@ public final class DefaultRolePermissions {
               PermissionCode.COURSE_WAITLIST_READ),
           SystemRoleCode.INSTITUTIONAL_AUTHORITY,
           Set.of(
+              PermissionCode.OWN_ENROLLMENT_APPLICATION_READ,
+              PermissionCode.OWN_ENROLLMENT_APPLICATION_MANAGE,
+              PermissionCode.OWN_FORMATION_READ,
+              PermissionCode.TEACHING_READ,
+              PermissionCode.TEACHING_ACADEMIC_STATUS_UPDATE,
               PermissionCode.GUARDIAN_LINK_REQUEST,
               PermissionCode.DOCUMENT_CATALOG_MANAGE,
               PermissionCode.INSTITUTION_ROLE_ASSIGN,

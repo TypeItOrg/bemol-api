@@ -4,6 +4,7 @@ import ar.edu.utn.frvm.typeit.bemol_api.authorization.cache.AuthorizationCacheNa
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.enums.AccessScope;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.enums.PermissionCode;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.enums.PlatformRoleCode;
+import ar.edu.utn.frvm.typeit.bemol_api.authorization.enums.SystemRoleCode;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.interfaces.PersonRoleAssignmentRepository;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.interfaces.PlatformAccountRoleRepository;
 import java.util.EnumMap;
@@ -64,7 +65,13 @@ public class CachedAuthoritySnapshotResolver {
             .sorted(String.CASE_INSENSITIVE_ORDER)
             .toList();
 
-    return new InstitutionalAuthoritySnapshot(permissions, roles, scopes);
+    final var systemRoleCodes =
+        rows.stream()
+            .filter(row -> row.getSystemRole())
+            .map(row -> SystemRoleCode.valueOf(row.getRoleCode()))
+            .collect(Collectors.toUnmodifiableSet());
+
+    return new InstitutionalAuthoritySnapshot(permissions, roles, scopes, systemRoleCodes);
   }
 
   @Cacheable(value = AuthorizationCacheNames.PLATFORM_AUTHORITIES, key = "#platformAccountId")

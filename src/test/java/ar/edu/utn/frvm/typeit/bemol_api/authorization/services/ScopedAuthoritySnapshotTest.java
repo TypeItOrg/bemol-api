@@ -85,6 +85,16 @@ class ScopedAuthoritySnapshotTest {
   private PersonRoleAssignmentRepository.AuthorityRow row(
       PermissionCode permission, AccessScope scope, @Nullable UUID path) {
     return new PersonRoleAssignmentRepository.AuthorityRow() {
+      @Override
+      public String getRoleCode() {
+        return "CUSTOM_TEST";
+      }
+
+      @Override
+      public boolean getSystemRole() {
+        return false;
+      }
+
       public String getRoleName() {
         return "Preceptor";
       }

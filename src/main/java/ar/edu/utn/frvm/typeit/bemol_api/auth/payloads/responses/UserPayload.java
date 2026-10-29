@@ -2,6 +2,9 @@ package ar.edu.utn.frvm.typeit.bemol_api.auth.payloads.responses;
 
 import ar.edu.utn.frvm.typeit.bemol_api.auth.entities.User;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.enums.PermissionCode;
+import ar.edu.utn.frvm.typeit.bemol_api.authorization.enums.SystemRoleCode;
+import ar.edu.utn.frvm.typeit.bemol_api.authorization.services.InstitutionalAuthoritySnapshot;
+import ar.edu.utn.frvm.typeit.bemol_api.authorization.services.InstitutionalCapabilities;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.services.PermissionAccess;
 import java.util.List;
 import java.util.Map;
@@ -20,6 +23,8 @@ import lombok.Builder;
       "documentNumber",
       "institutionId",
       "roles",
+      "systemRoleCodes",
+      "capabilities",
       "permissions",
       "permissionScopes",
       "actorPersonId",
@@ -36,6 +41,8 @@ public record UserPayload(
     String documentNumber,
     UUID institutionId,
     List<String> roles,
+    Set<SystemRoleCode> systemRoleCodes,
+    InstitutionalCapabilities capabilities,
     Set<String> permissions,
     Map<String, PermissionAccess> permissionScopes,
     @org.jspecify.annotations.Nullable @io.swagger.v3.oas.annotations.media.Schema(nullable = true)
@@ -45,9 +52,11 @@ public record UserPayload(
     Set<String> actorPermissions) {
 
   public UserPayload {
+    capabilities = capabilities == null ? InstitutionalCapabilities.NONE : capabilities;
     permissionScopes = permissionScopes == null ? Map.of() : Map.copyOf(permissionScopes);
     actorPermissions = actorPermissions == null ? Set.of() : Set.copyOf(actorPermissions);
     roles = roles == null ? List.of() : List.copyOf(roles);
+    systemRoleCodes = systemRoleCodes == null ? Set.of() : Set.copyOf(systemRoleCodes);
     permissions = permissions == null ? Set.of() : Set.copyOf(permissions);
   }
 
@@ -69,6 +78,16 @@ public record UserPayload(
         .delegated(representing)
         .canRequestGuardianLinks(canRequest)
         .actorPermissions(actorGrants)
+        .build();
+  }
+
+  public static UserPayload from(
+      User user, UUID personId, InstitutionalAuthoritySnapshot authorities) {
+    return from(user, personId, authorities.permissions(), authorities.roles())
+        .withScopes(authorities.permissionScopes())
+        .toBuilder()
+        .systemRoleCodes(authorities.systemRoleCodes())
+        .capabilities(InstitutionalCapabilities.from(authorities))
         .build();
   }
 

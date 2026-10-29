@@ -15,6 +15,8 @@ import ar.edu.utn.frvm.typeit.bemol_api.authorization.enums.PermissionCode;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.services.AuthorityResolver;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.services.AuthorizationService;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.services.InstitutionalAuthoritySnapshot;
+import ar.edu.utn.frvm.typeit.bemol_api.authorization.services.InstitutionalCapabilities;
+import ar.edu.utn.frvm.typeit.bemol_api.authorization.services.InstitutionalCapabilitiesService;
 import ar.edu.utn.frvm.typeit.bemol_api.common.storage.StorageService;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.entities.EnrollmentApplication;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.entities.EnrollmentAttachment;
@@ -70,6 +72,7 @@ class EnrollmentAttachmentServiceTest {
   @Mock private EnrollmentDocumentRequirement requirement;
   @Mock private AuthorizationService authorizationService;
   @Mock private AuthorityResolver authorityResolver;
+  @Mock private InstitutionalCapabilitiesService capabilities;
 
   private EnrollmentAttachmentService service;
 
@@ -84,6 +87,11 @@ class EnrollmentAttachmentServiceTest {
 
   @BeforeEach
   void setUp() {
+    org.mockito.Mockito.lenient()
+        .when(
+            capabilities.resolve(
+                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any()))
+        .thenReturn(new InstitutionalCapabilities(true, true, false, false, false));
     final var authorization =
         new EnrollmentDocumentAuthorization(
             authorityResolver,
@@ -91,7 +99,8 @@ class EnrollmentAttachmentServiceTest {
                 ar.edu.utn.frvm.typeit.bemol_api.institutional.services.OperatingContextResolver
                     .class),
             authorizationService,
-            audit);
+            audit,
+            capabilities);
     final var documents =
         new EnrollmentDocumentRequirementsService(
             definitions, attachmentRepository, authorization, periods);

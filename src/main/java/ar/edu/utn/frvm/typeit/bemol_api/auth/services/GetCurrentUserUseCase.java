@@ -7,6 +7,7 @@ import ar.edu.utn.frvm.typeit.bemol_api.auth.interfaces.UserRepository;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.payloads.responses.UserPayload;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.payloads.responses.UserResponse;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.services.AuthorityResolver;
+import ar.edu.utn.frvm.typeit.bemol_api.authorization.services.InstitutionalCapabilities;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.exceptions.PersonNotFoundException;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.interfaces.PersonRepository;
 import java.util.stream.Collectors;
@@ -40,10 +41,8 @@ public class GetCurrentUserUseCase {
     var authorities =
         authorityResolver.resolvePersonAuthorities(principal.personId(), principal.institutionId());
 
-    var payload =
-        UserPayload.from(
-            user, principal.personId(), authorities.permissions(), authorities.roles());
-    return withActor(principal, payload.withScopes(authorities.permissionScopes()));
+    var payload = UserPayload.from(user, principal.personId(), authorities);
+    return withActor(principal, payload);
   }
 
   private UserResponse withoutAccount(final JwtAuthenticatedUser principal) {
@@ -61,6 +60,8 @@ public class GetCurrentUserUseCase {
             .documentNumber(person.getDocumentNumber())
             .institutionId(principal.institutionId())
             .roles(access.roles())
+            .systemRoleCodes(access.systemRoleCodes())
+            .capabilities(InstitutionalCapabilities.from(access))
             .permissions(
                 access.permissions().stream()
                     .map(value -> value.getCode())

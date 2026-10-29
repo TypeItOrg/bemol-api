@@ -9,6 +9,8 @@ public final class AuthorizationMessages {
   public static final String LAST_PERSON_ROLE_REVOCATION =
       "No se puede revocar el único rol del usuario. Asigne otro rol antes.";
   public static final String INSTITUTION_INACTIVE = "La institución está inactiva.";
+  public static final String SYSTEM_ROLE_IMMUTABLE =
+      "Los roles del sistema solo pueden modificarse desde la administración de la plataforma.";
   public static final String SYSTEM_ROLE_NOT_DELETABLE =
       "Los roles del sistema no se pueden eliminar.";
   public static final String INSTITUTIONAL_AUTHORITY_ROLE_IMMUTABLE =

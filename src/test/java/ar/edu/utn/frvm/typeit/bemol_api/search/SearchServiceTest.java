@@ -8,6 +8,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.enums.PermissionCode;
+import ar.edu.utn.frvm.typeit.bemol_api.authorization.services.InstitutionalCapabilitiesService;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -24,6 +25,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 class SearchServiceTest {
 
   @Mock private SearchRepository repository;
+  @Mock private InstitutionalCapabilitiesService capabilities;
   @InjectMocks private SearchService searchService;
 
   @Test
@@ -36,7 +38,7 @@ class SearchServiceTest {
     final var course =
         new SearchResultResponse(
             UUID.randomUUID(), institutionId, null, null, "Curso", null, null, null, null);
-    when(repository.selfServiceSummary(eq(institutionId), eq(personId), any(), eq(2)))
+    when(repository.selfServiceSummary(eq(institutionId), eq(personId), any(), eq(2), any()))
         .thenReturn(
             Map.of(
                 SearchEntityType.COURSE_ENROLLMENT, List.of(course),
@@ -58,7 +60,7 @@ class SearchServiceTest {
     final var course =
         new SearchResultResponse(
             UUID.randomUUID(), institutionId, null, null, "Curso", null, null, null, null);
-    when(repository.selfServiceSummary(eq(institutionId), eq(personId), any(), eq(2)))
+    when(repository.selfServiceSummary(eq(institutionId), eq(personId), any(), eq(2), any()))
         .thenReturn(Map.of(SearchEntityType.COURSE_ENROLLMENT, List.of(course)));
 
     final var result = searchService.selfServiceSummary(institutionId, personId, "mateo", 1);

@@ -144,7 +144,8 @@ public class RefreshTokenUseCase {
     return AuthResponse.of(
         user,
         user.getPerson().getId(),
-        authorityResolver.resolveForPerson(user.getPerson().getId(), user.getInstitutionId()),
+        authorityResolver.resolvePersonAuthorities(
+            user.getPerson().getId(), user.getInstitutionId()),
         accessToken,
         refreshToken);
   }

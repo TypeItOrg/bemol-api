@@ -7,8 +7,7 @@ import ar.edu.utn.frvm.typeit.bemol_api.academic.entities.CourseClass;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.interfaces.CourseClassTeacherRepository;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.payloads.CourseClassResponse;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.services.CourseTreeReader;
-import ar.edu.utn.frvm.typeit.bemol_api.authorization.enums.SystemRoleCode;
-import ar.edu.utn.frvm.typeit.bemol_api.authorization.interfaces.PersonRoleAssignmentRepository;
+import ar.edu.utn.frvm.typeit.bemol_api.authorization.services.InstitutionalCapabilitiesService;
 import ar.edu.utn.frvm.typeit.bemol_api.common.time.BusinessDateProvider;
 import ar.edu.utn.frvm.typeit.bemol_api.common.web.PaginatedResponse;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.exceptions.EnrollmentMessages;
@@ -36,14 +35,14 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional(readOnly = true)
 public class TeacherCourseService {
   private final CourseClassTeacherRepository assignments;
-  private final PersonRoleAssignmentRepository roles;
+  private final InstitutionalCapabilitiesService capabilities;
   private final CourseTreeReader treeReader;
   private final CourseEnrollmentService enrollments;
   private final BusinessDateProvider businessDateProvider;
 
   public PaginatedResponse<TeacherCourseClassResponse> list(
       final UUID institutionId, final UUID personId, final Pageable pageable) {
-    requireTeacher(institutionId, personId);
+    capabilities.requireTeachingRead(institutionId, personId);
     final var page = assignments.findAssignedClasses(institutionId, personId, pageable);
     final var responses = toResponses(page.getContent());
 
@@ -58,7 +57,7 @@ public class TeacherCourseService {
 
   public TeacherWeeklySchedulesResponse weeklySchedules(
       final UUID institutionId, final UUID personId, final LocalDate requestedDate) {
-    requireTeacher(institutionId, personId);
+    capabilities.requireTeachingRead(institutionId, personId);
     final var date = requestedDate == null ? businessDateProvider.today() : requestedDate;
     if (date.getYear() < 1900 || date.getYear() > 2100) {
       throw new EnrollmentValidationException(EnrollmentMessages.SCHEDULE_WEEK_INVALID);
@@ -83,7 +82,7 @@ public class TeacherCourseService {
 
   public PaginatedResponse<CourseEnrollmentResponse> listEnrollments(
       final UUID institutionId, final UUID personId, final UUID classId, final Pageable pageable) {
-    requireTeacher(institutionId, personId);
+    capabilities.requireTeachingRead(institutionId, personId);
     if (!assignments.existsByInstitution_IdAndPerson_IdAndCourseClass_Id(
         institutionId, personId, classId)) {
       throw new EnrollmentValidationException(EnrollmentMessages.COURSE_CLASS_INVALID);
@@ -93,7 +92,7 @@ public class TeacherCourseService {
 
   public TeacherCourseClassResponse getClass(
       final UUID institutionId, final UUID personId, final UUID classId) {
-    requireTeacher(institutionId, personId);
+    capabilities.requireTeachingRead(institutionId, personId);
     final var assignment =
         assignments
             .findByInstitution_IdAndPerson_IdAndCourseClass_Id(institutionId, personId, classId)
@@ -128,16 +127,9 @@ public class TeacherCourseService {
 
   private void requireAssignedClass(
       final UUID institutionId, final UUID personId, final UUID classId) {
-    requireTeacher(institutionId, personId);
+    capabilities.requireTeachingRead(institutionId, personId);
     if (!assignments.existsByInstitution_IdAndPerson_IdAndCourseClass_Id(
         institutionId, personId, classId)) {
-      throw new AccessDeniedException(DEFAULT_FORBIDDEN_MESSAGE);
-    }
-  }
-
-  private void requireTeacher(final UUID institutionId, final UUID personId) {
-    if (!roles.existsByPerson_IdAndInstitution_IdAndRole_Code(
-        personId, institutionId, SystemRoleCode.TEACHER.name())) {
       throw new AccessDeniedException(DEFAULT_FORBIDDEN_MESSAGE);
     }
   }

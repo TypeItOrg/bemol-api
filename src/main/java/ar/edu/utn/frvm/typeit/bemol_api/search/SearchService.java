@@ -3,6 +3,7 @@ package ar.edu.utn.frvm.typeit.bemol_api.search;
 import static java.util.Objects.requireNonNull;
 
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.enums.PermissionCode;
+import ar.edu.utn.frvm.typeit.bemol_api.authorization.services.InstitutionalCapabilitiesService;
 import ar.edu.utn.frvm.typeit.bemol_api.common.web.PaginatedResponse;
 import java.util.List;
 import java.util.Map;
@@ -18,12 +19,18 @@ import org.springframework.transaction.annotation.Transactional;
 public class SearchService {
 
   private final SearchRepository repository;
+  private final InstitutionalCapabilitiesService capabilities;
 
   @Transactional(readOnly = true)
   public SearchSummaryResponse selfServiceSummary(
       final UUID institutionId, final UUID personId, final String search, final int limit) {
     final var grouped =
-        repository.selfServiceSummary(institutionId, personId, SearchQuery.from(search), limit + 1);
+        repository.selfServiceSummary(
+            institutionId,
+            personId,
+            SearchQuery.from(search),
+            limit + 1,
+            capabilities.resolve(institutionId, personId));
     return summary(
         List.of(SearchEntityType.ENROLLMENT_APPLICATION, SearchEntityType.COURSE_ENROLLMENT),
         grouped,

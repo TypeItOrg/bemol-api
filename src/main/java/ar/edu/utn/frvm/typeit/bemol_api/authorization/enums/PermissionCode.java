@@ -375,6 +375,31 @@ public enum PermissionCode {
       PermissionScope.INSTITUTION,
       PermissionGroup.ENROLLMENT,
       "Rechazar solicitudes de inscripción"),
+  OWN_ENROLLMENT_APPLICATION_READ(
+      "institution:own-enrollment-application:read",
+      PermissionScope.INSTITUTION,
+      PermissionGroup.SELF_SERVICE,
+      "Consultar mis solicitudes de inscripción"),
+  OWN_ENROLLMENT_APPLICATION_MANAGE(
+      "institution:own-enrollment-application:manage",
+      PermissionScope.INSTITUTION,
+      PermissionGroup.SELF_SERVICE,
+      "Crear, modificar y enviar mis solicitudes de inscripción"),
+  OWN_FORMATION_READ(
+      "institution:own-formation:read",
+      PermissionScope.INSTITUTION,
+      PermissionGroup.SELF_SERVICE,
+      "Consultar mis materias y horarios"),
+  TEACHING_READ(
+      "institution:teaching:read",
+      PermissionScope.INSTITUTION,
+      PermissionGroup.TEACHING,
+      "Consultar mis clases, horarios y estudiantes"),
+  TEACHING_ACADEMIC_STATUS_UPDATE(
+      "institution:teaching:academic-status-update",
+      PermissionScope.INSTITUTION,
+      PermissionGroup.TEACHING,
+      "Modificar resultados académicos de mis clases"),
   GUARDIAN_LINK_REQUEST(
       "institution:guardian-link:request",
       PermissionScope.INSTITUTION,

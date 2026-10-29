@@ -1044,6 +1044,7 @@ class CourseEnrollmentFlowPostgresIntegrationTest extends DatabaseMigrationTestS
           final var person =
               persist(
                   InstitutionalTestData.person(institution, document, LocalDate.of(2000, 1, 1)));
+          assignRole.execute(person, SystemRoleCode.APPLICANT, false);
           final var app =
               persist(
                   EnrollmentApplication.createForTrainingPath(

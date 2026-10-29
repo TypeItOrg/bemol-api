@@ -567,6 +567,7 @@ class RoleScopePostgresIntegrationTest extends DatabaseMigrationTestSupport {
         .isInstanceOf(ScopedResourceNotFoundException.class);
     assertThatThrownBy(() -> enrollments.history(institution, enrollmentId))
         .isInstanceOf(ScopedResourceNotFoundException.class);
+    assignment(applicant, institution, PermissionCode.OWN_ENROLLMENT_APPLICATION_READ);
     authenticate(applicant, institution);
     assertThat(
             attachments.listAttachments(

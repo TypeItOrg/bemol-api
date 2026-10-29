@@ -10,6 +10,7 @@ import ar.edu.utn.frvm.typeit.bemol_api.auth.exceptions.InvalidCredentialsExcept
 import ar.edu.utn.frvm.typeit.bemol_api.auth.exceptions.InvalidLoginAttemptException;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.interfaces.UserRepository;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.services.AuthorityResolver;
+import ar.edu.utn.frvm.typeit.bemol_api.authorization.services.InstitutionalAuthoritySnapshot;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.entities.Institution;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.entities.Person;
 import java.time.Instant;
@@ -59,6 +60,8 @@ class AuthenticationSessionIssuerTest {
     when(persistence.create(userId, "ip", "agent", false))
         .thenReturn(new LoginSessionPersistenceService.Result(sessionId, "refresh"));
     when(jwt.generateAccessToken(any())).thenReturn("access");
+    when(authorities.resolvePersonAuthorities(user.getPerson().getId(), institutionId))
+        .thenReturn(new InstitutionalAuthoritySnapshot(java.util.Set.of(), java.util.List.of()));
     var response = issuer.issuePassword(attempt, user, "ip", "agent", false);
     assertThat(response.tokens().accessToken()).isEqualTo("access");
     assertThat(response.tokens().refreshToken()).isEqualTo("refresh");
@@ -118,6 +121,8 @@ class AuthenticationSessionIssuerTest {
     when(persistence.create(userId, "ip", "agent", false))
         .thenReturn(new LoginSessionPersistenceService.Result(sessionId, "refresh"));
     when(jwt.generateAccessToken(any())).thenReturn("access");
+    when(authorities.resolvePersonAuthorities(user.getPerson().getId(), institutionId))
+        .thenReturn(new InstitutionalAuthoritySnapshot(java.util.Set.of(), java.util.List.of()));
 
     final var response =
         issuer.issue(user, "ip", "agent", false, AuthenticationSessionIssuer.METHOD_AUTO_LOGIN);

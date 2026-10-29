@@ -5,9 +5,8 @@ import static ar.edu.utn.frvm.typeit.bemol_api.security.handlers.SecurityErrorMe
 import ar.edu.utn.frvm.typeit.bemol_api.academic.interfaces.CourseClassTeacherRepository;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.enums.PermissionCode;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.enums.ScopedResource;
-import ar.edu.utn.frvm.typeit.bemol_api.authorization.enums.SystemRoleCode;
-import ar.edu.utn.frvm.typeit.bemol_api.authorization.interfaces.PersonRoleAssignmentRepository;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.services.AcademicAccessGuard;
+import ar.edu.utn.frvm.typeit.bemol_api.authorization.services.InstitutionalCapabilitiesService;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.entities.CourseEnrollment;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.enums.CourseEnrollmentStatus;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.enums.CourseWithdrawalType;
@@ -37,7 +36,7 @@ public class ChangeCourseEnrollmentStatusUseCase {
   private final CourseEnrollmentResponseFactory responses;
   private final Clock clock;
   private final CourseClassTeacherRepository teachers;
-  private final PersonRoleAssignmentRepository roles;
+  private final InstitutionalCapabilitiesService capabilities;
 
   @Transactional
   public CourseEnrollmentResponse withdraw(
@@ -108,9 +107,8 @@ public class ChangeCourseEnrollmentStatusUseCase {
       final UUID teacherId) {
     final var institution = context.lockInstitution(institutionId);
     final var enrollment = lockEnrollment(institutionId, enrollmentId);
+    capabilities.requireTeachingAcademicStatusUpdate(institutionId, teacherId);
     if (!enrollment.getCourseClass().getId().equals(classId)
-        || !roles.existsByPerson_IdAndInstitution_IdAndRole_Code(
-            teacherId, institutionId, SystemRoleCode.TEACHER.name())
         || !teachers.existsByInstitution_IdAndPerson_IdAndCourseClass_Id(
             institutionId, teacherId, classId)) {
       throw new AccessDeniedException(DEFAULT_FORBIDDEN_MESSAGE);

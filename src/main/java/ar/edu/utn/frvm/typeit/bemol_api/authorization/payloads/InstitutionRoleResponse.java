@@ -45,12 +45,11 @@ public record InstitutionRoleResponse(
       Role role, long assignmentCount, Set<String> permissions, Set<String> protectedPermissions) {
     @Nullable SystemRoleCode technicalCode =
         role.isSystem() ? SystemRoleCode.valueOf(role.getCode()) : null;
-    boolean authority = technicalCode == SystemRoleCode.INSTITUTIONAL_AUTHORITY;
     return InstitutionRoleResponse.builder()
         .id(role.getId())
         .name(role.getName())
         .technicalCode(technicalCode)
-        .editable(!authority)
+        .editable(!role.isSystem())
         .deletable(!role.isSystem() && assignmentCount == 0)
         .assignmentCount(assignmentCount)
         .supportsTrainingPathScope(
