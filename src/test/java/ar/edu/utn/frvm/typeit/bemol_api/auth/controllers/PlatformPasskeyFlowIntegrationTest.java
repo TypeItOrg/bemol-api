@@ -1,5 +1,6 @@
 package ar.edu.utn.frvm.typeit.bemol_api.auth.controllers;
 
+import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -229,9 +230,10 @@ class PlatformPasskeyFlowIntegrationTest extends DatabaseMigrationTestSupport {
   }
 
   private long activeKeys() {
-    return database.queryForObject(
-        "SELECT count(*) FROM platform_passkey_credentials WHERE platform_account_id = ? AND revoked_at IS NULL",
-        Long.class,
-        account.getId());
+    return requireNonNull(
+        database.queryForObject(
+            "SELECT count(*) FROM platform_passkey_credentials WHERE platform_account_id = ? AND revoked_at IS NULL",
+            Long.class,
+            account.getId()));
   }
 }

@@ -20,6 +20,7 @@ import java.util.Map;
 import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import org.hibernate.exception.ConstraintViolationException;
+import org.jspecify.annotations.Nullable;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.web.webauthn.api.AttestationConveyancePreference;
@@ -73,8 +74,8 @@ public class PlatformWebAuthnOperations {
 
   public PasskeyAuthenticationOptionsResponse assertionOptions(
       final PlatformAccount account,
-      final String sessionId,
-      final String attemptId,
+      final @Nullable String sessionId,
+      final @Nullable String attemptId,
       final String purpose,
       final String target) {
     state.limit(account.getId());
@@ -96,8 +97,8 @@ public class PlatformWebAuthnOperations {
 
   public PasskeyRegistrationOptionsResponse creationOptions(
       final PlatformAccount account,
-      final String sessionId,
-      final String attemptId,
+      final @Nullable String sessionId,
+      final @Nullable String attemptId,
       final String purpose,
       final String grant,
       final String label) {
@@ -139,7 +140,7 @@ public class PlatformWebAuthnOperations {
       final var stored =
           credentials
               .findByCredentialId(credential.getId())
-              .filter(PlatformPasskeyCredential::isActive)
+              .filter(value -> value.isActive())
               .orElseThrow(WebAuthnVerificationFailedException::new);
       if (!stored.getPlatformAccount().getId().equals(account.getId())) {
         throw new WebAuthnVerificationFailedException();

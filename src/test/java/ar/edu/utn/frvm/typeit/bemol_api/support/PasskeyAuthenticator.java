@@ -44,7 +44,7 @@ public final class PasskeyAuthenticator {
     data.write(new byte[16]);
     data.writeShort(credentialId.length);
     data.write(credentialId);
-    final var cbor = new ObjectConverter().getCborConverter();
+    final var cbor = new ObjectConverter().getCborMapper();
     data.write(cbor.writeValueAsBytes(cose));
     return credential(
         Map.of(

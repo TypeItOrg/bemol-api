@@ -87,7 +87,7 @@ public class PlatformPasskeyRepositoryAdapter
 
   @Override
   @Transactional(readOnly = true)
-  public PublicKeyCredentialUserEntity findById(final Bytes id) {
+  public @Nullable PublicKeyCredentialUserEntity findById(final Bytes id) {
     return id == null
         ? null
         : accountRepository
@@ -98,7 +98,7 @@ public class PlatformPasskeyRepositoryAdapter
 
   @Override
   @Transactional(readOnly = true)
-  public PublicKeyCredentialUserEntity findByUsername(final String username) {
+  public @Nullable PublicKeyCredentialUserEntity findByUsername(final String username) {
     if (username == null) {
       return null;
     }

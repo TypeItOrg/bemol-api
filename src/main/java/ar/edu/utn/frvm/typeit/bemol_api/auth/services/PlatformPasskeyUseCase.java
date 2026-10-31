@@ -1,5 +1,7 @@
 package ar.edu.utn.frvm.typeit.bemol_api.auth.services;
 
+import static java.util.Objects.requireNonNull;
+
 import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditAction;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.entities.PlatformAccount;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.exceptions.InvalidLoginAttemptException;
@@ -42,11 +44,12 @@ public class PlatformPasskeyUseCase {
   public PlatformAuthResponse authenticate(
       final String ceremonyId, final JsonNode credential, final HttpServletRequest request) {
     final var ceremony = state.consumeCeremony(ceremonyId, "login");
-    final var attempt = state.attempt(ceremony.attemptId());
+    final String attemptId = requireNonNull(ceremony.attemptId());
+    final var attempt = state.attempt(attemptId);
     final var account = accountForAttempt(attempt, true);
     requireAccount(ceremony, account);
     operations.verifyAssertion(ceremony, account, credential);
-    state.claimAttempt(ceremony.attemptId());
+    state.claimAttempt(attemptId);
     return sessionIssuer.issue(account, attempt.rememberMe(), request);
   }
 
@@ -63,11 +66,12 @@ public class PlatformPasskeyUseCase {
   public PlatformAuthResponse setup(
       final String ceremonyId, final JsonNode credential, final HttpServletRequest request) {
     final var ceremony = state.consumeCeremony(ceremonyId, "setup");
-    final var attempt = state.attempt(ceremony.attemptId());
+    final String attemptId = requireNonNull(ceremony.attemptId());
+    final var attempt = state.attempt(attemptId);
     final var account = accountForAttempt(attempt, true);
     requireAccount(ceremony, account);
     final CredentialRecord record = operations.verifyRegistration(ceremony, account, credential);
-    state.claimAttempt(ceremony.attemptId());
+    state.claimAttempt(attemptId);
     state.consumeSetupGrant(account.getId(), ceremony.grant());
 
     final var previous = credentials.findActiveByPlatformAccountId(account.getId());
@@ -94,7 +98,7 @@ public class PlatformPasskeyUseCase {
 
   private PlatformAccount account(final UUID id, final boolean lock) {
     return (lock ? accounts.findWithLockById(id) : accounts.findById(id))
-        .filter(PlatformAccount::isEnabled)
+        .filter(value -> value.isEnabled())
         .orElseThrow(InvalidLoginAttemptException::new);
   }
 

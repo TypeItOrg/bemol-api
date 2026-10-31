@@ -1,5 +1,7 @@
 package ar.edu.utn.frvm.typeit.bemol_api.support;
 
+import static java.util.Objects.requireNonNull;
+
 import ar.edu.utn.frvm.typeit.bemol_api.auth.config.JwtProperties;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.filters.JwtAuthenticatedPlatformAccount;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.filters.JwtAuthenticatedUser;
@@ -20,7 +22,7 @@ public final class AuthTestData {
               .authentication(authentication)
               .postProcessRequest(request);
       if (authentication.getPrincipal() instanceof JwtAuthenticatedPlatformAccount
-          || result.getRequestURI().startsWith("/api/v1/admin/")) {
+          || requireNonNull(result.getRequestURI()).startsWith("/api/v1/admin/")) {
         bindPlatformHost(result);
       }
       return result;
@@ -33,7 +35,7 @@ public final class AuthTestData {
           org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors
               .anonymous()
               .postProcessRequest(request);
-      if (result.getRequestURI().startsWith("/api/v1/admin/")) {
+      if (requireNonNull(result.getRequestURI()).startsWith("/api/v1/admin/")) {
         bindPlatformHost(result);
       }
       return result;

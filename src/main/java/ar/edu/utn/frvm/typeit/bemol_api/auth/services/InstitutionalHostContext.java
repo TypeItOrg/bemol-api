@@ -16,6 +16,7 @@ import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.jspecify.annotations.Nullable;
 import org.springframework.dao.DataAccessException;
+import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.CannotCreateTransactionException;
 import org.springframework.web.context.request.RequestContextHolder;
@@ -139,8 +140,7 @@ public class InstitutionalHostContext {
   }
 
   public void requirePlatformHost(
-      final HttpServletRequest request,
-      final org.springframework.security.core.Authentication authentication) {
+      final HttpServletRequest request, final @Nullable Authentication authentication) {
     if (java.util.Collections.list(request.getHeaders(HEADER)).size() > 1) {
       throw new InvalidInstitutionalHostException();
     }

@@ -13,8 +13,10 @@ import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentMatchers;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
+import org.springframework.data.redis.core.script.RedisScript;
 import tools.jackson.databind.json.JsonMapper;
 
 class PlatformPasskeyStateStoreTest {
@@ -57,9 +59,7 @@ class PlatformPasskeyStateStoreTest {
 
   @Test
   void expiredOrReplacedSetupGrantCannotBeConsumed() {
-    when(redis.execute(
-            any(org.springframework.data.redis.core.script.RedisScript.class), anyList(), any()))
-        .thenReturn(0L);
+    when(redis.execute(ArgumentMatchers.<RedisScript<Long>>any(), anyList(), any())).thenReturn(0L);
     assertThatThrownBy(() -> store.consumeSetupGrant(accountId, "old-hash"))
         .isInstanceOf(WebAuthnVerificationFailedException.class);
   }

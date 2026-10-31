@@ -9,6 +9,7 @@ import java.security.MessageDigest;
 import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
+import org.jspecify.annotations.Nullable;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.stereotype.Service;
@@ -36,8 +37,8 @@ public class PlatformPasskeyStateStore {
 
   public record Ceremony(
       UUID accountId,
-      String sessionId,
-      String attemptId,
+      @Nullable String sessionId,
+      @Nullable String attemptId,
       String purpose,
       String target,
       String grant,
@@ -128,7 +129,7 @@ public class PlatformPasskeyStateStore {
     return id;
   }
 
-  private <T> T read(final String json, final Class<T> type) {
+  private <T> T read(final @Nullable String json, final Class<T> type) {
     if (json == null) {
       throw new InvalidLoginAttemptException();
     }

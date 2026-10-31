@@ -159,14 +159,14 @@ public class PlatformPasskeyManagementUseCase {
 
   private PlatformAccount account(final UUID id, final boolean lock) {
     return (lock ? accounts.findWithLockById(id) : accounts.findById(id))
-        .filter(PlatformAccount::isEnabled)
+        .filter(value -> value.isEnabled())
         .orElseThrow(InvalidLoginAttemptException::new);
   }
 
   private PlatformPasskeyCredential credential(final UUID accountId, final UUID id) {
     return credentials
         .findWithLockByIdAndPlatformAccountId(id, accountId)
-        .filter(PlatformPasskeyCredential::isActive)
+        .filter(value -> value.isActive())
         .orElseThrow(PasskeyNotFoundException::new);
   }
 
