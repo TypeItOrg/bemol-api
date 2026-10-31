@@ -15,6 +15,18 @@ import org.springframework.data.repository.query.Param;
 
 public interface PlatformAccountRepository extends JpaRepository<PlatformAccount, UUID> {
 
+  @Lock(LockModeType.PESSIMISTIC_WRITE)
+  @Query("SELECT account FROM PlatformAccount account WHERE account.id = :id")
+  Optional<PlatformAccount> findWithLockById(@Param("id") UUID id);
+
+  default Optional<PlatformAccount> findByWebauthnUserHandle(final byte[] handle) {
+    try {
+      return findById(UUID.fromString(new String(handle, java.nio.charset.StandardCharsets.UTF_8)));
+    } catch (IllegalArgumentException exception) {
+      return Optional.empty();
+    }
+  }
+
   Optional<PlatformAccount> findByEmailIgnoreCase(String email);
 
   boolean existsByEmailIgnoreCase(String email);

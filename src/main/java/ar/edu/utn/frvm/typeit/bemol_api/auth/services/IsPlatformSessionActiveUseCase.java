@@ -12,7 +12,7 @@ public class IsPlatformSessionActiveUseCase {
   private final PlatformSessionRepository platformSessionRepository;
 
   @org.springframework.cache.annotation.Cacheable(
-      value = "activePlatformSessions",
+      value = "activePlatformMfaSessions",
       key = "#sessionId")
   public boolean execute(UUID sessionId) {
     return platformSessionRepository.existsByIdAndActiveTrue(sessionId);

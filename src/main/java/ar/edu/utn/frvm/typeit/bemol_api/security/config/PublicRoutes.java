@@ -19,6 +19,10 @@ public final class PublicRoutes {
     "/api/v1/auth/password-recovery",
     "/api/v1/auth/password-recovery/reset",
     "/api/v1/auth/refresh",
+    "/api/v1/admin/auth/passkeys/authentication/options",
+    "/api/v1/admin/auth/passkeys/authentication/verify",
+    "/api/v1/admin/auth/passkeys/setup/options",
+    "/api/v1/admin/auth/passkeys/setup/verify",
     "/api/v1/admin/auth/login",
     "/api/v1/admin/auth/refresh"
   };

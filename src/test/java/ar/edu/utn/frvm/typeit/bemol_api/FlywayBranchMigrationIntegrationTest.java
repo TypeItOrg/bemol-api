@@ -110,6 +110,172 @@ class FlywayBranchMigrationIntegrationTest {
     assertThat(upgrade.migrate().migrationsExecuted).isZero();
   }
 
+  @Test
+  void platformMfaUpgradeRevokesOnlyPlatformSessionsAndPreservesAccounts() {
+    final var database = new PostgresTestDatabase("postgres:18-alpine", "platform_mfa_upgrade");
+    final var jdbc = jdbc(database);
+    Flyway.configure()
+        .dataSource(requireNonNull(jdbc.getDataSource()))
+        .locations("classpath:db/migration", "classpath:db/dev")
+        .sqlMigrationPrefix("")
+        .outOfOrder(true)
+        .target("20261028233706")
+        .load()
+        .migrate();
+    final UUID account = UUID.randomUUID(),
+        platformSession = UUID.randomUUID(),
+        person = UUID.randomUUID(),
+        user = UUID.randomUUID(),
+        userSession = UUID.randomUUID();
+    jdbc.update(
+        """
+        INSERT INTO platform_accounts (platform_account_id, first_name, last_name, email, password, enabled, created_at, updated_at)
+        VALUES (?, 'Prueba', 'Plataforma', 'upgrade@example.test', 'unchanged-hash', true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+        """,
+        account);
+    jdbc.update(
+        """
+        INSERT INTO platform_sessions (platform_session_id, platform_account_id, active, remember_me, started_at)
+        VALUES (?, ?, true, false, CURRENT_TIMESTAMP)
+        """,
+        platformSession,
+        account);
+    jdbc.update(
+        """
+        INSERT INTO platform_refresh_tokens (platform_refresh_token_id, platform_account_id, platform_session_id, family_id, token_hash, revoked, created_at, expires_at)
+        VALUES (?, ?, ?, ?, 'old-token-hash', false, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP + INTERVAL '1 day')
+        """,
+        UUID.randomUUID(),
+        account,
+        platformSession,
+        UUID.randomUUID().toString());
+    final var fixtures = new MigrationFixtures(jdbc);
+    final UUID institution = fixtures.firstInstitutionId();
+    fixtures.insertPerson(person, institution, "99112233", false);
+    jdbc.update(
+        """
+        INSERT INTO users (user_id, person_id, institution_id, password, enabled, created_at, updated_at)
+        VALUES (?, ?, ?, 'institutional-hash', true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+        """,
+        user,
+        person,
+        institution);
+    jdbc.update(
+        """
+        INSERT INTO user_sessions (user_session_id, user_id, active, remember_me, started_at)
+        VALUES (?, ?, true, false, CURRENT_TIMESTAMP)
+        """,
+        userSession,
+        user);
+
+    final var upgrade =
+        Flyway.configure()
+            .dataSource(requireNonNull(jdbc.getDataSource()))
+            .locations("classpath:db/migration", "classpath:db/dev")
+            .sqlMigrationPrefix("")
+            .outOfOrder(true)
+            .target("20261031003113")
+            .load();
+    assertThat(upgrade.migrate().migrationsExecuted).isEqualTo(1);
+    assertThat(
+            jdbc.queryForObject(
+                "SELECT active FROM platform_sessions WHERE platform_session_id = ?",
+                Boolean.class,
+                platformSession))
+        .isFalse();
+    assertThat(
+            jdbc.queryForObject(
+                "SELECT ended_at IS NOT NULL FROM platform_sessions WHERE platform_session_id = ?",
+                Boolean.class,
+                platformSession))
+        .isTrue();
+    assertThat(
+            jdbc.queryForObject(
+                "SELECT revoked FROM platform_refresh_tokens WHERE platform_session_id = ?",
+                Boolean.class,
+                platformSession))
+        .isTrue();
+    assertThat(
+            jdbc.queryForObject(
+                "SELECT password FROM platform_accounts WHERE platform_account_id = ?",
+                String.class,
+                account))
+        .isEqualTo("unchanged-hash");
+    assertThat(
+            jdbc.queryForObject(
+                "SELECT active FROM user_sessions WHERE user_session_id = ?",
+                Boolean.class,
+                userSession))
+        .isTrue();
+    assertThat(
+            jdbc.queryForObject("SELECT password FROM users WHERE user_id = ?", String.class, user))
+        .isEqualTo("institutional-hash");
+    assertThat(jdbc.queryForObject("SELECT count(*) FROM platform_passkey_credentials", Long.class))
+        .isZero();
+    assertThat(upgrade.validateWithResult().validationSuccessful).isTrue();
+    assertThat(upgrade.migrate().migrationsExecuted).isZero();
+  }
+
+  @Test
+  void platformPasskeyTimestampUpgradePreservesUtcValuesAndNulls() {
+    final var database =
+        new PostgresTestDatabase("postgres:18-alpine", "platform_passkey_utc_upgrade");
+    final var jdbc = jdbc(database);
+    Flyway.configure()
+        .dataSource(requireNonNull(jdbc.getDataSource()))
+        .locations("classpath:db/migration", "classpath:db/dev")
+        .sqlMigrationPrefix("")
+        .outOfOrder(true)
+        .target("20261031003113")
+        .load()
+        .migrate();
+    final UUID credential = UUID.randomUUID();
+    final UUID account = UUID.randomUUID();
+    jdbc.update(
+        """
+        INSERT INTO platform_accounts (platform_account_id, first_name, last_name, email, password, enabled, created_at, updated_at)
+        VALUES (?, 'Prueba', 'UTC', 'utc-upgrade@example.test', 'unchanged-hash', true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+        """,
+        account);
+    jdbc.update(
+        """
+        INSERT INTO platform_passkey_credentials (
+          platform_passkey_credential_id, platform_account_id, credential_id,
+          public_key_cose, user_handle, label, created_at, updated_at, last_used_at, revoked_at
+        )
+        SELECT ?, platform_account_id, 'utc-upgrade', decode('01', 'hex'), decode('02', 'hex'),
+          'Existing key', TIMESTAMP '2026-10-30 12:34:56.123456',
+          TIMESTAMP '2026-10-30 13:34:56.123456', TIMESTAMP '2026-10-30 14:34:56.123456', NULL
+        FROM platform_accounts WHERE platform_account_id = ?
+        """,
+        credential,
+        account);
+
+    final var upgrade =
+        Flyway.configure()
+            .dataSource(requireNonNull(jdbc.getDataSource()))
+            .locations("classpath:db/migration", "classpath:db/dev")
+            .sqlMigrationPrefix("")
+            .outOfOrder(true)
+            .initSql("SET TIME ZONE 'America/Argentina/Buenos_Aires'")
+            .load();
+    assertThat(upgrade.migrate().migrationsExecuted).isEqualTo(1);
+    assertThat(
+            jdbc.queryForObject(
+                """
+                SELECT created_at = TIMESTAMPTZ '2026-10-30 12:34:56.123456+00'
+                  AND updated_at = TIMESTAMPTZ '2026-10-30 13:34:56.123456+00'
+                  AND last_used_at = TIMESTAMPTZ '2026-10-30 14:34:56.123456+00'
+                  AND revoked_at IS NULL
+                FROM platform_passkey_credentials WHERE platform_passkey_credential_id = ?
+                """,
+                Boolean.class,
+                credential))
+        .isTrue();
+    assertThat(upgrade.validateWithResult().validationSuccessful).isTrue();
+    assertThat(upgrade.migrate().migrationsExecuted).isZero();
+  }
+
   @ParameterizedTest
   @ValueSource(strings = {"dev", "staging", "prod"})
   @DisplayName("Should enable late migrations in every profile without disabling validation")

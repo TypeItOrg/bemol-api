@@ -1,6 +1,10 @@
 package ar.edu.utn.frvm.typeit.bemol_api.auth.exceptions;
 
 public final class AuthMessages {
+  public static final String PLATFORM_HOST_REQUIRED =
+      "Este acceso requiere el dominio de administración de plataforma.";
+  public static final String PLATFORM_PASSKEY_REQUIRED =
+      "Necesitás conservar al menos una llave de acceso. Para reemplazarla sin disponer de ella, solicitá un rescate al operador.";
   public static final String INVALID_CREDENTIALS = "Las credenciales proporcionadas son inválidas.";
   public static final String INVALID_CURRENT_PASSWORD = "La contraseña actual no es correcta.";
   public static final String USER_DISABLED = "El usuario se encuentra deshabilitado.";

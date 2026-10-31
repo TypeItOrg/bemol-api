@@ -48,6 +48,9 @@ public class InstitutionalHostContext {
       throw new InvalidInstitutionalHostException();
     }
     final String hostname = parsed.getHost();
+    if (host.equalsIgnoreCase(properties.platformUri().getRawAuthority())) {
+      return Optional.empty();
+    }
     final URI base = properties.baseUri();
     final int effectivePort =
         base.getPort() == -1 ? (base.getScheme().equals("https") ? 443 : 80) : base.getPort();
@@ -116,6 +119,12 @@ public class InstitutionalHostContext {
         || properties.institutionalBaseDomain().isEmpty()) {
       return Optional.empty();
     }
+    if (attributes
+        .getRequest()
+        .getHeader(HEADER)
+        .equalsIgnoreCase(properties.platformUri().getRawAuthority())) {
+      return Optional.of(properties.platformPublicUrl());
+    }
     final var tenant = bind(attributes.getRequest());
     final URI base = properties.baseUri();
     return Optional.of(
@@ -127,6 +136,31 @@ public class InstitutionalHostContext {
                         + "://"
                         + base.getHost()
                         + (base.getPort() == -1 ? "" : ":" + base.getPort())));
+  }
+
+  public void requirePlatformHost(
+      final HttpServletRequest request,
+      final org.springframework.security.core.Authentication authentication) {
+    if (java.util.Collections.list(request.getHeaders(HEADER)).size() > 1) {
+      throw new InvalidInstitutionalHostException();
+    }
+    final String host = request.getHeader(HEADER);
+    final boolean platformHost =
+        host != null && host.equalsIgnoreCase(properties.platformUri().getRawAuthority());
+    final Object principal = authentication == null ? null : authentication.getPrincipal();
+    if ((request.getRequestURI().startsWith("/api/v1/admin/")
+            || principal
+                instanceof
+                ar.edu.utn.frvm.typeit.bemol_api.auth.filters.JwtAuthenticatedPlatformAccount)
+        && !platformHost) {
+      throw new ar.edu.utn.frvm.typeit.bemol_api.auth.exceptions.PlatformHostRequiredException();
+    }
+    if (platformHost
+        && (request.getRequestURI().startsWith("/api/v1/auth/")
+            || principal
+                instanceof ar.edu.utn.frvm.typeit.bemol_api.auth.filters.JwtAuthenticatedUser)) {
+      throw new ar.edu.utn.frvm.typeit.bemol_api.auth.exceptions.PlatformHostRequiredException();
+    }
   }
 
   public void requireInstitution(final UUID institutionId) {

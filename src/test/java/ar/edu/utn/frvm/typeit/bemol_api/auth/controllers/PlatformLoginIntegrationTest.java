@@ -35,6 +35,7 @@ class PlatformLoginIntegrationTest extends DatabaseMigrationTestSupport {
   @Autowired private JdbcTemplate database;
   @Autowired private JwtService jwt;
   @Autowired private JwtProperties jwtProperties;
+  @Autowired private org.springframework.data.redis.core.StringRedisTemplate redis;
 
   @ParameterizedTest(name = "Platform login, rotation and logout, rememberMe={0}")
   @ValueSource(booleans = {false, true})
@@ -45,6 +46,7 @@ class PlatformLoginIntegrationTest extends DatabaseMigrationTestSupport {
         mockMvc
             .perform(
                 post("/api/v1/admin/auth/login")
+                    .header("X-Institutional-Host", "admin.localhost:3000")
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(
                         """
@@ -52,12 +54,62 @@ class PlatformLoginIntegrationTest extends DatabaseMigrationTestSupport {
                         """
                             .formatted(rememberMe)))
             .andExpect(status().isOk())
-            .andExpect(jsonPath("$.account.email").value("admin@plataforma.com"))
-            .andExpect(jsonPath("$.account.name").value("Administrador"))
-            .andExpect(jsonPath("$.account.lastName").value("Plataforma"))
-            .andExpect(jsonPath("$.account.password").doesNotExist())
+            .andExpect(jsonPath("$.loginAttemptId").isString())
+            .andExpect(jsonPath("$.tokens").doesNotExist())
             .andReturn();
-    final var body = jsonMapper.readTree(login.getResponse().getContentAsString());
+    final var challenge = jsonMapper.readTree(login.getResponse().getContentAsString());
+    final UUID setupAccountId =
+        database.queryForObject(
+            "SELECT platform_account_id FROM platform_accounts WHERE email = 'admin@plataforma.com'",
+            UUID.class);
+    final String code = "a".repeat(64);
+    redis
+        .opsForValue()
+        .set(
+            "bemol:platform:setup:" + setupAccountId,
+            JwtService.hashToken(code),
+            java.time.Duration.ofMinutes(15));
+    final var options =
+        jsonMapper.readTree(
+            mockMvc
+                .perform(
+                    post("/api/v1/admin/auth/passkeys/setup/options")
+                        .header("X-Institutional-Host", "admin.localhost:3000")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(
+                            jsonMapper.writeValueAsString(
+                                java.util.Map.of(
+                                    "loginAttemptId",
+                                    challenge.path("loginAttemptId").asString(),
+                                    "code",
+                                    code,
+                                    "label",
+                                    "Equipo de prueba"))))
+                .andExpect(status().isOk())
+                .andReturn()
+                .getResponse()
+                .getContentAsString());
+    final var authenticator = new ar.edu.utn.frvm.typeit.bemol_api.support.PasskeyAuthenticator();
+    final var credential =
+        authenticator.register(options.path("options"), "http://admin.localhost:3000");
+    final var body =
+        jsonMapper.readTree(
+            mockMvc
+                .perform(
+                    post("/api/v1/admin/auth/passkeys/setup/verify")
+                        .header("X-Institutional-Host", "admin.localhost:3000")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(
+                            jsonMapper.writeValueAsString(
+                                java.util.Map.of(
+                                    "ceremonyId",
+                                    options.path("ceremonyId").asString(),
+                                    "credential",
+                                    credential))))
+                .andExpect(status().isOk())
+                .andReturn()
+                .getResponse()
+                .getContentAsString());
     final String accessToken = body.at("/tokens/accessToken").asString();
     final String refreshToken = body.at("/tokens/refreshToken").asString();
     final UUID accountId = UUID.fromString(body.at("/account/platformAccountId").asString());
@@ -88,6 +140,7 @@ class PlatformLoginIntegrationTest extends DatabaseMigrationTestSupport {
             mockMvc
                 .perform(
                     post("/api/v1/admin/auth/refresh")
+                        .header("X-Institutional-Host", "admin.localhost:3000")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"refreshToken\":\"" + refreshToken + "\"}"))
                 .andExpect(status().isOk())
@@ -113,6 +166,7 @@ class PlatformLoginIntegrationTest extends DatabaseMigrationTestSupport {
     mockMvc
         .perform(
             post("/api/v1/admin/auth/refresh")
+                .header("X-Institutional-Host", "admin.localhost:3000")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"refreshToken\":\"" + refreshToken + "\"}"))
         .andExpect(status().isOk())
@@ -123,6 +177,7 @@ class PlatformLoginIntegrationTest extends DatabaseMigrationTestSupport {
     mockMvc
         .perform(
             post("/api/v1/admin/auth/logout")
+                .header("X-Institutional-Host", "admin.localhost:3000")
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + nextAccess))
         .andExpect(status().isNoContent());
     assertThat(
@@ -140,13 +195,16 @@ class PlatformLoginIntegrationTest extends DatabaseMigrationTestSupport {
     for (final String token : new String[] {accessToken, nextAccess}) {
       mockMvc
           .perform(
-              get("/api/v1/admin/auth/me").header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
+              get("/api/v1/admin/auth/me")
+                  .header("X-Institutional-Host", "admin.localhost:3000")
+                  .header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
           .andExpect(status().isUnauthorized());
     }
     for (final String token : new String[] {refreshToken, nextRefresh}) {
       mockMvc
           .perform(
               post("/api/v1/admin/auth/refresh")
+                  .header("X-Institutional-Host", "admin.localhost:3000")
                   .contentType(MediaType.APPLICATION_JSON)
                   .content("{\"refreshToken\":\"" + token + "\"}"))
           .andExpect(status().isUnauthorized());
@@ -157,7 +215,9 @@ class PlatformLoginIntegrationTest extends DatabaseMigrationTestSupport {
       throws Exception {
     mockMvc
         .perform(
-            get("/api/v1/admin/auth/me").header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken))
+            get("/api/v1/admin/auth/me")
+                .header("X-Institutional-Host", "admin.localhost:3000")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.account.platformAccountId").value(accountId.toString()));
   }

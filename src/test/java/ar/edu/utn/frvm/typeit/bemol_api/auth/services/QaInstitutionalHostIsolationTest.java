@@ -115,7 +115,7 @@ class QaInstitutionalHostIsolationTest {
   }
 
   @Test
-  void A03_sessionContext_jwtPrincipalRejectedBeforeControllerButPlatformUnaffected()
+  void A03_sessionContext_jwtPrincipalRejectedBeforeControllerAndPlatformRequiresItsHost()
       throws Exception {
     final var resolver = mock(org.springframework.web.servlet.HandlerExceptionResolver.class);
     final var filter =
@@ -142,7 +142,19 @@ class QaInstitutionalHostIsolationTest {
       final var platformRequest = new MockHttpServletRequest("POST", "/api/v1/admin/auth/login");
       platformRequest.addHeader(InstitutionalHostContext.HEADER, "arbitrary-malicious-host");
       filter.doFilter(platformRequest, response, chain);
-      verify(chain).doFilter(platformRequest, response);
+      verify(resolver)
+          .resolveException(
+              eq(platformRequest),
+              eq(response),
+              isNull(),
+              isA(
+                  ar.edu.utn.frvm.typeit.bemol_api.auth.exceptions.PlatformHostRequiredException
+                      .class));
+      org.springframework.security.core.context.SecurityContextHolder.clearContext();
+      final var validPlatform = new MockHttpServletRequest("POST", "/api/v1/admin/auth/login");
+      validPlatform.addHeader(InstitutionalHostContext.HEADER, "admin.localhost:3000");
+      filter.doFilter(validPlatform, response, chain);
+      verify(chain).doFilter(validPlatform, response);
     } finally {
       org.springframework.security.core.context.SecurityContextHolder.clearContext();
     }

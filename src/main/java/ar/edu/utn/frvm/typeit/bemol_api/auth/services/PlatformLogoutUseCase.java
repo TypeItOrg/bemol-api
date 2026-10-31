@@ -18,7 +18,7 @@ public class PlatformLogoutUseCase {
   private final PlatformSessionRepository platformSessionRepository;
 
   @org.springframework.cache.annotation.CacheEvict(
-      value = "activePlatformSessions",
+      value = "activePlatformMfaSessions",
       key = "#principal.sessionId")
   @Transactional
   public void execute(JwtAuthenticatedPlatformAccount principal, String accessToken) {

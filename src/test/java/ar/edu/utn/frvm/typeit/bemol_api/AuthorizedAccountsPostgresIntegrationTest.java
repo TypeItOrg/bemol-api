@@ -98,6 +98,10 @@ class AuthorizedAccountsPostgresIntegrationTest extends DatabaseMigrationTestSup
   @Autowired MockMvc mvc;
   @Autowired org.springframework.transaction.support.TransactionTemplate transaction;
   @Autowired ar.edu.utn.frvm.typeit.bemol_api.auth.services.PlatformLoginUseCase platformLogin;
+  @Autowired ar.edu.utn.frvm.typeit.bemol_api.auth.services.PlatformPasskeyUseCase platformPasskeys;
+
+  @Autowired
+  ar.edu.utn.frvm.typeit.bemol_api.auth.interfaces.PlatformAccountRepository platformAccounts;
 
   @Autowired
   ar.edu.utn.frvm.typeit.bemol_api.auth.services.AuthenticationSessionIssuer sessionIssuer;
@@ -136,8 +140,12 @@ class AuthorizedAccountsPostgresIntegrationTest extends DatabaseMigrationTestSup
   void creationDefersUserUntilOneTimeActivationAndSignupNeverWrites(final SystemRoleCode role)
       throws Exception {
     final long before = count("SELECT count(*) FROM people");
-    mvc.perform(post("/api/v1/auth/register").contentType("application/json").content("{}"))
-        .andExpect(status().isNotFound());
+    mvc.perform(
+            post("/api/v1/auth/register")
+                .header("X-Institutional-Host", "admin.localhost:3000")
+                .contentType("application/json")
+                .content("{}"))
+        .andExpect(status().isForbidden());
     assertThat(count("SELECT count(*) FROM people")).isEqualTo(before);
     authenticatePlatformAdministrator();
     final UUID person = createPerson(role);
@@ -822,11 +830,32 @@ class AuthorizedAccountsPostgresIntegrationTest extends DatabaseMigrationTestSup
                 .content("{}"))
         .andExpect(status().isBadRequest());
     assertThat(user(child).isSelfAccessEnabled()).isTrue();
-    final String platformBearer =
-        platformLogin
-            .execute(
+    final var platformChallenge =
+        (ar.edu.utn.frvm.typeit.bemol_api.auth.payloads.responses.PlatformLoginChallengeResponse)
+            platformLogin.execute(
                 new ar.edu.utn.frvm.typeit.bemol_api.auth.payloads.requests.PlatformLoginRequest(
                     "admin@plataforma.com", PASSWORD, false),
+                new org.springframework.mock.web.MockHttpServletRequest());
+    final UUID platformId =
+        platformAccounts.findByEmailIgnoreCase("admin@plataforma.com").orElseThrow().getId();
+    final String setupCode = "b".repeat(64);
+    redis
+        .opsForValue()
+        .set(
+            "bemol:platform:setup:" + platformId,
+            ar.edu.utn.frvm.typeit.bemol_api.auth.services.JwtService.hashToken(setupCode),
+            java.time.Duration.ofMinutes(15));
+    final var platformOptions =
+        platformPasskeys.setupOptions(platformChallenge.loginAttemptId(), setupCode, "Prueba");
+    final var platformAuthenticator =
+        new ar.edu.utn.frvm.typeit.bemol_api.support.PasskeyAuthenticator();
+    final var platformCredential =
+        platformAuthenticator.register(platformOptions.options(), "http://admin.localhost:3000");
+    final String platformBearer =
+        platformPasskeys
+            .setup(
+                platformOptions.ceremonyId(),
+                platformCredential,
                 new org.springframework.mock.web.MockHttpServletRequest())
             .tokens()
             .accessToken();
@@ -835,7 +864,8 @@ class AuthorizedAccountsPostgresIntegrationTest extends DatabaseMigrationTestSup
                     "/api/v1/admin/institutions/{institutionId}/people/{personId}/access",
                     institution,
                     child)
-                .header("Authorization", "Bearer " + platformBearer))
+                .header("Authorization", "Bearer " + platformBearer)
+                .header("X-Institutional-Host", "admin.localhost:3000"))
         .andExpect(status().isOk());
   }
 

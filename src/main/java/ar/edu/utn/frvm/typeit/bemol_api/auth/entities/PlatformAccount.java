@@ -91,6 +91,10 @@ public class PlatformAccount extends Auditable implements UserDetails {
     this.email = email;
   }
 
+  public byte[] getWebauthnUserHandle() {
+    return id.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8);
+  }
+
   public void changePassword(final String password) {
     this.password = password;
   }

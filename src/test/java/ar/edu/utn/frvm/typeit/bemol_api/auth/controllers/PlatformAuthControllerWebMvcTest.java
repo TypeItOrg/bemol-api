@@ -1,6 +1,7 @@
 package ar.edu.utn.frvm.typeit.bemol_api.auth.controllers;
 
 import static ar.edu.utn.frvm.typeit.bemol_api.support.AuthTestData.platformPrincipal;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -8,9 +9,12 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import ar.edu.utn.frvm.typeit.bemol_api.auth.entities.PlatformAccount;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.filters.JwtAuthenticatedPlatformAccount;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.payloads.responses.PlatformAccountPayload;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.payloads.responses.PlatformAccountResponse;
+import ar.edu.utn.frvm.typeit.bemol_api.auth.payloads.responses.PlatformAuthResponse;
+import ar.edu.utn.frvm.typeit.bemol_api.auth.payloads.responses.PlatformLoginChallengeResponse;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.services.GetCurrentPlatformAccountUseCase;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.services.IsPlatformSessionActiveUseCase;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.services.IsSessionActiveUseCase;
@@ -51,6 +55,41 @@ class PlatformAuthControllerWebMvcTest {
   @MockitoBean private TokenBlacklistService tokenBlacklistService;
   @MockitoBean private IsSessionActiveUseCase isSessionActiveUseCase;
   @MockitoBean private IsPlatformSessionActiveUseCase isPlatformSessionActiveUseCase;
+
+  @Test
+  void loginSerializesAPasswordOnlySession() throws Exception {
+    final var account =
+        PlatformAccount.builder().id(PLATFORM_ACCOUNT_ID).email("admin@example.test").build();
+    when(platformLoginUseCase.execute(any(), any()))
+        .thenReturn(PlatformAuthResponse.of(account, "access", "refresh"));
+
+    mockMvc
+        .perform(
+            post("/api/v1/admin/auth/login")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"email\":\"admin@example.test\",\"password\":\"password\"}"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.tokens.accessToken").value("access"))
+        .andExpect(jsonPath("$.tokens.refreshToken").value("refresh"))
+        .andExpect(jsonPath("$.account.platformAccountId").value(PLATFORM_ACCOUNT_ID.toString()))
+        .andExpect(jsonPath("$.loginAttemptId").doesNotExist());
+  }
+
+  @Test
+  void loginSerializesAPasskeyChallengeWithoutTokens() throws Exception {
+    when(platformLoginUseCase.execute(any(), any()))
+        .thenReturn(new PlatformLoginChallengeResponse("attempt", true));
+
+    mockMvc
+        .perform(
+            post("/api/v1/admin/auth/login")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"email\":\"admin@example.test\",\"password\":\"password\"}"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.loginAttemptId").value("attempt"))
+        .andExpect(jsonPath("$.setupRequired").value(true))
+        .andExpect(jsonPath("$.tokens").doesNotExist());
+  }
 
   @Test
   @DisplayName("Should return current platform account")

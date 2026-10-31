@@ -2,7 +2,7 @@ package ar.edu.utn.frvm.typeit.bemol_api.auth.services;
 
 public enum AuthRealm {
   INSTITUTIONAL("institutional", "activeSessions"),
-  PLATFORM("platform", "activePlatformSessions");
+  PLATFORM("platform", "activePlatformMfaSessions");
 
   private final String replayScope;
   private final String activeSessionsCache;

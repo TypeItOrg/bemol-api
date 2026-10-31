@@ -151,7 +151,7 @@ class DatabaseMigrationIntegrationTest extends DatabaseMigrationTestSupport {
         WHERE table_schema = current_schema()
           AND column_name IN (
             'created_at', 'updated_at', 'deleted_at',
-            'started_at', 'ended_at', 'expires_at', 'used_at'
+            'started_at', 'ended_at', 'expires_at', 'used_at', 'last_used_at', 'revoked_at'
           )
           AND data_type = 'timestamp with time zone'
         """,
@@ -167,7 +167,7 @@ class DatabaseMigrationIntegrationTest extends DatabaseMigrationTestSupport {
         WHERE table_schema = current_schema()
           AND column_name IN (
             'created_at', 'updated_at', 'deleted_at',
-            'started_at', 'ended_at', 'expires_at', 'used_at'
+            'started_at', 'ended_at', 'expires_at', 'used_at', 'last_used_at', 'revoked_at'
           )
           AND data_type <> 'timestamp with time zone'
         """,

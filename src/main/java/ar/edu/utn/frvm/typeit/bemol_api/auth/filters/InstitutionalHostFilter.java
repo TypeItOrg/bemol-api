@@ -19,8 +19,7 @@ public class InstitutionalHostFilter extends OncePerRequestFilter {
 
   @Override
   protected boolean shouldNotFilter(final HttpServletRequest request) {
-    return !request.getRequestURI().startsWith("/api/")
-        || request.getRequestURI().startsWith("/api/v1/admin/");
+    return !request.getRequestURI().startsWith("/api/");
   }
 
   @Override
@@ -28,8 +27,9 @@ public class InstitutionalHostFilter extends OncePerRequestFilter {
       final HttpServletRequest request, final HttpServletResponse response, final FilterChain chain)
       throws ServletException, IOException {
     try {
-      final var tenant = context.bind(request);
       final var authentication = SecurityContextHolder.getContext().getAuthentication();
+      context.requirePlatformHost(request, authentication);
+      final var tenant = context.bind(request);
       if (authentication != null
           && authentication.getPrincipal() instanceof JwtAuthenticatedUser user) {
         context.requireInstitution(tenant, user.institutionId());

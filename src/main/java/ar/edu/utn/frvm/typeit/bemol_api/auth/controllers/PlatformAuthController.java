@@ -8,6 +8,7 @@ import ar.edu.utn.frvm.typeit.bemol_api.auth.payloads.requests.PlatformLoginRequ
 import ar.edu.utn.frvm.typeit.bemol_api.auth.payloads.requests.RefreshTokenRequest;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.payloads.responses.PlatformAccountResponse;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.payloads.responses.PlatformAuthResponse;
+import ar.edu.utn.frvm.typeit.bemol_api.auth.payloads.responses.PlatformLoginResponse;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.services.GetCurrentPlatformAccountUseCase;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.services.PlatformLoginUseCase;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.services.PlatformLogoutUseCase;
@@ -40,7 +41,7 @@ public class PlatformAuthController {
   private final GetCurrentPlatformAccountUseCase getCurrentPlatformAccountUseCase;
 
   @PostMapping(version = Version.V1, path = "/login")
-  public PlatformAuthResponse login(
+  public PlatformLoginResponse login(
       @Valid @RequestBody PlatformLoginRequest request, HttpServletRequest httpRequest) {
     return platformLoginUseCase.execute(request, httpRequest);
   }

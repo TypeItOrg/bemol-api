@@ -1,9 +1,9 @@
 package ar.edu.utn.frvm.typeit.bemol_api;
 
+import static ar.edu.utn.frvm.typeit.bemol_api.support.AuthTestData.authentication;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 

@@ -4,4 +4,10 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import java.util.List;
 
 @Schema(requiredMode = Schema.RequiredMode.REQUIRED)
-public record PasskeyListResponse(List<PasskeyResponse> passkeys, int maxActivePasskeys) {}
+public record PasskeyListResponse(
+    List<PasskeyResponse> passkeys, int maxActivePasskeys, int activePasskeys) {
+
+  public PasskeyListResponse(final List<PasskeyResponse> passkeys, final int maxActivePasskeys) {
+    this(passkeys, maxActivePasskeys, passkeys.size());
+  }
+}
