@@ -5,6 +5,8 @@ import jakarta.persistence.LockModeType;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import org.jspecify.annotations.Nullable;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
@@ -20,6 +22,23 @@ public interface PasskeyCredentialRepository extends JpaRepository<PasskeyCreden
       ORDER BY credential.createdAt ASC
       """)
   List<PasskeyCredential> findActiveByUserId(@Param("userId") UUID userId);
+
+  @Query(
+      """
+      SELECT credential FROM PasskeyCredential credential
+      WHERE credential.user.id = :userId
+        AND credential.revokedAt IS NULL
+        AND (:used IS NULL OR (:used = true AND credential.lastUsedAt IS NOT NULL) OR (:used = false AND credential.lastUsedAt IS NULL))
+        AND (
+          :search IS NULL
+          OR UNACCENT_LOWER(credential.label) LIKE UNACCENT_LOWER(CONCAT('%', CAST(:search AS string), '%'))
+        )
+      """)
+  List<PasskeyCredential> findActiveByFilters(
+      @Param("userId") UUID userId,
+      @Param("search") @Nullable String search,
+      @Param("used") @Nullable Boolean used,
+      Sort sort);
 
   @Query(
       """

@@ -30,10 +30,14 @@ import ar.edu.utn.frvm.typeit.bemol_api.authorization.services.InstitutionalCall
 import ar.edu.utn.frvm.typeit.bemol_api.common.web.Version;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Size;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.SortDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -41,9 +45,11 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
+@Validated
 @RestController
 @RequestMapping("/auth")
 @RequiredArgsConstructor
@@ -94,12 +100,28 @@ public class PasskeyController {
   }
 
   @GetMapping(version = Version.V1, path = "/passkeys")
-  public PasskeyListResponse list(final Authentication authentication) {
+  public PasskeyListResponse list(
+      final Authentication authentication,
+      @RequestParam(required = false) @Size(max = 100) final String search,
+      @RequestParam(required = false) final Boolean used,
+      @SortDefault(sort = "createdAt", direction = Sort.Direction.ASC) final Sort sort) {
     institutionalCallerGuard.ensureInstitutionalPrincipal(authentication);
     final JwtAuthenticatedUser principal =
         (JwtAuthenticatedUser) requireNonNull(authentication.getPrincipal());
-    return new PasskeyListResponse(
-        listPasskeysUseCase.execute(principal), webAuthnProperties.maxPasskeys());
+
+    if (search == null && used == null && isDefaultSort(sort)) {
+      return new PasskeyListResponse(
+          listPasskeysUseCase.execute(principal), webAuthnProperties.maxPasskeys());
+    }
+
+    return listPasskeysUseCase.execute(
+        principal, search, used, sort, webAuthnProperties.maxPasskeys());
+  }
+
+  private static boolean isDefaultSort(final Sort sort) {
+    return sort == null
+        || sort.isUnsorted()
+        || sort.equals(Sort.by(Sort.Direction.ASC, "createdAt"));
   }
 
   @PostMapping(version = Version.V1, path = "/passkeys/registration/options")
