@@ -53,7 +53,7 @@ public class PlatformWebAuthnOperations {
     final var rp =
         PublicKeyCredentialRpEntity.builder()
             .id(frontend.platformUri().getHost())
-            .name("Bemol — Administración")
+            .name("Administración - Bemol")
             .build();
     final var operations =
         new Webauthn4JRelyingPartyOperations(

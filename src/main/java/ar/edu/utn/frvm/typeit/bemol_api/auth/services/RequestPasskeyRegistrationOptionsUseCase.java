@@ -18,6 +18,7 @@ import org.springframework.security.web.webauthn.management.ImmutablePublicKeyCr
 import org.springframework.security.web.webauthn.management.WebAuthnRelyingPartyOperations;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import tools.jackson.databind.node.ObjectNode;
 
 @Service
 @RequiredArgsConstructor
@@ -59,11 +60,16 @@ public class RequestPasskeyRegistrationOptionsUseCase {
     final PublicKeyCredentialCreationOptions options =
         relyingPartyOperations.createPublicKeyCredentialCreationOptions(
             new ImmutablePublicKeyCredentialCreationOptionsRequest(authentication));
-    final String optionsJson = optionsCodec.encodeCreationOptions(options);
+    final var institution = user.getInstitution();
+    final String shortName = institution.getShortName();
+    final String institutionName =
+        shortName == null || shortName.isBlank() ? institution.getName() : shortName;
+    final var snapshot = optionsCodec.parseSnapshot(optionsCodec.encodeCreationOptions(options));
+    ((ObjectNode) snapshot.path("rp")).put("name", institutionName + " - Bemol");
+    final String optionsJson = snapshot.toString();
     final String ceremonyId =
         ceremonyService.storeRegistration(
             user.getId(), principal.sessionId(), trimmed, optionsJson);
-    return new PasskeyRegistrationOptionsResponse(
-        ceremonyId, optionsCodec.parseSnapshot(optionsJson));
+    return new PasskeyRegistrationOptionsResponse(ceremonyId, snapshot);
   }
 }

@@ -116,11 +116,10 @@ public class PlatformPasskeyRepositoryAdapter
   public void save(final PublicKeyCredentialUserEntity user) {}
 
   private PublicKeyCredentialUserEntity toUserEntity(final PlatformAccount account) {
-    final String name = account.getName() + " " + account.getLastName();
     return ImmutablePublicKeyCredentialUserEntity.builder()
         .id(new Bytes(account.getWebauthnUserHandle()))
-        .name(name)
-        .displayName(name)
+        .name(account.getEmail())
+        .displayName(account.getEmail())
         .build();
   }
 }
