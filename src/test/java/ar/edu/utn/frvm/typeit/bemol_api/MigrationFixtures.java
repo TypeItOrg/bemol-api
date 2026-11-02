@@ -28,7 +28,8 @@ final class MigrationFixtures {
   UUID firstInstitutionId() {
     return requireNonNull(
         jdbcTemplate.queryForObject(
-            "SELECT institution_id FROM institutions ORDER BY institution_id LIMIT 1", UUID.class));
+            "SELECT institution_id FROM institutions ORDER BY created_at, institution_id LIMIT 1",
+            UUID.class));
   }
 
   void insertTestInstitution(final UUID institutionId) {

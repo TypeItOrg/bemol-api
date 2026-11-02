@@ -258,6 +258,7 @@ class FlywayBranchMigrationIntegrationTest {
             .sqlMigrationPrefix("")
             .outOfOrder(true)
             .initSql("SET TIME ZONE 'America/Argentina/Buenos_Aires'")
+            .target("20261031193119")
             .load();
     assertThat(upgrade.migrate().migrationsExecuted).isEqualTo(1);
     assertThat(
