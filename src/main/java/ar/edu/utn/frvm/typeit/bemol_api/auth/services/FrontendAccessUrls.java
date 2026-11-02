@@ -41,6 +41,15 @@ public class FrontendAccessUrls {
     return base(null) + "/brand/logo-email.png";
   }
 
+  public String platformTokenUrl(final String path, final String token) {
+    return UriComponentsBuilder.fromUri(properties.platformUri())
+        .path(path)
+        .queryParam("token", token)
+        .build()
+        .encode()
+        .toUriString();
+  }
+
   public String logoUrl(
       final @Nullable String publicSubdomain,
       final @Nullable UUID institutionId,

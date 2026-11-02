@@ -11,8 +11,8 @@ import org.springframework.security.core.context.SecurityContextHolder;
 
 /** Immutable identifiers captured before the mail executor loses the request context. */
 public record MailAuditContext(
-    UUID institutionId,
-    UUID personId,
+    @Nullable UUID institutionId,
+    @Nullable UUID personId,
     AuditActorKind actorKind,
     @Nullable UUID actorPersonId,
     @Nullable UUID actorPlatformAccountId,
@@ -32,6 +32,17 @@ public record MailAuditContext(
   public MailAuditContext forInvitation(final UUID id) {
     return new MailAuditContext(
         institutionId, personId, actorKind, actorPersonId, actorPlatformAccountId, requestId, id);
+  }
+
+  public static MailAuditContext forPlatformAccount(final UUID accountId) {
+    return new MailAuditContext(
+        null,
+        null,
+        AuditActorKind.PLATFORM,
+        null,
+        accountId,
+        MDC.get(RequestLoggingFilter.MDC_REQUEST_ID_KEY),
+        null);
   }
 
   public static MailAuditContext capture(final UUID institutionId, final UUID personId) {

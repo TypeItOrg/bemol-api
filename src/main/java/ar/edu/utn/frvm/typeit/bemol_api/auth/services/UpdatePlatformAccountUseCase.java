@@ -7,9 +7,13 @@ import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditEntityType;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditOrigin;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.services.AuditEventRecorder;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.entities.PlatformAccount;
+import ar.edu.utn.frvm.typeit.bemol_api.auth.exceptions.AuthMessages;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.exceptions.PlatformAccountEmailAlreadyExistsException;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.exceptions.PlatformAccountNotFoundException;
+import ar.edu.utn.frvm.typeit.bemol_api.auth.exceptions.PlatformAccountValidationException;
+import ar.edu.utn.frvm.typeit.bemol_api.auth.filters.JwtAuthenticatedPlatformAccount;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.interfaces.PlatformAccountRepository;
+import ar.edu.utn.frvm.typeit.bemol_api.auth.interfaces.PlatformEmailChangeTokenRepository;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.payloads.requests.UpdatePlatformAccountRequest;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.payloads.responses.PlatformAccountAdminResponse;
 import java.util.Locale;
@@ -17,6 +21,7 @@ import java.util.Map;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -29,12 +34,15 @@ public class UpdatePlatformAccountUseCase {
   private final PlatformAccountRepository platformAccountRepository;
   private final PasswordEncoder passwordEncoder;
   private final SessionRevocationService sessionRevocationService;
+  private final PlatformEmailChangeTokenRepository emailChangeTokens;
 
   @Transactional
   public PlatformAccountAdminResponse execute(
       final UUID id, final UpdatePlatformAccountRequest request) {
     final PlatformAccount account =
-        platformAccountRepository.findById(id).orElseThrow(PlatformAccountNotFoundException::new);
+        platformAccountRepository
+            .findWithLockById(id)
+            .orElseThrow(PlatformAccountNotFoundException::new);
     final String email = request.email().trim().toLowerCase(Locale.ROOT);
 
     if (platformAccountRepository.existsByEmailIgnoreCaseAndIdNot(email, id)) {
@@ -52,9 +60,22 @@ public class UpdatePlatformAccountUseCase {
     final boolean emailChanged = !account.getEmail().equals(email);
     final boolean passwordChanged = request.password() != null && !request.password().isEmpty();
 
+    final var authentication = SecurityContextHolder.getContext().getAuthentication();
+    if (authentication != null
+        && authentication.getPrincipal() instanceof JwtAuthenticatedPlatformAccount principal
+        && id.equals(principal.platformAccountId())
+        && (emailChanged || passwordChanged)) {
+      throw new PlatformAccountValidationException(
+          AuthMessages.PLATFORM_ACCOUNT_SELF_CHANGE, emailChanged ? "email" : "password");
+    }
+
     account.updateProfile(request.name().trim(), request.lastName().trim(), email);
     if (passwordChanged) {
       account.changePassword(requireNonNull(passwordEncoder.encode(request.password())));
+    }
+
+    if (emailChanged || passwordChanged) {
+      emailChangeTokens.deleteByPlatformAccount_Id(id);
     }
 
     saveAccount(account);

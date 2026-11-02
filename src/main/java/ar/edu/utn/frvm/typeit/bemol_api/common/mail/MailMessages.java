@@ -9,6 +9,9 @@ public final class MailMessages {
 
   public static final String ACCOUNT_EMAIL_CHANGE_SUBJECT = "Confirmá tu nuevo correo";
   public static final String ACCOUNT_EMAIL_CHANGED_SUBJECT = "Se modificó el correo de tu cuenta";
+  public static final String ACCOUNT_EMAIL_CHANGE_REQUESTED_SUBJECT =
+      "Se solicitó cambiar tu correo";
+  public static final String PASSWORD_CHANGED_SUBJECT = "Se modificó tu contraseña";
 
   private MailMessages() {}
 }

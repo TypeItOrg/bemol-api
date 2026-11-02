@@ -32,7 +32,9 @@ public class MailAuditRecorder {
       final AuditAction outcome) {
     events.save(
         AuditEvent.record(
-            institutions.getReferenceById(context.institutionId()),
+            context.institutionId() == null
+                ? null
+                : institutions.getReferenceById(context.institutionId()),
             context.actorKind(),
             context.actorPersonId(),
             context.actorPlatformAccountId(),

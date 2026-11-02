@@ -12,6 +12,7 @@ import ar.edu.utn.frvm.typeit.bemol_api.auth.entities.PlatformAccount;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.exceptions.PlatformAccountEmailAlreadyExistsException;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.exceptions.PlatformAccountNotFoundException;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.interfaces.PlatformAccountRepository;
+import ar.edu.utn.frvm.typeit.bemol_api.auth.interfaces.PlatformEmailChangeTokenRepository;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.payloads.requests.UpdatePlatformAccountRequest;
 import java.util.Optional;
 import java.util.UUID;
@@ -40,7 +41,8 @@ class UpdatePlatformAccountUseCaseTest {
             org.mockito.Mockito.mock(AuditEventRecorder.class),
             platformAccountRepository,
             passwordEncoder,
-            sessionRevocationService);
+            sessionRevocationService,
+            org.mockito.Mockito.mock(PlatformEmailChangeTokenRepository.class));
   }
 
   @Test
@@ -48,7 +50,7 @@ class UpdatePlatformAccountUseCaseTest {
     final PlatformAccount account = account("admin@boero.edu.ar", "current-password");
     final var request =
         new UpdatePlatformAccountRequest(" María ", " González ", " ADMIN@BOERO.EDU.AR ", "");
-    when(platformAccountRepository.findById(ACCOUNT_ID)).thenReturn(Optional.of(account));
+    when(platformAccountRepository.findWithLockById(ACCOUNT_ID)).thenReturn(Optional.of(account));
     when(platformAccountRepository.existsByEmailIgnoreCaseAndIdNot(
             "admin@boero.edu.ar", ACCOUNT_ID))
         .thenReturn(false);
@@ -67,7 +69,7 @@ class UpdatePlatformAccountUseCaseTest {
     final PlatformAccount account = account("admin@boero.edu.ar", "current-password");
     final var request =
         new UpdatePlatformAccountRequest("María", "González", "admin@boero.edu.ar", "new-password");
-    when(platformAccountRepository.findById(ACCOUNT_ID)).thenReturn(Optional.of(account));
+    when(platformAccountRepository.findWithLockById(ACCOUNT_ID)).thenReturn(Optional.of(account));
     when(platformAccountRepository.existsByEmailIgnoreCaseAndIdNot(
             "admin@boero.edu.ar", ACCOUNT_ID))
         .thenReturn(false);
@@ -84,7 +86,7 @@ class UpdatePlatformAccountUseCaseTest {
     final PlatformAccount account = account("admin@boero.edu.ar", "current-password");
     final var request =
         new UpdatePlatformAccountRequest("María", "González", "new@boero.edu.ar", null);
-    when(platformAccountRepository.findById(ACCOUNT_ID)).thenReturn(Optional.of(account));
+    when(platformAccountRepository.findWithLockById(ACCOUNT_ID)).thenReturn(Optional.of(account));
     when(platformAccountRepository.existsByEmailIgnoreCaseAndIdNot("new@boero.edu.ar", ACCOUNT_ID))
         .thenReturn(false);
 
@@ -100,7 +102,7 @@ class UpdatePlatformAccountUseCaseTest {
     final PlatformAccount account = account("admin@boero.edu.ar", "current-password");
     final var request =
         new UpdatePlatformAccountRequest("María", "González", "used@boero.edu.ar", null);
-    when(platformAccountRepository.findById(ACCOUNT_ID)).thenReturn(Optional.of(account));
+    when(platformAccountRepository.findWithLockById(ACCOUNT_ID)).thenReturn(Optional.of(account));
     when(platformAccountRepository.existsByEmailIgnoreCaseAndIdNot("used@boero.edu.ar", ACCOUNT_ID))
         .thenReturn(true);
 
@@ -114,7 +116,7 @@ class UpdatePlatformAccountUseCaseTest {
   void updateRejectsUnknownAccount() {
     final var request =
         new UpdatePlatformAccountRequest("María", "González", "admin@boero.edu.ar", null);
-    when(platformAccountRepository.findById(ACCOUNT_ID)).thenReturn(Optional.empty());
+    when(platformAccountRepository.findWithLockById(ACCOUNT_ID)).thenReturn(Optional.empty());
 
     assertThatThrownBy(() -> useCase.execute(ACCOUNT_ID, request))
         .isInstanceOf(PlatformAccountNotFoundException.class);

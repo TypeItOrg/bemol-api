@@ -86,8 +86,16 @@ public class PlatformAccount extends Auditable implements UserDetails {
   }
 
   public void updateProfile(final String name, final String lastName, final String email) {
+    updateName(name, lastName);
+    changeEmail(email);
+  }
+
+  public void updateName(final String name, final String lastName) {
     this.name = name;
     this.lastName = lastName;
+  }
+
+  public void changeEmail(final String email) {
     this.email = email;
   }
 

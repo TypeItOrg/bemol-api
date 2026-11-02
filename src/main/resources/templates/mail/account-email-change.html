@@ -79,7 +79,7 @@
             <tr>
               <td align="center" style="padding: 20px 35px 0">
                 <h1
-                  th:text="${confirmation ? 'Confirmá tu nuevo correo' : 'Se actualizó tu correo'}"
+                  th:text="${messageTitle ?: (confirmation ? 'Confirmá tu nuevo correo' : 'Se actualizó tu correo')}"
                   style="
                     margin: 0 0 12px;
                     color: #1a1516;
@@ -120,12 +120,15 @@
                   <strong th:text="${fullName}" style="color: #1a1516; font-weight: 600"
                     >Ana García</strong
                   >.
-                  <span
-                    th:text="${confirmation ? 'Confirmá esta dirección para vincularla a tu cuenta de ' : 'Se modificó el correo asociado a tu cuenta de '}"
-                    >Confirmá esta dirección para vincularla a tu cuenta de </span
-                  ><strong th:text="${institutionName}" style="color: #1a1516; font-weight: 600"
-                    >Tu institución</strong
-                  >.
+                  <span th:if="${messageDescription != null}" th:text="${messageDescription}"></span>
+                  <span th:unless="${messageDescription != null}">
+                    <span
+                      th:text="${confirmation ? 'Confirmá esta dirección para vincularla a tu cuenta de ' : 'Se modificó el correo asociado a tu cuenta de '}"
+                      >Confirmá esta dirección para vincularla a tu cuenta de </span
+                    ><strong th:text="${institutionName}" style="color: #1a1516; font-weight: 600"
+                      >Tu institución</strong
+                    >.
+                  </span>
                 </p>
               </td>
             </tr>
@@ -192,7 +195,7 @@
                     usarse una sola vez.
                   </span>
                   <span
-                    th:text="${confirmation ? 'Si no pediste este cambio, podés ignorar este correo.' : 'Si no reconocés este cambio, contactá a tu institución.'}"
+                    th:text="${messageFooter ?: (confirmation ? 'Si no pediste este cambio, podés ignorar este correo.' : 'Si no reconocés este cambio, contactá a tu institución.')}"
                     >Si no pediste este cambio, podés ignorar este correo.</span
                   >
                 </p>

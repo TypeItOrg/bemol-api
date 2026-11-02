@@ -8,6 +8,7 @@ import lombok.RequiredArgsConstructor;
 public enum MailType {
   ACCOUNT_EMAIL_CHANGE("Cambio de correo de acceso"),
   EMAIL_VERIFICATION("Verificación de correo"),
+  PASSWORD_CHANGE("Cambio de contraseña"),
   PASSWORD_RECOVERY("Recuperación de contraseña"),
   PERSON_ACCESS_INVITATION("Invitación de acceso propio");
 

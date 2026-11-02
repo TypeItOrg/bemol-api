@@ -4,4 +4,4 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 
 public record PlatformPasskeyReauthRequest(
-    @NotBlank @Pattern(regexp = "register|revoke:[a-fA-F0-9-]{36}") String target) {}
+    @NotBlank @Pattern(regexp = "register|email|password|revoke:[a-fA-F0-9-]{36}") String target) {}
