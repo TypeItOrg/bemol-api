@@ -267,7 +267,7 @@ class GlobalAuditPostgresIntegrationTest extends DatabaseMigrationTestSupport {
     final UUID person = createPerson.execute(institution, personRequest()).personId();
     final UUID user = userId(person);
     final var change =
-        new UpdatePersonByAdminRequest("Nombre Privado", null, null, null, "3515551212");
+        new UpdatePersonByAdminRequest("Nombre Privado", null, null, null, "3515551212", null);
     updatePerson.execute(institution, person, change);
     updatePerson.execute(institution, person, change);
     assertThat(countForEntity(person, "PERSON_UPDATED")).isEqualTo(1);
@@ -298,7 +298,7 @@ class GlobalAuditPostgresIntegrationTest extends DatabaseMigrationTestSupport {
           updatePerson.execute(
               institution,
               person,
-              new UpdatePersonByAdminRequest("Rollback", null, null, null, null));
+              new UpdatePersonByAdminRequest("Rollback", null, null, null, null, null));
           state.setRollbackOnly();
         });
     assertThat(countForEntity(person, "PERSON_UPDATED")).isEqualTo(2);
@@ -423,10 +423,11 @@ class GlobalAuditPostgresIntegrationTest extends DatabaseMigrationTestSupport {
                 "Reviewer",
                 fixtures.randomDocumentNumber(),
                 UUID.randomUUID() + "@example.test",
-                null,
+                "03534100000",
                 LocalDate.of(2000, 1, 1),
                 ar.edu.utn.frvm.typeit.bemol_api.authorization.enums.SystemRoleCode
-                    .INSTITUTIONAL_AUTHORITY));
+                    .INSTITUTIONAL_AUTHORITY,
+                UUID.fromString("019e18e4-c93b-7583-90a6-0e9410ce3ad3")));
     final UUID reviewerUser = userId(reviewer.personId());
     SecurityContextHolder.getContext()
         .setAuthentication(
@@ -979,9 +980,10 @@ class GlobalAuditPostgresIntegrationTest extends DatabaseMigrationTestSupport {
         "Perez",
         fixtures.randomDocumentNumber(),
         UUID.randomUUID() + "@example.test",
-        null,
+        "03534100000",
         LocalDate.of(2000, 1, 1),
-        null);
+        null,
+        UUID.fromString("019e18e4-c93b-7583-90a6-0e9410ce3ad3"));
   }
 
   private UUID adminId() {

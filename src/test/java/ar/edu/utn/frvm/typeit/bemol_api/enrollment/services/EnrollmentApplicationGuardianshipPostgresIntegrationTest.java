@@ -245,6 +245,8 @@ class EnrollmentApplicationGuardianshipPostgresIntegrationTest {
               () -> {
                 final var person =
                     Person.builder()
+                        .phoneNumber("03534100000")
+                        .nationalityCountry(s.institution().getCity().getProvince().getCountry())
                         .institution(s.institution())
                         .documentNumber(document)
                         .firstName("Maria")
@@ -262,25 +264,20 @@ class EnrollmentApplicationGuardianshipPostgresIntegrationTest {
             s,
             body(
                 post(base(s) + "/representations"),
-                Map.of(
-                    "documentNumber",
-                    document,
-                    "firstName",
-                    "Maria",
-                    "lastName",
-                    "Delgado",
-                    "birthDate",
-                    birthDate,
-                    "relationship",
-                    "OTHER",
-                    "isPrimaryContact",
-                    true,
-                    "ownAccessRequested",
-                    ownAccessRequested,
-                    "email",
-                    "dummy-person@example.test",
-                    "requestMode",
-                    "NEW")),
+                Map.ofEntries(
+                    Map.entry("documentNumber", document),
+                    Map.entry("firstName", "Maria"),
+                    Map.entry("lastName", "Delgado"),
+                    Map.entry("birthDate", birthDate),
+                    Map.entry("phoneNumber", "03534100000"),
+                    Map.entry(
+                        "nationalityCountryId",
+                        s.institution().getCity().getProvince().getCountry().getId()),
+                    Map.entry("relationship", "OTHER"),
+                    Map.entry("isPrimaryContact", true),
+                    Map.entry("ownAccessRequested", ownAccessRequested),
+                    Map.entry("email", "dummy-person@example.test"),
+                    Map.entry("requestMode", "NEW"))),
             201);
     assertThat(link.get("dependentPersonId").isNull()).isTrue();
     assertThat(events.stream(PersonAccessInvited.class).count()).isEqualTo(invitationsBefore);
@@ -777,9 +774,8 @@ class EnrollmentApplicationGuardianshipPostgresIntegrationTest {
             .orElseThrow();
     tx(
         () -> {
-          entityManager
-              .find(Person.class, UUID.fromString(person))
-              .updateContact("institution-corrected@example.test", null);
+          final var subject = entityManager.find(Person.class, UUID.fromString(person));
+          subject.updateContact("institution-corrected@example.test", subject.getPhoneNumber());
           return null;
         });
     mvc.perform(
@@ -887,6 +883,10 @@ class EnrollmentApplicationGuardianshipPostgresIntegrationTest {
                     "Delgado",
                     "birthDate",
                     "1956-01-01",
+                    "phoneNumber",
+                    "03534100000",
+                    "nationalityCountryId",
+                    s.institution().getCity().getProvince().getCountry().getId(),
                     "relationship",
                     "OTHER",
                     "isPrimaryContact",

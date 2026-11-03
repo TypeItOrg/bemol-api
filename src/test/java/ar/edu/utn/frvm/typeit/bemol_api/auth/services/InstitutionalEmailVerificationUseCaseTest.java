@@ -145,7 +145,7 @@ class InstitutionalEmailVerificationUseCaseTest {
   @Test
   void oldRecipientCannotVerifyChangedEmail() {
     lockToken();
-    user.getPerson().updateContact("other@example.com", null);
+    user.getPerson().updateContact("other@example.com", "03534100000");
     assertThatThrownBy(() -> useCase.confirm(new ConfirmEmailVerificationRequest(raw)))
         .isInstanceOf(InvalidEmailVerificationTokenException.class);
   }

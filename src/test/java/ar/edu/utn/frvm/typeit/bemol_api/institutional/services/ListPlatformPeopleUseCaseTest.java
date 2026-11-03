@@ -30,6 +30,16 @@ class ListPlatformPeopleUseCaseTest {
   @Mock private PersonRepository personRepository;
   @Mock private PersonRoleAssignmentRepository personRoleAssignmentRepository;
 
+  @org.mockito.Spy
+  private java.time.Clock clock =
+      java.time.Clock.fixed(java.time.Instant.EPOCH, java.time.ZoneOffset.UTC);
+
+  @Mock private ar.edu.utn.frvm.typeit.bemol_api.auth.interfaces.UserRepository userRepository;
+
+  @Mock
+  private ar.edu.utn.frvm.typeit.bemol_api.auth.interfaces.PersonAccessInvitationRepository
+      invitations;
+
   @InjectMocks private ListPlatformPeopleUseCase listPlatformPeopleUseCase;
 
   @Test
@@ -56,14 +66,19 @@ class ListPlatformPeopleUseCaseTest {
     Pageable pageable = PageRequest.of(0, 10, Sort.by("institutionName"));
     Pageable repositoryPageable = PageRequest.of(0, 10, Sort.by("institution.name"));
     when(personRepository.findPlatformPeople(
-            "ana", institutionId, SystemRoleCode.TEACHER.name(), repositoryPageable))
+            "ana",
+            institutionId,
+            SystemRoleCode.TEACHER.name(),
+            null,
+            clock.instant(),
+            repositoryPageable))
         .thenReturn(new PageImpl<>(List.of(person), repositoryPageable, 1));
     when(personRoleAssignmentRepository.findByPerson_IdIn(List.of(person.getId())))
         .thenReturn(List.of(assignment));
 
     var response =
         listPlatformPeopleUseCase.execute(
-            "  ana  ", institutionId, SystemRoleCode.TEACHER, pageable);
+            "  ana  ", institutionId, SystemRoleCode.TEACHER, null, pageable);
 
     assertThat(response.items()).hasSize(1);
     assertThat(response.items().getFirst().institutionId()).isEqualTo(institutionId);
@@ -77,13 +92,13 @@ class ListPlatformPeopleUseCaseTest {
   @DisplayName("Should normalize empty filters and preserve regular sort fields")
   void execute_normalizesEmptyFiltersAndPreservesSort() {
     Pageable pageable = PageRequest.of(1, 20, Sort.by(Sort.Direction.DESC, "lastName"));
-    when(personRepository.findPlatformPeople(null, null, null, pageable))
+    when(personRepository.findPlatformPeople(null, null, null, null, clock.instant(), pageable))
         .thenReturn(new PageImpl<>(List.of(), pageable, 0));
 
-    var response = listPlatformPeopleUseCase.execute("   ", null, null, pageable);
+    var response = listPlatformPeopleUseCase.execute("   ", null, null, null, pageable);
 
     assertThat(response.items()).isEmpty();
-    verify(personRepository).findPlatformPeople(null, null, null, pageable);
+    verify(personRepository).findPlatformPeople(null, null, null, null, clock.instant(), pageable);
     verify(personRoleAssignmentRepository, org.mockito.Mockito.never())
         .findByPerson_IdIn(org.mockito.ArgumentMatchers.anyList());
   }

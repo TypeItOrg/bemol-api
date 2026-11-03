@@ -56,6 +56,11 @@ public final class InstitutionalTestData {
         .birthDate(birthDate != null ? birthDate : LocalDate.of(2000, 1, 1))
         .documentNumber(documentNumber)
         .email(documentNumber + "@example.com")
+        .phoneNumber("03534100000")
+        .nationalityCountry(
+            institution.getCity() == null
+                ? country("ARG")
+                : institution.getCity().getProvince().getCountry())
         .build();
   }
 

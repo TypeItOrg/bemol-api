@@ -41,7 +41,10 @@ class ListPeopleUseCaseTest {
   @Mock private PersonRoleAssignmentRepository assignments;
   @Mock private UserRepository users;
   @Mock private PersonAccessInvitationRepository invitations;
-  @org.mockito.Spy private Clock clock = Clock.systemUTC();
+
+  @org.mockito.Spy
+  private Clock clock = Clock.fixed(java.time.Instant.EPOCH, java.time.ZoneOffset.UTC);
+
   @InjectMocks private ListPeopleUseCase useCase;
 
   @Test
@@ -62,7 +65,7 @@ class ListPeopleUseCaseTest {
     when(users.findByPerson_IdInAndInstitution_Id(List.of(ANA_ID, LUIS_ID), INSTITUTION_ID))
         .thenReturn(List.of(disabledUser, activeUser));
 
-    assertThat(useCase.execute(INSTITUTION_ID, "   ", null, PAGE))
+    assertThat(useCase.execute(INSTITUTION_ID, "   ", null, null, PAGE))
         .isEqualTo(
             new PaginatedResponse<>(
                 List.of(
@@ -100,7 +103,7 @@ class ListPeopleUseCaseTest {
   void usesTheTrimmedSearchWithoutRequiringARoleFilter() {
     stubFilteredPage("Ana", null);
 
-    assertThat(useCase.execute(INSTITUTION_ID, "  Ana  ", null, PAGE).items())
+    assertThat(useCase.execute(INSTITUTION_ID, "  Ana  ", null, null, PAGE).items())
         .extracting(person -> person.id())
         .containsExactly(ANA_ID);
   }
@@ -109,7 +112,7 @@ class ListPeopleUseCaseTest {
   void usesTheRoleFilterWithoutRequiringASearch() {
     stubFilteredPage(null, ROLE_ID);
 
-    assertThat(useCase.execute(INSTITUTION_ID, null, ROLE_ID, PAGE).items())
+    assertThat(useCase.execute(INSTITUTION_ID, null, ROLE_ID, null, PAGE).items())
         .extracting(person -> person.id())
         .containsExactly(ANA_ID);
   }
@@ -117,16 +120,16 @@ class ListPeopleUseCaseTest {
   @Test
   void preservesAnEmptyPageBeyondTheLastPageAndSkipsRelatedQueries() {
     final var outOfRange = PageRequest.of(2, 20);
-    when(personRepository.search(INSTITUTION_ID, "nope", null, outOfRange))
+    when(personRepository.search(INSTITUTION_ID, "nope", null, null, clock.instant(), outOfRange))
         .thenReturn(new PageImpl<>(List.of(), outOfRange, 35));
 
-    assertThat(useCase.execute(INSTITUTION_ID, "nope", null, outOfRange))
+    assertThat(useCase.execute(INSTITUTION_ID, "nope", null, null, outOfRange))
         .isEqualTo(new PaginatedResponse<>(List.of(), 2, 20, 35, 2));
     verifyNoInteractions(assignments, users);
   }
 
   private void stubFilteredPage(@Nullable String search, @Nullable UUID role) {
-    when(personRepository.search(INSTITUTION_ID, search, role, PAGE))
+    when(personRepository.search(INSTITUTION_ID, search, role, null, clock.instant(), PAGE))
         .thenReturn(new PageImpl<>(List.of(person(ANA_ID, "Ana", "11111111")), PAGE, 21));
     when(assignments.findByPerson_IdInAndInstitution_Id(List.of(ANA_ID), INSTITUTION_ID))
         .thenReturn(List.of());

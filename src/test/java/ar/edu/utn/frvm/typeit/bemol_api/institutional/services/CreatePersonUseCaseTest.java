@@ -44,6 +44,11 @@ class CreatePersonUseCaseTest {
 
   @Mock private InstitutionRepository institutionRepository;
   @Mock private PersonRepository personRepository;
+
+  @Mock
+  private ar.edu.utn.frvm.typeit.bemol_api.institutional.interfaces.CountryRepository
+      countryRepository;
+
   @Mock private UserRepository userRepository;
 
   @Mock
@@ -63,6 +68,15 @@ class CreatePersonUseCaseTest {
 
   @BeforeEach
   void setUp() {
+    org.mockito.Mockito.lenient()
+        .when(countryRepository.findById(org.mockito.ArgumentMatchers.any()))
+        .thenReturn(
+            Optional.of(
+                ar.edu.utn.frvm.typeit.bemol_api.institutional.entities.Country.builder()
+                    .id(UUID.fromString("019e18e4-c93b-7583-90a6-0e9410ce3ad3"))
+                    .name("Argentina")
+                    .isoCode("ARG")
+                    .build()));
     institutionId = UUID.randomUUID();
     institution = Institution.builder().id(institutionId).name("Conservatorio Boero").build();
   }
@@ -90,7 +104,8 @@ class CreatePersonUseCaseTest {
                 "ana@example.com",
                 "0353-123456",
                 LocalDate.of(1990, 1, 1),
-                role));
+                role,
+                UUID.fromString("019e18e4-c93b-7583-90a6-0e9410ce3ad3")));
 
     assertThat(response.documentNumber()).isEqualTo("12345678");
     assertThat(response.firstName()).isEqualTo("Ana");
@@ -116,9 +131,10 @@ class CreatePersonUseCaseTest {
             "García",
             "12345678",
             "ana@example.com",
-            null,
+            "03534100000",
             java.time.LocalDate.of(2000, 1, 1),
-            null));
+            null,
+            UUID.fromString("019e18e4-c93b-7583-90a6-0e9410ce3ad3")));
 
     verify(assignPersonSystemRoleUseCase).execute(any(Person.class), eq(SystemRoleCode.APPLICANT));
   }
@@ -140,9 +156,10 @@ class CreatePersonUseCaseTest {
                         "García",
                         "12345678",
                         "ana@example.com",
-                        null,
+                        "03534100000",
                         java.time.LocalDate.of(2000, 1, 1),
-                        SystemRoleCode.TEACHER)))
+                        SystemRoleCode.TEACHER,
+                        UUID.fromString("019e18e4-c93b-7583-90a6-0e9410ce3ad3"))))
         .isInstanceOf(PersonAlreadyExistsException.class);
 
     verify(personRepository, never()).save(any());
@@ -163,9 +180,10 @@ class CreatePersonUseCaseTest {
                         "García",
                         "12345678",
                         "ana@example.com",
-                        null,
+                        "03534100000",
                         java.time.LocalDate.of(2000, 1, 1),
-                        SystemRoleCode.TEACHER)))
+                        SystemRoleCode.TEACHER,
+                        UUID.fromString("019e18e4-c93b-7583-90a6-0e9410ce3ad3"))))
         .isInstanceOf(InstitutionNotFoundException.class);
   }
 
@@ -197,9 +215,10 @@ class CreatePersonUseCaseTest {
                         "García",
                         "12345678",
                         "ana@example.com",
-                        null,
+                        "03534100000",
                         java.time.LocalDate.of(2000, 1, 1),
-                        SystemRoleCode.TEACHER)))
+                        SystemRoleCode.TEACHER,
+                        UUID.fromString("019e18e4-c93b-7583-90a6-0e9410ce3ad3"))))
         .isInstanceOf(PersonAlreadyExistsException.class);
 
     verify(userRepository, never()).save(any());

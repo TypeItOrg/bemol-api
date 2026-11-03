@@ -19,12 +19,13 @@ BEGIN
     ) AS scenarios(number, document, first_name, last_name, age, role_codes)
     LOOP
         INSERT INTO people (person_id, institution_id, document_number, first_name, last_name,
-                            email, birth_date, deleted, created_at, updated_at)
+                            email, birth_date, phone_number, nationality_country_id, deleted, created_at, updated_at)
         VALUES (pg_temp.demo_id('person:' || fixture.number), tenant, fixture.document,
                 fixture.first_name, fixture.last_name,
                 lower(fixture.first_name || '.' || fixture.last_name) || '@' || settings.email_domain,
                 ((SELECT reference_date FROM seed_context) - make_interval(years => fixture.age))::date,
-                false, now(), now())
+                '0353' || lpad((4100000 + fixture.number)::text, 7, '0'),
+                (SELECT country_id FROM countries WHERE iso_code = 'ARG'), false, now(), now())
         ON CONFLICT (person_id) DO NOTHING RETURNING person_id INTO created_person;
 
         IF created_person IS NULL THEN

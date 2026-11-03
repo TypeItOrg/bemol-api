@@ -9,6 +9,7 @@ import ar.edu.utn.frvm.typeit.bemol_api.authorization.enums.PermissionCode;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.services.InitialRoleAssignmentGuard;
 import ar.edu.utn.frvm.typeit.bemol_api.common.web.PaginatedResponse;
 import ar.edu.utn.frvm.typeit.bemol_api.common.web.Version;
+import ar.edu.utn.frvm.typeit.bemol_api.institutional.enums.PersonStatus;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.payloads.person.CreatePersonRequest;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.payloads.person.PersonResponse;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.payloads.person.PersonSummaryResponse;
@@ -63,10 +64,11 @@ public class PeopleController {
       @PathVariable final UUID institutionId,
       @RequestParam(required = false) @Size(max = 100) final String search,
       @RequestParam(required = false) final UUID roleId,
+      @RequestParam(required = false) final PersonStatus status,
       @PageableDefault(size = 20, sort = "lastName", direction = Sort.Direction.ASC)
           final Pageable pageable,
       final Authentication authentication) {
-    return listPeopleUseCase.execute(institutionId, search, roleId, pageable);
+    return listPeopleUseCase.execute(institutionId, search, roleId, status, pageable);
   }
 
   @GetMapping(value = "/{personId}", version = Version.V1)

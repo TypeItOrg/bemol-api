@@ -4,7 +4,6 @@ import static ar.edu.utn.frvm.typeit.bemol_api.common.exceptions.ErrorMessages.I
 import static ar.edu.utn.frvm.typeit.bemol_api.common.exceptions.ErrorMessages.MALFORMED_REQUEST_BODY;
 import static ar.edu.utn.frvm.typeit.bemol_api.common.exceptions.ErrorMessages.RESOURCE_NOT_FOUND_MESSAGE;
 import static ar.edu.utn.frvm.typeit.bemol_api.common.exceptions.ErrorMessages.UNHANDLED_EXCEPTION_MESSAGE;
-import static ar.edu.utn.frvm.typeit.bemol_api.common.exceptions.ErrorMessages.VALIDATION_ERROR_MESSAGE;
 import static ar.edu.utn.frvm.typeit.bemol_api.security.handlers.SecurityErrorMessages.DEFAULT_FORBIDDEN_MESSAGE;
 
 import ar.edu.utn.frvm.typeit.bemol_api.academic.entities.DocumentDefinition;
@@ -13,6 +12,7 @@ import ar.edu.utn.frvm.typeit.bemol_api.academic.exceptions.AcademicMessages;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.exceptions.DocumentCatalogException;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.exceptions.AuthMessages;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.exceptions.InvalidAccessScopeException;
+import ar.edu.utn.frvm.typeit.bemol_api.common.validation.ValidationMessages;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.exceptions.EnrollmentMessages;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.exceptions.EnrollmentValidationException;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.exceptions.InstitutionMessages;
@@ -44,8 +44,7 @@ import org.springframework.web.servlet.resource.NoResourceFoundException;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
-  private final ApplicationExceptionHttpMapper applicationExceptionHttpMapper =
-      new ApplicationExceptionHttpMapper();
+  private final ApplicationExceptionHttpMapper httpMapper = new ApplicationExceptionHttpMapper();
 
   @ExceptionHandler(Exception.class)
   @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
@@ -81,6 +80,18 @@ public class GlobalExceptionHandler {
     for (Throwable cause = exception; cause != null; cause = cause.getCause()) {
       if (cause instanceof org.hibernate.exception.ConstraintViolationException violation) {
         final String constraint = Objects.toString(violation.getConstraintName(), "");
+        if (constraint.equals("people_nationality_required")) {
+          return ResponseEntity.badRequest()
+              .body(
+                  httpMapper.validationError(
+                      Map.of("nationalityCountryId", ValidationMessages.NATIONALITY_REQUIRED)));
+        }
+        if (constraint.equals("people_phone_number_required")) {
+          return ResponseEntity.badRequest()
+              .body(
+                  httpMapper.validationError(
+                      Map.of("phoneNumber", ValidationMessages.PHONE_REQUIRED)));
+        }
         if (Set.of(
                 "person_access_invitation_origin_check",
                 "person_access_invitation_institutional_subject_fk",
@@ -157,7 +168,7 @@ public class GlobalExceptionHandler {
   @ExceptionHandler(ApplicationException.class)
   public ResponseEntity<ExceptionPayload> handleApplicationException(
       final ApplicationException exception) {
-    return applicationExceptionHttpMapper.toResponse(exception);
+    return httpMapper.toResponse(exception);
   }
 
   @ExceptionHandler(MethodArgumentNotValidException.class)
@@ -170,7 +181,7 @@ public class GlobalExceptionHandler {
                     fe -> fe.getField(),
                     fe -> Objects.toString(fe.getDefaultMessage(), ""),
                     (existing, replacement) -> existing));
-    return validationErrorPayload(fieldErrors);
+    return httpMapper.validationError(fieldErrors);
   }
 
   @ExceptionHandler(HttpMessageNotReadableException.class)
@@ -204,7 +215,7 @@ public class GlobalExceptionHandler {
                     cv -> lastPropertyName(cv.getPropertyPath()),
                     cv -> cv.getMessage(),
                     (existing, replacement) -> existing));
-    return validationErrorPayload(fieldErrors);
+    return httpMapper.validationError(fieldErrors);
   }
 
   @ExceptionHandler(AccessDeniedException.class)
@@ -225,14 +236,6 @@ public class GlobalExceptionHandler {
 
   private static ExceptionPayload errorPayload(HttpStatus status, String message) {
     return ExceptionPayload.builder().status(status.value()).message(message).build();
-  }
-
-  private static ExceptionPayload validationErrorPayload(Map<String, String> fieldErrors) {
-    return ExceptionPayload.builder()
-        .status(HttpStatus.BAD_REQUEST.value())
-        .message(VALIDATION_ERROR_MESSAGE)
-        .fieldErrors(fieldErrors)
-        .build();
   }
 
   private static String lastPropertyName(Path propertyPath) {

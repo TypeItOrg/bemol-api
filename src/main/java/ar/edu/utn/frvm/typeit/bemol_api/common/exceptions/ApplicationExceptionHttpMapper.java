@@ -1,9 +1,18 @@
 package ar.edu.utn.frvm.typeit.bemol_api.common.exceptions;
 
+import java.util.Map;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 
 public class ApplicationExceptionHttpMapper {
+
+  public ExceptionPayload validationError(final Map<String, String> fieldErrors) {
+    return ExceptionPayload.builder()
+        .status(HttpStatus.BAD_REQUEST.value())
+        .message(ErrorMessages.VALIDATION_ERROR_MESSAGE)
+        .fieldErrors(fieldErrors)
+        .build();
+  }
 
   public ResponseEntity<ExceptionPayload> toResponse(final ApplicationException exception) {
     final HttpStatus status = statusFor(exception.category());

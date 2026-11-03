@@ -1,5 +1,6 @@
 package ar.edu.utn.frvm.typeit.bemol_api.enrollment.payloads;
 
+import ar.edu.utn.frvm.typeit.bemol_api.institutional.payloads.CountrySummaryResponse;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.time.LocalDate;
 import lombok.Builder;
@@ -13,7 +14,8 @@ import org.jspecify.annotations.Nullable;
       "documentNumber",
       "birthDate",
       "phoneNumber",
-      "email"
+      "email",
+      "nationalityCountry"
     })
 public record PersonalDataDto(
     @Schema(nullable = true) @Nullable String firstName,
@@ -21,9 +23,10 @@ public record PersonalDataDto(
     @Schema(nullable = true) @Nullable String documentNumber,
     @Schema(nullable = true) @Nullable LocalDate birthDate,
     @Schema(nullable = true) @Nullable String phoneNumber,
-    @Schema(nullable = true) @Nullable String email) {
+    @Schema(nullable = true) @Nullable String email,
+    @Schema(nullable = true) @Nullable CountrySummaryResponse nationalityCountry) {
   public PersonalDataDto() {
-    this(null, null, null, null, null, null);
+    this(null, null, null, null, null, null, null);
   }
 
   public @Nullable String getFirstName() {

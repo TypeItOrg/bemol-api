@@ -36,10 +36,12 @@ BEGIN
         person_key := pg_temp.demo_id('person:' || member.number);
 
         INSERT INTO people (person_id, institution_id, document_number, first_name, last_name,
-                            email, birth_date, deleted, created_at, updated_at)
+                            email, birth_date, phone_number, nationality_country_id, deleted, created_at, updated_at)
         VALUES (person_key, tenant, member.document, member.first_name, member.last_name,
                 lower(translate(member.first_name || '.' || member.last_name, 'áéíóúñÁÉÍÓÚÑ', 'aeiounAEIOUN')) || '@' || settings.email_domain,
-                ((SELECT reference_date FROM seed_context) - make_interval(years => member.age))::date, false, now(), now())
+                ((SELECT reference_date FROM seed_context) - make_interval(years => member.age))::date,
+                '0353' || lpad((4100000 + member.number)::text, 7, '0'),
+                (SELECT country_id FROM countries WHERE iso_code = 'ARG'), false, now(), now())
         ON CONFLICT (person_id) DO NOTHING RETURNING person_id INTO created_person;
         IF created_person IS NOT NULL THEN
             INSERT INTO seed_new_members VALUES (member.number);

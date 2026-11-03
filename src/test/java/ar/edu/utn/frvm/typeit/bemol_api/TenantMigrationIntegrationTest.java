@@ -29,8 +29,8 @@ class TenantMigrationIntegrationTest extends DatabaseMigrationTestSupport {
                     """
         INSERT INTO people (
           person_id, institution_id, document_number, first_name, last_name, email,
-          deleted, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, 'ana@example.com', false, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+          phone_number, nationality_country_id, deleted, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, 'ana@example.com', '03534100000', (SELECT country_id FROM countries ORDER BY country_id LIMIT 1), false, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
         """,
                     id,
                     institutionId,

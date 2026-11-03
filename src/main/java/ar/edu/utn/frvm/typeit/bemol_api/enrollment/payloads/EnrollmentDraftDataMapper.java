@@ -6,6 +6,7 @@ import ar.edu.utn.frvm.typeit.bemol_api.enrollment.entities.ApplicantPreference;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.entities.ApplicantResponsible;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.entities.EnrollmentApplication;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.entities.Person;
+import ar.edu.utn.frvm.typeit.bemol_api.institutional.payloads.CountrySummaryResponse;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -59,6 +60,10 @@ final class EnrollmentDraftDataMapper {
         .documentNumber(person.getDocumentNumber())
         .birthDate(person.getBirthDate())
         .phoneNumber(person.getPhoneNumber())
+        .nationalityCountry(
+            person.getNationalityCountry() == null
+                ? null
+                : CountrySummaryResponse.from(person.getNationalityCountry()))
         .email(person.getEmail())
         .build();
   }

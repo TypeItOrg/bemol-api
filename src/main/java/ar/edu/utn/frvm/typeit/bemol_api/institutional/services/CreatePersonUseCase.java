@@ -8,8 +8,10 @@ import ar.edu.utn.frvm.typeit.bemol_api.authorization.enums.SystemRoleCode;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.services.AssignPersonSystemRoleUseCase;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.entities.Institution;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.entities.Person;
+import ar.edu.utn.frvm.typeit.bemol_api.institutional.exceptions.CountryNotFoundException;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.exceptions.InstitutionNotFoundException;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.exceptions.PersonAlreadyExistsException;
+import ar.edu.utn.frvm.typeit.bemol_api.institutional.interfaces.CountryRepository;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.interfaces.InstitutionRepository;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.interfaces.PersonRepository;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.payloads.person.CreatePersonRequest;
@@ -29,6 +31,7 @@ public class CreatePersonUseCase {
 
   private final InstitutionRepository institutionRepository;
   private final PersonRepository personRepository;
+  private final CountryRepository countryRepository;
   private final ar.edu.utn.frvm.typeit.bemol_api.auth.services.InstitutionalAccountManagementUseCase
       accounts;
   private final Validator validator;
@@ -48,6 +51,11 @@ public class CreatePersonUseCase {
       throw new PersonAlreadyExistsException();
     }
 
+    final var nationalityCountry =
+        countryRepository
+            .findById(request.nationalityCountryId())
+            .orElseThrow(CountryNotFoundException::new);
+
     Person person =
         Person.builder()
             .institution(institution)
@@ -56,6 +64,7 @@ public class CreatePersonUseCase {
             .documentNumber(request.documentNumber())
             .email(request.email())
             .phoneNumber(request.phoneNumber())
+            .nationalityCountry(nationalityCountry)
             .birthDate(request.birthDate())
             .build();
 

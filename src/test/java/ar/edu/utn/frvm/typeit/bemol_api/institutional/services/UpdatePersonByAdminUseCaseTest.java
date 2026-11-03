@@ -42,6 +42,10 @@ class UpdatePersonByAdminUseCaseTest {
 
   @Mock private PersonRepository personRepository;
 
+  @Mock
+  private ar.edu.utn.frvm.typeit.bemol_api.institutional.interfaces.CountryRepository
+      countryRepository;
+
   @Spy private final Validator validator = Validation.buildDefaultValidatorFactory().getValidator();
 
   @InjectMocks private UpdatePersonByAdminUseCase updatePersonByAdminUseCase;
@@ -60,6 +64,13 @@ class UpdatePersonByAdminUseCaseTest {
         .thenReturn(Optional.of(institution));
     person =
         Person.builder()
+            .phoneNumber("03534100000")
+            .nationalityCountry(
+                ar.edu.utn.frvm.typeit.bemol_api.institutional.entities.Country.builder()
+                    .id(UUID.fromString("019e18e4-c93b-7583-90a6-0e9410ce3ad3"))
+                    .name("Argentina")
+                    .isoCode("ARG")
+                    .build())
             .id(personId)
             .institution(institution)
             .firstName("Ana")
@@ -81,7 +92,7 @@ class UpdatePersonByAdminUseCaseTest {
         updatePersonByAdminUseCase.execute(
             institutionId,
             personId,
-            new UpdatePersonByAdminRequest("Ana María", null, null, null, null));
+            new UpdatePersonByAdminRequest("Ana María", null, null, null, null, null));
 
     assertThat(response.firstName()).isEqualTo("Ana María");
     verify(personRepository).saveAndFlush(person);
@@ -98,7 +109,7 @@ class UpdatePersonByAdminUseCaseTest {
                 updatePersonByAdminUseCase.execute(
                     institutionId,
                     personId,
-                    new UpdatePersonByAdminRequest("Ana", null, null, null, null)))
+                    new UpdatePersonByAdminRequest("Ana", null, null, null, null, null)))
         .isInstanceOf(
             ar.edu.utn.frvm.typeit.bemol_api.institutional.exceptions.PersonNotFoundException
                 .class);
@@ -115,7 +126,7 @@ class UpdatePersonByAdminUseCaseTest {
                 updatePersonByAdminUseCase.execute(
                     institutionId,
                     personId,
-                    new UpdatePersonByAdminRequest(null, null, null, null, null)))
+                    new UpdatePersonByAdminRequest(null, null, null, null, null, null)))
         .isInstanceOf(ConstraintViolationException.class);
 
     verify(personRepository, never()).save(person);
@@ -134,7 +145,7 @@ class UpdatePersonByAdminUseCaseTest {
         updatePersonByAdminUseCase.execute(
             institutionId,
             personId,
-            new UpdatePersonByAdminRequest("Ana María", null, null, null, null));
+            new UpdatePersonByAdminRequest("Ana María", null, null, null, null, null));
 
     assertThat(response.firstName()).isEqualTo("Ana María");
     assertThat(response.lastName()).isEqualTo("García");

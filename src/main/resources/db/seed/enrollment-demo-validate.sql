@@ -5,6 +5,9 @@ DECLARE
     missing text;
 BEGIN
     SELECT * INTO STRICT settings FROM seed_settings;
+    IF NOT EXISTS (SELECT 1 FROM countries WHERE iso_code = 'ARG') THEN
+        RAISE EXCEPTION 'Falta el país Argentina (ARG) para las nacionalidades del seeder.';
+    END IF;
     IF EXISTS (SELECT 1 FROM seed_programs p
                WHERE NOT EXISTS (SELECT 1 FROM seed_program_periods assignment WHERE assignment.program = p.code)) THEN
         RAISE EXCEPTION 'Cada trayecto del dataset debe tener un período de inscripción.';

@@ -117,7 +117,12 @@ class PeopleControllerWebMvcTest {
     var authentication = new TestingAuthenticationToken(platformPrincipal(PLATFORM_ACCOUNT_ID), "");
     SecurityContextHolder.getContext().setAuthentication(authentication);
     stubPlatformAdminAccess(true);
-    when(listPeopleUseCase.execute(eq(INSTITUTION_ID), eq("ana"), eq(null), any(Pageable.class)))
+    when(listPeopleUseCase.execute(
+            eq(INSTITUTION_ID),
+            eq("ana"),
+            eq(null),
+            org.mockito.ArgumentMatchers.isNull(),
+            any(Pageable.class)))
         .thenReturn(
             PaginatedResponse.from(
                 new PageImpl<>(List.of(personSummary()), Pageable.ofSize(20), 1)));
@@ -138,7 +143,12 @@ class PeopleControllerWebMvcTest {
         new TestingAuthenticationToken(institutionalPrincipal(USER_ID, INSTITUTION_ID), "");
     SecurityContextHolder.getContext().setAuthentication(authentication);
     stubPermission(PermissionCode.INSTITUTION_PERSON_READ_ANY, true);
-    when(listPeopleUseCase.execute(eq(INSTITUTION_ID), eq(null), eq(null), any(Pageable.class)))
+    when(listPeopleUseCase.execute(
+            eq(INSTITUTION_ID),
+            eq(null),
+            eq(null),
+            org.mockito.ArgumentMatchers.isNull(),
+            any(Pageable.class)))
         .thenReturn(PaginatedResponse.from(new PageImpl<>(List.of(), Pageable.ofSize(20), 0)));
 
     mockMvc
@@ -158,7 +168,11 @@ class PeopleControllerWebMvcTest {
 
     UUID filterRoleId = UUID.randomUUID();
     when(listPeopleUseCase.execute(
-            eq(INSTITUTION_ID), eq(null), eq(filterRoleId), any(Pageable.class)))
+            eq(INSTITUTION_ID),
+            eq(null),
+            eq(filterRoleId),
+            org.mockito.ArgumentMatchers.isNull(),
+            any(Pageable.class)))
         .thenReturn(
             PaginatedResponse.from(
                 new PageImpl<>(List.of(personSummary()), Pageable.ofSize(20), 1)));
@@ -186,7 +200,8 @@ class PeopleControllerWebMvcTest {
                 .principal(authentication))
         .andExpect(status().isForbidden());
 
-    verify(listPeopleUseCase, never()).execute(any(), any(), any(), any(Pageable.class));
+    verify(listPeopleUseCase, never())
+        .execute(any(), any(), any(), org.mockito.ArgumentMatchers.isNull(), any(Pageable.class));
   }
 
   @Test
@@ -494,6 +509,8 @@ class PeopleControllerWebMvcTest {
         + "\"lastName\":\"García\","
         + "\"documentNumber\":\"12345678\","
         + "\"email\":\"ana@example.com\","
+        + "\"phoneNumber\":\"03534100000\","
+        + "\"nationalityCountryId\":\"019e18e4-c93b-7583-90a6-0e9410ce3ad3\","
         + "\"birthDate\":\"2010-01-01\","
         + "\"password\":\"admin-pass-123\""
         + "}";
@@ -505,6 +522,8 @@ class PeopleControllerWebMvcTest {
         + "\"lastName\":\"García\","
         + "\"documentNumber\":\"12345678\","
         + "\"email\":\"ana@example.com\","
+        + "\"phoneNumber\":\"03534100000\","
+        + "\"nationalityCountryId\":\"019e18e4-c93b-7583-90a6-0e9410ce3ad3\","
         + "\"birthDate\":\""
         + birthDate
         + "\","

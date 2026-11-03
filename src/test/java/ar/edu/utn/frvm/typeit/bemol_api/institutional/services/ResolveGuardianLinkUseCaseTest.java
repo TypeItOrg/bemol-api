@@ -16,6 +16,8 @@ import ar.edu.utn.frvm.typeit.bemol_api.audit.services.AuditEventRecorder;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.enums.SystemRoleCode;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.services.AssignPersonSystemRoleUseCase;
 import ar.edu.utn.frvm.typeit.bemol_api.common.exceptions.ErrorCategory;
+import ar.edu.utn.frvm.typeit.bemol_api.common.validation.ValidationMessages;
+import ar.edu.utn.frvm.typeit.bemol_api.institutional.entities.Country;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.entities.GuardianLinkStatus;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.entities.GuardianRelationship;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.entities.Institution;
@@ -96,6 +98,35 @@ class ResolveGuardianLinkUseCaseTest {
         .thenReturn(Optional.of(link));
     when(personRepository.findByIdAndInstitution_Id(reviewer.getId(), institution.getId()))
         .thenReturn(Optional.of(reviewer));
+  }
+
+  @ParameterizedTest
+  @ValueSource(booleans = {false, true})
+  void rejectsNewPersonWithMissingNationalityOrPhoneWithoutChangingTheLink(
+      final boolean missingPhone) {
+    link =
+        PersonGuardian.builder()
+            .institution(institution)
+            .tutorPerson(link.getTutorPerson())
+            .declaredDocumentNumber("54123456")
+            .declaredNationalityCountry(
+                missingPhone ? Country.builder().name("Argentina").isoCode("ARG").build() : null)
+            .declaredPhoneNumber(missingPhone ? null : "03534100000")
+            .build();
+    givenPendingLinkAndReviewer();
+    when(personRepository.findByDocumentNumberAndInstitution_Id("54123456", institution.getId()))
+        .thenReturn(Optional.empty());
+
+    assertThatThrownBy(() -> useCase.approve(institution.getId(), reviewer.getId(), linkId))
+        .isInstanceOf(OwnAccessException.class)
+        .hasMessage(
+            missingPhone
+                ? ValidationMessages.PHONE_REQUIRED
+                : ValidationMessages.NATIONALITY_REQUIRED);
+    assertThat(link.getStatus()).isEqualTo(GuardianLinkStatus.PENDING);
+    assertThat(link.getDependentPersonId()).isNull();
+    verify(personRepository, never()).saveAndFlush(any());
+    verifyNoInteractions(auditEventRecorder, assignPersonSystemRoleUseCase);
   }
 
   @ParameterizedTest

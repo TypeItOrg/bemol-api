@@ -9,6 +9,8 @@ import ar.edu.utn.frvm.typeit.bemol_api.authorization.enums.SystemRoleCode;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.services.AssignPersonSystemRoleUseCase;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.entities.Institution;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.entities.Person;
+import ar.edu.utn.frvm.typeit.bemol_api.institutional.exceptions.CountryNotFoundException;
+import ar.edu.utn.frvm.typeit.bemol_api.institutional.interfaces.CountryRepository;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.interfaces.InstitutionRepository;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.interfaces.PersonRepository;
 import java.util.Optional;
@@ -34,6 +36,7 @@ public class InstitutionalDevUserBootstrap implements ApplicationRunner {
   private final InstitutionalDevUserProperties institutionalDevUserProperties;
   private final InstitutionRepository institutionRepository;
   private final PersonRepository personRepository;
+  private final CountryRepository countryRepository;
   private final UserRepository userRepository;
   private final PasswordEncoder passwordEncoder;
   private final AssignPersonSystemRoleUseCase assignPersonSystemRoleUseCase;
@@ -96,6 +99,9 @@ public class InstitutionalDevUserBootstrap implements ApplicationRunner {
             .lastName(institutionalDevUserProperties.resolvedLastName())
             .documentNumber(documentNumber)
             .email(documentNumber + "@bemol.local")
+            .phoneNumber("03530000000")
+            .nationalityCountry(
+                countryRepository.findByIsoCode("ARG").orElseThrow(CountryNotFoundException::new))
             .build();
     personRepository.save(person);
     createUserForPerson(institution, person);

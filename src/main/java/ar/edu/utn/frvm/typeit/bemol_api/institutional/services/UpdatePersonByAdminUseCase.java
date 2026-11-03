@@ -5,7 +5,9 @@ import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditEntityType;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.services.AuditEventRecorder;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.services.SessionRevocationService;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.entities.Person;
+import ar.edu.utn.frvm.typeit.bemol_api.institutional.exceptions.CountryNotFoundException;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.exceptions.PersonNotFoundException;
+import ar.edu.utn.frvm.typeit.bemol_api.institutional.interfaces.CountryRepository;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.interfaces.PersonRepository;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.payloads.person.PersonResponse;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.payloads.person.UpdatePersonByAdminRequest;
@@ -23,6 +25,7 @@ public class UpdatePersonByAdminUseCase {
   private final AuditEventRecorder auditRecorder;
 
   private final PersonRepository personRepository;
+  private final CountryRepository countryRepository;
   private final ar.edu.utn.frvm.typeit.bemol_api.auth.services.AccountAccessAuthorization access;
   private final ar.edu.utn.frvm.typeit.bemol_api.institutional.interfaces.InstitutionRepository
       institutions;
@@ -57,12 +60,20 @@ public class UpdatePersonByAdminUseCase {
       throw new ConstraintViolationException(Set.of());
     }
 
+    var nationalityCountry = person.getNationalityCountry();
+    if (request.nationalityCountryId() != null) {
+      nationalityCountry =
+          countryRepository
+              .findById(request.nationalityCountryId())
+              .orElseThrow(CountryNotFoundException::new);
+    }
+
     person.updateIdentity(
         request.firstName() != null ? request.firstName() : person.getFirstName(),
         request.lastName() != null ? request.lastName() : person.getLastName(),
         request.birthDate() != null ? request.birthDate() : person.getBirthDate(),
         person.getBirthCity(),
-        person.getNationalityCountry());
+        nationalityCountry);
     person.updateContact(
         person.getEmail(),
         request.phoneNumber() != null ? request.phoneNumber() : person.getPhoneNumber());

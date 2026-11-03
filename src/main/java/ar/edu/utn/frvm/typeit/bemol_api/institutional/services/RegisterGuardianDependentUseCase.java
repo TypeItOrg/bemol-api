@@ -9,9 +9,11 @@ import ar.edu.utn.frvm.typeit.bemol_api.auth.services.AccountActionRateLimiter;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.enums.PermissionCode;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.entities.PersonGuardian;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.exceptions.CannotGuardianSelfException;
+import ar.edu.utn.frvm.typeit.bemol_api.institutional.exceptions.CountryNotFoundException;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.exceptions.DependentAlreadyLinkedException;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.exceptions.InstitutionNotFoundException;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.exceptions.PersonNotFoundException;
+import ar.edu.utn.frvm.typeit.bemol_api.institutional.interfaces.CountryRepository;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.interfaces.InstitutionRepository;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.interfaces.PersonGuardianRepository;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.interfaces.PersonRepository;
@@ -33,6 +35,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class RegisterGuardianDependentUseCase {
   private final InstitutionRepository institutionRepository;
   private final PersonRepository personRepository;
+  private final CountryRepository countryRepository;
   private final PersonGuardianRepository personGuardianRepository;
   private final Validator validator;
   private final AuditEventRecorder auditEventRecorder;
@@ -79,6 +82,13 @@ public class RegisterGuardianDependentUseCase {
             mode == GuardianDependentRequestMode.NEW ? request.lastName() : null,
             mode == GuardianDependentRequestMode.NEW ? request.birthDate() : null);
     link.requestOwnAccess(request.ownAccessRequested(), request.email());
+    if (mode == GuardianDependentRequestMode.NEW) {
+      link.declareContact(
+          java.util.Objects.requireNonNull(request.phoneNumber()),
+          countryRepository
+              .findById(java.util.Objects.requireNonNull(request.nationalityCountryId()))
+              .orElseThrow(CountryNotFoundException::new));
+    }
     try {
       personGuardianRepository.saveAndFlush(link);
     } catch (DataIntegrityViolationException exception) {

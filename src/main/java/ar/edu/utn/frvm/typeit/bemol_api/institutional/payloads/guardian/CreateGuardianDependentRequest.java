@@ -15,6 +15,7 @@ import jakarta.validation.constraints.Past;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import java.time.LocalDate;
+import java.util.UUID;
 
 public record CreateGuardianDependentRequest(
     @NotNull(message = ValidationMessages.DOCUMENT_REQUIRED)
@@ -46,7 +47,11 @@ public record CreateGuardianDependentRequest(
         @org.jspecify.annotations.Nullable
         String email,
     boolean ownAccessRequested,
-    @org.jspecify.annotations.Nullable GuardianDependentRequestMode requestMode) {
+    @org.jspecify.annotations.Nullable GuardianDependentRequestMode requestMode,
+    @org.jspecify.annotations.Nullable
+        @Size(max = 30, message = ValidationMessages.PHONE_MAX_LENGTH)
+        String phoneNumber,
+    @org.jspecify.annotations.Nullable UUID nationalityCountryId) {
 
   @AssertTrue(message = "Indicá nombre, apellido y fecha de nacimiento para registrar una persona.")
   public boolean isRegistrationDataPresent() {
@@ -63,42 +68,14 @@ public record CreateGuardianDependentRequest(
     return !ownAccessRequested || (email != null && !email.isBlank());
   }
 
-  public CreateGuardianDependentRequest(
-      String documentNumber,
-      String firstName,
-      String lastName,
-      LocalDate birthDate,
-      GuardianRelationship relationship,
-      boolean isPrimaryContact,
-      @org.jspecify.annotations.Nullable String email,
-      boolean ownAccessRequested) {
-    this(
-        documentNumber,
-        firstName,
-        lastName,
-        birthDate,
-        relationship,
-        isPrimaryContact,
-        email,
-        ownAccessRequested,
-        null);
+  @AssertTrue(message = ValidationMessages.PHONE_REQUIRED)
+  public boolean isRegistrationPhonePresent() {
+    return requestMode == GuardianDependentRequestMode.EXISTING
+        || (phoneNumber != null && !phoneNumber.isBlank());
   }
 
-  public CreateGuardianDependentRequest(
-      String documentNumber,
-      String firstName,
-      String lastName,
-      LocalDate birthDate,
-      GuardianRelationship relationship,
-      boolean isPrimaryContact) {
-    this(
-        documentNumber,
-        firstName,
-        lastName,
-        birthDate,
-        relationship,
-        isPrimaryContact,
-        null,
-        false);
+  @AssertTrue(message = ValidationMessages.NATIONALITY_REQUIRED)
+  public boolean isRegistrationNationalityPresent() {
+    return requestMode == GuardianDependentRequestMode.EXISTING || nationalityCountryId != null;
   }
 }

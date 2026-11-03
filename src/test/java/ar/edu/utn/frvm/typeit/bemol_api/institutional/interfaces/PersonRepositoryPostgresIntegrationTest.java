@@ -165,6 +165,8 @@ class PersonRepositoryPostgresIntegrationTest {
             "ana@boero",
             boero.getId(),
             SystemRoleCode.TEACHER.name(),
+            null,
+            java.time.Instant.now(),
             PageRequest.of(0, 10, Sort.by("institution.name")));
 
     assertThat(result.getContent()).hasSize(1);
@@ -188,7 +190,12 @@ class PersonRepositoryPostgresIntegrationTest {
 
     var result =
         personRepository.findPlatformPeople(
-            null, null, null, PageRequest.of(0, 10, Sort.by("institution.name")));
+            null,
+            null,
+            null,
+            null,
+            java.time.Instant.now(),
+            PageRequest.of(0, 10, Sort.by("institution.name")));
 
     assertThat(result.getContent()).hasSize(2);
     assertThat(result.getContent())

@@ -7,6 +7,7 @@ import static ar.edu.utn.frvm.typeit.bemol_api.common.validation.PersonFieldCons
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import java.time.LocalDate;
+import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 
 public record UpdatePersonByAdminRequest(
@@ -21,12 +22,14 @@ public record UpdatePersonByAdminRequest(
     @ar.edu.utn.frvm.typeit.bemol_api.common.validation.MinimumAge(
             ar.edu.utn.frvm.typeit.bemol_api.common.validation.PersonFieldConstraints.MINIMUM_AGE)
         @Nullable LocalDate birthDate,
-    @Size(max = 30) @Nullable String phoneNumber) {
+    @Size(max = 30) @Nullable String phoneNumber,
+    @Nullable UUID nationalityCountryId) {
   public boolean isEmpty() {
     return firstName == null
         && lastName == null
         && documentNumber == null
         && birthDate == null
-        && phoneNumber == null;
+        && phoneNumber == null
+        && nationalityCountryId == null;
   }
 }

@@ -36,6 +36,8 @@ class PersonConstraintsPersistenceTest {
     final var institution = createInstitution(entityManager, "person-validation");
     final var person =
         Person.builder()
+            .phoneNumber("03534100000")
+            .nationalityCountry(institution.getCity().getProvince().getCountry())
             .institution(institution)
             .firstName(firstName)
             .lastName("Garcia")
@@ -62,6 +64,8 @@ class PersonConstraintsPersistenceTest {
     Institution institution = createInstitution(entityManager, "person-bv-email");
     Person person =
         Person.builder()
+            .phoneNumber("03534100000")
+            .nationalityCountry(institution.getCity().getProvince().getCountry())
             .institution(institution)
             .firstName("Ana")
             .lastName("Garcia")

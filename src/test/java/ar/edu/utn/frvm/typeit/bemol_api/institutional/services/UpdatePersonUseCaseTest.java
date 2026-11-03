@@ -81,6 +81,13 @@ class UpdatePersonUseCaseTest {
     institution = Institution.builder().id(institutionId).name("Conservatorio Boero").build();
     person =
         Person.builder()
+            .phoneNumber("03534100000")
+            .nationalityCountry(
+                ar.edu.utn.frvm.typeit.bemol_api.institutional.entities.Country.builder()
+                    .id(UUID.fromString("019e18e4-c93b-7583-90a6-0e9410ce3ad3"))
+                    .name("Argentina")
+                    .isoCode("ARG")
+                    .build())
             .id(personId)
             .firstName("Juan")
             .lastName("Pérez")

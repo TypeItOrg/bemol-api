@@ -27,6 +27,7 @@ import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import java.time.LocalDate;
@@ -38,7 +39,6 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import org.hibernate.envers.Audited;
 import org.hibernate.envers.RelationTargetAuditMode;
-import org.jspecify.annotations.Nullable;
 
 @Entity
 @Table(
@@ -57,7 +57,10 @@ import org.jspecify.annotations.Nullable;
           constraint = CHECK_SQL_PEOPLE_FIRST_NAME_LENGTH),
       @CheckConstraint(
           name = "people_last_name_length",
-          constraint = CHECK_SQL_PEOPLE_LAST_NAME_LENGTH)
+          constraint = CHECK_SQL_PEOPLE_LAST_NAME_LENGTH),
+      @CheckConstraint(
+          name = "people_phone_number_required",
+          constraint = "phone_number ~ '[^[:space:]]'")
     },
     indexes =
         @Index(name = "people_institution_deleted_idx", columnList = "institution_id, deleted"))
@@ -85,8 +88,9 @@ public class Person extends Auditable {
   @JoinColumn(name = "birth_city_id")
   private City birthCity;
 
-  @ManyToOne(fetch = FetchType.LAZY)
-  @JoinColumn(name = "nationality_country_id")
+  @NotNull(message = ValidationMessages.NATIONALITY_REQUIRED)
+  @ManyToOne(fetch = FetchType.LAZY, optional = false)
+  @JoinColumn(name = "nationality_country_id", nullable = false)
   private Country nationalityCountry;
 
   @NotBlank(message = ValidationMessages.DOCUMENT_REQUIRED)
@@ -116,8 +120,10 @@ public class Person extends Auditable {
   @MinimumAge(MINIMUM_AGE)
   private LocalDate birthDate;
 
-  @Column(name = "phone_number", length = 30)
-  private @Nullable String phoneNumber;
+  @NotBlank(message = ValidationMessages.PHONE_REQUIRED)
+  @Size(max = 30, message = ValidationMessages.PHONE_MAX_LENGTH)
+  @Column(name = "phone_number", nullable = false, length = 30)
+  private String phoneNumber;
 
   // People without personal access may have no email.
   @Email(message = ValidationMessages.PERSON_EMAIL_FORMAT)
@@ -147,7 +153,7 @@ public class Person extends Auditable {
     this.nationalityCountry = nationalityCountry;
   }
 
-  public void updateContact(final String email, final @Nullable String phoneNumber) {
+  public void updateContact(final String email, final String phoneNumber) {
     this.email = email;
     this.phoneNumber = phoneNumber;
   }

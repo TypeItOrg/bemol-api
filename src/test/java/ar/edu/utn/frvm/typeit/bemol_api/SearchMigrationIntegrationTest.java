@@ -292,8 +292,8 @@ class SearchMigrationIntegrationTest extends DatabaseMigrationTestSupport {
         """
         INSERT INTO people (
           person_id, institution_id, document_number, first_name, last_name,
-          email, created_at, updated_at, deleted
-        ) VALUES (?, ?, ?, 'Mateo', ?, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, ?)
+          email, phone_number, nationality_country_id, created_at, updated_at, deleted
+        ) VALUES (?, ?, ?, 'Mateo', ?, NULL, '03534100000', (SELECT country_id FROM countries ORDER BY country_id LIMIT 1), CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, ?)
         """,
         personId,
         institutionId,

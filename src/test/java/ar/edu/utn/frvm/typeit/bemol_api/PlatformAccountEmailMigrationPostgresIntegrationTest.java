@@ -16,6 +16,8 @@ import org.springframework.jdbc.datasource.DriverManagerDataSource;
 
 @IntegrationTest
 class PlatformAccountEmailMigrationPostgresIntegrationTest {
+  private static final String EMAIL_CHANGE_MIGRATION = "20261102181343";
+
   @ParameterizedTest
   @ValueSource(booleans = {false, true})
   void supportsFreshInstallationAndUpgradeWithoutChangingExistingAccounts(final boolean upgrade) {
@@ -26,12 +28,12 @@ class PlatformAccountEmailMigrationPostgresIntegrationTest {
         new JdbcTemplate(
             new DriverManagerDataSource(
                 database.getJdbcUrl(), database.getUsername(), database.getPassword()));
-    migrations(jdbc, upgrade ? "20261031193119" : "latest").migrate();
+    migrations(jdbc, upgrade ? "20261031193119" : EMAIL_CHANGE_MIGRATION).migrate();
     final UUID first = insertAccount(jdbc, "before@example.test");
     final var before =
         jdbc.queryForMap("SELECT * FROM platform_accounts WHERE platform_account_id=?", first);
 
-    final var current = migrations(jdbc, "latest");
+    final var current = migrations(jdbc, EMAIL_CHANGE_MIGRATION);
     assertThat(current.migrate().migrationsExecuted).isEqualTo(upgrade ? 1 : 0);
     assertThat(current.validateWithResult().validationSuccessful).isTrue();
     assertThat(current.migrate().migrationsExecuted).isZero();

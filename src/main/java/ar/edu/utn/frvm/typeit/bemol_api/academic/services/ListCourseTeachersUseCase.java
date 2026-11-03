@@ -36,6 +36,8 @@ public class ListCourseTeachersUseCase {
                 institutionId,
                 AcademicNameNormalizer.search(search),
                 localRole.orElseThrow().getId(),
+                null,
+                null,
                 pageable)
             .map(TeacherOptionResponse::from));
   }

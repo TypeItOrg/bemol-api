@@ -43,6 +43,10 @@ import org.mockito.junit.jupiter.MockitoExtension;
 class RegisterGuardianDependentUseCaseTest {
   @Mock InstitutionRepository institutionRepository;
   @Mock PersonRepository personRepository;
+
+  @Mock
+  ar.edu.utn.frvm.typeit.bemol_api.institutional.interfaces.CountryRepository countryRepository;
+
   @Mock PersonGuardianRepository personGuardianRepository;
   @Mock AccountAccessAuthorization access;
   @Mock AccountActionRateLimiter limiter;
@@ -62,6 +66,15 @@ class RegisterGuardianDependentUseCaseTest {
 
   @BeforeEach
   void setup() {
+    org.mockito.Mockito.lenient()
+        .when(countryRepository.findById(org.mockito.ArgumentMatchers.any()))
+        .thenReturn(
+            Optional.of(
+                ar.edu.utn.frvm.typeit.bemol_api.institutional.entities.Country.builder()
+                    .id(UUID.fromString("019e18e4-c93b-7583-90a6-0e9410ce3ad3"))
+                    .name("Argentina")
+                    .isoCode("ARG")
+                    .build()));
     org.mockito.Mockito.lenient()
         .when(institutionRepository.findByIdForUpdate(institution.getId()))
         .thenReturn(Optional.of(institution));
@@ -152,6 +165,8 @@ class RegisterGuardianDependentUseCaseTest {
         true,
         null,
         false,
-        mode);
+        mode,
+        "03534100000",
+        UUID.fromString("019e18e4-c93b-7583-90a6-0e9410ce3ad3"));
   }
 }

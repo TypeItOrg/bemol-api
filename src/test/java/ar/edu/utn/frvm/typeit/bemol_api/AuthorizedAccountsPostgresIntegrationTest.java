@@ -427,9 +427,10 @@ class AuthorizedAccountsPostgresIntegrationTest extends DatabaseMigrationTestSup
                     "Ferreyra",
                     document,
                     UUID.randomUUID() + "@example.test",
-                    null,
+                    "03534100000",
                     LocalDate.of(2016, 1, 1),
-                    SystemRoleCode.APPLICANT))
+                    SystemRoleCode.APPLICANT,
+                    UUID.fromString("019e18e4-c93b-7583-90a6-0e9410ce3ad3")))
             .personId();
     final var found =
         reviewRequests.page(
@@ -461,7 +462,7 @@ class AuthorizedAccountsPostgresIntegrationTest extends DatabaseMigrationTestSup
         institution,
         child,
         new ar.edu.utn.frvm.typeit.bemol_api.institutional.payloads.person
-            .UpdatePersonByAdminRequest(null, null, document, null, null));
+            .UpdatePersonByAdminRequest(null, null, document, null, null, null));
     as(tutor);
 
     assertThatThrownBy(() -> requests.execute(institution, tutor, existingRequest(document)))
@@ -975,7 +976,7 @@ class AuthorizedAccountsPostgresIntegrationTest extends DatabaseMigrationTestSup
         institution,
         person,
         new ar.edu.utn.frvm.typeit.bemol_api.institutional.payloads.person
-            .UpdatePersonByAdminRequest(null, null, nextDocument, null, null));
+            .UpdatePersonByAdminRequest(null, null, nextDocument, null, null, null));
     assertThat(user(person).getId()).isEqualTo(id);
     assertThat(user(person).getDocumentNumber()).isEqualTo(nextDocument);
     assertThat(count("SELECT count(*) FROM user_sessions WHERE user_id=? AND active", id)).isZero();
@@ -1008,9 +1009,10 @@ class AuthorizedAccountsPostgresIntegrationTest extends DatabaseMigrationTestSup
                 "Pruebas",
                 fixtures.randomDocumentNumber(),
                 UUID.randomUUID() + "@example.test",
-                null,
+                "03534100000",
                 LocalDate.of(2000, 1, 1),
-                role))
+                role,
+                UUID.fromString("019e18e4-c93b-7583-90a6-0e9410ce3ad3")))
         .personId();
   }
 
@@ -1114,7 +1116,9 @@ class AuthorizedAccountsPostgresIntegrationTest extends DatabaseMigrationTestSup
         false,
         null,
         false,
-        GuardianDependentRequestMode.EXISTING);
+        GuardianDependentRequestMode.EXISTING,
+        "03534100000",
+        UUID.fromString("019e18e4-c93b-7583-90a6-0e9410ce3ad3"));
   }
 
   private CreateGuardianDependentRequest request(final String document) {
@@ -1127,6 +1131,8 @@ class AuthorizedAccountsPostgresIntegrationTest extends DatabaseMigrationTestSup
         false,
         null,
         false,
-        GuardianDependentRequestMode.NEW);
+        GuardianDependentRequestMode.NEW,
+        "03534100000",
+        UUID.fromString("019e18e4-c93b-7583-90a6-0e9410ce3ad3"));
   }
 }

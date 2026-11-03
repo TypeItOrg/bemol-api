@@ -70,7 +70,11 @@ class PlatformPeopleControllerWebMvcTest {
     when(authorizationService.hasPlatformRole(any(), eq(PlatformRoleCode.PLATFORM_ADMIN)))
         .thenReturn(true);
     when(listPlatformPeopleUseCase.execute(
-            eq("ana"), eq(INSTITUTION_ID), eq(SystemRoleCode.TEACHER), any(Pageable.class)))
+            eq("ana"),
+            eq(INSTITUTION_ID),
+            eq(SystemRoleCode.TEACHER),
+            org.mockito.ArgumentMatchers.isNull(),
+            any(Pageable.class)))
         .thenReturn(
             PaginatedResponse.<PlatformPersonSummaryResponse>builder()
                 .items(List.of(person()))
@@ -119,6 +123,9 @@ class PlatformPeopleControllerWebMvcTest {
         null,
         INSTITUTION_ID,
         "Instituto Boero",
-        List.of(new PersonSummaryResponse.PersonRoleSummaryResponse("TEACHER", "Docente")));
+        List.of(new PersonSummaryResponse.PersonRoleSummaryResponse("TEACHER", "Docente")),
+        true,
+        true,
+        false);
   }
 }

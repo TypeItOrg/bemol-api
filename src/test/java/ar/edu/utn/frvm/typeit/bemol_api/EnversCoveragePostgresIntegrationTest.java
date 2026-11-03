@@ -248,9 +248,10 @@ class EnversCoveragePostgresIntegrationTest extends DatabaseMigrationTestSupport
                     "Privada",
                     fixtures.randomDocumentNumber(),
                     UUID.randomUUID() + "@example.test",
-                    null,
+                    "03534100000",
                     LocalDate.of(2000, 1, 1),
-                    SystemRoleCode.APPLICANT))
+                    SystemRoleCode.APPLICANT,
+                    UUID.fromString("019e18e4-c93b-7583-90a6-0e9410ce3ad3")))
             .personId();
     final String activationToken =
         applicationEvents.stream(
@@ -265,7 +266,7 @@ class EnversCoveragePostgresIntegrationTest extends DatabaseMigrationTestSupport
     updatePerson.execute(
         institution,
         person,
-        new UpdatePersonByAdminRequest("Nombre Privado", null, null, null, null));
+        new UpdatePersonByAdminRequest("Nombre Privado", null, null, null, null, null));
     assertThat(revisions(Person.class, person)).hasSize(1);
     assertThat(eventCount(person, "PERSON_UPDATED")).isEqualTo(1);
     final UUID role =

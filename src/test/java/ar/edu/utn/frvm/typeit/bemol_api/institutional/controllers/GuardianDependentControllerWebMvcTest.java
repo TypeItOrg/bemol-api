@@ -308,6 +308,8 @@ class GuardianDependentControllerWebMvcTest {
         "firstName", "Mateo",
         "lastName", "Gonzalez",
         "birthDate", "2018-09-10",
+        "phoneNumber", "03534100000",
+        "nationalityCountryId", "019e18e4-c93b-7583-90a6-0e9410ce3ad3",
         "relationship", "FATHER",
         "isPrimaryContact", true,
         "ownAccessRequested", false);

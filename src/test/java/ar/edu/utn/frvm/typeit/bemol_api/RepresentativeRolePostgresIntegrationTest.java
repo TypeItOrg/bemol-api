@@ -243,7 +243,7 @@ class RepresentativeRolePostgresIntegrationTest extends DatabaseMigrationTestSup
                         + document
                         + "\",\"email\":\""
                         + document
-                        + "@example.test\",\"birthDate\":\"2000-01-01\",\"initialRole\":\"REPRESENTATIVE\"}"))
+                        + "@example.test\",\"birthDate\":\"2000-01-01\",\"phoneNumber\":\"03534100000\",\"nationalityCountryId\":\"019e18e4-c93b-7583-90a6-0e9410ce3ad3\",\"initialRole\":\"REPRESENTATIVE\"}"))
         .andExpect(status().isCreated());
     final UUID created =
         requireNonNull(
@@ -299,7 +299,7 @@ class RepresentativeRolePostgresIntegrationTest extends DatabaseMigrationTestSup
                 .content(
                     "{\"documentNumber\":\""
                         + fixtures.randomDocumentNumber()
-                        + "\",\"firstName\":\"Ana\",\"lastName\":\"Garcia\",\"birthDate\":\"2016-01-01\",\"relationship\":\"LEGAL_GUARDIAN\",\"isPrimaryContact\":false,\"ownAccessRequested\":false,\"requestMode\":\"NEW\"}"))
+                        + "\",\"firstName\":\"Ana\",\"lastName\":\"Garcia\",\"birthDate\":\"2016-01-01\",\"phoneNumber\":\"03534100000\",\"nationalityCountryId\":\"019e18e4-c93b-7583-90a6-0e9410ce3ad3\",\"relationship\":\"LEGAL_GUARDIAN\",\"isPrimaryContact\":false,\"ownAccessRequested\":false,\"requestMode\":\"NEW\"}"))
         .andExpect(status().isForbidden());
     assertThat(count("SELECT count(*) FROM person_guardians WHERE tutor_person_id = ?", tutor))
         .isEqualTo(1);
@@ -384,7 +384,7 @@ class RepresentativeRolePostgresIntegrationTest extends DatabaseMigrationTestSup
                 .content(
                     "{\"documentNumber\":\""
                         + fixtures.randomDocumentNumber()
-                        + "\",\"firstName\":\"Ana\",\"lastName\":\"Garcia\",\"birthDate\":\"2016-01-01\",\"relationship\":\"LEGAL_GUARDIAN\",\"isPrimaryContact\":false,\"ownAccessRequested\":false,\"requestMode\":\"NEW\"}"))
+                        + "\",\"firstName\":\"Ana\",\"lastName\":\"Garcia\",\"birthDate\":\"2016-01-01\",\"phoneNumber\":\"03534100000\",\"nationalityCountryId\":\"019e18e4-c93b-7583-90a6-0e9410ce3ad3\",\"relationship\":\"LEGAL_GUARDIAN\",\"isPrimaryContact\":false,\"ownAccessRequested\":false,\"requestMode\":\"NEW\"}"))
         .andExpect(status().isForbidden());
     assertThat(count("SELECT count(*) FROM person_guardians WHERE tutor_person_id = ?", root))
         .isEqualTo(1);
@@ -530,7 +530,9 @@ class RepresentativeRolePostgresIntegrationTest extends DatabaseMigrationTestSup
         false,
         null,
         false,
-        GuardianDependentRequestMode.EXISTING);
+        GuardianDependentRequestMode.EXISTING,
+        "03534100000",
+        UUID.fromString("019e18e4-c93b-7583-90a6-0e9410ce3ad3"));
   }
 
   private void link(final UUID tutor, final UUID dependent) {

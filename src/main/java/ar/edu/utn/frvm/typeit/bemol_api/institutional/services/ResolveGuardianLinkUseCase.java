@@ -9,6 +9,7 @@ import ar.edu.utn.frvm.typeit.bemol_api.auth.services.PersonOwnAccessService;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.enums.PermissionCode;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.enums.SystemRoleCode;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.services.AssignPersonSystemRoleUseCase;
+import ar.edu.utn.frvm.typeit.bemol_api.common.validation.ValidationMessages;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.entities.GuardianLinkStatus;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.entities.Person;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.entities.PersonGuardian;
@@ -166,6 +167,16 @@ public class ResolveGuardianLinkUseCase {
         access.requirePermission(
             link.getInstitution().getId(), reviewerId, PermissionCode.INSTITUTION_PERSON_CREATE);
       }
+
+      final var nationalityCountry = link.getDeclaredNationalityCountry();
+      if (nationalityCountry == null) {
+        throw new OwnAccessException(ValidationMessages.NATIONALITY_REQUIRED);
+      }
+      final var phoneNumber = link.getDeclaredPhoneNumber();
+      if (phoneNumber == null || phoneNumber.isBlank()) {
+        throw new OwnAccessException(ValidationMessages.PHONE_REQUIRED);
+      }
+
       person =
           Person.builder()
               .institution(link.getInstitution())
@@ -173,6 +184,8 @@ public class ResolveGuardianLinkUseCase {
               .firstName(Objects.requireNonNull(link.getDeclaredFirstName()))
               .lastName(Objects.requireNonNull(link.getDeclaredLastName()))
               .birthDate(Objects.requireNonNull(link.getDeclaredBirthDate()))
+              .phoneNumber(phoneNumber)
+              .nationalityCountry(nationalityCountry)
               .build();
       final var violations = validator.validate(person);
       if (!violations.isEmpty()) {

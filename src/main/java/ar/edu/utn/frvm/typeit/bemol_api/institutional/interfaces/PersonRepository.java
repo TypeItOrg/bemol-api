@@ -2,6 +2,7 @@ package ar.edu.utn.frvm.typeit.bemol_api.institutional.interfaces;
 
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.entities.Person;
 import jakarta.persistence.LockModeType;
+import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
@@ -59,6 +60,17 @@ public interface PersonRepository extends JpaRepository<Person, UUID> {
       SELECT p FROM Person p
       WHERE p.institution.id = :institutionId
         AND p.deleted = false
+        AND (:status IS NULL OR :status = CASE
+          WHEN EXISTS (SELECT account.id FROM User account WHERE account.person = p AND account.enabled = true)
+            THEN 'ACTIVE'
+          WHEN EXISTS (SELECT account.id FROM User account WHERE account.person = p)
+            THEN 'INACTIVE'
+          WHEN EXISTS (SELECT invitation.id FROM PersonAccessInvitation invitation
+            WHERE invitation.person = p
+              AND (invitation.institutionalIssuer IS NOT NULL OR invitation.platformIssuer IS NOT NULL)
+              AND invitation.consumedAt IS NULL AND invitation.cancelledAt IS NULL AND invitation.expiresAt > :now)
+            THEN 'INVITATION_PENDING'
+          ELSE 'NO_ACCOUNT' END)
         AND (
           :roleId IS NULL
           OR EXISTS (
@@ -81,6 +93,8 @@ public interface PersonRepository extends JpaRepository<Person, UUID> {
       @Param("institutionId") UUID institutionId,
       @Param("search") @Nullable String search,
       @Param("roleId") @Nullable UUID roleId,
+      @Param("status") @Nullable String status,
+      @Param("now") @Nullable Instant now,
       Pageable pageable);
 
   @EntityGraph(attributePaths = "institution")
@@ -88,6 +102,17 @@ public interface PersonRepository extends JpaRepository<Person, UUID> {
       """
       SELECT person FROM Person person
       WHERE person.deleted = false
+        AND (:status IS NULL OR :status = CASE
+          WHEN EXISTS (SELECT account.id FROM User account WHERE account.person = person AND account.enabled = true)
+            THEN 'ACTIVE'
+          WHEN EXISTS (SELECT account.id FROM User account WHERE account.person = person)
+            THEN 'INACTIVE'
+          WHEN EXISTS (SELECT invitation.id FROM PersonAccessInvitation invitation
+            WHERE invitation.person = person
+              AND (invitation.institutionalIssuer IS NOT NULL OR invitation.platformIssuer IS NOT NULL)
+              AND invitation.consumedAt IS NULL AND invitation.cancelledAt IS NULL AND invitation.expiresAt > :now)
+            THEN 'INVITATION_PENDING'
+          ELSE 'NO_ACCOUNT' END)
         AND (:institutionId IS NULL OR person.institution.id = :institutionId)
         AND (
           :roleCode IS NULL
@@ -110,6 +135,8 @@ public interface PersonRepository extends JpaRepository<Person, UUID> {
       @Param("search") @Nullable String search,
       @Param("institutionId") @Nullable UUID institutionId,
       @Param("roleCode") @Nullable String roleCode,
+      @Param("status") @Nullable String status,
+      @Param("now") Instant now,
       Pageable pageable);
 
   @EntityGraph(

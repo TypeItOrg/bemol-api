@@ -1,6 +1,8 @@
 package ar.edu.utn.frvm.typeit.bemol_api.common.validation;
 
 public final class ValidationMessages {
+  public static final String NATIONALITY_REQUIRED = "La nacionalidad es requerida.";
+  public static final String PHONE_REQUIRED = "El teléfono es requerido.";
   public static final String OWN_ACCESS_EMAIL_REQUIRED =
       "Indicá un correo para solicitar acceso propio.";
 

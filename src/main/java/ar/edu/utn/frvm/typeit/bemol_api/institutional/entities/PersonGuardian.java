@@ -73,6 +73,18 @@ public class PersonGuardian extends Auditable {
   @Column(name = "declared_birth_date")
   private @Nullable LocalDate declaredBirthDate;
 
+  @Column(name = "declared_phone_number", length = 30)
+  private @Nullable String declaredPhoneNumber;
+
+  @ManyToOne(fetch = FetchType.LAZY)
+  @JoinColumn(name = "declared_nationality_country_id")
+  private @Nullable Country declaredNationalityCountry;
+
+  public void declareContact(final String phoneNumber, final Country nationalityCountry) {
+    declaredPhoneNumber = phoneNumber;
+    declaredNationalityCountry = nationalityCountry;
+  }
+
   @Enumerated(EnumType.STRING)
   @Column(nullable = false, length = 30)
   @Audited
@@ -124,42 +136,6 @@ public class PersonGuardian extends Auditable {
         .relationship(relationship)
         .primaryContact(primaryContact)
         .build();
-  }
-
-  public static PersonGuardian request(
-      final Institution institution,
-      final Person tutor,
-      final Person dependent,
-      final GuardianRelationship relationship,
-      final boolean primaryContact,
-      final String declaredFirstName,
-      final String declaredLastName) {
-    return request(
-        institution,
-        tutor,
-        dependent,
-        relationship,
-        primaryContact,
-        declaredFirstName,
-        declaredLastName,
-        null);
-  }
-
-  public static PersonGuardian request(
-      final Institution institution,
-      final Person tutor,
-      final Person dependent,
-      final GuardianRelationship relationship,
-      final boolean primaryContact,
-      final @Nullable String declaredFirstName,
-      final @Nullable String declaredLastName,
-      final @Nullable LocalDate declaredBirthDate) {
-    final PersonGuardian link =
-        request(institution, tutor, dependent, relationship, primaryContact);
-    link.declaredFirstName = declaredFirstName == null ? null : declaredFirstName.trim();
-    link.declaredLastName = declaredLastName == null ? null : declaredLastName.trim();
-    link.declaredBirthDate = declaredBirthDate;
-    return link;
   }
 
   public static PersonGuardian requestUnmaterialized(

@@ -322,7 +322,9 @@ SELECT pg_temp.demo_id('guardian:7:5'), institution_id, pg_temp.demo_id('person:
 ON CONFLICT (person_guardian_id) DO NOTHING;
 INSERT INTO person_guardians (person_guardian_id, institution_id, tutor_person_id, declared_document_number,
                              request_mode, declared_first_name, declared_last_name, declared_birth_date,
+                             declared_phone_number, declared_nationality_country_id,
                              relationship, status, created_at, updated_at)
 SELECT pg_temp.demo_id('guardian:pending:7:99000901'), institution_id, pg_temp.demo_id('person:7'), '44741326',
-       'NEW', 'Persona', 'Pendiente', reference_date - interval '10 years', 'LEGAL_GUARDIAN', 'PENDING', now(), now() FROM seed_context
+       'NEW', 'Persona', 'Pendiente', reference_date - interval '10 years',
+       '03534100901', (SELECT country_id FROM countries WHERE iso_code = 'ARG'), 'LEGAL_GUARDIAN', 'PENDING', now(), now() FROM seed_context
 ON CONFLICT (person_guardian_id) DO NOTHING;

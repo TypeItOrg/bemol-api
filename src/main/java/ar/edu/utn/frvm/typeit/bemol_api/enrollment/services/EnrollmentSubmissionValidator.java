@@ -2,6 +2,7 @@ package ar.edu.utn.frvm.typeit.bemol_api.enrollment.services;
 
 import ar.edu.utn.frvm.typeit.bemol_api.common.time.BusinessDateProvider;
 import ar.edu.utn.frvm.typeit.bemol_api.common.validation.PersonFieldConstraints;
+import ar.edu.utn.frvm.typeit.bemol_api.common.validation.ValidationMessages;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.entities.ApplicantEducationBackground;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.entities.ApplicantPreference;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.entities.ApplicantResponsible;
@@ -63,6 +64,14 @@ public class EnrollmentSubmissionValidator {
         "personalData.documentNumber",
         EnrollmentMessages.DOCUMENT_REQUIRED,
         errors);
+    requireText(
+        applicant.getPhoneNumber(),
+        "personalData.phoneNumber",
+        ValidationMessages.PHONE_REQUIRED,
+        errors);
+    if (applicant.getNationalityCountry() == null) {
+      errors.put("personalData.nationalityCountry", ValidationMessages.NATIONALITY_REQUIRED);
+    }
     final boolean selfService = actorPersonId.equals(applicant.getId());
     if (applicant.getBirthDate() == null) {
       errors.put("personalData.birthDate", EnrollmentMessages.BIRTH_DATE_REQUIRED);

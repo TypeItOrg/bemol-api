@@ -5,6 +5,7 @@ import ar.edu.utn.frvm.typeit.bemol_api.authorization.enums.PlatformRoleCode;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.enums.SystemRoleCode;
 import ar.edu.utn.frvm.typeit.bemol_api.common.web.PaginatedResponse;
 import ar.edu.utn.frvm.typeit.bemol_api.common.web.Version;
+import ar.edu.utn.frvm.typeit.bemol_api.institutional.enums.PersonStatus;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.payloads.person.PlatformPersonSummaryResponse;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.services.ListPlatformPeopleUseCase;
 import jakarta.validation.constraints.Size;
@@ -33,8 +34,9 @@ public class PlatformPeopleController {
       @RequestParam(required = false) @Size(max = 100) final String search,
       @RequestParam(required = false) final UUID institutionId,
       @RequestParam(required = false) final SystemRoleCode roleCode,
+      @RequestParam(required = false) final PersonStatus status,
       @PageableDefault(size = 20, sort = "lastName", direction = Sort.Direction.ASC)
           final Pageable pageable) {
-    return listPlatformPeopleUseCase.execute(search, institutionId, roleCode, pageable);
+    return listPlatformPeopleUseCase.execute(search, institutionId, roleCode, status, pageable);
   }
 }

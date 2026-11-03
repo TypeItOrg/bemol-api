@@ -7,6 +7,7 @@ import ar.edu.utn.frvm.typeit.bemol_api.authorization.interfaces.PersonRoleAssig
 import ar.edu.utn.frvm.typeit.bemol_api.common.search.SearchNormalization;
 import ar.edu.utn.frvm.typeit.bemol_api.common.web.PaginatedResponse;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.entities.Person;
+import ar.edu.utn.frvm.typeit.bemol_api.institutional.enums.PersonStatus;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.interfaces.PersonRepository;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.payloads.person.PersonSummaryResponse;
 import java.time.Clock;
@@ -37,14 +38,22 @@ public class ListPeopleUseCase {
       final UUID institutionId,
       final @Nullable String search,
       final @Nullable UUID roleId,
+      final @Nullable PersonStatus status,
       final Pageable pageable) {
 
+    final var now = clock.instant();
     final String normalizedSearch = SearchNormalization.normalizeSearch(search);
-    final boolean hasFilter = normalizedSearch != null || roleId != null;
+    final boolean hasFilter = normalizedSearch != null || roleId != null || status != null;
 
     final Page<Person> peoplePage =
         hasFilter
-            ? personRepository.search(institutionId, normalizedSearch, roleId, pageable)
+            ? personRepository.search(
+                institutionId,
+                normalizedSearch,
+                roleId,
+                status == null ? null : status.name(),
+                now,
+                pageable)
             : personRepository.findByInstitution_IdAndDeletedFalse(institutionId, pageable);
 
     if (peoplePage.isEmpty()) {
@@ -60,7 +69,7 @@ public class ListPeopleUseCase {
             .collect(Collectors.toMap(user -> user.getPerson().getId(), user -> user.isEnabled()));
 
     final var pendingInvitations =
-        new HashSet<>(invitations.findPendingInstitutionalPersonIds(personIds, clock.instant()));
+        new HashSet<>(invitations.findPendingInstitutionalPersonIds(personIds, now));
     final Map<UUID, List<PersonSummaryResponse.PersonRoleSummaryResponse>> rolesByPerson =
         roleAssignments.stream()
             .collect(
