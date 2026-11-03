@@ -89,7 +89,11 @@ class PlatformPasskeyUseCaseTest {
   @Test
   void cannotRemoveTheLastKeyEvenWithAnAuthenticatedSession() {
     final var key =
-        PlatformPasskeyCredential.builder().id(UUID.randomUUID()).platformAccount(account).build();
+        PlatformPasskeyCredential.builder()
+            .id(UUID.randomUUID())
+            .platformAccount(account)
+            .label("Equipo")
+            .build();
     when(accounts.findWithLockById(id)).thenReturn(Optional.of(account));
     when(credentials.findWithLockByIdAndPlatformAccountId(key.getId(), id))
         .thenReturn(Optional.of(key));
@@ -103,7 +107,11 @@ class PlatformPasskeyUseCaseTest {
   void deletionConsumesActionBoundProofAndClosesAllSessions() {
     final var principal = AuthTestData.platformPrincipal(id);
     final var key =
-        PlatformPasskeyCredential.builder().id(UUID.randomUUID()).platformAccount(account).build();
+        PlatformPasskeyCredential.builder()
+            .id(UUID.randomUUID())
+            .platformAccount(account)
+            .label("Equipo")
+            .build();
     when(accounts.findWithLockById(id)).thenReturn(Optional.of(account));
     when(credentials.findWithLockByIdAndPlatformAccountId(key.getId(), id))
         .thenReturn(Optional.of(key));

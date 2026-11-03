@@ -3,6 +3,7 @@ package ar.edu.utn.frvm.typeit.bemol_api.auth.services;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditAction;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditEntityType;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditOrigin;
+import ar.edu.utn.frvm.typeit.bemol_api.audit.services.AuditChangeDetails;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.services.AuditEventRecorder;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.exceptions.PasskeyNotFoundException;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.filters.JwtAuthenticatedUser;
@@ -46,7 +47,8 @@ public class RenamePasskeyUseCase {
           AuditEntityType.PASSKEY,
           credential.getId(),
           AuditOrigin.SELF_SERVICE,
-          Map.of("changedFields", java.util.List.of("label")));
+          AuditChangeDetails.change(
+              saved.getLabel(), Map.of("label", previousLabel), Map.of("label", saved.getLabel())));
     }
     log.info("[Auth] Passkey renamed, userId: {}", principal.userId());
     return PasskeyResponse.from(saved);

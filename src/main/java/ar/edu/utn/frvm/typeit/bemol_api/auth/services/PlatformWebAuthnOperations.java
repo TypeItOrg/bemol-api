@@ -3,6 +3,7 @@ package ar.edu.utn.frvm.typeit.bemol_api.auth.services;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditAction;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditEntityType;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditOrigin;
+import ar.edu.utn.frvm.typeit.bemol_api.audit.services.AuditChangeDetails;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.services.AuditEventRecorder;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.config.FrontendPublicProperties;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.entities.PlatformAccount;
@@ -16,6 +17,7 @@ import ar.edu.utn.frvm.typeit.bemol_api.auth.services.PlatformPasskeyStateStore.
 import ar.edu.utn.frvm.typeit.bemol_api.auth.webauthn.WebAuthnOptionsCodec;
 import com.webauthn4j.verifier.exception.VerificationException;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 import lombok.RequiredArgsConstructor;
@@ -185,14 +187,29 @@ public class PlatformWebAuthnOperations {
       }
       throw exception;
     }
-    recordChange(account, credential, AuditAction.PASSKEY_CREATED);
+    recordChange(
+        account,
+        credential,
+        AuditAction.PASSKEY_CREATED,
+        Map.of(),
+        Map.of("label", credential.getLabel()));
     return credential;
   }
 
   public void recordChange(
       final PlatformAccount account,
       final PlatformPasskeyCredential credential,
-      final AuditAction action) {
+      final AuditAction action,
+      final Map<String, Object> before,
+      final Map<String, Object> after) {
+    if (before.equals(after)) {
+      return;
+    }
+
+    final var details =
+        new HashMap<>(AuditChangeDetails.change(credential.getLabel(), before, after));
+    details.put("platformAccountId", account.getId().toString());
+
     audit.recordCurrentActor(
         null,
         null,
@@ -200,6 +217,6 @@ public class PlatformWebAuthnOperations {
         AuditEntityType.PASSKEY,
         credential.getId(),
         AuditOrigin.SELF_SERVICE,
-        Map.of("platformAccountId", account.getId().toString()));
+        details);
   }
 }

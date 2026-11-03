@@ -120,6 +120,7 @@ class RecentAuthCeremonyIntegrationTest {
     when(passkeyCredentialRepository.countActiveByUserId(any())).thenReturn(0L);
     when(passkeyCredentialRepository.findByCredentialId(any())).thenReturn(Optional.empty());
     final PasskeyCredential saved = Mockito.mock(PasskeyCredential.class);
+    when(saved.getLabel()).thenReturn("Mi PC");
     when(passkeyCredentialRepository.saveAndFlush(any())).thenReturn(saved);
     final PasskeyCredentialMapper mapper = Mockito.mock(PasskeyCredentialMapper.class);
     when(mapper.toEntity(any(), any(), any())).thenReturn(saved);
@@ -145,6 +146,7 @@ class RecentAuthCeremonyIntegrationTest {
 
     assertThat(recentAuthService.isRecent(sessionId, userId)).isFalse();
     assertThat(response).isNotNull();
+    assertThat(response.label()).isEqualTo("Mi PC");
     verify(passkeyCredentialRepository).saveAndFlush(any());
   }
 

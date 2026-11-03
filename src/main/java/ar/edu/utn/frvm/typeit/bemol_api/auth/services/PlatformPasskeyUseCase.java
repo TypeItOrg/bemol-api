@@ -14,6 +14,7 @@ import ar.edu.utn.frvm.typeit.bemol_api.auth.services.PlatformPasskeyStateStore.
 import ar.edu.utn.frvm.typeit.bemol_api.auth.services.PlatformPasskeyStateStore.Ceremony;
 import jakarta.servlet.http.HttpServletRequest;
 import java.time.Clock;
+import java.util.Map;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -77,7 +78,12 @@ public class PlatformPasskeyUseCase {
     final var previous = credentials.findActiveByPlatformAccountId(account.getId());
     for (final var old : previous) {
       old.revoke(clock.instant());
-      operations.recordChange(account, old, AuditAction.PASSKEY_DELETED);
+      operations.recordChange(
+          account,
+          old,
+          AuditAction.PASSKEY_DELETED,
+          Map.of("active", true),
+          Map.of("active", old.isActive()));
     }
     operations.saveCredential(account, record, ceremony.label());
     revocation.revokePlatformAccountSessions(account.getId());

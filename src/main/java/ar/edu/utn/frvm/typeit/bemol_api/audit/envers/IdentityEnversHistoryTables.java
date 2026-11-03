@@ -15,7 +15,7 @@ final class IdentityEnversHistoryTables {
               "active:BOOLEAN logo_size:NUMBER city_id:REFERENCE logo_content_type:TEXT logo_version:TEXT public_subdomain:TEXT slug:TEXT name:TEXT"),
           EnversHistoryTable.of(
               "passkey_credentials",
-              "Passkey",
+              "Llave de acceso",
               "passkey_credential_id",
               "revoked_at:DATETIME user_id:REFERENCE"),
           EnversHistoryTable.of(

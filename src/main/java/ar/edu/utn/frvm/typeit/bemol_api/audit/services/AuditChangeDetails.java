@@ -6,13 +6,12 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Stream;
 
-/**
- * Only catalog/state metadata is persisted; private values only participate in change detection.
- */
+/** Stores catalog/state metadata and credential display names, never authentication data. */
 public final class AuditChangeDetails {
   private static final Set<String> VISIBLE_FIELDS =
       Set.of(
           "name",
+          "label",
           "active",
           "deleted",
           "year",

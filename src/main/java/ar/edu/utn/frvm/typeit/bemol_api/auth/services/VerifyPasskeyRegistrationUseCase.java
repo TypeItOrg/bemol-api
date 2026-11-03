@@ -3,6 +3,7 @@ package ar.edu.utn.frvm.typeit.bemol_api.auth.services;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditAction;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditEntityType;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditOrigin;
+import ar.edu.utn.frvm.typeit.bemol_api.audit.services.AuditChangeDetails;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.services.AuditEventRecorder;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.config.WebAuthnProperties;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.entities.PasskeyCredential;
@@ -116,7 +117,7 @@ public class VerifyPasskeyRegistrationUseCase {
         AuditEntityType.PASSKEY,
         saved.getId(),
         AuditOrigin.SELF_SERVICE,
-        Map.of());
+        AuditChangeDetails.change(saved.getLabel(), Map.of(), Map.of("label", saved.getLabel())));
     log.info("[Auth] Passkey registered, userId: {}", principal.userId());
     return PasskeyResponse.from(saved);
   }

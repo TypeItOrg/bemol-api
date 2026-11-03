@@ -19,6 +19,7 @@ import ar.edu.utn.frvm.typeit.bemol_api.auth.services.PlatformPasskeyStateStore.
 import ar.edu.utn.frvm.typeit.bemol_api.common.search.SearchNormalization;
 import java.time.Clock;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -140,8 +141,14 @@ public class PlatformPasskeyManagementUseCase {
   public void rename(final UUID accountId, final UUID credentialId, final String label) {
     final var account = account(accountId, true);
     final var credential = credential(accountId, credentialId);
+    final var previousLabel = credential.getLabel();
     credential.rename(label);
-    operations.recordChange(account, credential, AuditAction.PASSKEY_UPDATED);
+    operations.recordChange(
+        account,
+        credential,
+        AuditAction.PASSKEY_UPDATED,
+        Map.of("label", previousLabel),
+        Map.of("label", credential.getLabel()));
   }
 
   @Transactional
@@ -153,7 +160,12 @@ public class PlatformPasskeyManagementUseCase {
     }
     state.requireRecent(account.getId(), principal.sessionId(), "revoke:" + credentialId, true);
     credential.revoke(clock.instant());
-    operations.recordChange(account, credential, AuditAction.PASSKEY_DELETED);
+    operations.recordChange(
+        account,
+        credential,
+        AuditAction.PASSKEY_DELETED,
+        Map.of("active", true),
+        Map.of("active", credential.isActive()));
     revocation.revokePlatformAccountSessions(account.getId());
   }
 

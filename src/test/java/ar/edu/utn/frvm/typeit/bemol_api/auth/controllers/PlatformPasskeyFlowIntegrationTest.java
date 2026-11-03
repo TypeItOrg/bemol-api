@@ -15,6 +15,7 @@ import ar.edu.utn.frvm.typeit.bemol_api.auth.services.JwtService;
 import ar.edu.utn.frvm.typeit.bemol_api.support.IntegrationTest;
 import ar.edu.utn.frvm.typeit.bemol_api.support.PasskeyAuthenticator;
 import java.time.Duration;
+import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -74,6 +75,20 @@ class PlatformPasskeyFlowIntegrationTest extends DatabaseMigrationTestSupport {
   void firstEnrollmentThenNormalLoginRequiresBothFactorsAndRejectsReplay() throws Exception {
     final var authenticator = new PasskeyAuthenticator();
     enroll(authenticator, "a".repeat(64));
+    final var audit =
+        database.queryForObject(
+            "SELECT details::text FROM audit_events WHERE action = 'PASSKEY_CREATED' AND details->>'platformAccountId' = ?",
+            String.class,
+            account.getId().toString());
+    assertThat(json.readTree(audit))
+        .isEqualTo(
+            json.valueToTree(
+                Map.of(
+                    "entityName", "Equipo de prueba",
+                    "platformAccountId", account.getId().toString(),
+                    "changedFields", List.of("label"),
+                    "before", Map.of(),
+                    "after", Map.of("label", "Equipo de prueba"))));
     final var attempt = password();
     assertThat(attempt.path("setupRequired").asBoolean()).isFalse();
     final var options =
@@ -110,6 +125,14 @@ class PlatformPasskeyFlowIntegrationTest extends DatabaseMigrationTestSupport {
                 Long.class,
                 account.getId()))
         .isEqualTo(1);
+    final var audit =
+        database.queryForObject(
+            "SELECT details::text FROM audit_events WHERE action = 'PASSKEY_DELETED' AND details->>'platformAccountId' = ?",
+            String.class,
+            account.getId().toString());
+    assertThat(json.readTree(audit).path("entityName").asString()).isEqualTo("Equipo de prueba");
+    assertThat(json.readTree(audit).at("/before/active").asBoolean()).isTrue();
+    assertThat(json.readTree(audit).at("/after/active").asBoolean()).isFalse();
     assertMe(login(replacement, 200), 200);
     login(lost, 401);
     assertThat(redis.hasKey(grantKey())).isFalse();

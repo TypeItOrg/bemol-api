@@ -1,5 +1,6 @@
 package ar.edu.utn.frvm.typeit.bemol_api.auth.controllers;
 
+import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -11,6 +12,8 @@ import ar.edu.utn.frvm.typeit.bemol_api.auth.services.PlatformPasskeyManagementU
 import ar.edu.utn.frvm.typeit.bemol_api.auth.services.PlatformPasskeyStateStore;
 import ar.edu.utn.frvm.typeit.bemol_api.support.AuthTestData;
 import ar.edu.utn.frvm.typeit.bemol_api.support.IntegrationTest;
+import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
@@ -19,6 +22,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.JdbcTemplate;
+import tools.jackson.databind.json.JsonMapper;
 
 @IntegrationTest
 class PlatformPasskeyPersistenceIntegrationTest extends DatabaseMigrationTestSupport {
@@ -26,6 +30,49 @@ class PlatformPasskeyPersistenceIntegrationTest extends DatabaseMigrationTestSup
   @Autowired private PlatformPasskeyManagementUseCase passkeys;
   @Autowired private PlatformPasskeyStateStore state;
   @Autowired private JdbcTemplate database;
+  @Autowired private JsonMapper json;
+
+  @Test
+  void auditKeepsDisplayNamesForRenameAndRevocationWithoutCredentialData() {
+    final var account = createAccount();
+    final UUID key = insertKey(account.getId(), UUID.randomUUID().toString());
+    insertKey(account.getId(), UUID.randomUUID().toString());
+    final var principal = AuthTestData.platformPrincipal(account.getId());
+    try {
+      passkeys.rename(account.getId(), key, "  Equipo personal  ");
+      passkeys.rename(account.getId(), key, "Equipo personal");
+      state.grantRecent(account.getId(), principal.sessionId(), "revoke:" + key);
+      passkeys.revoke(principal, key);
+
+      final var events =
+          database.queryForList(
+              "SELECT action, details::text AS details FROM audit_events WHERE entity_id = ?", key);
+      assertThat(events).hasSize(2);
+      assertThat(events)
+          .allSatisfy(
+              event -> {
+                final boolean renamed = "PASSKEY_UPDATED".equals(event.get("action"));
+                assertThat(json.readTree(requireNonNull(event.get("details")).toString()))
+                    .isEqualTo(
+                        json.valueToTree(
+                            Map.of(
+                                "entityName",
+                                "Equipo personal",
+                                "platformAccountId",
+                                account.getId().toString(),
+                                "changedFields",
+                                List.of(renamed ? "label" : "active"),
+                                "before",
+                                renamed ? Map.of("label", "Prueba") : Map.of("active", true),
+                                "after",
+                                renamed
+                                    ? Map.of("label", "Equipo personal")
+                                    : Map.of("active", false))));
+              });
+    } finally {
+      accounts.deleteById(account.getId());
+    }
+  }
 
   @Test
   void postgresEnforcesCredentialOwnershipAndUniqueness() {
