@@ -2,15 +2,21 @@ package ar.edu.utn.frvm.typeit.bemol_api.institutional.services;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import ar.edu.utn.frvm.typeit.bemol_api.audit.services.AuditEventRecorder;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.entities.User;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.interfaces.UserRepository;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.services.SessionRevocationService;
+import ar.edu.utn.frvm.typeit.bemol_api.authorization.exceptions.LastInstitutionalAuthorityException;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.exceptions.PersonNotFoundInInstitutionException;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.services.InstitutionPersonResolver;
+import ar.edu.utn.frvm.typeit.bemol_api.authorization.services.InstitutionalAuthorityContinuityGuard;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.entities.Institution;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.entities.Person;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.interfaces.InstitutionRepository;
@@ -33,6 +39,7 @@ class DeletePersonUseCaseTest {
   @Mock private UserRepository userRepository;
   @Mock private SessionRevocationService sessionRevocationService;
   @Mock private InstitutionRepository institutionRepository;
+  @Mock private InstitutionalAuthorityContinuityGuard authorityContinuity;
 
   @Mock private AuditEventRecorder auditEventRecorder;
 
@@ -64,9 +71,9 @@ class DeletePersonUseCaseTest {
   @Test
   @DisplayName("Should soft delete person, disable user, and revoke sessions")
   void execute_softDeletesAndRevokesSessions() {
-    when(institutionPersonResolver.requirePersonInInstitution(institutionId, personId))
+    when(institutionPersonResolver.requirePersonInInstitutionForUpdate(institutionId, personId))
         .thenReturn(person);
-    when(userRepository.findByPerson_IdAndInstitution_Id(personId, institutionId))
+    when(userRepository.findByPersonAndInstitutionForUpdate(personId, institutionId))
         .thenReturn(Optional.of(user));
 
     deletePersonUseCase.execute(institutionId, personId);
@@ -77,12 +84,45 @@ class DeletePersonUseCaseTest {
     verify(personRepository).save(person);
     verify(userRepository).save(user);
     verify(sessionRevocationService).revokeInstitutionalSessionsForPerson(personId, institutionId);
+    verify(authorityContinuity).requireOtherAuthorityBeforeDeletion(person);
+  }
+
+  @Test
+  void rejectsDeletingLastAuthorityWithoutChangingPersonAccessOrSessions() {
+    when(institutionPersonResolver.requirePersonInInstitutionForUpdate(institutionId, personId))
+        .thenReturn(person);
+    doThrow(new LastInstitutionalAuthorityException())
+        .when(authorityContinuity)
+        .requireOtherAuthorityBeforeDeletion(person);
+
+    assertThatThrownBy(() -> deletePersonUseCase.execute(institutionId, personId))
+        .isInstanceOf(LastInstitutionalAuthorityException.class);
+
+    assertThat(person.isDeleted()).isFalse();
+    assertThat(user.isAccessEnabled()).isTrue();
+    verify(personRepository, never()).save(any());
+    verifyNoInteractions(userRepository, sessionRevocationService, auditEventRecorder);
+  }
+
+  @Test
+  void platformAdministrationCanDeleteTheLastAuthority() {
+    when(institutionPersonResolver.requirePersonInInstitutionForUpdate(institutionId, personId))
+        .thenReturn(person);
+    when(userRepository.findByPersonAndInstitutionForUpdate(personId, institutionId))
+        .thenReturn(Optional.of(user));
+
+    deletePersonUseCase.executeForPlatformAdministration(institutionId, personId);
+
+    assertThat(person.isDeleted()).isTrue();
+    assertThat(user.isAccessEnabled()).isFalse();
+    verifyNoInteractions(authorityContinuity);
+    verify(sessionRevocationService).revokeInstitutionalSessionsForPerson(personId, institutionId);
   }
 
   @Test
   @DisplayName("Should propagate not-found from resolver")
   void execute_propagatesNotFound() {
-    when(institutionPersonResolver.requirePersonInInstitution(institutionId, personId))
+    when(institutionPersonResolver.requirePersonInInstitutionForUpdate(institutionId, personId))
         .thenThrow(new PersonNotFoundInInstitutionException());
 
     assertThatThrownBy(() -> deletePersonUseCase.execute(institutionId, personId))

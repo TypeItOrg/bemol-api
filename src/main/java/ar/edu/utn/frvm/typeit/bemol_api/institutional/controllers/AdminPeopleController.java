@@ -83,6 +83,6 @@ public class AdminPeopleController {
   @DeleteMapping(value = "/{personId}", version = Version.V1)
   @ResponseStatus(HttpStatus.NO_CONTENT)
   public void delete(@PathVariable final UUID institutionId, @PathVariable final UUID personId) {
-    deletePersonUseCase.execute(institutionId, personId);
+    deletePersonUseCase.executeForPlatformAdministration(institutionId, personId);
   }
 }

@@ -60,7 +60,9 @@ La primera authority no se puede crear con el endpoint regular de asignación de
 
 ## Protección del último authority
 
-`RevokePersonRoleUseCase` (`src/main/java/.../authorization/services/RevokePersonRoleUseCase.java`) verifica que no se pueda revocar el último `INSTITUTIONAL_AUTHORITY` de una institución. La eliminación lógica de una persona aplica la misma regla. Ambas operaciones bloquean pesimísticamente la institución antes de contar y modificar autoridades, para que dos transacciones concurrentes no puedan eliminar cada una una autoridad distinta dejando a la institución sin ninguna. El conflicto se informa con HTTP 409.
+La eliminación institucional de una persona con `INSTITUTIONAL_AUTHORITY` exige que otra persona no eliminada conserve ese rol en la misma institución; las asignaciones retenidas de personas eliminadas no cuentan. `DeletePersonUseCase` bloquea la institución y la persona antes de comprobar esta regla y modificar el estado. Si no queda otra autoridad, informa HTTP 409 sin eliminar la persona ni desactivar su acceso.
+
+La administración de plataforma conserva una entrada explícita para eliminar personas sin esta restricción. Del mismo modo, `allowAuthority` permite a la plataforma revocar o reemplazar el rol de autoridad; las operaciones institucionales regulares no pueden modificarlo. La regla de eliminación preserva personas con el rol, no garantiza que sus cuentas tengan acceso propio habilitado.
 
 ## Roles iniciales al crear personas
 
@@ -70,7 +72,7 @@ Crear una persona con rol inicial `APPLICANT` no requiere privilegios adicionale
 
 Toda persona activa debe conservar al menos un rol. `RevokePersonRoleUseCase` rechaza con HTTP 409 la revocación del único rol asignado.
 
-`APPLICANT` es un rol exclusivo y no puede coexistir con ningún otro rol, incluido `ADMINISTRATIVE`. `AssignPersonSystemRoleUseCase` realiza ambos cambios de forma atómica: asignar un rol distinto reemplaza `APPLICANT`, y asignar `APPLICANT` reemplaza los roles actuales. Este último reemplazo se rechaza con HTTP 409 si quitaría la última autoridad institucional. Las asignaciones y revocaciones bloquean pesimísticamente la institución para mantener estas reglas ante operaciones concurrentes.
+`APPLICANT` es un rol exclusivo y no puede coexistir con ningún otro rol, incluido `ADMINISTRATIVE`. `AssignPersonSystemRoleUseCase` realiza ambos cambios de forma atómica: asignar un rol distinto reemplaza `APPLICANT`, y asignar `APPLICANT` reemplaza los roles actuales. Este servicio interno permite reemplazar una autoridad; los límites de delegación se comprueban en las entradas institucionales que lo invocan. Las asignaciones y revocaciones bloquean pesimísticamente la institución para mantener estas reglas ante operaciones concurrentes.
 
 ## Cambio de roles sin revocar sesiones
 

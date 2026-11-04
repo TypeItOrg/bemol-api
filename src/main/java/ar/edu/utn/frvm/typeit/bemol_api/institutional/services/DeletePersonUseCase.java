@@ -7,6 +7,7 @@ import ar.edu.utn.frvm.typeit.bemol_api.audit.services.AuditEventRecorder;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.interfaces.UserRepository;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.services.SessionRevocationService;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.services.InstitutionPersonResolver;
+import ar.edu.utn.frvm.typeit.bemol_api.authorization.services.InstitutionalAuthorityContinuityGuard;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.entities.Person;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.exceptions.InstitutionNotFoundException;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.interfaces.InstitutionRepository;
@@ -26,18 +27,35 @@ public class DeletePersonUseCase {
   private final UserRepository userRepository;
   private final SessionRevocationService sessionRevocationService;
   private final InstitutionRepository institutionRepository;
+  private final InstitutionalAuthorityContinuityGuard authorityContinuity;
 
   private final AuditEventRecorder auditEventRecorder;
 
   @Transactional
   public void execute(final UUID institutionId, final UUID personId) {
+    delete(institutionId, personId, false);
+  }
+
+  @Transactional
+  public void executeForPlatformAdministration(final UUID institutionId, final UUID personId) {
+    delete(institutionId, personId, true);
+  }
+
+  private void delete(
+      final UUID institutionId, final UUID personId, final boolean allowAuthorityRemoval) {
     institutionRepository
         .findByIdForUpdate(institutionId)
         .orElseThrow(InstitutionNotFoundException::new);
-    Person person = institutionPersonResolver.requirePersonInInstitution(institutionId, personId);
-    if (!person.delete()) {
+    final Person person =
+        institutionPersonResolver.requirePersonInInstitutionForUpdate(institutionId, personId);
+    if (person.isDeleted()) {
       return;
     }
+
+    if (!allowAuthorityRemoval) {
+      authorityContinuity.requireOtherAuthorityBeforeDeletion(person);
+    }
+    person.delete();
 
     personRepository.save(person);
     auditEventRecorder.recordChange(
@@ -50,7 +68,7 @@ public class DeletePersonUseCase {
         Map.of("deleted", false),
         Map.of("deleted", true));
     userRepository
-        .findByPerson_IdAndInstitution_Id(personId, institutionId)
+        .findByPersonAndInstitutionForUpdate(personId, institutionId)
         .ifPresent(
             user -> {
               final boolean previousEnabled = user.isAccessEnabled();

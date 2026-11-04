@@ -56,6 +56,18 @@ public interface PersonRoleAssignmentRepository extends JpaRepository<PersonRole
 
   long countByInstitution_IdAndRole_Code(UUID institutionId, String roleCode);
 
+  @Query(
+      """
+      SELECT COUNT(assignment) > 0 FROM PersonRoleAssignment assignment
+      WHERE assignment.institution.id = :institutionId
+        AND assignment.person.id <> :personId
+        AND assignment.person.deleted = false
+        AND assignment.role.system = true
+        AND assignment.role.code = 'INSTITUTIONAL_AUTHORITY'
+      """)
+  boolean existsCurrentAuthorityOtherThan(
+      @Param("institutionId") UUID institutionId, @Param("personId") UUID personId);
+
   long countByRole_Id(UUID roleId);
 
   @Query(
