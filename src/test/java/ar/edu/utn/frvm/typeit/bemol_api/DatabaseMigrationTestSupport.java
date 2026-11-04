@@ -66,6 +66,8 @@ public abstract class DatabaseMigrationTestSupport {
     registry.add("spring.datasource.username", POSTGRES::getUsername);
     registry.add("spring.datasource.password", POSTGRES::getPassword);
     registry.add("spring.datasource.driver-class-name", () -> "org.postgresql.Driver");
+    // Cached application contexts share the same PostgreSQL connection budget.
+    registry.add("spring.datasource.hikari.maximum-pool-size", () -> 4);
     registry.add("spring.data.redis.host", REDIS::getHost);
     registry.add("spring.data.redis.port", () -> REDIS.getMappedPort(6379));
     registry.add("spring.flyway.enabled", () -> true);
