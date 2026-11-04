@@ -3,15 +3,19 @@ package ar.edu.utn.frvm.typeit.bemol_api.auth.services;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.config.PlatformAuthenticationPolicy;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.entities.PlatformAccount;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.exceptions.InvalidCredentialsException;
+import ar.edu.utn.frvm.typeit.bemol_api.auth.interfaces.PlatformAccountRepository;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.interfaces.PlatformPasskeyCredentialRepository;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.payloads.requests.PlatformLoginRequest;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.payloads.responses.PlatformLoginChallengeResponse;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.payloads.responses.PlatformLoginResponse;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.security.PlatformUsername;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.LockModeType;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
@@ -22,7 +26,10 @@ public class PlatformLoginUseCase {
   private final PlatformPasskeyCredentialRepository credentials;
   private final PlatformAuthenticationPolicy policy;
   private final PlatformAuthenticationSessionIssuer sessionIssuer;
+  private final PlatformAccountRepository accounts;
+  private final EntityManager entityManager;
 
+  @Transactional
   public PlatformLoginResponse execute(
       final PlatformLoginRequest request, final HttpServletRequest httpRequest) {
     final String principal = PlatformUsername.format(request.email());
@@ -30,7 +37,20 @@ public class PlatformLoginUseCase {
     final Authentication authentication =
         credentialsAuthenticator.authenticate(principal, request.password());
 
-    if (!(authentication.getPrincipal() instanceof PlatformAccount account)) {
+    if (!(authentication.getPrincipal() instanceof PlatformAccount authenticated)) {
+      throw new InvalidCredentialsException();
+    }
+
+    final String authenticatedPassword = authenticated.getPassword();
+    final String authenticatedEmail = authenticated.getEmail();
+    final PlatformAccount account =
+        accounts
+            .findWithLockById(authenticated.getId())
+            .orElseThrow(InvalidCredentialsException::new);
+    entityManager.refresh(account, LockModeType.PESSIMISTIC_WRITE);
+    if (!account.isEnabled()
+        || !account.getPassword().equals(authenticatedPassword)
+        || !account.getEmail().equals(authenticatedEmail)) {
       throw new InvalidCredentialsException();
     }
 

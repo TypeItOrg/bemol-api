@@ -13,6 +13,8 @@ import ar.edu.utn.frvm.typeit.bemol_api.authorization.services.AuthorityResolver
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.services.InstitutionalAuthoritySnapshot;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.entities.Institution;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.entities.Person;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.LockModeType;
 import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
@@ -31,6 +33,7 @@ class AuthenticationSessionIssuerTest {
   @Mock private RecentAuthService recentAuth;
   @Mock private UserRepository users;
   @Mock private LoginAttemptService attempts;
+  @Mock private EntityManager entityManager;
   private AuthenticationSessionIssuer issuer;
   private final UUID userId = UUID.randomUUID();
   private final UUID institutionId = UUID.randomUUID();
@@ -40,7 +43,8 @@ class AuthenticationSessionIssuerTest {
   @BeforeEach
   void setup() {
     issuer =
-        new AuthenticationSessionIssuer(persistence, jwt, authorities, recentAuth, users, attempts);
+        new AuthenticationSessionIssuer(
+            persistence, jwt, authorities, recentAuth, users, attempts, entityManager);
   }
 
   @Test
@@ -56,7 +60,7 @@ class AuthenticationSessionIssuerTest {
     final User user =
         User.builder().id(userId).institution(institution).person(person).password("hash").build();
     final UUID sessionId = UUID.randomUUID();
-    when(users.findWithPersonAndInstitutionById(userId)).thenReturn(Optional.of(user));
+    when(users.findWithLockById(userId)).thenReturn(Optional.of(user));
     when(persistence.create(userId, "ip", "agent", false))
         .thenReturn(new LoginSessionPersistenceService.Result(sessionId, "refresh"));
     when(jwt.generateAccessToken(any())).thenReturn("access");
@@ -69,7 +73,11 @@ class AuthenticationSessionIssuerTest {
     assertThat(response.user().personId()).isEqualTo(person.getId());
     assertThat(response.user().institutionId()).isEqualTo(institutionId);
     assertThat(response.user().documentNumber()).isEqualTo("12345678");
-    final var order = inOrder(attempts, persistence, jwt, recentAuth);
+    final var order = inOrder(users, entityManager, attempts, persistence, jwt, recentAuth);
+    order.verify(users).findWithLockById(userId);
+    order.verify(entityManager).refresh(user, LockModeType.PESSIMISTIC_WRITE);
+    order.verify(entityManager).refresh(person);
+    order.verify(entityManager).refresh(institution);
     order.verify(attempts).claim("attempt");
     order.verify(persistence).create(userId, "ip", "agent", false);
     order
@@ -86,7 +94,7 @@ class AuthenticationSessionIssuerTest {
     final User authenticated = realUser("hash");
     final User current = realUser("hash");
     current.updateAccess(false);
-    when(users.findWithPersonAndInstitutionById(userId)).thenReturn(Optional.of(current));
+    when(users.findWithLockById(userId)).thenReturn(Optional.of(current));
     assertThatThrownBy(() -> issuer.issuePassword(attempt, authenticated, "ip", "agent", false))
         .isInstanceOf(InvalidCredentialsException.class);
     verifyNoInteractions(attempts, persistence, jwt, authorities, recentAuth);
@@ -97,9 +105,45 @@ class AuthenticationSessionIssuerTest {
   void rejectsPasswordChangedAfterVerification() {
     final User authenticated = realUser("old-hash");
     final User current = realUser("new-hash");
-    when(users.findWithPersonAndInstitutionById(userId)).thenReturn(Optional.of(current));
+    when(users.findWithLockById(userId)).thenReturn(Optional.of(current));
     assertThatThrownBy(() -> issuer.issuePassword(attempt, authenticated, "ip", "agent", false))
         .isInstanceOf(InvalidCredentialsException.class);
+    verifyNoInteractions(attempts, persistence, jwt, authorities, recentAuth);
+  }
+
+  @Test
+  void rejectsPasswordChangedWhenRefreshUpdatesTheAuthenticatedInstance() {
+    final User authenticated = realUser("old-hash");
+    when(users.findWithLockById(userId)).thenReturn(Optional.of(authenticated));
+    doAnswer(
+            invocation -> {
+              authenticated.changePassword("new-hash");
+              return null;
+            })
+        .when(entityManager)
+        .refresh(authenticated, LockModeType.PESSIMISTIC_WRITE);
+
+    assertThatThrownBy(() -> issuer.issuePassword(attempt, authenticated, "ip", "agent", false))
+        .isInstanceOf(InvalidCredentialsException.class);
+
+    verifyNoInteractions(attempts, persistence, jwt, authorities, recentAuth);
+  }
+
+  @Test
+  void rejectsAccountDisabledWhileWaitingForTheLock() {
+    final User authenticated = realUser("hash");
+    when(users.findWithLockById(userId)).thenReturn(Optional.of(authenticated));
+    doAnswer(
+            invocation -> {
+              authenticated.updateAccess(false);
+              return null;
+            })
+        .when(entityManager)
+        .refresh(authenticated, LockModeType.PESSIMISTIC_WRITE);
+
+    assertThatThrownBy(() -> issuer.issuePassword(attempt, authenticated, "ip", "agent", false))
+        .isInstanceOf(InvalidCredentialsException.class);
+
     verifyNoInteractions(attempts, persistence, jwt, authorities, recentAuth);
   }
 
@@ -107,7 +151,7 @@ class AuthenticationSessionIssuerTest {
   @DisplayName("Should not issue a session if a verified attempt expires or was already claimed")
   void rejectsClaimFailureBeforePersistence() {
     final User authenticated = realUser("hash");
-    when(users.findWithPersonAndInstitutionById(userId)).thenReturn(Optional.of(authenticated));
+    when(users.findWithLockById(userId)).thenReturn(Optional.of(authenticated));
     when(attempts.claim("attempt")).thenThrow(new InvalidLoginAttemptException());
     assertThatThrownBy(() -> issuer.issuePassword(attempt, authenticated, "ip", "agent", false))
         .isInstanceOf(InvalidLoginAttemptException.class);

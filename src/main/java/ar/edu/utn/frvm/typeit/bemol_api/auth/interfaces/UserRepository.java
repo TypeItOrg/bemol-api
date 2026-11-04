@@ -61,6 +61,12 @@ public interface UserRepository extends JpaRepository<User, UUID> {
 
   List<User> findByPerson_IdIn(List<UUID> personIds);
 
+  @Lock(LockModeType.PESSIMISTIC_WRITE)
+  @Query(
+      "SELECT user FROM User user WHERE user.person.id = :personId AND user.institution.id = :institutionId")
+  Optional<User> findByPersonAndInstitutionForUpdate(
+      @Param("personId") UUID personId, @Param("institutionId") UUID institutionId);
+
   List<User> findByPerson_IdInAndInstitution_Id(List<UUID> personIds, UUID institutionId);
 
   @EntityGraph(attributePaths = {"person", "institution"})

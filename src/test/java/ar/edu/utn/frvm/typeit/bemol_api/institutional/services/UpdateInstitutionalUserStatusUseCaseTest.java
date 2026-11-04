@@ -50,7 +50,7 @@ class UpdateInstitutionalUserStatusUseCaseTest {
             .build();
     when(institutionRepository.findByIdForUpdate(institutionId))
         .thenReturn(Optional.of(institution));
-    when(userRepository.findByPerson_IdAndInstitution_Id(personId, institutionId))
+    when(userRepository.findByPersonAndInstitutionForUpdate(personId, institutionId))
         .thenReturn(Optional.of(user));
 
     useCase.execute(institutionId, actorPersonId, personId, false);

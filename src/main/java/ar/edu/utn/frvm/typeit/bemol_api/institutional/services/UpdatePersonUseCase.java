@@ -178,7 +178,9 @@ public class UpdatePersonUseCase {
     }
 
     final User user =
-        userRepository.findById(principal.userId()).orElseThrow(InvalidCredentialsException::new);
+        userRepository
+            .findWithLockById(principal.userId())
+            .orElseThrow(InvalidCredentialsException::new);
     if (request.currentPassword() == null
         || !passwordEncoder.matches(request.currentPassword(), user.getPassword())) {
       throw new InvalidCurrentPasswordException();

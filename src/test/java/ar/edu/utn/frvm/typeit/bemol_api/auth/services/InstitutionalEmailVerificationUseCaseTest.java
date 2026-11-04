@@ -225,7 +225,8 @@ class InstitutionalEmailVerificationUseCaseTest {
             mock(AuthorityResolver.class),
             mock(RecentAuthService.class),
             users,
-            mock(LoginAttemptService.class));
+            mock(LoginAttemptService.class),
+            mock(jakarta.persistence.EntityManager.class));
     assertThatThrownBy(() -> issuer.issue(user, "127.0.0.1", "test", false, "PASSWORD"))
         .isInstanceOf(InvalidCredentialsException.class);
     assertThatThrownBy(() -> issuer.issue(user, "127.0.0.1", "test", false, "PASSKEY"))

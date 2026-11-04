@@ -7,11 +7,16 @@ import static org.mockito.Mockito.*;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.config.PlatformAuthenticationPolicy;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.entities.PlatformAccount;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.exceptions.InvalidCredentialsException;
+import ar.edu.utn.frvm.typeit.bemol_api.auth.interfaces.PlatformAccountRepository;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.interfaces.PlatformPasskeyCredentialRepository;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.payloads.requests.PlatformLoginRequest;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.payloads.responses.PlatformAuthResponse;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.payloads.responses.PlatformLoginChallengeResponse;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.LockModeType;
+import java.util.Optional;
 import java.util.UUID;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -27,12 +32,20 @@ class PlatformLoginUseCaseTest {
   private final PlatformAuthenticationPolicy policy = mock(PlatformAuthenticationPolicy.class);
   private final PlatformAuthenticationSessionIssuer sessionIssuer =
       mock(PlatformAuthenticationSessionIssuer.class);
+  private final PlatformAccountRepository accounts = mock(PlatformAccountRepository.class);
+  private final EntityManager entityManager = mock(EntityManager.class);
   private final PlatformAccount account =
       PlatformAccount.builder()
           .id(UUID.randomUUID())
           .email("admin@example.test")
+          .password("encoded-password")
           .enabled(true)
           .build();
+
+  @BeforeEach
+  void currentAccount() {
+    lenient().when(accounts.findWithLockById(account.getId())).thenReturn(Optional.of(account));
+  }
 
   @ParameterizedTest
   @ValueSource(booleans = {false, true})
@@ -45,7 +58,14 @@ class PlatformLoginUseCaseTest {
     when(state.createAttempt(account, false)).thenReturn("attempt");
     final var response =
         (PlatformLoginChallengeResponse)
-            new PlatformLoginUseCase(authenticator, state, credentials, policy, sessionIssuer)
+            new PlatformLoginUseCase(
+                    authenticator,
+                    state,
+                    credentials,
+                    policy,
+                    sessionIssuer,
+                    accounts,
+                    entityManager)
                 .execute(
                     new PlatformLoginRequest("admin@example.test", "password", false),
                     new MockHttpServletRequest());
@@ -78,7 +98,9 @@ class PlatformLoginUseCaseTest {
                     state,
                     credentials,
                     policy,
-                    new PlatformAuthenticationSessionIssuer(sessions, jwt))
+                    new PlatformAuthenticationSessionIssuer(sessions, jwt),
+                    accounts,
+                    entityManager)
                 .execute(
                     new PlatformLoginRequest("admin@example.test", "password", rememberMe),
                     request);
@@ -104,7 +126,14 @@ class PlatformLoginUseCaseTest {
 
     assertThatThrownBy(
             () ->
-                new PlatformLoginUseCase(authenticator, state, credentials, policy, sessionIssuer)
+                new PlatformLoginUseCase(
+                        authenticator,
+                        state,
+                        credentials,
+                        policy,
+                        sessionIssuer,
+                        accounts,
+                        entityManager)
                     .execute(
                         new PlatformLoginRequest("admin@example.test", "wrong", false),
                         new MockHttpServletRequest()))
@@ -121,11 +150,48 @@ class PlatformLoginUseCaseTest {
 
     assertThatThrownBy(
             () ->
-                new PlatformLoginUseCase(authenticator, state, credentials, policy, sessionIssuer)
+                new PlatformLoginUseCase(
+                        authenticator,
+                        state,
+                        credentials,
+                        policy,
+                        sessionIssuer,
+                        accounts,
+                        entityManager)
                     .execute(
                         new PlatformLoginRequest("admin@example.test", "password", false),
                         new MockHttpServletRequest()))
         .isInstanceOf(InvalidCredentialsException.class);
     verifyNoInteractions(policy, state, credentials, sessionIssuer);
+  }
+
+  @Test
+  void rejectsCredentialsChangedAfterAuthenticationBeforeSessionIssuance() {
+    when(authenticator.authenticate(any(), any()))
+        .thenReturn(
+            UsernamePasswordAuthenticationToken.authenticated(account, null, java.util.List.of()));
+    doAnswer(
+            invocation -> {
+              account.changePassword("replacement-password");
+              return null;
+            })
+        .when(entityManager)
+        .refresh(account, LockModeType.PESSIMISTIC_WRITE);
+
+    assertThatThrownBy(
+            () ->
+                new PlatformLoginUseCase(
+                        authenticator,
+                        state,
+                        credentials,
+                        policy,
+                        sessionIssuer,
+                        accounts,
+                        entityManager)
+                    .execute(
+                        new PlatformLoginRequest("admin@example.test", "password", false),
+                        new MockHttpServletRequest()))
+        .isInstanceOf(InvalidCredentialsException.class);
+    verifyNoInteractions(sessionIssuer, state, credentials, policy);
   }
 }

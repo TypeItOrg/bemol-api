@@ -185,7 +185,7 @@ class UpdatePersonUseCaseTest {
             .person(person)
             .password("old-hash")
             .build();
-    when(userRepository.findById(principal.userId())).thenReturn(Optional.of(user));
+    when(userRepository.findWithLockById(principal.userId())).thenReturn(Optional.of(user));
     when(passwordEncoder.matches("old-password", "old-hash")).thenReturn(true);
     when(passwordEncoder.encode("new-password")).thenReturn("new-hash");
     UpdatePersonRequest request =
@@ -211,7 +211,7 @@ class UpdatePersonUseCaseTest {
             .person(person)
             .password("old-hash")
             .build();
-    when(userRepository.findById(principal.userId())).thenReturn(Optional.of(user));
+    when(userRepository.findWithLockById(principal.userId())).thenReturn(Optional.of(user));
     when(passwordEncoder.matches("wrong-password", "old-hash")).thenReturn(false);
     UpdatePersonRequest request =
         new UpdatePersonRequest(

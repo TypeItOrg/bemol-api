@@ -47,7 +47,7 @@ public class UpdateInstitutionalUserStatusUseCase {
             .INSTITUTION_USER_STATUS_UPDATE);
     final var user =
         userRepository
-            .findByPerson_IdAndInstitution_Id(personId, institutionId)
+            .findByPersonAndInstitutionForUpdate(personId, institutionId)
             .orElseThrow(PersonNotFoundException::new);
     final boolean previousEnabled = user.isAccessEnabled();
     if (!user.updateAccess(enabled)) {
