@@ -13,7 +13,9 @@ import ar.edu.utn.frvm.typeit.bemol_api.audit.services.AuditEventRecorder;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.entities.User;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.interfaces.UserRepository;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.enums.SystemRoleCode;
+import ar.edu.utn.frvm.typeit.bemol_api.authorization.exceptions.RoleNotAssignableException;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.services.AssignPersonSystemRoleUseCase;
+import ar.edu.utn.frvm.typeit.bemol_api.authorization.services.InitialRoleAssignmentGuard;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.entities.Institution;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.entities.Person;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.exceptions.InstitutionNotFoundException;
@@ -56,6 +58,7 @@ class CreatePersonUseCaseTest {
       accounts;
 
   @Mock private AssignPersonSystemRoleUseCase assignPersonSystemRoleUseCase;
+  @Mock private InitialRoleAssignmentGuard initialRoleAssignmentGuard;
 
   @Spy private final Validator validator = Validation.buildDefaultValidatorFactory().getValidator();
 
@@ -222,5 +225,34 @@ class CreatePersonUseCaseTest {
         .isInstanceOf(PersonAlreadyExistsException.class);
 
     verify(userRepository, never()).save(any());
+  }
+
+  @Test
+  void execute_rejectsUndelegableRoleBeforeCreatingPersonOrInvitation() {
+    when(institutionRepository.findByIdForUpdate(institutionId))
+        .thenReturn(Optional.of(institution));
+    doThrow(new RoleNotAssignableException())
+        .when(initialRoleAssignmentGuard)
+        .checkDelegation(any(), eq(institutionId), eq(SystemRoleCode.INSTITUTIONAL_AUTHORITY));
+
+    assertThatThrownBy(
+            () ->
+                createPersonUseCase.execute(
+                    institutionId,
+                    new CreatePersonRequest(
+                        "Ana",
+                        "Garcia",
+                        "12345678",
+                        "ana@example.com",
+                        "03534100000",
+                        LocalDate.of(2000, 1, 1),
+                        SystemRoleCode.INSTITUTIONAL_AUTHORITY,
+                        UUID.fromString("019e18e4-c93b-7583-90a6-0e9410ce3ad3"))))
+        .isInstanceOf(RoleNotAssignableException.class);
+
+    verify(personRepository, never()).save(any());
+    verify(accounts, never()).invite(any(), any(), any());
+    verify(assignPersonSystemRoleUseCase, never())
+        .execute(any(Person.class), any(SystemRoleCode.class));
   }
 }

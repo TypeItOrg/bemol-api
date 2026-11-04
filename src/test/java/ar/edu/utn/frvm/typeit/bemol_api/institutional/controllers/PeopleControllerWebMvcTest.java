@@ -427,7 +427,7 @@ class PeopleControllerWebMvcTest {
                 .principal(authentication))
         .andExpect(status().isNoContent());
 
-    verify(deletePersonUseCase).execute(INSTITUTION_ID, PERSON_ID);
+    verify(deletePersonUseCase).executeForPlatformAdministration(INSTITUTION_ID, PERSON_ID);
   }
 
   @Test
@@ -438,7 +438,7 @@ class PeopleControllerWebMvcTest {
     stubPlatformAdminAccess(true);
     org.mockito.Mockito.doThrow(new PersonNotFoundInInstitutionException())
         .when(deletePersonUseCase)
-        .execute(INSTITUTION_ID, PERSON_ID);
+        .executeForPlatformAdministration(INSTITUTION_ID, PERSON_ID);
 
     mockMvc
         .perform(

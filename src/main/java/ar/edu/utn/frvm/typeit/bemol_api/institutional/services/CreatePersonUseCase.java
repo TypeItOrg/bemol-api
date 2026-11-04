@@ -6,6 +6,7 @@ import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditOrigin;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.services.AuditEventRecorder;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.enums.SystemRoleCode;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.services.AssignPersonSystemRoleUseCase;
+import ar.edu.utn.frvm.typeit.bemol_api.authorization.services.InitialRoleAssignmentGuard;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.entities.Institution;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.entities.Person;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.exceptions.CountryNotFoundException;
@@ -22,6 +23,7 @@ import java.util.Map;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -36,6 +38,7 @@ public class CreatePersonUseCase {
       accounts;
   private final Validator validator;
   private final AssignPersonSystemRoleUseCase assignPersonSystemRoleUseCase;
+  private final InitialRoleAssignmentGuard initialRoleAssignmentGuard;
 
   private final AuditEventRecorder auditEventRecorder;
 
@@ -45,6 +48,11 @@ public class CreatePersonUseCase {
         institutionRepository
             .findByIdForUpdate(institutionId)
             .orElseThrow(InstitutionNotFoundException::new);
+
+    final SystemRoleCode role =
+        request.initialRole() != null ? request.initialRole() : SystemRoleCode.APPLICANT;
+    initialRoleAssignmentGuard.checkDelegation(
+        SecurityContextHolder.getContext().getAuthentication(), institutionId, role);
 
     if (personRepository.existsByDocumentNumberAndInstitution_Id(
         request.documentNumber(), institutionId)) {
@@ -85,8 +93,6 @@ public class CreatePersonUseCase {
       throw exception;
     }
 
-    SystemRoleCode role =
-        request.initialRole() != null ? request.initialRole() : SystemRoleCode.APPLICANT;
     assignPersonSystemRoleUseCase.execute(person, role);
     accounts.invite(institutionId, person.getId(), request.email());
 
