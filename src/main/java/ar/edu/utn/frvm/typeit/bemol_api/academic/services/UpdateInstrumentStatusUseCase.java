@@ -26,7 +26,8 @@ public class UpdateInstrumentStatusUseCase {
   public void execute(final UUID institutionId, final UUID id, final ActiveStatusRequest request) {
     final var instrument =
         instrumentRepository
-            .findByIdAndInstitution_Id(id, institutionId)
+            .findByIdAndInstitution_IdForLifecycle(id, institutionId)
+            .filter(value -> !value.isDeleted())
             .orElseThrow(InstrumentNotFoundException::new);
     if (!request.active() && courseRepository.existsActiveByInstrument(institutionId, id)) {
       throw new AcademicConflictException(AcademicMessages.INSTRUMENT_IN_USE);

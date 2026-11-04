@@ -35,7 +35,8 @@ public class UpdateTrainingPathUseCase {
 
     final var path =
         trainingPathRepository
-            .findByIdAndInstitution_Id(id, institutionId)
+            .findByIdAndInstitution_IdForLifecycle(id, institutionId)
+            .filter(value -> !value.isDeleted())
             .orElseThrow(TrainingPathNotFoundException::new);
     final var name = AcademicNameNormalizer.display(request.name());
     if (trainingPathRepository.existsByNormalizedNameAndIdNot(institutionId, name, id)) {

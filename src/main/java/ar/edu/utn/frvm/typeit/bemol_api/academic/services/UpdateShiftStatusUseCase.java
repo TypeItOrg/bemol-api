@@ -22,7 +22,8 @@ public class UpdateShiftStatusUseCase {
   public void execute(final UUID institutionId, final UUID id, final ActiveStatusRequest request) {
     final var shift =
         shiftRepository
-            .findByIdAndInstitution_Id(id, institutionId)
+            .findByIdAndInstitution_IdForLifecycle(id, institutionId)
+            .filter(value -> !value.isDeleted())
             .orElseThrow(ShiftNotFoundException::new);
     final var before = Map.<String, Object>of("active", shift.isActive());
     shift.updateStatus(request.active());

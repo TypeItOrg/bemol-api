@@ -24,7 +24,8 @@ public class UpdateAcademicSpaceStatusUseCase {
   public void execute(final UUID institutionId, final UUID id, final ActiveStatusRequest request) {
     final var space =
         academicSpaceRepository
-            .findByIdAndInstitution_Id(id, institutionId)
+            .findByIdAndInstitution_IdForLifecycle(id, institutionId)
+            .filter(value -> !value.isDeleted())
             .orElseThrow(AcademicSpaceNotFoundException::new);
     if (!request.active() && academicSpaceRepository.existsInEditableOrActivePlan(id)) {
       throw new AcademicConflictException(

@@ -28,7 +28,8 @@ public class UpdateInstrumentUseCase {
       final UUID institutionId, final UUID id, final UpdateInstrumentRequest request) {
     final var instrument =
         instrumentRepository
-            .findByIdAndInstitution_Id(id, institutionId)
+            .findByIdAndInstitution_IdForLifecycle(id, institutionId)
+            .filter(value -> !value.isDeleted())
             .orElseThrow(InstrumentNotFoundException::new);
     final var name = AcademicNameNormalizer.display(request.name());
     if (instrumentRepository.existsByNormalizedNameAndIdNot(institutionId, name, id)) {

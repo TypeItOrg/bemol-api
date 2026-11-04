@@ -28,7 +28,8 @@ public class UpdateShiftUseCase {
       final UUID institutionId, final UUID id, final UpdateShiftRequest request) {
     final var shift =
         shiftRepository
-            .findByIdAndInstitution_Id(id, institutionId)
+            .findByIdAndInstitution_IdForLifecycle(id, institutionId)
+            .filter(value -> !value.isDeleted())
             .orElseThrow(ShiftNotFoundException::new);
     final var name = AcademicNameNormalizer.display(request.name());
     if (shiftRepository.existsByNormalizedNameAndIdNot(institutionId, name, id)) {

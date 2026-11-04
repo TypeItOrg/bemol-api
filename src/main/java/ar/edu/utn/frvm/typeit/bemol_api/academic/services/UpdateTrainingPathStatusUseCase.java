@@ -34,7 +34,8 @@ public class UpdateTrainingPathStatusUseCase {
 
     final var path =
         trainingPathRepository
-            .findByIdAndInstitution_Id(id, institutionId)
+            .findByIdAndInstitution_IdForLifecycle(id, institutionId)
+            .filter(value -> !value.isDeleted())
             .orElseThrow(TrainingPathNotFoundException::new);
     if (!request.active() && trainingPathRepository.existsActiveStudyPlan(id)) {
       throw new AcademicConflictException(AcademicMessages.TRAINING_PATH_HAS_ACTIVE_PLANS);
