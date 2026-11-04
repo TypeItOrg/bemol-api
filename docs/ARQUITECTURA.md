@@ -20,7 +20,7 @@ El código fuente (`ar.edu.utn.frvm.typeit.bemol_api`) se estructura por dominio
 |---|---|
 | `academic` | Gestión curricular: ciclos lectivos, trayectos formativos, planes de estudio, espacios académicos, niveles, correlatividades, cursos, comisiones, horarios y cursadas. |
 | `auth` | Autenticación dual (institucional y de plataforma), sesiones de usuario, rotación y replay de refresh tokens, WebAuthn/Passkeys, verificación de email y recuperación de contraseñas. |
-| `authorization` | Catálogo de roles y permisos del sistema, resolución dinámica de permisos con caché, y control de alcance limitado por trayecto formativo (`accessScope`). |
+| `authorization` | Catálogo de roles y permisos del sistema, resolución de autorización desde BD sin caché, y control de alcance limitado por trayecto formativo (`accessScope`). |
 | `enrollment` | Circuito de admisión e inscripciones: postulaciones, asignación de cursos, validación de requisitos documentales, auditoría documental y estados de admisión. |
 | `institutional` | Modelo multitenant: instituciones, personas, domicilios, sedes y divisiones territoriales (países, provincias, ciudades). |
 | `common` | Componentes transversales: almacenamiento (`StorageService`), auditoría JPA (`Auditable`), logging de requests (`RequestLoggingFilter`), paginación y manejo base de excepciones. |

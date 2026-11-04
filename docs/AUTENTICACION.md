@@ -73,7 +73,7 @@ Bemol soporta autenticación FIDO2 / WebAuthn como alternativa moderna y resiste
 ## 5. Autorización y Permisos
 
 - **Sin permisos en el JWT**: Los permisos no viajan dentro del token JWT ni se queman en las autoridades estáticas de Spring Security.
-- **Caché y Resolución Dinámica**: Los permisos se resuelven en el backend y se almacenan temporalmente en caché para no degradar la base de datos.
+- **Resolución Dinámica**: Cada comprobación de permisos, roles o alcances consulta la base de datos; los snapshots cacheados no autorizan operaciones después de una reducción de permisos.
 - **Anotaciones Declarativas**: Los controladores protegen sus operaciones mediante `@RequirePermission(Permission.NOMBRE_PERMISO)`.
 - **Alcance Acotado por Trayecto (`accessScope`)**:
   - Los roles pueden asignarse a nivel `INSTITUTION` (alcance completo) o `TRAINING_PATHS` (acotado a uno o más trayectos formativos específicos).

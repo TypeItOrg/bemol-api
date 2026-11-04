@@ -14,8 +14,8 @@ No describe funcionalidades futuras como si ya existieran. Cuando una garantía 
 | Aislamiento institucional | Implementado | Un principal institucional no puede operar sobre un `institutionId` diferente al de su JWT |
 | Rotación de refresh tokens | Implementado | Rotación por familia, lock pesimista y detección de reutilización |
 | Revocación por institución inactiva | Implementado | Se cierran sesiones y login, refresh y access token vuelven a comprobar el estado |
-| Autorización dinámica | Implementado | Roles y permisos se resuelven fuera del JWT y se cachean con invalidación explícita |
-| Última autoridad institucional | Implementado | Revocación y eliminación usan lock institucional y rechazan dejar cero autoridades |
+| Autorización dinámica | Implementado | Cada resolución consulta roles, permisos y alcances actuales en BD, fuera del JWT y sin confiar en snapshots cacheados |
+| Última autoridad institucional | Implementado | El borrado institucional exige otra persona no eliminada con rol de autoridad; la plataforma conserva su administración explícita |
 | Integridad entre tenants | Implementado | Entidades críticas validan coherencia de institución y las consultas incluyen el tenant |
 | Conflictos concurrentes de unicidad | Implementado | Las restricciones se fuerzan con `flush()` y se convierten a excepciones HTTP 409 |
 | Pruebas PostgreSQL de refresh | Implementado | Se prueba commit tras reutilización y rotación concurrente con Testcontainers |
@@ -57,6 +57,7 @@ Esta regla se aplica en autenticación, refresh y validación de sesión. No deb
 ### Autorización
 
 - Los permisos no se confían al contenido del JWT.
+- Las decisiones de permisos, roles y alcances usan lecturas frescas para evitar que un llenado tardío de caché restaure un permiso revocado.
 - Un cambio de rol debe invalidar las entradas correspondientes de caché.
 - `PLATFORM_ADMIN` administra recursos globales mediante `/api/v1/admin/**`; las cuentas plataforma no usan las rutas institucionales como acceso implícito.
 - Crear una persona con rol privilegiado requiere permiso de asignación o administración de plataforma.
@@ -120,7 +121,7 @@ Los repositorios de refresh token usan `PESSIMISTIC_WRITE` al buscar por hash. E
 
 ### Última autoridad
 
-Antes de contar autoridades y revocar un rol o eliminar una persona, se bloquea la fila de `Institution`. Todas las operaciones que preservan este invariante deben adquirir el mismo lock antes del conteo.
+El borrado institucional bloquea `Institution` antes de comprobar que otra persona no eliminada conserve el rol de autoridad. Las asignaciones de personas eliminadas y las autoridades de otra institución no satisfacen esa condición. Dos borrados institucionales concurrentes comparten ese lock. La administración de plataforma puede eliminar personas y modificar autoridades mediante sus entradas explícitas; la regla no garantiza el acceso propio de las cuentas restantes.
 
 ### Credenciales passkey
 
@@ -147,11 +148,12 @@ Las comprobaciones `exists...` producen mensajes tempranos, pero no reemplazan u
 |---|---|
 | `activeSessions` | logout, reutilización de refresh, eliminación de persona o desactivación institucional |
 | `activePlatformSessions` | logout, reutilización de refresh, desactivación o cambio de credenciales de cuenta plataforma |
-| `personPermissions` | asignación/revocación de rol institucional y seed |
-| `platformAccountPermissions` | asignación/revocación de rol plataforma y seed |
-| `platformAccountRoles` | asignación/revocación de rol plataforma y seed |
+| `personAuthoritiesV3` | cambios de definición/asignación/alcance de rol institucional y seed |
+| `platformAuthoritiesV2` | asignación/revocación de rol plataforma y seed |
 
 Redis aplica un TTL de 5 minutos a las entradas de Spring Cache. En staging y producción usa AOF sobre un volumen persistente para conservar la blacklist de access tokens después de un reinicio. Al agregar una mutación nueva de sesiones, roles o permisos, debe agregarse su invalidación en la misma entrega.
+
+Las interfaces cacheadas de snapshots se conservan, pero `AuthorityResolver` consulta la base para cada resolución de autorización. Esto agrega consultas y evita confiar en un snapshot anterior al commit que haya vuelto a llenarse después de la invalidación. Las operaciones que ya comprobaron permisos antes de un cambio siguen siendo concurrentes con él.
 
 ## Persistencia e índices relevantes
 

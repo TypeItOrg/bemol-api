@@ -4,7 +4,7 @@
 
 `User` (`src/main/java/.../auth/entities/User.java`) y `PlatformAccount` (`src/main/java/.../auth/entities/PlatformAccount.java`) devuelven `List.of()` de `getAuthorities()`.
 
-Esto es intencional. No cargamos permisos ni en el JWT ni en las authorities de Spring Security. En su lugar, se resuelven desde la base de datos y se cachea el resultado por principal.
+Esto es intencional. No cargamos permisos ni en el JWT ni en las authorities de Spring Security. Cada resolución de autorización consulta los permisos actuales en la base de datos.
 
 ## ¿Por qué no usamos `@PreAuthorize`?
 
@@ -27,7 +27,7 @@ En lugar de `@PreAuthorize("hasAuthority('...')")`, el proyecto usa anotaciones 
 `AuthorityResolver.resolveForPerson(personId, institutionId)`:
 
 1. Lee las asignaciones de esa persona y esa institución, sus permisos y los trayectos de cada asignación.
-2. `CachedAuthoritySnapshotResolver` construye un `InstitutionalAuthoritySnapshot` con permisos efectivos, nombres de roles y un `PermissionAccess` por permiso.
+2. `CachedAuthoritySnapshotResolver.resolveFreshForPerson` construye un `InstitutionalAuthoritySnapshot` con permisos efectivos, nombres de roles y un `PermissionAccess` por permiso, sin consultar la caché.
 3. La unión de asignaciones se calcula por permiso. Tener lectura global y edición acotada conserva la edición acotada.
 
 ### Alcance de una asignación
@@ -46,9 +46,9 @@ La UI explica esta regla en el selector de alcance y permite desplegar los permi
 
 `AuthorityResolver.resolveForPlatformAccount(platformAccountId)`:
 
-1. Busca los role IDs asignados a esa cuenta (`PlatformAccountRoleRepository`)
-2. Mapea a permission codes (`RolePermissionRepository`)
-3. También puede resolver `PlatformRoleCode` específicos para `@RequiresPlatformRole`
+1. `CachedAuthoritySnapshotResolver.resolveFreshForPlatformAccount` consulta los roles y permisos actuales de la cuenta mediante `PlatformAccountRoleRepository`, sin consultar la caché.
+2. Convierte los códigos devueltos en permisos y roles de plataforma.
+3. `resolvePlatformRoles` usa la misma lectura fresca para `@RequiresPlatformRole` y para la frontera administrativa.
 
 ## Anotaciones de autorización
 
@@ -79,22 +79,24 @@ Los controllers administrativos conservan además `@RequiresPlatformRole(PLATFOR
 
 ## Caché e invalidación
 
-`AuthorityResolver` delega en dos cachés de snapshots:
+El resolver de snapshots conserva estas interfaces de caché:
 
 | Caché | Clave conceptual | Contenido |
 |---|---|---|
 | `personAuthoritiesV3` | persona + institución | permisos, roles y alcances institucionales |
 | `platformAuthoritiesV2` | cuenta plataforma | permisos y roles de plataforma |
 
-Las entradas Redis tienen TTL de 5 minutos. `AuthorizationCacheInvalidator` desaloja las claves afectadas después del commit. Editar la definición de un rol invalida los snapshots de sus personas; cambiar asignaciones o alcances también revoca las sesiones afectadas. El navegador deberá volver a autenticar esas sesiones y obtendrá los nuevos permisos. El seed limpia ambos cachés después de sincronizar el catálogo.
+`AuthorityResolver` usa exclusivamente las interfaces frescas para permisos, roles y alcances. Una lectura iniciada antes de un cambio de rol puede terminar después de su invalidación y volver a guardar el snapshot anterior; por eso una entrada cacheada no autoriza una operación posterior.
+
+Las entradas Redis conservan su TTL de 5 minutos y `AuthorizationCacheInvalidator` desaloja las claves afectadas después del commit. Cambiar asignaciones o alcances también revoca las sesiones afectadas. El navegador deberá volver a autenticar esas sesiones y obtendrá los nuevos permisos. El seed limpia ambos cachés después de sincronizar el catálogo.
 
 La delegación de permisos se revalida contra snapshots frescos después de adquirir el bloqueo de administración institucional. No se debe sustituir esa lectura por los permisos cacheados que tenía el actor antes de esperar un cambio concurrente.
 
 ## Trade-off
 
-- **Ventaja**: los cambios tienen efecto mediante invalidación y, para asignaciones, revocación de sesiones, sin esperar al vencimiento natural del token.
-- **Ventaja**: requests repetidos no consultan la base en cada autorización.
-- **Costo**: la corrección depende de invalidar la caché en cada operación que cambie roles o permisos; el TTL limita el impacto de una omisión.
+- **Ventaja**: una resolución iniciada después del commit de una reducción de permisos consulta la autoridad actual, sin esperar al TTL ni depender del orden de invalidación y llenado de caché entre instancias.
+- **Costo**: cada resolución de permisos, roles o alcances consulta la base; un request puede realizar varias consultas de autorización.
+- **Límite**: una operación cuya comprobación ya leyó el permiso antes del cambio sigue siendo una operación concurrente; esta lectura fresca no cancela operaciones en curso.
 
 ## Flujo completo
 
@@ -102,7 +104,7 @@ La delegación de permisos se revalida contra snapshots frescos después de adqu
 Request → JwtAuthenticationFilter (autentica) → Controller
   → @RequiresPermission (anotación) → PermissionAuthorizationAspect
   → AuthorizationService.hasPermission()
-  → AuthorityResolver.resolveForPerson() → caché Redis o BD
+  → AuthorityResolver.resolveForPerson() → permisos actuales en BD
   → Si autorizado → ejecuta el método
   → Si falta el permiso → AccessDeniedException → 403
   → Si el recurso queda fuera del trayecto → ScopedResourceNotFoundException → 404

@@ -14,19 +14,19 @@ public class AuthorityResolver {
   private final CachedAuthoritySnapshotResolver snapshotResolver;
 
   public Set<PermissionCode> resolveForPerson(UUID personId, UUID institutionId) {
-    return snapshotResolver.resolveForPerson(personId, institutionId).permissions();
+    return snapshotResolver.resolveFreshForPerson(personId, institutionId).permissions();
   }
 
   public Set<PermissionCode> resolveForPlatformAccount(UUID platformAccountId) {
-    return snapshotResolver.resolveForPlatformAccount(platformAccountId).permissions();
+    return snapshotResolver.resolveFreshForPlatformAccount(platformAccountId).permissions();
   }
 
   public Set<PlatformRoleCode> resolvePlatformRoles(UUID platformAccountId) {
-    return snapshotResolver.resolveForPlatformAccount(platformAccountId).roles();
+    return snapshotResolver.resolveFreshForPlatformAccount(platformAccountId).roles();
   }
 
   public InstitutionalAuthoritySnapshot resolvePersonAuthorities(
       UUID personId, UUID institutionId) {
-    return snapshotResolver.resolveForPerson(personId, institutionId);
+    return snapshotResolver.resolveFreshForPerson(personId, institutionId);
   }
 }

@@ -77,6 +77,11 @@ public class CachedAuthoritySnapshotResolver {
   @Cacheable(value = AuthorizationCacheNames.PLATFORM_AUTHORITIES, key = "#platformAccountId")
   @Transactional(readOnly = true)
   public PlatformAuthoritySnapshot resolveForPlatformAccount(UUID platformAccountId) {
+    return resolveFreshForPlatformAccount(platformAccountId);
+  }
+
+  @Transactional(readOnly = true)
+  public PlatformAuthoritySnapshot resolveFreshForPlatformAccount(UUID platformAccountId) {
     List<PlatformAccountRoleRepository.AuthorityRow> rows =
         platformAccountRoleRepository.findAuthoritiesByPlatformAccountId(platformAccountId);
 
