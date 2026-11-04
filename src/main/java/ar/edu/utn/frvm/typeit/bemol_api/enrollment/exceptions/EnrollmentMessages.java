@@ -1,6 +1,9 @@
 package ar.edu.utn.frvm.typeit.bemol_api.enrollment.exceptions;
 
 public final class EnrollmentMessages {
+  public static final String APPLICATION_SORT_INVALID =
+      "El campo de ordenamiento de las inscripciones no está permitido.";
+
   public static final String APPLICATION_ACADEMIC_YEAR_INVALID =
       "La solicitud debe pertenecer al ciclo lectivo activo de la institución.";
   public static final String COURSE_OUTSIDE_ACADEMIC_YEAR =

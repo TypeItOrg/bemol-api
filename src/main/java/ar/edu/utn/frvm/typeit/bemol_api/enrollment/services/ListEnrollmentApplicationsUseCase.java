@@ -5,8 +5,10 @@ import ar.edu.utn.frvm.typeit.bemol_api.authorization.services.ScopedAuthorizati
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.enums.EnrollmentApplicationStatus;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.enums.EnrollmentDocumentAction;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.exceptions.EnrollmentMessages;
+import ar.edu.utn.frvm.typeit.bemol_api.enrollment.exceptions.EnrollmentValidationException;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.interfaces.EnrollmentApplicationRepository;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.payloads.EnrollmentApplicationResponse;
+import java.util.Set;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.jspecify.annotations.Nullable;
@@ -20,6 +22,17 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @RequiredArgsConstructor
 public class ListEnrollmentApplicationsUseCase {
+
+  private static final Set<String> SORTABLE_FIELDS =
+      Set.of(
+          "id",
+          "createdAt",
+          "updatedAt",
+          "status",
+          "resolvedAt",
+          "applicantPerson.firstName",
+          "applicantPerson.lastName",
+          "applicantPerson.documentNumber");
 
   private final EnrollmentApplicationRepository enrollmentApplicationRepository;
   private final EnrollmentApplicationResponseFactory responseFactory;
@@ -50,6 +63,7 @@ public class ListEnrollmentApplicationsUseCase {
       final boolean pendingDocuments,
       final @Nullable Boolean pendingCourses,
       final Pageable pageable) {
+    requireSafeSort(pageable);
     requireDocumentFilter(pendingDocuments, institutionId);
     return enrollmentApplicationRepository
         .findByInstitutionId(
@@ -66,10 +80,19 @@ public class ListEnrollmentApplicationsUseCase {
       final boolean pendingDocuments,
       final @Nullable Boolean pendingCourses,
       final Pageable pageable) {
+    requireSafeSort(pageable);
     requireDocumentFilter(pendingDocuments, institutionId);
     return enrollmentApplicationRepository
         .findByFilters(
             institutionId, status, trainingPathId, open, pendingDocuments, pendingCourses, pageable)
         .map(application -> responseFactory.from(application, false));
+  }
+
+  private void requireSafeSort(final Pageable pageable) {
+    for (final var order : pageable.getSort()) {
+      if (!SORTABLE_FIELDS.contains(order.getProperty())) {
+        throw new EnrollmentValidationException(EnrollmentMessages.APPLICATION_SORT_INVALID);
+      }
+    }
   }
 }
