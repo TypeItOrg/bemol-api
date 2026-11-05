@@ -139,6 +139,7 @@ public interface PersonRepository extends JpaRepository<Person, UUID> {
       @Param("now") Instant now,
       Pageable pageable);
 
+  // Include legacy people without nationality; writes are still validated.
   @EntityGraph(
       attributePaths = {
         "address",
@@ -146,8 +147,14 @@ public interface PersonRepository extends JpaRepository<Person, UUID> {
         "address.city.province",
         "birthCity",
         "birthCity.province",
-        "nationalityCountry",
         "institution"
       })
-  Optional<Person> findWithDetailsByIdAndInstitution_Id(UUID personId, UUID institutionId);
+  @Query(
+      """
+      SELECT person FROM Person person
+      LEFT JOIN FETCH person.nationalityCountry
+      WHERE person.id = :personId AND person.institution.id = :institutionId
+      """)
+  Optional<Person> findWithDetailsByIdAndInstitution_Id(
+      @Param("personId") UUID personId, @Param("institutionId") UUID institutionId);
 }
