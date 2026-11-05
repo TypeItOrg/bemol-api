@@ -3,6 +3,7 @@ package ar.edu.utn.frvm.typeit.bemol_api.institutional.services;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -12,6 +13,7 @@ import ar.edu.utn.frvm.typeit.bemol_api.audit.services.AuditEventRecorder;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.entities.User;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.exceptions.InvalidCurrentPasswordException;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.filters.JwtAuthenticatedUser;
+import ar.edu.utn.frvm.typeit.bemol_api.auth.interfaces.PersonAccessInvitationRepository;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.interfaces.UserRepository;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.services.SessionRevocationService;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.entities.Address;
@@ -26,11 +28,13 @@ import ar.edu.utn.frvm.typeit.bemol_api.institutional.exceptions.PersonNotFoundE
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.interfaces.AddressRepository;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.interfaces.CityRepository;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.interfaces.CountryRepository;
+import ar.edu.utn.frvm.typeit.bemol_api.institutional.interfaces.InstitutionRepository;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.interfaces.PersonRepository;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.payloads.person.UpdateAddressRequest;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.payloads.person.UpdatePersonRequest;
 import jakarta.validation.Validation;
 import jakarta.validation.ValidatorFactory;
+import java.time.Clock;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.AfterAll;
@@ -48,6 +52,10 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 class UpdatePersonUseCaseTest {
 
   @Mock private PersonRepository personRepository;
+  @Mock private InstitutionRepository institutionRepository;
+  @Mock private OperatingContextResolver operatingContextResolver;
+  @Mock private PersonAccessInvitationRepository accessInvitationRepository;
+  @Mock private Clock clock;
   @Mock private UserRepository userRepository;
   @Mock private CityRepository cityRepository;
   @Mock private CountryRepository countryRepository;
@@ -102,12 +110,17 @@ class UpdatePersonUseCaseTest {
             .institutionId(institutionId)
             .build();
 
-    when(personRepository.findByIdAndInstitution_Id(personId, institutionId))
+    lenient()
+        .when(personRepository.findByIdAndInstitution_Id(personId, institutionId))
         .thenReturn(Optional.of(person));
     updatePersonUseCase =
         new UpdatePersonUseCase(
             org.mockito.Mockito.mock(AuditEventRecorder.class),
             personRepository,
+            institutionRepository,
+            operatingContextResolver,
+            accessInvitationRepository,
+            clock,
             userRepository,
             cityRepository,
             countryRepository,
@@ -125,6 +138,10 @@ class UpdatePersonUseCaseTest {
   @Test
   @DisplayName("Updates ordinary contact fields while preserving verified identity")
   void execute_updatesIdentityAndContact() {
+    when(institutionRepository.findByIdForUpdate(institutionId))
+        .thenReturn(Optional.of(institution));
+    when(personRepository.findByIdAndInstitutionIdForUpdate(personId, institutionId))
+        .thenReturn(Optional.of(person));
     stubUpdatedDetails();
     UUID provinceId = UUID.fromString("00000000-0000-0000-0000-000000000003");
     UUID cityId = UUID.fromString("00000000-0000-0000-0000-000000000004");

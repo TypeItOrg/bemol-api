@@ -16,6 +16,7 @@ import ar.edu.utn.frvm.typeit.bemol_api.auth.payloads.requests.PasswordRecoveryR
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.entities.Person;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.interfaces.PersonRepository;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.payloads.person.UpdatePersonRequest;
+import ar.edu.utn.frvm.typeit.bemol_api.institutional.services.OperatingContextResolver;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.services.UpdatePersonUseCase;
 import ar.edu.utn.frvm.typeit.bemol_api.support.IntegrationTest;
 import ar.edu.utn.frvm.typeit.bemol_api.support.JpaAuditingTestConfig;
@@ -77,6 +78,7 @@ class ProfileEmailConcurrencyPostgresIntegrationTest {
   @MockitoBean private AccountAccessAuthorization access;
   @MockitoBean private AccountActionRateLimiter limiter;
   @MockitoBean private InstitutionalAccountManagementUseCase accounts;
+  @MockitoBean private OperatingContextResolver operatingContext;
   @MockitoBean private SessionRevocationService sessions;
   @MockitoBean private InstitutionalHostContext hostContext;
   @MockitoBean private PasswordRecoveryProperties recoveryProperties;

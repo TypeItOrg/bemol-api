@@ -11,21 +11,27 @@ import ar.edu.utn.frvm.typeit.bemol_api.auth.entities.User;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.exceptions.InvalidCredentialsException;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.exceptions.InvalidCurrentPasswordException;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.filters.JwtAuthenticatedUser;
+import ar.edu.utn.frvm.typeit.bemol_api.auth.interfaces.PersonAccessInvitationRepository;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.interfaces.UserRepository;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.services.SessionRevocationService;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.entities.Address;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.entities.Person;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.exceptions.CityNotFoundException;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.exceptions.CountryNotFoundException;
+import ar.edu.utn.frvm.typeit.bemol_api.institutional.exceptions.InstitutionMessages;
+import ar.edu.utn.frvm.typeit.bemol_api.institutional.exceptions.InstitutionNotFoundException;
+import ar.edu.utn.frvm.typeit.bemol_api.institutional.exceptions.OwnAccessException;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.exceptions.PersonNotFoundException;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.interfaces.AddressRepository;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.interfaces.CityRepository;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.interfaces.CountryRepository;
+import ar.edu.utn.frvm.typeit.bemol_api.institutional.interfaces.InstitutionRepository;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.interfaces.PersonRepository;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.payloads.person.PersonResponse;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.payloads.person.UpdatePersonRequest;
 import jakarta.validation.ConstraintViolationException;
 import jakarta.validation.Validator;
+import java.time.Clock;
 import java.util.Map;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
@@ -39,6 +45,10 @@ public class UpdatePersonUseCase {
   private final AuditEventRecorder auditRecorder;
 
   private final PersonRepository personRepository;
+  private final InstitutionRepository institutionRepository;
+  private final OperatingContextResolver operatingContextResolver;
+  private final PersonAccessInvitationRepository accessInvitationRepository;
+  private final Clock clock;
   private final UserRepository userRepository;
   private final CityRepository cityRepository;
   private final CountryRepository countryRepository;
@@ -49,21 +59,40 @@ public class UpdatePersonUseCase {
 
   @Transactional
   public PersonResponse execute(JwtAuthenticatedUser principal, UpdatePersonRequest request) {
+    // Share the lock with account activation and representation changes.
+    if (request.email() != null) {
+      institutionRepository
+          .findByIdForUpdate(principal.institutionId())
+          .orElseThrow(InstitutionNotFoundException::new);
+    }
+
     Person person =
-        personRepository
-            .findByIdAndInstitution_Id(principal.personId(), principal.institutionId())
+        (request.email() != null
+                ? personRepository.findByIdAndInstitutionIdForUpdate(
+                    principal.personId(), principal.institutionId())
+                : personRepository.findByIdAndInstitution_Id(
+                    principal.personId(), principal.institutionId()))
             .orElseThrow(PersonNotFoundException::new);
     if ((request.firstName() != null && !request.firstName().equals(person.getFirstName()))
         || (request.lastName() != null && !request.lastName().equals(person.getLastName()))
         || (request.birthDate() != null && !request.birthDate().equals(person.getBirthDate()))) {
-      throw new ar.edu.utn.frvm.typeit.bemol_api.institutional.exceptions.OwnAccessException(
-          ar.edu.utn.frvm.typeit.bemol_api.institutional.exceptions.InstitutionMessages
-              .VERIFIED_IDENTITY_ADMIN_ONLY);
+      throw new OwnAccessException(InstitutionMessages.VERIFIED_IDENTITY_ADMIN_ONLY);
     }
     if (request.email() != null && !request.email().equals(person.getEmail())) {
-      throw new ar.edu.utn.frvm.typeit.bemol_api.institutional.exceptions.OwnAccessException(
-          ar.edu.utn.frvm.typeit.bemol_api.institutional.exceptions.InstitutionMessages
-              .ACCOUNT_EMAIL_CHANGE_REQUIRED);
+      if (!principal.delegated()
+          || userRepository
+              .findByPerson_IdAndInstitution_Id(principal.personId(), principal.institutionId())
+              .isPresent()) {
+        throw new OwnAccessException(InstitutionMessages.ACCOUNT_EMAIL_CHANGE_REQUIRED);
+      }
+      operatingContextResolver.requireAccessible(
+          principal.institutionId(), principal.personId(), principal);
+      if (request.email().isBlank()) {
+        throw new OwnAccessException(InstitutionMessages.OWN_ACCESS_EMAIL_REQUIRED);
+      }
+      accessInvitationRepository
+          .findByPerson_Id(person.getId())
+          .forEach(invitation -> invitation.cancel(clock.instant()));
     }
     if (request.password() != null && !request.password().isEmpty() && principal.delegated()) {
       throw new InvalidCurrentPasswordException();
@@ -93,7 +122,7 @@ public class UpdatePersonUseCase {
         birthCity,
         nationalityCountry);
     person.updateContact(
-        person.getEmail(),
+        request.email() != null ? request.email() : person.getEmail(),
         request.phoneNumber() != null ? request.phoneNumber() : person.getPhoneNumber());
 
     if (request.address() != null) {
