@@ -1,6 +1,7 @@
 package ar.edu.utn.frvm.typeit.bemol_api.common.exceptions;
 
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.pdf.render.EnrollmentPdfUnavailableException;
+import jakarta.validation.Path;
 import java.util.Map;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -39,5 +40,15 @@ public class ApplicationExceptionHttpMapper {
       case UNAVAILABLE -> HttpStatus.SERVICE_UNAVAILABLE;
       case CONFLICT -> HttpStatus.CONFLICT;
     };
+  }
+
+  static String lastPropertyName(Path propertyPath) {
+    String name = propertyPath.toString();
+    for (Path.Node node : propertyPath) {
+      if (node instanceof Path.PropertyNode propertyNode) {
+        name = propertyNode.getName();
+      }
+    }
+    return name;
   }
 }

@@ -9,7 +9,7 @@ import ar.edu.utn.frvm.typeit.bemol_api.enrollment.enums.EnrollmentApplicationSt
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.exceptions.EnrollmentApplicationNotFoundException;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.exceptions.EnrollmentMessages;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.exceptions.InvalidEnrollmentApplicationStateException;
-import ar.edu.utn.frvm.typeit.bemol_api.enrollment.interfaces.EnrollmentApplicationRepository;
+import ar.edu.utn.frvm.typeit.bemol_api.enrollment.interfaces.EnrollmentPdfApplicationRepository;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.payloads.EnrollmentPdfData;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.payloads.EnrollmentPdfData.Field;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.payloads.EnrollmentPdfData.Section;
@@ -31,7 +31,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class ExtractEnrollmentPdfDataUseCase {
   private final AcademicAccessGuard accessGuard;
   private final InstitutionalCapabilitiesService capabilities;
-  private final EnrollmentApplicationRepository applications;
+  private final EnrollmentPdfApplicationRepository applications;
   private final EnrollmentApplicationCourseAuthorization courses;
   private final EnrollmentAdmissionHistory history;
   private final EnrollmentPdfSettingsUseCase settings;

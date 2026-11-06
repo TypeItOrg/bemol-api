@@ -19,6 +19,7 @@ import java.util.Locale;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 import lombok.extern.slf4j.Slf4j;
+import org.jspecify.annotations.Nullable;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.ClassPathResource;
@@ -173,7 +174,7 @@ public class ChromiumEnrollmentPdfRenderer implements EnrollmentPdfRenderer {
         html.toUri().toASCIIString());
   }
 
-  private static void terminate(final Process process) {
+  private static void terminate(final @Nullable Process process) {
     if (process == null) {
       return;
     }
@@ -193,7 +194,9 @@ public class ChromiumEnrollmentPdfRenderer implements EnrollmentPdfRenderer {
     } catch (final InterruptedException exception) {
       Thread.currentThread().interrupt();
     }
-    descendants.reversed().forEach(ProcessHandle::destroyForcibly);
+    for (final var descendant : descendants.reversed()) {
+      descendant.destroyForcibly();
+    }
     process.destroyForcibly();
     try {
       process.waitFor(500, TimeUnit.MILLISECONDS);
@@ -206,7 +209,7 @@ public class ChromiumEnrollmentPdfRenderer implements EnrollmentPdfRenderer {
     }
   }
 
-  private static void deleteDirectory(final Path directory) {
+  private static void deleteDirectory(final @Nullable Path directory) {
     if (directory == null) {
       return;
     }

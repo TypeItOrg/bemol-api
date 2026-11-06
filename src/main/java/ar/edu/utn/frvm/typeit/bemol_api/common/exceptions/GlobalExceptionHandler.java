@@ -1,5 +1,6 @@
 package ar.edu.utn.frvm.typeit.bemol_api.common.exceptions;
 
+import static ar.edu.utn.frvm.typeit.bemol_api.common.exceptions.ApplicationExceptionHttpMapper.lastPropertyName;
 import static ar.edu.utn.frvm.typeit.bemol_api.common.exceptions.ErrorMessages.INTERNAL_SERVER_ERROR_MESSAGE;
 import static ar.edu.utn.frvm.typeit.bemol_api.common.exceptions.ErrorMessages.MALFORMED_REQUEST_BODY;
 import static ar.edu.utn.frvm.typeit.bemol_api.common.exceptions.ErrorMessages.RESOURCE_NOT_FOUND_MESSAGE;
@@ -18,7 +19,6 @@ import ar.edu.utn.frvm.typeit.bemol_api.enrollment.exceptions.EnrollmentValidati
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.exceptions.InstitutionMessages;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.exceptions.OwnAccessException;
 import jakarta.validation.ConstraintViolationException;
-import jakarta.validation.Path;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -240,15 +240,5 @@ public class GlobalExceptionHandler {
 
   private static ExceptionPayload errorPayload(HttpStatus status, String message) {
     return ExceptionPayload.builder().status(status.value()).message(message).build();
-  }
-
-  private static String lastPropertyName(Path propertyPath) {
-    String name = propertyPath.toString();
-    for (Path.Node node : propertyPath) {
-      if (node instanceof Path.PropertyNode propertyNode) {
-        name = propertyNode.getName();
-      }
-    }
-    return name;
   }
 }

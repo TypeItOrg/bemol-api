@@ -10,7 +10,7 @@ import ar.edu.utn.frvm.typeit.bemol_api.enrollment.entities.*;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.enums.EnrollmentApplicationStatus;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.exceptions.EnrollmentApplicationNotFoundException;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.exceptions.InvalidEnrollmentApplicationStateException;
-import ar.edu.utn.frvm.typeit.bemol_api.enrollment.interfaces.EnrollmentApplicationRepository;
+import ar.edu.utn.frvm.typeit.bemol_api.enrollment.interfaces.EnrollmentPdfApplicationRepository;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.payloads.EnrollmentAdmissionHistoryResponse;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.payloads.EnrollmentPdfSettingsRequest;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.payloads.EnrollmentPdfSettingsResponse;
@@ -33,8 +33,8 @@ class ExtractEnrollmentPdfDataUseCaseTest {
   private final AcademicAccessGuard guard = mock(AcademicAccessGuard.class);
   private final InstitutionalCapabilitiesService capabilities =
       mock(InstitutionalCapabilitiesService.class);
-  private final EnrollmentApplicationRepository applications =
-      mock(EnrollmentApplicationRepository.class);
+  private final EnrollmentPdfApplicationRepository applications =
+      mock(EnrollmentPdfApplicationRepository.class);
   private final EnrollmentApplicationCourseAuthorization courses =
       mock(EnrollmentApplicationCourseAuthorization.class);
   private final EnrollmentAdmissionHistory history = mock(EnrollmentAdmissionHistory.class);

@@ -20,24 +20,6 @@ public interface EnrollmentApplicationRepository
     extends JpaRepository<EnrollmentApplication, UUID>,
         JpaSpecificationExecutor<EnrollmentApplication> {
   @Query(
-      """
-      SELECT application FROM EnrollmentApplication application
-      JOIN FETCH application.institution institution
-      JOIN FETCH institution.city institutionCity
-      JOIN FETCH institutionCity.province
-      JOIN FETCH application.applicantPerson person
-      LEFT JOIN FETCH person.nationalityCountry
-      LEFT JOIN FETCH person.birthCity
-      LEFT JOIN FETCH person.address address
-      LEFT JOIN FETCH address.city city
-      LEFT JOIN FETCH city.province
-      WHERE application.institution.id = :institutionId AND application.id = :applicationId
-        AND application.deletedAt IS NULL
-      """)
-  Optional<EnrollmentApplication> findForPdf(
-      @Param("institutionId") UUID institutionId, @Param("applicationId") UUID applicationId);
-
-  @Query(
       "select count(app) from EnrollmentApplication app where app.status=ar.edu.utn.frvm.typeit.bemol_api.enrollment.enums.EnrollmentApplicationStatus.DRAFT and app.deletedAt is null and exists (select assignment.id from TrainingPathDocumentRequirement assignment where assignment.trainingPath.id=app.trainingPathId and assignment.document.id=:documentId)")
   long countDraftsUsingDocument(@Param("documentId") UUID documentId);
 

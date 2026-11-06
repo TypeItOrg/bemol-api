@@ -54,7 +54,7 @@ class EnrollmentPdfSettingsUseCaseTest {
             new EnrollmentPdfSettingsResponse(
                 "Mi título", "Línea 1\nLínea 2", null, null, false, true));
     verify(repository).save(any());
-    final ArgumentCaptor<Map<String, Object>> details = ArgumentCaptor.forClass(Map.class);
+    final ArgumentCaptor<Map<String, Object>> details = ArgumentCaptor.captor();
     verify(audit)
         .recordCurrentActor(
             eq(institution), isNull(), any(), any(), eq(id), any(), details.capture());
@@ -89,11 +89,12 @@ class EnrollmentPdfSettingsUseCaseTest {
         .isInstanceOf(EnrollmentValidationException.class);
     try (final var factory = Validation.buildDefaultValidatorFactory()) {
       final var validator = factory.getValidator();
-      assertThat(
-              validator.validate(
-                  new EnrollmentPdfSettingsRequest("Título", null, null, null, null, null)))
-          .extracting(violation -> violation.getPropertyPath().toString())
-          .containsExactlyInAnyOrder("showApplicantSignature", "showResponsibleSignature");
+      for (final var property :
+          java.util.List.of("showApplicantSignature", "showResponsibleSignature")) {
+        assertThat(validator.validateValue(EnrollmentPdfSettingsRequest.class, property, null))
+            .extracting(violation -> violation.getPropertyPath().toString())
+            .containsExactly(property);
+      }
       assertThat(
               validator.validate(
                   new EnrollmentPdfSettingsRequest("Título", null, null, null, false, false)))
