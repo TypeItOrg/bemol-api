@@ -1,6 +1,19 @@
 package ar.edu.utn.frvm.typeit.bemol_api.enrollment.exceptions;
 
 public final class EnrollmentMessages {
+  public static final String PDF_UNAVAILABLE =
+      "No se pudo generar el PDF. Intentá nuevamente en unos segundos.";
+  public static final String PDF_STATE_INVALID =
+      "La solicitud debe estar enviada para descargar el PDF.";
+  public static final String PDF_SETTINGS_INVALID = "La configuración de la planilla no es válida.";
+  public static final String PDF_TITLE_REQUIRED = "El título de la planilla es requerido.";
+  public static final String PDF_TITLE_MAX = "El título admite hasta 150 caracteres.";
+  public static final String PDF_HEADER_MAX = "El encabezado admite hasta 500 caracteres.";
+  public static final String PDF_INTRODUCTION_MAX = "La introducción admite hasta 1000 caracteres.";
+  public static final String PDF_FOOTER_MAX = "El pie admite hasta 500 caracteres.";
+  public static final String PDF_SIGNATURE_REQUIRED =
+      "Indicá si se debe incluir el espacio de firma.";
+
   public static final String APPLICATION_SORT_INVALID =
       "El campo de ordenamiento de las inscripciones no está permitido.";
 

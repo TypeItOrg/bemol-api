@@ -9,12 +9,16 @@ services:
       dockerfile: Dockerfile
       target: dev
     command: ["/usr/local/bin/dev-entrypoint.sh"]
+    security_opt:
+      - no-new-privileges:true
+      - seccomp:./docker/chromium-seccomp.json
     env_file:
       - path: .env.dev
         required: false
     environment:
       SERVER_PORT: ${SERVER_PORT:-8080}
       STORAGE_LOCAL_DIR: /workspace/storage
+      BEMOL_ENROLLMENT_PDF_CHROMIUM_EXECUTABLE: ${BEMOL_ENROLLMENT_PDF_CHROMIUM_EXECUTABLE:-/opt/chrome/chrome}
       DB_HOST: ${DB_HOST:-postgres}
       DB_PORT: ${DB_PORT:-5432}
       DB_NAME: ${DB_NAME:-bemol_db}

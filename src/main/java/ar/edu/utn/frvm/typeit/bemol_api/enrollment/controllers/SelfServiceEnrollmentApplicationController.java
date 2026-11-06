@@ -18,6 +18,7 @@ import ar.edu.utn.frvm.typeit.bemol_api.enrollment.payloads.EnrollmentStudyPlanS
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.payloads.StartEnrollmentApplicationRequest;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.payloads.UpdateEnrollmentDraftRequest;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.services.EnrollmentApplicationService;
+import ar.edu.utn.frvm.typeit.bemol_api.enrollment.services.ExportEnrollmentPdfUseCase;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.services.ListAvailableEnrollmentTrainingPathsUseCase;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.services.ListEnrollmentApplicationCoursesUseCase;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.services.ListEnrollmentApplicationPeriodsUseCase;
@@ -53,6 +54,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RequiredArgsConstructor
 public class SelfServiceEnrollmentApplicationController {
 
+  private final ExportEnrollmentPdfUseCase pdf;
   private final EnrollmentApplicationService applicationService;
   private final InstitutionalCapabilitiesService capabilities;
   private final OperatingContextResolver operatingContext;
@@ -231,5 +233,17 @@ public class SelfServiceEnrollmentApplicationController {
     capabilities.requireOwnEnrollmentRead(principal.institutionId(), personId);
 
     return principal;
+  }
+
+  @GetMapping(value = "/{applicationId}/pdf", version = Version.V1)
+  public ResponseEntity<byte[]> downloadPdf(
+      final Authentication authentication, @PathVariable final UUID applicationId) {
+    final var principal = requireInstitutionalUser(authentication);
+    return EnrollmentPdfHttpResponse.download(
+        pdf.export(
+            principal.institutionId(),
+            applicationId,
+            operatingContext.currentPersonId().orElseThrow()),
+        applicationId.toString());
   }
 }

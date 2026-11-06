@@ -80,6 +80,10 @@ public class GlobalExceptionHandler {
     for (Throwable cause = exception; cause != null; cause = cause.getCause()) {
       if (cause instanceof org.hibernate.exception.ConstraintViolationException violation) {
         final String constraint = Objects.toString(violation.getConstraintName(), "");
+        if (constraint.startsWith("enrollment_pdf_settings_") && constraint.endsWith("_check")) {
+          return handleApplicationException(
+              new EnrollmentValidationException(EnrollmentMessages.PDF_SETTINGS_INVALID));
+        }
         if (constraint.equals("people_nationality_required")) {
           return ResponseEntity.badRequest()
               .body(

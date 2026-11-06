@@ -152,4 +152,35 @@ class QaInstitutionLogoTest {
     assertThatThrownBy(() -> InstitutionLogoPolicy.prepare(oversized))
         .isInstanceOf(InstitutionLogoTooLargeException.class);
   }
+
+  @Test
+  void exportReadsAnInactiveInstitutionsLogoWithoutChangingPublicLookup() throws IOException {
+    institution.updateStatus(false);
+    when(storage.loadAsInputStream("old-key"))
+        .thenReturn(new java.io.ByteArrayInputStream(new byte[10]));
+
+    final var logo = logos.getForExport(institution.getId()).orElseThrow();
+
+    assertThat(logo.resource().getContentAsByteArray()).hasSize(10);
+    assertThat(logo.contentType()).isEqualTo("image/png");
+    verify(institutions).findByIdForUpdate(institution.getId());
+    verify(institutions, never()).findActiveByIdForShare(any());
+  }
+
+  @Test
+  void exportWithoutLogoDoesNotAccessStorage() {
+    institution.removeLogo();
+    assertThat(logos.getForExport(institution.getId())).isEmpty();
+    verifyNoInteractions(storage);
+  }
+
+  @Test
+  void exportRejectsAnInconsistentStoredLogo() {
+    when(storage.loadAsInputStream("old-key"))
+        .thenReturn(new java.io.ByteArrayInputStream(new byte[9]));
+    assertThatThrownBy(() -> logos.getForExport(institution.getId()))
+        .isInstanceOf(
+            ar.edu.utn.frvm.typeit.bemol_api.institutional.exceptions
+                .InstitutionLogoNotFoundException.class);
+  }
 }

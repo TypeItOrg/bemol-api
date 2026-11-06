@@ -1,6 +1,12 @@
 #!/bin/sh
 set -eu
 
+if [ "$(id -u)" -eq 0 ]; then
+  mkdir -p /workspace/storage /home/gradle/.gradle
+  chown -R -h -P gradle:gradle -- /workspace/storage /home/gradle/.gradle
+  exec runuser -u gradle -- "$0" "$@"
+fi
+
 WATCH_PATHS="src build.gradle settings.gradle"
 APP_PID=""
 

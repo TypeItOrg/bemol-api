@@ -87,6 +87,20 @@ public class InstitutionLogoUseCase {
   public Logo get(final UUID id) {
     final var institution =
         institutions.findActiveByIdForShare(id).orElseThrow(InstitutionNotFoundException::new);
+    return readLogo(institution);
+  }
+
+  @Transactional
+  public java.util.Optional<Logo> getForExport(final UUID id) {
+    final var institution =
+        institutions.findByIdForUpdate(id).orElseThrow(InstitutionNotFoundException::new);
+    if (institution.getLogoKey() == null) {
+      return java.util.Optional.empty();
+    }
+    return java.util.Optional.of(readLogo(institution));
+  }
+
+  private Logo readLogo(final Institution institution) {
     final String key = institution.getLogoKey();
     if (key == null) {
       throw new InstitutionLogoNotFoundException();

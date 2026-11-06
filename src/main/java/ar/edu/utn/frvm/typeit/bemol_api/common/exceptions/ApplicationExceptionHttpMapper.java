@@ -1,5 +1,6 @@
 package ar.edu.utn.frvm.typeit.bemol_api.common.exceptions;
 
+import ar.edu.utn.frvm.typeit.bemol_api.enrollment.pdf.render.EnrollmentPdfUnavailableException;
 import java.util.Map;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -16,14 +17,17 @@ public class ApplicationExceptionHttpMapper {
 
   public ResponseEntity<ExceptionPayload> toResponse(final ApplicationException exception) {
     final HttpStatus status = statusFor(exception.category());
-    return ResponseEntity.status(status)
-        .body(
-            ExceptionPayload.builder()
-                .status(status.value())
-                .message(exception.getMessage())
-                .fieldErrors(exception.fieldErrors())
-                .code(exception.code())
-                .build());
+    final var response = ResponseEntity.status(status);
+    if (exception instanceof EnrollmentPdfUnavailableException unavailable) {
+      response.header("Retry-After", Integer.toString(unavailable.retryAfterSeconds()));
+    }
+    return response.body(
+        ExceptionPayload.builder()
+            .status(status.value())
+            .message(exception.getMessage())
+            .fieldErrors(exception.fieldErrors())
+            .code(exception.code())
+            .build());
   }
 
   private static HttpStatus statusFor(final ErrorCategory category) {

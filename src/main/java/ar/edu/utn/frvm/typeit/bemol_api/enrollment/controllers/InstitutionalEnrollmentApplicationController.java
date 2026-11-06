@@ -18,6 +18,7 @@ import ar.edu.utn.frvm.typeit.bemol_api.enrollment.payloads.RejectEnrollmentAppl
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.payloads.RejectEnrollmentApplicationRequest;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.services.ApproveEnrollmentApplicationUseCase;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.services.CourseEnrollmentService;
+import ar.edu.utn.frvm.typeit.bemol_api.enrollment.services.ExportEnrollmentPdfUseCase;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.services.GetEnrollmentApplicationUseCase;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.services.ListEnrollmentApplicationsUseCase;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.services.RejectEnrollmentApplicationCourseUseCase;
@@ -30,6 +31,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -47,6 +49,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RequiredArgsConstructor
 public class InstitutionalEnrollmentApplicationController {
 
+  private final ExportEnrollmentPdfUseCase pdf;
   private final ar.edu.utn.frvm.typeit.bemol_api.enrollment.services
           .RequestEnrollmentDocumentsUseCase
       documentRequests;
@@ -176,5 +179,13 @@ public class InstitutionalEnrollmentApplicationController {
     }
 
     return ((JwtAuthenticatedUser) requireNonNull(authentication.getPrincipal())).personId();
+  }
+
+  @GetMapping(value = "/{applicationId}/pdf", version = Version.V1)
+  @RequiresPermission(PermissionCode.ENROLLMENT_APPLICATION_READ)
+  public ResponseEntity<byte[]> downloadPdf(
+      @PathVariable final UUID institutionId, @PathVariable final UUID applicationId) {
+    return EnrollmentPdfHttpResponse.download(
+        pdf.export(institutionId, applicationId, null), applicationId.toString());
   }
 }
