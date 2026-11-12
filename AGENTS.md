@@ -24,6 +24,15 @@ Spring Boot API using Gradle, Java 21, JPA/PostgreSQL and Redis. Resolve exact v
 - Keep readable conditions and useful explanations of invariants. Do not add redundant null checks, wrapper exceptions, one-use variables or abstractions solely to satisfy a generic style recipe.
 - Always use braces for control-flow bodies, including single-statement guards. Separate validation, data preparation, I/O and return phases with blank lines; keep related statements together instead of spacing every line individually.
 
+## Readable code shape
+
+- Write methods as short, intention-revealing steps: validation, data preparation, I/O and result mapping, separated by blank lines.
+- Do not nest ternaries. Use a guard clause or a named helper for optional values.
+- Keep builders, request construction and client/presigner calls out of larger expressions; assign them to a domain-named variable or extract a private helper.
+- A public method should read as a short recipe. Keep implementation details in private helpers named after the step, such as `downloadRequest` or `contentDisposition`.
+- Extract a helper when it names a real step; do not add abstractions only to satisfy a generic style recipe.
+- If a block needs a comment to be understood, extract a method. Structure code so google-java-format leaves it readable instead of relying on manual line breaks.
+
 ## Database migrations and lifecycle
 
 - Create migrations only with `make migration <lowercase_snake_case_name>` from this repository. Edit the exact generated UTC-timestamped path; do not invent, copy or rename migration filenames.

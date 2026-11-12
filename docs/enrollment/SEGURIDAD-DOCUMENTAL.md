@@ -127,8 +127,9 @@ WHERE state = 'PENDING' AND next_attempt_at < now() - interval '1 hour';
 
 ## Destinos y backups
 
-Cada trabajo conserva proveedor, ubicación (directorio absoluto o bucket), prefijo
-y ruta relativa. Nunca se ejecuta en otro destino. El arranque rechaza configuraciones
+Cada trabajo conserva proveedor, ubicación (directorio absoluto, bucket AWS o
+endpoint/bucket para S3 con endpoint explícito), prefijo y ruta relativa.
+Nunca se ejecuta en otro destino. El arranque rechaza configuraciones
 incompatibles con trabajos PENDING o ACTIVE del journal. Los trabajos pendientes se
 procesan en su destino original y no se descartan para cambiar de configuración.
 

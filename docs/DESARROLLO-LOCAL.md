@@ -100,6 +100,12 @@ src/main/resources/db/migration/yyyyMMddHHmmss__add_enrollment_cancellation_reas
 - **Compatibilidad**: Comprobar instalación desde cero y actualización desde el historial previo. Una migración tardía debe funcionar sobre el esquema existente; la opción no resuelve dependencias SQL ni preserva automáticamente datos eliminados. En ambientes persistentes, respaldar y verificar la recuperación antes de cambios destructivos. El rollback de imagen no revierte migraciones.
 - **Edición segura en desarrollo**: Al crear una migración, editar el archivo generado antes de que el watcher aplique el archivo vacío. Si se necesita corregir un archivo en desarrollo descartable, usar el procedimiento de recreación limpia; nunca usar `Flyway repair` ni saltear validaciones.
 
+### Formularios de inscripción: historial vacío preservado
+
+La migración `20261106201322__create_enrollment_form_versions.sql` fue registrada vacía por el watcher local y se conserva vacía, con checksum `0`. El esquema está en `20261107005229__create_enrollment_form_versions_schema.sql`. No ejecutar `repair` ni borrar el historial: la migración posterior crea las tablas y agrega las columnas sin eliminar datos existentes.
+
+Antes de generar nuevas migraciones, detener la API que consume Flyway y mantenerla detenida hasta completar el archivo. Luego sincronizar el contenido completo y levantarla nuevamente. La regresión PostgreSQL cubre instalación nueva, actualización desde el historial previo y actualización con la migración vacía ya aplicada.
+
 ## 6. Comandos Habituales y Verificación
 
 El proyecto cuenta con tareas de Gradle organizadas según su costo y velocidad:
