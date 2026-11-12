@@ -1,6 +1,6 @@
 package ar.edu.utn.frvm.typeit.bemol_api.search;
 
-import ar.edu.utn.frvm.typeit.bemol_api.auth.filters.JwtAuthenticatedUser;
+import ar.edu.utn.frvm.typeit.bemol_api.auth.filters.CurrentPrincipal;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.RequiresInstitutionAccess;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.services.AuthorizationService;
 import ar.edu.utn.frvm.typeit.bemol_api.common.web.Version;
@@ -36,7 +36,9 @@ public class InstitutionalSearchController {
       @RequestParam(defaultValue = "5") @Min(1) @Max(5) final int limit,
       final Authentication authentication) {
     final UUID personId =
-        authentication.getPrincipal() instanceof JwtAuthenticatedUser user ? user.personId() : null;
+        CurrentPrincipal.institutionalUser(authentication)
+            .map(entry -> entry.personId())
+            .orElse(null);
 
     return searchService.institutionalSummary(
         institutionId,

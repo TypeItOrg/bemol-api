@@ -13,6 +13,7 @@ public class SearchFunctions implements FunctionContributor {
         contributions.getDialect() instanceof PostgreSQLDialect
             ? SearchNormalization.POSTGRES_UNACCENT_LOWER_PATTERN
             : SearchNormalization.UNACCENT_LOWER_PATTERN;
+
     contributions
         .getFunctionRegistry()
         .registerPattern(SearchNormalization.UNACCENT_LOWER_FUNCTION, pattern);
