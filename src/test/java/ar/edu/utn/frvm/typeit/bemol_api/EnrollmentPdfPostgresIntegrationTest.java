@@ -3,16 +3,11 @@ package ar.edu.utn.frvm.typeit.bemol_api;
 import static ar.edu.utn.frvm.typeit.bemol_api.support.AuthTestData.authentication;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 import ar.edu.utn.frvm.typeit.bemol_api.auth.filters.JwtAuthenticatedUser;
 import ar.edu.utn.frvm.typeit.bemol_api.common.mail.MailSender;
-import ar.edu.utn.frvm.typeit.bemol_api.enrollment.payloads.EnrollmentPdfData;
-import ar.edu.utn.frvm.typeit.bemol_api.enrollment.pdf.render.EnrollmentPdfUnavailableException;
-import ar.edu.utn.frvm.typeit.bemol_api.enrollment.services.EnrollmentPdfRenderer;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.entities.GuardianRelationship;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.entities.Institution;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.entities.Person;
@@ -20,10 +15,8 @@ import ar.edu.utn.frvm.typeit.bemol_api.institutional.entities.PersonGuardian;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.services.InstitutionLogoUseCase;
 import ar.edu.utn.frvm.typeit.bemol_api.support.IntegrationTest;
 import jakarta.persistence.EntityManager;
-import java.nio.charset.StandardCharsets;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
-import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
@@ -37,7 +30,6 @@ import org.springframework.transaction.support.TransactionTemplate;
 @IntegrationTest
 @AutoConfigureMockMvc
 class EnrollmentPdfPostgresIntegrationTest extends DatabaseMigrationTestSupport {
-  private static final byte[] PDF = "%PDF-1.7\nfixture".getBytes(StandardCharsets.US_ASCII);
   private static final String SETTINGS =
       """
       {"title":"Mi planilla","headerText":"Encabezado privado","introductionText":null,
@@ -47,7 +39,6 @@ class EnrollmentPdfPostgresIntegrationTest extends DatabaseMigrationTestSupport 
   @Autowired TransactionTemplate transaction;
   @Autowired EntityManager entities;
   @Autowired InstitutionLogoUseCase logos;
-  @MockitoBean EnrollmentPdfRenderer renderer;
   @MockitoBean MailSender mailSender;
 
   @Test
@@ -65,15 +56,14 @@ class EnrollmentPdfPostgresIntegrationTest extends DatabaseMigrationTestSupport 
             count(
                 "SELECT count(*) FROM enrollment_pdf_settings WHERE institution_id=?", institution))
         .isZero();
-    when(renderer.render(any())).thenReturn(PDF);
     mvc.perform(
             post(base + "/preview")
                 .with(authentication(admin))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(SETTINGS))
         .andExpect(status().isOk())
-        .andExpect(content().contentType(MediaType.APPLICATION_PDF))
-        .andExpect(header().string("Cache-Control", "private, no-store"));
+        .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+        .andExpect(jsonPath("$.settings.title").value("Mi planilla"));
     assertThat(
             count(
                 "SELECT count(*) FROM enrollment_pdf_settings WHERE institution_id=?", institution))
@@ -132,7 +122,6 @@ class EnrollmentPdfPostgresIntegrationTest extends DatabaseMigrationTestSupport 
         application = UUID.randomUUID();
     fixtures.insertPerson(person, institution, "88114001", false);
     insertApplication(application, institution, person);
-    when(renderer.render(any())).thenReturn(PDF);
     final long documentAudits =
         count("SELECT count(*) FROM enrollment_document_audit WHERE application_id=?", application);
     for (final var path :
@@ -142,28 +131,17 @@ class EnrollmentPdfPostgresIntegrationTest extends DatabaseMigrationTestSupport 
         }) {
       mvc.perform(get(path).with(authentication(admin)))
           .andExpect(status().isOk())
-          .andExpect(content().bytes(PDF))
-          .andExpect(content().contentType(MediaType.APPLICATION_PDF))
-          .andExpect(header().string("Cache-Control", "private, no-store"))
-          .andExpect(header().string("X-Content-Type-Options", "nosniff"))
+          .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+          .andExpect(jsonPath("$.submittedAt").value(org.hamcrest.Matchers.nullValue()))
           .andExpect(
-              header()
-                  .string("Content-Disposition", org.hamcrest.Matchers.containsString("inline")));
+              jsonPath(
+                  "$.sections[*].fields[*].value", org.hamcrest.Matchers.hasItem("Sin informar")));
     }
     assertThat(
             count(
                 "SELECT count(*) FROM enrollment_document_audit WHERE application_id=?",
                 application))
         .isEqualTo(documentAudits);
-    final var data = ArgumentCaptor.forClass(EnrollmentPdfData.class);
-    verify(renderer, times(2)).render(data.capture());
-    assertThat(data.getValue().submittedAt()).isNull();
-    assertThat(
-            data.getValue().sections().stream()
-                .flatMap(section -> section.fields().stream())
-                .map(field -> field.value()))
-        .contains("Sin informar");
-    clearInvocations(renderer);
     jdbcTemplate.update(
         "UPDATE enrollment_applications SET status='DRAFT' WHERE enrollment_application_id=?",
         application);
@@ -171,7 +149,6 @@ class EnrollmentPdfPostgresIntegrationTest extends DatabaseMigrationTestSupport 
             get("/api/v1/admin/enrollment-applications/" + institution + "/" + application + "/pdf")
                 .with(authentication(admin)))
         .andExpect(status().isConflict());
-    verifyNoInteractions(renderer);
     mvc.perform(
             get("/api/v1/admin/enrollment-applications/"
                     + UUID.randomUUID()
@@ -215,7 +192,6 @@ class EnrollmentPdfPostgresIntegrationTest extends DatabaseMigrationTestSupport 
               return value.getId();
             });
     insertApplication(application, institution, person);
-    when(renderer.render(any())).thenReturn(PDF);
     final UUID tutorUser = UUID.randomUUID();
     jdbcTemplate.update(
         "INSERT INTO users(user_id,person_id,institution_id,password,enabled,created_at,updated_at) VALUES (?,?,?,'test-only',true,now(),now())",
@@ -244,7 +220,6 @@ class EnrollmentPdfPostgresIntegrationTest extends DatabaseMigrationTestSupport 
             get(base + person + "/enrollment-applications/" + application + "/pdf")
                 .with(authentication(selected)))
         .andExpect(status().isOk());
-    clearInvocations(renderer);
     mvc.perform(
             get(base + tutor + "/enrollment-applications/" + application + "/pdf")
                 .with(authentication(selected)))
@@ -255,25 +230,26 @@ class EnrollmentPdfPostgresIntegrationTest extends DatabaseMigrationTestSupport 
             get(base + person + "/enrollment-applications/" + application + "/pdf")
                 .with(authentication(selected)))
         .andExpect(status().isForbidden());
-    verifyNoInteractions(renderer);
   }
 
   @Test
-  void rendererUnavailableHasRetryAfterAndLogoReadingAllowsInactiveInstitutions() throws Exception {
+  void logoReadingAllowsInactiveInstitutions() throws Exception {
     authenticatePlatformAdministrator();
     final var admin = requireNonNull(SecurityContextHolder.getContext().getAuthentication());
     final UUID institution = UUID.randomUUID();
     fixtures.insertTestInstitution(institution);
     jdbcTemplate.update("UPDATE institutions SET active=false WHERE institution_id=?", institution);
-    assertThat(logos.getForExport(institution)).isEmpty();
-    when(renderer.render(any())).thenThrow(new EnrollmentPdfUnavailableException());
+    final String logoUrl =
+        transaction.execute(
+            status -> logos.presignLogoUrl(entities.find(Institution.class, institution)));
+    assertThat(logoUrl).isNull();
     mvc.perform(
             post("/api/v1/admin/institutions/" + institution + "/enrollment-pdf-settings/preview")
                 .with(authentication(admin))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(SETTINGS))
-        .andExpect(status().isServiceUnavailable())
-        .andExpect(header().string("Retry-After", "5"));
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.settings.title").value("Mi planilla"));
   }
 
   private long count(final String sql, final UUID id) {
