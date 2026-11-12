@@ -21,7 +21,6 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
-import jakarta.persistence.Transient;
 import jakarta.persistence.UniqueConstraint;
 import java.time.Instant;
 import java.util.List;
@@ -81,24 +80,12 @@ public class Course extends SoftDeletable implements AuditSubject {
   @Column(nullable = false, length = 20)
   private CourseStatus status;
 
-  @Transient private StudyPlan legacyStudyPlan;
-
-  @Transient private AcademicSpace legacyAcademicSpace;
-
   public StudyPlan getStudyPlan() {
-    if (studyPlanSpace != null) {
-      return studyPlanSpace.getStudyPlan();
-    }
-
-    return legacyStudyPlan;
+    return studyPlanSpace.getStudyPlan();
   }
 
   public AcademicSpace getAcademicSpace() {
-    if (studyPlanSpace != null) {
-      return studyPlanSpace.getAcademicSpace();
-    }
-
-    return legacyAcademicSpace;
+    return studyPlanSpace.getAcademicSpace();
   }
 
   public static Course create(
@@ -126,27 +113,6 @@ public class Course extends SoftDeletable implements AuditSubject {
         .academicYear(academicYear)
         .status(CourseStatus.ACTIVE)
         .build();
-  }
-
-  /**
-   * Compatibility factory for in-memory callers created before Course was anchored to a
-   * StudyPlanSpace. Persisted courses must use the StudyPlanSpace factory above.
-   */
-  @Deprecated
-  public static Course create(
-      final Institution institution,
-      final StudyPlan studyPlan,
-      final AcademicSpace academicSpace,
-      final AcademicYear academicYear) {
-    final var course =
-        Course.builder()
-            .institution(institution)
-            .academicYear(academicYear)
-            .status(CourseStatus.ACTIVE)
-            .build();
-    course.legacyStudyPlan = studyPlan;
-    course.legacyAcademicSpace = academicSpace;
-    return course;
   }
 
   public void activate() {

@@ -19,10 +19,6 @@ def exceptions = [
         limit: 942,
         reason: 'Enrollment orchestration currently coordinates legacy drafts, course periods and guardianship access.'
     ],
-    'ar/edu/utn/frvm/typeit/bemol_api/academic/entities/Course.java': [
-        limit: 261,
-        reason: 'Course aggregate keeps its legacy factories, lifecycle and audit delegations together.'
-    ],
     'ar/edu/utn/frvm/typeit/bemol_api/authorization/services/InstitutionRoleManagementService.java': [
         limit: 259,
         reason: 'Role management keeps the create, update and delete flows with their authorization checks together.'
