@@ -1,5 +1,6 @@
 package ar.edu.utn.frvm.typeit.bemol_api.academic.services;
 
+import ar.edu.utn.frvm.typeit.bemol_api.academic.audit.AcademicAuditAction;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.entities.AcademicLevel;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.entities.Instrument;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.entities.StudyPlanSpace;
@@ -16,8 +17,6 @@ import ar.edu.utn.frvm.typeit.bemol_api.academic.interfaces.StudyPlanSpaceReposi
 import ar.edu.utn.frvm.typeit.bemol_api.academic.payloads.CreateStudyPlanSpaceRequest;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.payloads.StudyPlanSpaceInstrumentOptionResponse;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.payloads.StudyPlanSpaceResponse;
-import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditAction;
-import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditEntityType;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditOrigin;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.services.AuditEventRecorder;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.enums.PermissionCode;
@@ -78,11 +77,13 @@ public class CreateStudyPlanSpaceUseCase {
       saveInstrumentRelations(saved, instruments);
       studyPlanSpaceRepository.flush();
 
+      final var snapshot =
+          saved.auditSnapshot(instruments.stream().map(entry -> entry.getId()).toList());
       auditRecorder.recordCurrentActor(
           saved.getInstitution(),
           null,
-          AuditAction.STUDY_PLAN_SPACE_CREATED,
-          AuditEntityType.STUDY_PLAN_SPACE,
+          AcademicAuditAction.STUDY_PLAN_SPACE_CREATED,
+          StudyPlanSpace.AUDIT_TYPE,
           saved.getId(),
           AuditOrigin.administration(),
           Map.of(
@@ -91,8 +92,9 @@ public class CreateStudyPlanSpaceUseCase {
               "studyPlanName",
               plan.getName(),
               "after",
-              AcademicAuditDetails.space(
-                  saved, instruments.stream().map(instrument -> instrument.getId()).toList())));
+              snapshot.visibleValues(),
+              "fieldLabels",
+              snapshot.labels()));
       return StudyPlanSpaceResponse.from(saved, instrumentOptions(instruments));
     } catch (DataIntegrityViolationException exception) {
       throw AcademicIntegrityViolationTranslator.translate(exception);

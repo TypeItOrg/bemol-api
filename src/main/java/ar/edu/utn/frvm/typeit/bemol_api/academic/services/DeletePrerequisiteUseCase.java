@@ -1,9 +1,9 @@
 package ar.edu.utn.frvm.typeit.bemol_api.academic.services;
 
+import ar.edu.utn.frvm.typeit.bemol_api.academic.audit.AcademicAuditAction;
+import ar.edu.utn.frvm.typeit.bemol_api.academic.entities.Prerequisite;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.exceptions.PrerequisiteNotFoundException;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.interfaces.PrerequisiteRepository;
-import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditAction;
-import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditEntityType;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditOrigin;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.services.AuditEventRecorder;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.enums.PermissionCode;
@@ -40,16 +40,18 @@ public class DeletePrerequisiteUseCase {
     auditRecorder.recordCurrentActor(
         existing.getStudyPlan().getInstitution(),
         null,
-        AuditAction.STUDY_PLAN_PREREQUISITE_DELETED,
-        AuditEntityType.PREREQUISITE,
+        AcademicAuditAction.STUDY_PLAN_PREREQUISITE_DELETED,
+        Prerequisite.AUDIT_TYPE,
         id,
         AuditOrigin.administration(),
         Map.of(
             "entityName",
-            AcademicAuditDetails.prerequisiteName(existing),
+            existing.auditName(),
             "studyPlanName",
             existing.getStudyPlan().getName(),
             "before",
-            AcademicAuditDetails.prerequisite(existing)));
+            existing.auditSnapshot().visibleValues(),
+            "fieldLabels",
+            existing.auditSnapshot().labels()));
   }
 }

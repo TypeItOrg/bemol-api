@@ -1,12 +1,11 @@
 package ar.edu.utn.frvm.typeit.bemol_api.academic.services;
 
+import ar.edu.utn.frvm.typeit.bemol_api.academic.audit.AcademicAuditAction;
+import ar.edu.utn.frvm.typeit.bemol_api.academic.entities.Shift;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.exceptions.ShiftNotFoundException;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.interfaces.ShiftRepository;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.payloads.ActiveStatusRequest;
-import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditAction;
-import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditEntityType;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.services.AuditEventRecorder;
-import java.util.Map;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -25,17 +24,17 @@ public class UpdateShiftStatusUseCase {
             .findByIdAndInstitution_IdForLifecycle(id, institutionId)
             .filter(value -> !value.isDeleted())
             .orElseThrow(ShiftNotFoundException::new);
-    final var before = Map.<String, Object>of("active", shift.isActive());
+    final var before = shift.auditSnapshot();
     shift.updateStatus(request.active());
     shiftRepository.flush();
-    auditRecorder.recordChange(
+    auditRecorder.recordSnapshotChange(
         shift.getInstitution(),
         null,
-        AuditAction.SHIFT_STATUS_CHANGED,
-        AuditEntityType.SHIFT,
+        AcademicAuditAction.SHIFT_STATUS_CHANGED,
+        Shift.AUDIT_TYPE,
         shift.getId(),
         shift.getName(),
         before,
-        Map.of("active", shift.isActive()));
+        shift.auditSnapshot());
   }
 }

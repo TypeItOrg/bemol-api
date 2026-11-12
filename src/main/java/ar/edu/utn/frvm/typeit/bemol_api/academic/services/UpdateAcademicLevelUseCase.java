@@ -1,5 +1,6 @@
 package ar.edu.utn.frvm.typeit.bemol_api.academic.services;
 
+import ar.edu.utn.frvm.typeit.bemol_api.academic.audit.AcademicAuditAction;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.entities.AcademicLevel;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.exceptions.AcademicConflictException;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.exceptions.AcademicIntegrityViolationTranslator;
@@ -8,18 +9,13 @@ import ar.edu.utn.frvm.typeit.bemol_api.academic.exceptions.AcademicMessages;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.interfaces.AcademicLevelRepository;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.payloads.AcademicLevelResponse;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.payloads.UpdateAcademicLevelRequest;
-import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditAction;
-import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditEntityType;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditOrigin;
+import ar.edu.utn.frvm.typeit.bemol_api.audit.services.AuditChangeDetails;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.services.AuditEventRecorder;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.enums.PermissionCode;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.enums.ScopedResource;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.services.AcademicAccessGuard;
-import java.util.ArrayList;
-import java.util.Map;
-import java.util.Objects;
 import java.util.UUID;
-import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
@@ -52,41 +48,25 @@ public class UpdateAcademicLevelUseCase {
         plan.getId(), request.displayOrder(), id)) {
       throw AcademicConflictException.forField("displayOrder", AcademicMessages.DUPLICATE_ORDER);
     }
-    final var before = AcademicAuditDetails.level(level);
-    final var previousDescription = level.getDescription();
+    final var before = level.auditSnapshot();
     level.update(name, request.displayOrder(), request.description());
     try {
       academicLevelRepository.flush();
     } catch (DataIntegrityViolationException exception) {
       throw AcademicIntegrityViolationTranslator.translate(exception);
     }
-    final var after = AcademicAuditDetails.level(level);
-    final var changedFields =
-        before.keySet().stream()
-            .filter(key -> !Objects.equals(before.get(key), after.get(key)))
-            .collect(Collectors.toCollection(ArrayList::new));
-    if (!Objects.equals(previousDescription, level.getDescription())) {
-      changedFields.add("description");
-    }
-    if (!changedFields.isEmpty()) {
+    final var after = level.auditSnapshot();
+    if (!before.values().equals(after.values())) {
+      final var details = AuditChangeDetails.change(level.getName(), before, after);
+      details.put("studyPlanName", plan.getName());
       auditRecorder.recordCurrentActor(
           plan.getInstitution(),
           null,
-          AuditAction.STUDY_PLAN_LEVEL_UPDATED,
-          AuditEntityType.ACADEMIC_LEVEL,
+          AcademicAuditAction.STUDY_PLAN_LEVEL_UPDATED,
+          AcademicLevel.AUDIT_TYPE,
           id,
           AuditOrigin.administration(),
-          Map.of(
-              "entityName",
-              level.getName(),
-              "studyPlanName",
-              plan.getName(),
-              "before",
-              before,
-              "after",
-              after,
-              "changedFields",
-              changedFields));
+          details);
     }
     return AcademicLevelResponse.from(level);
   }

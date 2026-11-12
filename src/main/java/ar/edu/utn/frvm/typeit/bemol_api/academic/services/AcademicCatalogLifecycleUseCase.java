@@ -11,6 +11,7 @@ import ar.edu.utn.frvm.typeit.bemol_api.academic.interfaces.AcademicYearReposito
 import ar.edu.utn.frvm.typeit.bemol_api.academic.interfaces.InstrumentRepository;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.interfaces.ShiftRepository;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.payloads.AcademicLifecycleRequest;
+import ar.edu.utn.frvm.typeit.bemol_api.audit.services.AuditChangeDetails;
 import java.time.Clock;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -42,7 +43,7 @@ public class AcademicCatalogLifecycleUseCase {
           id,
           AcademicLifecycleAction.DELETE,
           request,
-          AcademicCatalogAuditDetails.lifecycle(String.valueOf(year.getYear()), true));
+          AuditChangeDetails.lifecycle(String.valueOf(year.getYear()), true));
     }
   }
 
@@ -59,7 +60,7 @@ public class AcademicCatalogLifecycleUseCase {
         AcademicLifecycleResource.ACADEMIC_YEAR,
         id,
         request,
-        AcademicCatalogAuditDetails.lifecycle(String.valueOf(year.getYear()), false));
+        AuditChangeDetails.lifecycle(String.valueOf(year.getYear()), false));
   }
 
   @Transactional
@@ -76,7 +77,7 @@ public class AcademicCatalogLifecycleUseCase {
           id,
           AcademicLifecycleAction.DELETE,
           request,
-          AcademicCatalogAuditDetails.lifecycle(space.getName(), true));
+          AuditChangeDetails.lifecycle(space.getName(), true));
     }
   }
 
@@ -93,7 +94,7 @@ public class AcademicCatalogLifecycleUseCase {
         AcademicLifecycleResource.ACADEMIC_SPACE,
         id,
         request,
-        AcademicCatalogAuditDetails.lifecycle(space.getName(), false));
+        AuditChangeDetails.lifecycle(space.getName(), false));
   }
 
   @Transactional
@@ -110,7 +111,7 @@ public class AcademicCatalogLifecycleUseCase {
           id,
           AcademicLifecycleAction.DELETE,
           request,
-          AcademicCatalogAuditDetails.lifecycle(instrument.getName(), true));
+          AuditChangeDetails.lifecycle(instrument.getName(), true));
     }
   }
 
@@ -127,7 +128,7 @@ public class AcademicCatalogLifecycleUseCase {
         AcademicLifecycleResource.INSTRUMENT,
         id,
         request,
-        AcademicCatalogAuditDetails.lifecycle(instrument.getName(), false));
+        AuditChangeDetails.lifecycle(instrument.getName(), false));
   }
 
   @Transactional
@@ -144,7 +145,7 @@ public class AcademicCatalogLifecycleUseCase {
           id,
           AcademicLifecycleAction.DELETE,
           request,
-          AcademicCatalogAuditDetails.lifecycle(shift.getName(), true));
+          AuditChangeDetails.lifecycle(shift.getName(), true));
     }
   }
 
@@ -161,6 +162,6 @@ public class AcademicCatalogLifecycleUseCase {
         AcademicLifecycleResource.SHIFT,
         id,
         request,
-        AcademicCatalogAuditDetails.lifecycle(shift.getName(), false));
+        AuditChangeDetails.lifecycle(shift.getName(), false));
   }
 }

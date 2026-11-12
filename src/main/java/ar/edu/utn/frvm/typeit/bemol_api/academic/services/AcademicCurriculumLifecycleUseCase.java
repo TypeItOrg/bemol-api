@@ -18,6 +18,7 @@ import ar.edu.utn.frvm.typeit.bemol_api.academic.interfaces.CourseRepository;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.interfaces.StudyPlanRepository;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.interfaces.TrainingPathRepository;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.payloads.AcademicLifecycleRequest;
+import ar.edu.utn.frvm.typeit.bemol_api.audit.services.AuditChangeDetails;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.enums.PermissionCode;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.enums.ScopedResource;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.services.AcademicAccessGuard;
@@ -63,7 +64,7 @@ public class AcademicCurriculumLifecycleUseCase {
           id,
           AcademicLifecycleAction.DELETE,
           request,
-          AcademicCatalogAuditDetails.lifecycle(path.getName(), true));
+          AuditChangeDetails.lifecycle(path.getName(), true));
     }
   }
 
@@ -83,7 +84,7 @@ public class AcademicCurriculumLifecycleUseCase {
         AcademicLifecycleResource.TRAINING_PATH,
         id,
         request,
-        AcademicCatalogAuditDetails.lifecycle(path.getName(), false));
+        AuditChangeDetails.lifecycle(path.getName(), false));
   }
 
   @Transactional
@@ -102,7 +103,13 @@ public class AcademicCurriculumLifecycleUseCase {
           id,
           AcademicLifecycleAction.DELETE,
           request,
-          Map.of("entityName", plan.getName(), "before", AcademicAuditDetails.plan(plan)));
+          Map.of(
+              "entityName",
+              plan.getName(),
+              "before",
+              plan.auditSnapshot().visibleValues(),
+              "fieldLabels",
+              plan.auditSnapshot().labels()));
     }
   }
 
@@ -125,7 +132,13 @@ public class AcademicCurriculumLifecycleUseCase {
         AcademicLifecycleResource.STUDY_PLAN,
         id,
         request,
-        Map.of("entityName", plan.getName(), "after", AcademicAuditDetails.plan(plan)));
+        Map.of(
+            "entityName",
+            plan.getName(),
+            "after",
+            plan.auditSnapshot().visibleValues(),
+            "fieldLabels",
+            plan.auditSnapshot().labels()));
   }
 
   @Transactional
@@ -179,11 +192,13 @@ public class AcademicCurriculumLifecycleUseCase {
   private Map<String, Object> courseDetails(final Course course, final String snapshotKey) {
     return Map.of(
         "entityName",
-        AcademicAuditDetails.courseName(course),
+        course.auditName(),
         snapshotKey,
-        Map.of("status", course.getStatus().name()),
+        course.auditSnapshot().visibleValues(),
+        "fieldLabels",
+        course.auditSnapshot().labels(),
         "relatedPersonIds",
-        AcademicAuditDetails.teacherIds(courseTreeReader.read(course.getId())));
+        courseTreeReader.teacherIds(course.getId()));
   }
 
   private CourseParents lockCourseParents(final UUID institutionId, final UUID courseId) {

@@ -1,5 +1,6 @@
 package ar.edu.utn.frvm.typeit.bemol_api.academic.services;
 
+import ar.edu.utn.frvm.typeit.bemol_api.academic.audit.AcademicAuditAction;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.entities.StudyPlan;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.enums.StudyPlanStatus;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.exceptions.AcademicConflictException;
@@ -10,15 +11,14 @@ import ar.edu.utn.frvm.typeit.bemol_api.academic.interfaces.CourseRepository;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.interfaces.StudyPlanRepository;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.interfaces.StudyPlanSpaceRepository;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.payloads.StudyPlanStatusRequest;
-import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditAction;
-import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditEntityType;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditOrigin;
+import ar.edu.utn.frvm.typeit.bemol_api.audit.services.AuditChangeDetails;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.services.AuditEventRecorder;
+import ar.edu.utn.frvm.typeit.bemol_api.audit.snapshot.AuditSnapshot;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.enums.PermissionCode;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.enums.ScopedResource;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.services.AcademicAccessGuard;
 import ar.edu.utn.frvm.typeit.bemol_api.common.time.BusinessDateProvider;
-import java.util.Map;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -45,7 +45,7 @@ public class UpdateStudyPlanStatusUseCase {
         studyPlanRepository
             .findByIdAndInstitution_IdForUpdate(id, institutionId)
             .orElseThrow(StudyPlanNotFoundException::new);
-    final var before = AcademicAuditDetails.plan(plan);
+    final var before = plan.auditSnapshot();
     if (request.status() == StudyPlanStatus.ACTIVE) {
       if (plan.getEffectiveFrom() == null || !plan.getTrainingPath().isActive()) {
         throw new AcademicConflictException(
@@ -83,17 +83,17 @@ public class UpdateStudyPlanStatusUseCase {
     }
   }
 
-  private void recordStatusChange(final StudyPlan plan, final Map<String, Object> before) {
-    final var after = AcademicAuditDetails.plan(plan);
+  private void recordStatusChange(final StudyPlan plan, final AuditSnapshot.Snapshot before) {
+    final var after = plan.auditSnapshot();
     if (!before.equals(after)) {
       auditRecorder.recordCurrentActor(
           plan.getInstitution(),
           null,
-          AuditAction.STUDY_PLAN_STATUS_CHANGED,
-          AuditEntityType.STUDY_PLAN,
+          AcademicAuditAction.STUDY_PLAN_STATUS_CHANGED,
+          StudyPlan.AUDIT_TYPE,
           plan.getId(),
           AuditOrigin.administration(),
-          AcademicAuditDetails.change(plan.getName(), before, after));
+          AuditChangeDetails.change(plan.getName(), before, after));
     }
   }
 
@@ -119,7 +119,7 @@ public class UpdateStudyPlanStatusUseCase {
 
       final var newVersionEnd = plan.getEffectiveFrom().minusDays(1);
       final var previousEnd = lockedPrevious.getEffectiveTo();
-      final var before = AcademicAuditDetails.plan(lockedPrevious);
+      final var before = lockedPrevious.auditSnapshot();
       lockedPrevious.deactivate(
           previousEnd != null && previousEnd.isBefore(newVersionEnd) ? previousEnd : newVersionEnd);
       recordStatusChange(lockedPrevious, before);

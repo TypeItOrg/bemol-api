@@ -1,15 +1,14 @@
 package ar.edu.utn.frvm.typeit.bemol_api.academic.services;
 
+import ar.edu.utn.frvm.typeit.bemol_api.academic.audit.AcademicAuditAction;
+import ar.edu.utn.frvm.typeit.bemol_api.academic.entities.Instrument;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.exceptions.AcademicConflictException;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.exceptions.AcademicMessages;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.exceptions.InstrumentNotFoundException;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.interfaces.CourseRepository;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.interfaces.InstrumentRepository;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.payloads.ActiveStatusRequest;
-import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditAction;
-import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditEntityType;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.services.AuditEventRecorder;
-import java.util.Map;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -32,17 +31,17 @@ public class UpdateInstrumentStatusUseCase {
     if (!request.active() && courseRepository.existsActiveByInstrument(institutionId, id)) {
       throw new AcademicConflictException(AcademicMessages.INSTRUMENT_IN_USE);
     }
-    final var before = Map.<String, Object>of("active", instrument.isActive());
+    final var before = instrument.auditSnapshot();
     instrument.updateStatus(request.active());
     instrumentRepository.flush();
-    auditRecorder.recordChange(
+    auditRecorder.recordSnapshotChange(
         instrument.getInstitution(),
         null,
-        AuditAction.INSTRUMENT_STATUS_CHANGED,
-        AuditEntityType.INSTRUMENT,
+        AcademicAuditAction.INSTRUMENT_STATUS_CHANGED,
+        Instrument.AUDIT_TYPE,
         instrument.getId(),
         instrument.getName(),
         before,
-        Map.of("active", instrument.isActive()));
+        instrument.auditSnapshot());
   }
 }

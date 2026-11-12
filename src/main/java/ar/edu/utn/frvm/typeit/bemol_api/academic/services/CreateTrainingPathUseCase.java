@@ -1,5 +1,6 @@
 package ar.edu.utn.frvm.typeit.bemol_api.academic.services;
 
+import ar.edu.utn.frvm.typeit.bemol_api.academic.audit.AcademicAuditAction;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.entities.TrainingPath;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.exceptions.AcademicConflictException;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.exceptions.AcademicIntegrityViolationTranslator;
@@ -8,12 +9,10 @@ import ar.edu.utn.frvm.typeit.bemol_api.academic.interfaces.TrainingPathReposito
 import ar.edu.utn.frvm.typeit.bemol_api.academic.payloads.CreateTrainingPathRequest;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.payloads.TrainingPathResponse;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.validation.AcademicNameNormalizer;
-import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditAction;
-import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditEntityType;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.services.AuditEventRecorder;
+import ar.edu.utn.frvm.typeit.bemol_api.audit.snapshot.AuditSnapshot;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.exceptions.InstitutionNotFoundException;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.interfaces.InstitutionRepository;
-import java.util.Map;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -43,15 +42,15 @@ public class CreateTrainingPathUseCase {
           trainingPathRepository.save(
               TrainingPath.create(institution, name, request.description()));
       trainingPathRepository.flush();
-      auditRecorder.recordChange(
+      auditRecorder.recordSnapshotChange(
           saved.getInstitution(),
           null,
-          AuditAction.TRAINING_PATH_CREATED,
-          AuditEntityType.TRAINING_PATH,
+          AcademicAuditAction.TRAINING_PATH_CREATED,
+          TrainingPath.AUDIT_TYPE,
           saved.getId(),
           saved.getName(),
-          Map.of(),
-          AcademicCatalogAuditDetails.snapshot(saved));
+          AuditSnapshot.empty(),
+          saved.auditSnapshot());
       return TrainingPathResponse.from(saved);
     } catch (DataIntegrityViolationException exception) {
       throw AcademicIntegrityViolationTranslator.translate(exception);

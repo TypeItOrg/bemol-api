@@ -1,5 +1,6 @@
 package ar.edu.utn.frvm.typeit.bemol_api.academic.services;
 
+import ar.edu.utn.frvm.typeit.bemol_api.academic.audit.AcademicAuditAction;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.entities.DocumentDefinition;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.entities.TrainingPathDocumentRequirement;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.exceptions.AcademicMessages;
@@ -13,8 +14,9 @@ import ar.edu.utn.frvm.typeit.bemol_api.academic.payloads.DocumentDefinitionResp
 import ar.edu.utn.frvm.typeit.bemol_api.academic.payloads.DocumentRequirementRequest;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.payloads.DocumentRequirementResponse;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.payloads.PlatformDocumentDefinitionResponse;
-import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditAction;
+import ar.edu.utn.frvm.typeit.bemol_api.audit.definition.AuditOperation;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.services.AuditEventRecorder;
+import ar.edu.utn.frvm.typeit.bemol_api.audit.snapshot.AuditSnapshot;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.enums.PermissionCode;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.enums.ScopedResource;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.exceptions.ScopedResourceNotFoundException;
@@ -26,7 +28,6 @@ import ar.edu.utn.frvm.typeit.bemol_api.enrollment.services.SynchronizeDraftDocu
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.interfaces.InstitutionRepository;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.UUID;
@@ -121,9 +122,7 @@ public class DocumentCatalogUseCase {
             ? List.<TrainingPathDocumentRequirement>of()
             : assignments.findByDocumentId(value.getId());
     final var before =
-        id == null
-            ? Map.<String, Object>of()
-            : DocumentAuditDetails.snapshot(value, existingAssignments);
+        id == null ? AuditSnapshot.empty() : value.auditSnapshot(existingAssignments);
     if (transferring) {
       transfer(value, destinationId);
     }
@@ -146,17 +145,18 @@ public class DocumentCatalogUseCase {
     }
     assignments.flush();
     final int drafts = synchronize.execute(destinationId, affected);
-    final var after =
-        DocumentAuditDetails.snapshot(value, assignments.findByDocumentId(value.getId()));
-    final var action =
-        id == null
-            ? AuditAction.DOCUMENT_DEFINITION_CREATED
-            : transferring
-                ? AuditAction.DOCUMENT_DEFINITION_TRANSFERRED
-                : DocumentAuditDetails.definitionChanged(before, after)
-                    ? AuditAction.DOCUMENT_DEFINITION_UPDATED
-                    : AuditAction.DOCUMENT_REQUIREMENTS_CHANGED;
-    DocumentAuditDetails.recordChange(auditEventRecorder, value, action, before, after);
+    final var after = value.auditSnapshot(assignments.findByDocumentId(value.getId()));
+    final AcademicAuditAction action;
+    if (id == null) {
+      action = AcademicAuditAction.DOCUMENT_DEFINITION_CREATED;
+    } else if (transferring) {
+      action = AcademicAuditAction.DOCUMENT_DEFINITION_TRANSFERRED;
+    } else if (DocumentDefinition.definitionChanged(before, after)) {
+      action = AcademicAuditAction.DOCUMENT_DEFINITION_UPDATED;
+    } else {
+      action = AcademicAuditAction.DOCUMENT_REQUIREMENTS_CHANGED;
+    }
+    recordChange(value, action, before, after);
 
     return queries.result(destinationId, value.getId(), affected.size(), drafts);
   }
@@ -170,7 +170,7 @@ public class DocumentCatalogUseCase {
     lock.lock(institutionId);
     final var value = queries.definition(institutionId, id);
     requirements.validate(institutionId, value, changes);
-    final var before = DocumentAuditDetails.snapshot(value, assignments.findByDocumentId(id));
+    final var before = value.auditSnapshot(assignments.findByDocumentId(id));
 
     final var affected = new HashSet<UUID>();
     for (final var change : changes) {
@@ -179,9 +179,8 @@ public class DocumentCatalogUseCase {
     }
     assignments.flush();
     final int drafts = synchronize.execute(institutionId, affected);
-    final var after = DocumentAuditDetails.snapshot(value, assignments.findByDocumentId(id));
-    DocumentAuditDetails.recordChange(
-        auditEventRecorder, value, AuditAction.DOCUMENT_REQUIREMENTS_CHANGED, before, after);
+    final var after = value.auditSnapshot(assignments.findByDocumentId(id));
+    recordChange(value, AcademicAuditAction.DOCUMENT_REQUIREMENTS_CHANGED, before, after);
 
     return queries.result(institutionId, id, affected.size(), drafts);
   }
@@ -219,16 +218,13 @@ public class DocumentCatalogUseCase {
             request.specificInstructions());
     requirements.validate(institutionId, document, List.of(change));
 
-    final var before =
-        DocumentAuditDetails.snapshot(document, assignments.findByDocumentId(document.getId()));
+    final var before = document.auditSnapshot(assignments.findByDocumentId(document.getId()));
     final var saved = requirements.apply(institutionId, document, change);
     assignments.flush();
     final var savedId = saved.getId();
     synchronize.execute(institutionId, Set.of(pathId));
-    final var after =
-        DocumentAuditDetails.snapshot(document, assignments.findByDocumentId(document.getId()));
-    DocumentAuditDetails.recordChange(
-        auditEventRecorder, document, AuditAction.DOCUMENT_REQUIREMENTS_CHANGED, before, after);
+    final var after = document.auditSnapshot(assignments.findByDocumentId(document.getId()));
+    recordChange(document, AcademicAuditAction.DOCUMENT_REQUIREMENTS_CHANGED, before, after);
 
     return DocumentRequirementResponse.from(assignments.findById(savedId).orElseThrow());
   }
@@ -246,5 +242,21 @@ public class DocumentCatalogUseCase {
 
   private void require(final PermissionCode permission, final UUID institutionId) {
     authorization.require(permission, institutionId, new UUID(0, 0));
+  }
+
+  private void recordChange(
+      final DocumentDefinition document,
+      final AuditOperation action,
+      final AuditSnapshot.Snapshot before,
+      final AuditSnapshot.Snapshot after) {
+    auditEventRecorder.recordSnapshotChange(
+        document.getInstitution(),
+        null,
+        action,
+        DocumentDefinition.AUDIT_TYPE,
+        document.getId(),
+        document.getName(),
+        before,
+        after);
   }
 }

@@ -2,6 +2,9 @@ package ar.edu.utn.frvm.typeit.bemol_api.academic.entities;
 
 import ar.edu.utn.frvm.typeit.bemol_api.academic.exceptions.InvalidAcademicStateException;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.validation.AcademicNameNormalizer;
+import ar.edu.utn.frvm.typeit.bemol_api.audit.definition.AuditResource;
+import ar.edu.utn.frvm.typeit.bemol_api.audit.snapshot.AuditSnapshot;
+import ar.edu.utn.frvm.typeit.bemol_api.audit.snapshot.AuditSubject;
 import ar.edu.utn.frvm.typeit.bemol_api.common.persistence.GeneratedUUIDv7;
 import ar.edu.utn.frvm.typeit.bemol_api.common.persistence.SoftDeletable;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.entities.Institution;
@@ -20,13 +23,9 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import org.hibernate.envers.AuditOverride;
-import org.hibernate.envers.Audited;
-import org.hibernate.envers.RelationTargetAuditMode;
 import org.jspecify.annotations.Nullable;
 
 @Entity
-@AuditOverride(forClass = SoftDeletable.class, name = "deletedAt", isAudited = true)
 @Table(
     name = "shifts",
     uniqueConstraints =
@@ -37,7 +36,8 @@ import org.jspecify.annotations.Nullable;
 @NoArgsConstructor
 @AllArgsConstructor(access = AccessLevel.PRIVATE)
 @Builder(access = AccessLevel.PACKAGE)
-public class Shift extends SoftDeletable {
+public class Shift extends SoftDeletable implements AuditSubject {
+  public static final AuditResource AUDIT_TYPE = new AuditResource("SHIFT", "Turno");
 
   @Id
   @GeneratedUUIDv7
@@ -46,18 +46,15 @@ public class Shift extends SoftDeletable {
 
   @ManyToOne(fetch = FetchType.LAZY, optional = false)
   @JoinColumn(name = "institution_id", nullable = false)
-  @Audited(targetAuditMode = RelationTargetAuditMode.NOT_AUDITED)
   private Institution institution;
 
   @Column(nullable = false, length = 150)
-  @Audited(withModifiedFlag = true)
   private String name;
 
   @Column(length = 1000)
   private @Nullable String description;
 
   @Column(nullable = false)
-  @Audited(withModifiedFlag = true)
   private boolean active;
 
   public static Shift create(
@@ -84,5 +81,14 @@ public class Shift extends SoftDeletable {
       throw new InvalidAcademicStateException();
     }
     return markDeleted(deletedAt);
+  }
+
+  @Override
+  public AuditSnapshot.Snapshot auditSnapshot() {
+    return AuditSnapshot.fields()
+        .expose("name", "Nombre", name)
+        .compare("description", "Descripción", description)
+        .expose("active", "Estado", active)
+        .build();
   }
 }

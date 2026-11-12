@@ -1,5 +1,6 @@
 package ar.edu.utn.frvm.typeit.bemol_api.academic.services;
 
+import ar.edu.utn.frvm.typeit.bemol_api.academic.audit.AcademicAuditAction;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.entities.Prerequisite;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.entities.StudyPlanSpace;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.exceptions.AcademicConflictException;
@@ -10,8 +11,6 @@ import ar.edu.utn.frvm.typeit.bemol_api.academic.interfaces.PrerequisiteReposito
 import ar.edu.utn.frvm.typeit.bemol_api.academic.interfaces.StudyPlanSpaceRepository;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.payloads.CreatePrerequisiteRequest;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.payloads.PrerequisiteResponse;
-import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditAction;
-import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditEntityType;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditOrigin;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.services.AuditEventRecorder;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.enums.PermissionCode;
@@ -57,17 +56,19 @@ public class CreatePrerequisiteUseCase {
       auditRecorder.recordCurrentActor(
           plan.getInstitution(),
           null,
-          AuditAction.STUDY_PLAN_PREREQUISITE_CREATED,
-          AuditEntityType.PREREQUISITE,
+          AcademicAuditAction.STUDY_PLAN_PREREQUISITE_CREATED,
+          Prerequisite.AUDIT_TYPE,
           saved.getId(),
           AuditOrigin.administration(),
           Map.of(
               "entityName",
-              AcademicAuditDetails.prerequisiteName(saved),
+              saved.auditName(),
               "studyPlanName",
               plan.getName(),
               "after",
-              AcademicAuditDetails.prerequisite(saved)));
+              saved.auditSnapshot().visibleValues(),
+              "fieldLabels",
+              saved.auditSnapshot().labels()));
       return PrerequisiteResponse.from(saved);
     } catch (DataIntegrityViolationException exception) {
       throw AcademicIntegrityViolationTranslator.translate(exception);

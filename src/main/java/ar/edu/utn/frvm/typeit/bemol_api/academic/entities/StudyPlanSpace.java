@@ -2,6 +2,9 @@ package ar.edu.utn.frvm.typeit.bemol_api.academic.entities;
 
 import ar.edu.utn.frvm.typeit.bemol_api.academic.enums.ApprovalMode;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.enums.RequirementType;
+import ar.edu.utn.frvm.typeit.bemol_api.audit.definition.AuditResource;
+import ar.edu.utn.frvm.typeit.bemol_api.audit.snapshot.AuditSnapshot;
+import ar.edu.utn.frvm.typeit.bemol_api.audit.snapshot.AuditSubject;
 import ar.edu.utn.frvm.typeit.bemol_api.common.persistence.Auditable;
 import ar.edu.utn.frvm.typeit.bemol_api.common.persistence.GeneratedUUIDv7;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.entities.Institution;
@@ -15,14 +18,14 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
+import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import org.hibernate.envers.Audited;
-import org.hibernate.envers.RelationTargetAuditMode;
 import org.jspecify.annotations.Nullable;
 
 @Entity
@@ -40,7 +43,9 @@ import org.jspecify.annotations.Nullable;
 @NoArgsConstructor
 @AllArgsConstructor(access = AccessLevel.PRIVATE)
 @Builder(access = AccessLevel.PACKAGE)
-public class StudyPlanSpace extends Auditable {
+public class StudyPlanSpace extends Auditable implements AuditSubject {
+  public static final AuditResource AUDIT_TYPE =
+      new AuditResource("STUDY_PLAN_SPACE", "Espacio de plan");
 
   @Id
   @GeneratedUUIDv7
@@ -49,36 +54,29 @@ public class StudyPlanSpace extends Auditable {
 
   @ManyToOne(fetch = FetchType.LAZY, optional = false)
   @JoinColumn(name = "institution_id", nullable = false)
-  @Audited(targetAuditMode = RelationTargetAuditMode.NOT_AUDITED)
   private Institution institution;
 
   @ManyToOne(fetch = FetchType.LAZY, optional = false)
   @JoinColumn(name = "study_plan_id", nullable = false)
-  @Audited(targetAuditMode = RelationTargetAuditMode.NOT_AUDITED)
   private StudyPlan studyPlan;
 
   @ManyToOne(fetch = FetchType.LAZY, optional = false)
   @JoinColumn(name = "academic_space_id", nullable = false)
-  @Audited(targetAuditMode = RelationTargetAuditMode.NOT_AUDITED)
   private AcademicSpace academicSpace;
 
   @ManyToOne(fetch = FetchType.LAZY)
   @JoinColumn(name = "academic_level_id")
-  @Audited(targetAuditMode = RelationTargetAuditMode.NOT_AUDITED)
   private @Nullable AcademicLevel academicLevel;
 
   @Enumerated(EnumType.STRING)
   @Column(name = "requirement_type", nullable = false, length = 20)
-  @Audited
   private RequirementType requirementType;
 
   @Column(name = "display_order", nullable = false)
-  @Audited
   private int displayOrder;
 
   @Enumerated(EnumType.STRING)
   @Column(name = "approval_mode", nullable = false, length = 30)
-  @Audited
   private ApprovalMode approvalMode;
 
   public static StudyPlanSpace create(
@@ -111,5 +109,48 @@ public class StudyPlanSpace extends Auditable {
     this.requirementType = requirementType;
     this.displayOrder = displayOrder;
     this.approvalMode = approvalMode;
+  }
+
+  private AuditSnapshot.Builder auditFields() {
+    return AuditSnapshot.fields()
+        .expose(
+            "academicSpaceId",
+            "Identificador del espacio académico",
+            academicSpace.getId().toString())
+        .expose("name", "Nombre", academicSpace.getName())
+        .expose(
+            "academicLevelId",
+            "Identificador del nivel académico",
+            academicLevel == null ? null : academicLevel.getId().toString())
+        .expose(
+            "academicLevelName",
+            "Nivel académico",
+            academicLevel == null ? null : academicLevel.getName())
+        .expose(
+            "requirementType",
+            "Tipo de requisito",
+            requirementType.name(),
+            Map.of("code", requirementType.name(), "label", requirementType.getLabel()))
+        .expose("displayOrder", "Orden", displayOrder)
+        .expose(
+            "approvalMode",
+            "Modo de aprobación",
+            approvalMode.name(),
+            Map.of("code", approvalMode.name(), "label", approvalMode.getLabel()));
+  }
+
+  @Override
+  public AuditSnapshot.Snapshot auditSnapshot() {
+    return auditFields().build();
+  }
+
+  public AuditSnapshot.Snapshot auditSnapshot(final List<UUID> instrumentIds) {
+    return auditFields()
+        .expose(
+            "instrumentIds",
+            "Identificadores de instrumentos",
+            instrumentIds.stream().map(entry -> entry.toString()).sorted().toList())
+        .expose("instrumentCount", "Instrumentos", instrumentIds.size())
+        .build();
   }
 }

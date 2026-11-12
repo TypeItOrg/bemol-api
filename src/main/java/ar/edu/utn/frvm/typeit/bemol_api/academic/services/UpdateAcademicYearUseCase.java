@@ -1,5 +1,7 @@
 package ar.edu.utn.frvm.typeit.bemol_api.academic.services;
 
+import ar.edu.utn.frvm.typeit.bemol_api.academic.audit.AcademicAuditAction;
+import ar.edu.utn.frvm.typeit.bemol_api.academic.entities.AcademicYear;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.exceptions.AcademicConflictException;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.exceptions.AcademicIntegrityViolationTranslator;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.exceptions.AcademicMessages;
@@ -7,8 +9,6 @@ import ar.edu.utn.frvm.typeit.bemol_api.academic.exceptions.AcademicYearNotFound
 import ar.edu.utn.frvm.typeit.bemol_api.academic.interfaces.AcademicYearRepository;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.payloads.AcademicYearResponse;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.payloads.UpdateAcademicYearRequest;
-import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditAction;
-import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditEntityType;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.services.AuditEventRecorder;
 import ar.edu.utn.frvm.typeit.bemol_api.common.time.BusinessDateProvider;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.services.EnrollmentInstitutionLock;
@@ -41,18 +41,18 @@ public class UpdateAcademicYearUseCase {
       throw AcademicConflictException.forField("year", AcademicMessages.DUPLICATE_YEAR);
     }
 
-    final var before = AcademicCatalogAuditDetails.snapshot(academicYear);
+    final var before = academicYear.auditSnapshot();
     academicYear.update(
         request.year(), request.startDate(), request.endDate(), businessDateProvider.today());
-    auditRecorder.recordChange(
+    auditRecorder.recordSnapshotChange(
         academicYear.getInstitution(),
         null,
-        AuditAction.ACADEMIC_YEAR_UPDATED,
-        AuditEntityType.ACADEMIC_YEAR,
+        AcademicAuditAction.ACADEMIC_YEAR_UPDATED,
+        AcademicYear.AUDIT_TYPE,
         academicYear.getId(),
         String.valueOf(academicYear.getYear()),
         before,
-        AcademicCatalogAuditDetails.snapshot(academicYear));
+        academicYear.auditSnapshot());
     if (request.status() != null && request.status() != academicYear.getStatus()) {
       statusChanges.change(institutionId, academicYear, request.status());
     }

@@ -2,6 +2,9 @@ package ar.edu.utn.frvm.typeit.bemol_api.academic.entities;
 
 import ar.edu.utn.frvm.typeit.bemol_api.academic.exceptions.AcademicMessages;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.exceptions.DocumentCatalogException;
+import ar.edu.utn.frvm.typeit.bemol_api.audit.definition.AuditResource;
+import ar.edu.utn.frvm.typeit.bemol_api.audit.snapshot.AuditSnapshot;
+import ar.edu.utn.frvm.typeit.bemol_api.audit.snapshot.AuditSubject;
 import ar.edu.utn.frvm.typeit.bemol_api.common.exceptions.ErrorCategory;
 import ar.edu.utn.frvm.typeit.bemol_api.common.persistence.GeneratedUUIDv7;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.entities.Institution;
@@ -11,8 +14,6 @@ import java.util.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import org.hibernate.annotations.JdbcTypeCode;
-import org.hibernate.envers.Audited;
-import org.hibernate.envers.RelationTargetAuditMode;
 import org.hibernate.type.SqlTypes;
 import org.jspecify.annotations.Nullable;
 
@@ -20,16 +21,17 @@ import org.jspecify.annotations.Nullable;
 @Table(name = "document_definitions")
 @Getter
 @NoArgsConstructor
-public class DocumentDefinition {
+public class DocumentDefinition implements AuditSubject {
+  public static final AuditResource AUDIT_TYPE =
+      new AuditResource("DOCUMENT_DEFINITION", "Documento");
+
   @Id @GeneratedUUIDv7 private UUID id;
 
   @ManyToOne(fetch = FetchType.LAZY, optional = false)
   @JoinColumn(name = "institution_id")
-  @Audited(targetAuditMode = RelationTargetAuditMode.NOT_AUDITED)
   private Institution institution;
 
   @Column(nullable = false, length = 150)
-  @Audited
   private String name;
 
   @Column(nullable = false, length = 1000)
@@ -37,11 +39,9 @@ public class DocumentDefinition {
 
   @JdbcTypeCode(SqlTypes.JSON)
   @Column(name = "allowed_formats", nullable = false, columnDefinition = "jsonb")
-  @Audited
   private List<String> allowedFormats;
 
   @Column(nullable = false)
-  @Audited
   private boolean active;
 
   @Version private long revision;
@@ -72,5 +72,41 @@ public class DocumentDefinition {
     this.instructions = instructions.trim();
     this.allowedFormats = formats.stream().distinct().sorted().toList();
     this.active = active;
+  }
+
+  private AuditSnapshot.Builder auditFields() {
+    return AuditSnapshot.fields()
+        .expose("name", "Nombre", name)
+        .compare("institutionId", "Institución", institution.getId())
+        .expose("institutionName", "Institución", institution.getName())
+        .compare("instructions", "Instrucciones", instructions)
+        .expose("allowedFormats", "Formatos permitidos", allowedFormats)
+        .expose("active", "Estado", active);
+  }
+
+  @Override
+  public AuditSnapshot.Snapshot auditSnapshot() {
+    return auditFields().build();
+  }
+
+  public AuditSnapshot.Snapshot auditSnapshot(
+      final List<TrainingPathDocumentRequirement> assignments) {
+    final var snapshots =
+        assignments.stream()
+            .sorted(Comparator.comparing(value -> value.getTrainingPath().getId()))
+            .map(entry -> entry.auditSnapshot())
+            .toList();
+    final var comparison = snapshots.stream().map(entry -> entry.values()).toList();
+    final var visible = snapshots.stream().map(entry -> entry.labeledValues()).toList();
+    return auditFields()
+        .expose("requirementsCount", "Requisitos documentales", assignments.size())
+        .expose("requirements", "Asignaciones documentales", comparison, visible)
+        .build();
+  }
+
+  public static boolean definitionChanged(
+      final AuditSnapshot.Snapshot before, final AuditSnapshot.Snapshot after) {
+    return List.of("name", "instructions", "allowedFormats", "active").stream()
+        .anyMatch(field -> !Objects.equals(before.values().get(field), after.values().get(field)));
   }
 }

@@ -1,14 +1,13 @@
 package ar.edu.utn.frvm.typeit.bemol_api.academic.services;
 
+import ar.edu.utn.frvm.typeit.bemol_api.academic.audit.AcademicAuditAction;
+import ar.edu.utn.frvm.typeit.bemol_api.academic.entities.AcademicSpace;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.exceptions.AcademicConflictException;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.exceptions.AcademicMessages;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.exceptions.AcademicSpaceNotFoundException;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.interfaces.AcademicSpaceRepository;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.payloads.ActiveStatusRequest;
-import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditAction;
-import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditEntityType;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.services.AuditEventRecorder;
-import java.util.Map;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -31,17 +30,17 @@ public class UpdateAcademicSpaceStatusUseCase {
       throw new AcademicConflictException(
           AcademicMessages.ACADEMIC_SPACE_HAS_ACTIVE_OR_DRAFT_PLANS);
     }
-    final var before = Map.<String, Object>of("active", space.isActive());
+    final var before = space.auditSnapshot();
     space.updateStatus(request.active());
     academicSpaceRepository.flush();
-    auditRecorder.recordChange(
+    auditRecorder.recordSnapshotChange(
         space.getInstitution(),
         null,
-        AuditAction.ACADEMIC_SPACE_STATUS_CHANGED,
-        AuditEntityType.ACADEMIC_SPACE,
+        AcademicAuditAction.ACADEMIC_SPACE_STATUS_CHANGED,
+        AcademicSpace.AUDIT_TYPE,
         space.getId(),
         space.getName(),
         before,
-        Map.of("active", space.isActive()));
+        space.auditSnapshot());
   }
 }

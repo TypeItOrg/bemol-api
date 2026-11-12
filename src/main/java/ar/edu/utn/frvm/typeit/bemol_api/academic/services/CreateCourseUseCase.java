@@ -1,5 +1,6 @@
 package ar.edu.utn.frvm.typeit.bemol_api.academic.services;
 
+import ar.edu.utn.frvm.typeit.bemol_api.academic.audit.AcademicAuditAction;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.entities.AcademicSpace;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.entities.Course;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.entities.Instrument;
@@ -21,16 +22,15 @@ import ar.edu.utn.frvm.typeit.bemol_api.academic.interfaces.StudyPlanRepository;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.interfaces.StudyPlanSpaceRepository;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.payloads.CourseResponse;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.payloads.CreateCourseRequest;
-import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditAction;
-import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditEntityType;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditOrigin;
+import ar.edu.utn.frvm.typeit.bemol_api.audit.services.AuditChangeDetails;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.services.AuditEventRecorder;
+import ar.edu.utn.frvm.typeit.bemol_api.audit.snapshot.AuditSnapshot;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.enums.PermissionCode;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.enums.ScopedResource;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.services.AcademicAccessGuard;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.exceptions.InstitutionNotFoundException;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.interfaces.InstitutionRepository;
-import java.util.Map;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.jspecify.annotations.Nullable;
@@ -86,22 +86,19 @@ public class CreateCourseUseCase {
       courseRepository.save(course);
       courseClassAssembler.assemble(institution, course, space.getFormat(), request.classes());
       courseRepository.flush();
-      final var classes = courseTreeReader.read(course.getId());
+      final var tree = courseTreeReader.readWithAudit(course);
+      final var details =
+          AuditChangeDetails.change(course.auditName(), AuditSnapshot.empty(), tree.snapshot());
+      details.put("relatedPersonIds", tree.teacherIds());
       auditRecorder.recordCurrentActor(
           institution,
           null,
-          AuditAction.COURSE_CREATED,
-          AuditEntityType.COURSE,
+          AcademicAuditAction.COURSE_CREATED,
+          Course.AUDIT_TYPE,
           course.getId(),
           AuditOrigin.administration(),
-          Map.of(
-              "entityName",
-              AcademicAuditDetails.courseName(course),
-              "after",
-              AcademicAuditDetails.course(course, classes),
-              "relatedPersonIds",
-              AcademicAuditDetails.teacherIds(classes)));
-      return CourseResponse.from(course, classes);
+          details);
+      return CourseResponse.from(course, tree.classes());
     } catch (DataIntegrityViolationException exception) {
       throw AcademicIntegrityViolationTranslator.translate(exception);
     }

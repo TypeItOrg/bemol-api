@@ -6,6 +6,9 @@ import ar.edu.utn.frvm.typeit.bemol_api.academic.enums.StudyPlanStatus;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.exceptions.AcademicConflictException;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.exceptions.AcademicMessages;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.exceptions.InvalidAcademicStateException;
+import ar.edu.utn.frvm.typeit.bemol_api.audit.definition.AuditResource;
+import ar.edu.utn.frvm.typeit.bemol_api.audit.snapshot.AuditSnapshot;
+import ar.edu.utn.frvm.typeit.bemol_api.audit.snapshot.AuditSubject;
 import ar.edu.utn.frvm.typeit.bemol_api.common.persistence.GeneratedUUIDv7;
 import ar.edu.utn.frvm.typeit.bemol_api.common.persistence.SoftDeletable;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.entities.Institution;
@@ -21,19 +24,17 @@ import jakarta.persistence.Table;
 import jakarta.persistence.Transient;
 import jakarta.persistence.UniqueConstraint;
 import java.time.Instant;
+import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import org.hibernate.envers.AuditOverride;
-import org.hibernate.envers.Audited;
-import org.hibernate.envers.RelationTargetAuditMode;
 import org.jspecify.annotations.Nullable;
 
 @Entity
-@AuditOverride(forClass = SoftDeletable.class, name = "deletedAt", isAudited = true)
 @Table(
     name = "courses",
     uniqueConstraints =
@@ -44,7 +45,8 @@ import org.jspecify.annotations.Nullable;
 @NoArgsConstructor
 @AllArgsConstructor(access = AccessLevel.PRIVATE)
 @Builder(access = AccessLevel.PACKAGE)
-public class Course extends SoftDeletable {
+public class Course extends SoftDeletable implements AuditSubject {
+  public static final AuditResource AUDIT_TYPE = new AuditResource("COURSE", "Curso");
 
   @Id
   @GeneratedUUIDv7
@@ -53,12 +55,10 @@ public class Course extends SoftDeletable {
 
   @ManyToOne(fetch = FetchType.LAZY, optional = false)
   @JoinColumn(name = "institution_id", nullable = false)
-  @Audited(targetAuditMode = RelationTargetAuditMode.NOT_AUDITED)
   private Institution institution;
 
   @ManyToOne(fetch = FetchType.LAZY, optional = false)
   @JoinColumn(name = "study_plan_space_id", nullable = false)
-  @Audited(targetAuditMode = RelationTargetAuditMode.NOT_AUDITED)
   private StudyPlanSpace studyPlanSpace;
 
   @Column(name = "training_path_id", nullable = false, updatable = false)
@@ -72,17 +72,14 @@ public class Course extends SoftDeletable {
 
   @ManyToOne(fetch = FetchType.LAZY)
   @JoinColumn(name = "instrument_id")
-  @Audited(targetAuditMode = RelationTargetAuditMode.NOT_AUDITED)
   private @Nullable Instrument instrument;
 
   @ManyToOne(fetch = FetchType.LAZY, optional = false)
   @JoinColumn(name = "academic_year_id", nullable = false)
-  @Audited(targetAuditMode = RelationTargetAuditMode.NOT_AUDITED)
   private AcademicYear academicYear;
 
   @Enumerated(EnumType.STRING)
   @Column(nullable = false, length = 20)
-  @Audited(withModifiedFlag = true)
   private CourseStatus status;
 
   @Transient private StudyPlan legacyStudyPlan;
@@ -244,5 +241,48 @@ public class Course extends SoftDeletable {
       throw new InvalidAcademicStateException();
     }
     ensureAcademicYearActive();
+  }
+
+  public String auditName() {
+    return getAcademicSpace().getName()
+        + " — "
+        + getStudyPlan().getName()
+        + " ("
+        + academicYear.getYear()
+        + ")";
+  }
+
+  @Override
+  public AuditSnapshot.Snapshot auditSnapshot() {
+    return AuditSnapshot.fields()
+        .expose(
+            "status",
+            "Estado",
+            status.name(),
+            Map.of("code", status.name(), "label", status.getLabel()))
+        .build();
+  }
+
+  public AuditSnapshot.Snapshot auditSnapshot(
+      final List<AuditSnapshot.Snapshot> classes,
+      final int teacherCount,
+      final int dayCount,
+      final int scheduleCount) {
+    return AuditSnapshot.fields()
+        .expose(
+            "status",
+            "Estado",
+            status.name(),
+            Map.of("code", status.name(), "label", status.getLabel()))
+        .expose("classCount", "Clases", classes.size())
+        .expose("teacherCount", "Docentes", teacherCount)
+        .expose("dayCount", "Días de clase", dayCount)
+        .expose("scheduleCount", "Horarios", scheduleCount)
+        .expose(
+            "classes",
+            "Clases del curso",
+            classes.stream().map(entry -> entry.values()).toList(),
+            classes.stream().map(entry -> entry.labeledValues()).toList())
+        .build();
   }
 }

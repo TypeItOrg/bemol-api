@@ -1,5 +1,7 @@
 package ar.edu.utn.frvm.typeit.bemol_api.academic.entities;
 
+import ar.edu.utn.frvm.typeit.bemol_api.audit.snapshot.AuditSnapshot;
+import ar.edu.utn.frvm.typeit.bemol_api.audit.snapshot.AuditSubject;
 import ar.edu.utn.frvm.typeit.bemol_api.common.persistence.Auditable;
 import ar.edu.utn.frvm.typeit.bemol_api.common.persistence.GeneratedUUIDv7;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.entities.Institution;
@@ -18,8 +20,6 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import org.hibernate.envers.Audited;
-import org.hibernate.envers.RelationTargetAuditMode;
 
 @Entity
 @Table(
@@ -32,7 +32,7 @@ import org.hibernate.envers.RelationTargetAuditMode;
 @NoArgsConstructor
 @AllArgsConstructor(access = AccessLevel.PRIVATE)
 @Builder(access = AccessLevel.PACKAGE)
-public class CourseClassTeacher extends Auditable {
+public class CourseClassTeacher extends Auditable implements AuditSubject {
 
   @Id
   @GeneratedUUIDv7
@@ -41,17 +41,14 @@ public class CourseClassTeacher extends Auditable {
 
   @ManyToOne(fetch = FetchType.LAZY, optional = false)
   @JoinColumn(name = "institution_id", nullable = false)
-  @Audited(targetAuditMode = RelationTargetAuditMode.NOT_AUDITED)
   private Institution institution;
 
   @ManyToOne(fetch = FetchType.LAZY, optional = false)
   @JoinColumn(name = "course_class_id", nullable = false)
-  @Audited
   private CourseClass courseClass;
 
   @ManyToOne(fetch = FetchType.LAZY, optional = false)
   @JoinColumn(name = "person_id", nullable = false)
-  @Audited(targetAuditMode = RelationTargetAuditMode.NOT_AUDITED)
   private Person person;
 
   public static CourseClassTeacher create(
@@ -60,6 +57,17 @@ public class CourseClassTeacher extends Auditable {
         .institution(institution)
         .courseClass(courseClass)
         .person(person)
+        .build();
+  }
+
+  @Override
+  public AuditSnapshot.Snapshot auditSnapshot() {
+    return AuditSnapshot.fields()
+        .expose(
+            "personId",
+            "Docente",
+            person.getId(),
+            person.getFirstName() + " " + person.getLastName())
         .build();
   }
 }

@@ -1,5 +1,7 @@
 package ar.edu.utn.frvm.typeit.bemol_api.academic.services;
 
+import ar.edu.utn.frvm.typeit.bemol_api.academic.audit.AcademicAuditAction;
+import ar.edu.utn.frvm.typeit.bemol_api.academic.entities.TrainingPath;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.exceptions.AcademicConflictException;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.exceptions.AcademicIntegrityViolationTranslator;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.exceptions.AcademicMessages;
@@ -8,8 +10,6 @@ import ar.edu.utn.frvm.typeit.bemol_api.academic.interfaces.TrainingPathReposito
 import ar.edu.utn.frvm.typeit.bemol_api.academic.payloads.TrainingPathResponse;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.payloads.UpdateTrainingPathRequest;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.validation.AcademicNameNormalizer;
-import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditAction;
-import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditEntityType;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.services.AuditEventRecorder;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.enums.PermissionCode;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.enums.ScopedResource;
@@ -42,22 +42,22 @@ public class UpdateTrainingPathUseCase {
     if (trainingPathRepository.existsByNormalizedNameAndIdNot(institutionId, name, id)) {
       throw AcademicConflictException.forField("name", AcademicMessages.DUPLICATE_NAME);
     }
-    final var before = AcademicCatalogAuditDetails.snapshot(path);
+    final var before = path.auditSnapshot();
     path.update(name, request.description());
     try {
       trainingPathRepository.flush();
     } catch (DataIntegrityViolationException exception) {
       throw AcademicIntegrityViolationTranslator.translate(exception);
     }
-    auditRecorder.recordChange(
+    auditRecorder.recordSnapshotChange(
         path.getInstitution(),
         null,
-        AuditAction.TRAINING_PATH_UPDATED,
-        AuditEntityType.TRAINING_PATH,
+        AcademicAuditAction.TRAINING_PATH_UPDATED,
+        TrainingPath.AUDIT_TYPE,
         path.getId(),
         path.getName(),
         before,
-        AcademicCatalogAuditDetails.snapshot(path));
+        path.auditSnapshot());
     return TrainingPathResponse.from(path);
   }
 }

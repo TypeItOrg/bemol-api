@@ -1,5 +1,7 @@
 package ar.edu.utn.frvm.typeit.bemol_api.academic.services;
 
+import ar.edu.utn.frvm.typeit.bemol_api.academic.audit.AcademicAuditAction;
+import ar.edu.utn.frvm.typeit.bemol_api.academic.entities.Prerequisite;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.entities.StudyPlanSpace;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.exceptions.AcademicConflictException;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.exceptions.AcademicIntegrityViolationTranslator;
@@ -10,9 +12,8 @@ import ar.edu.utn.frvm.typeit.bemol_api.academic.interfaces.PrerequisiteReposito
 import ar.edu.utn.frvm.typeit.bemol_api.academic.interfaces.StudyPlanSpaceRepository;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.payloads.PrerequisiteResponse;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.payloads.UpdatePrerequisiteRequest;
-import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditAction;
-import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditEntityType;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditOrigin;
+import ar.edu.utn.frvm.typeit.bemol_api.audit.services.AuditChangeDetails;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.services.AuditEventRecorder;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.enums.PermissionCode;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.enums.ScopedResource;
@@ -51,24 +52,23 @@ public class UpdatePrerequisiteUseCase {
     final var required = requireSpace(institutionId, request.requiredStudyPlanSpaceId());
     validateSamePlan(target, required);
     prerequisiteCycleValidator.validate(plan.getId(), target.getId(), required.getId(), id);
-    final var before = AcademicAuditDetails.prerequisite(existing);
+    final var before = existing.auditSnapshot();
     existing.update(required, request.requirementStage(), request.requiredCondition());
     try {
       prerequisiteRepository.flush();
     } catch (DataIntegrityViolationException exception) {
       throw AcademicIntegrityViolationTranslator.translate(exception);
     }
-    final var after = AcademicAuditDetails.prerequisite(existing);
+    final var after = existing.auditSnapshot();
     if (!before.equals(after)) {
       auditRecorder.recordCurrentActor(
           plan.getInstitution(),
           null,
-          AuditAction.STUDY_PLAN_PREREQUISITE_UPDATED,
-          AuditEntityType.PREREQUISITE,
+          AcademicAuditAction.STUDY_PLAN_PREREQUISITE_UPDATED,
+          Prerequisite.AUDIT_TYPE,
           id,
           AuditOrigin.administration(),
-          AcademicAuditDetails.change(
-              AcademicAuditDetails.prerequisiteName(existing), before, after));
+          AuditChangeDetails.change(existing.auditName(), before, after));
     }
     return PrerequisiteResponse.from(existing);
   }

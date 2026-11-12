@@ -80,9 +80,11 @@ public class CreateStudyPlanVersionUseCase {
               "sourceVersionId",
               source.getId().toString(),
               "before",
-              AcademicAuditDetails.plan(source),
+              source.auditSnapshot().visibleValues(),
               "after",
-              AcademicAuditDetails.plan(version)));
+              version.auditSnapshot().visibleValues(),
+              "fieldLabels",
+              version.auditSnapshot().labels()));
       return StudyPlanResponse.from(version);
     } catch (DataIntegrityViolationException exception) {
       throw AcademicIntegrityViolationTranslator.translate(exception);

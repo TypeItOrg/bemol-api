@@ -1,12 +1,12 @@
 package ar.edu.utn.frvm.typeit.bemol_api.academic.services;
 
+import ar.edu.utn.frvm.typeit.bemol_api.academic.audit.AcademicAuditAction;
+import ar.edu.utn.frvm.typeit.bemol_api.academic.entities.AcademicLevel;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.exceptions.AcademicConflictException;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.exceptions.AcademicLevelNotFoundException;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.exceptions.AcademicMessages;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.interfaces.AcademicLevelRepository;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.interfaces.StudyPlanSpaceRepository;
-import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditAction;
-import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditEntityType;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditOrigin;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.services.AuditEventRecorder;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.enums.PermissionCode;
@@ -47,8 +47,8 @@ public class DeleteAcademicLevelUseCase {
     auditRecorder.recordCurrentActor(
         level.getStudyPlan().getInstitution(),
         null,
-        AuditAction.STUDY_PLAN_LEVEL_DELETED,
-        AuditEntityType.ACADEMIC_LEVEL,
+        AcademicAuditAction.STUDY_PLAN_LEVEL_DELETED,
+        AcademicLevel.AUDIT_TYPE,
         id,
         AuditOrigin.administration(),
         Map.of(
@@ -57,6 +57,8 @@ public class DeleteAcademicLevelUseCase {
             "studyPlanName",
             level.getStudyPlan().getName(),
             "before",
-            AcademicAuditDetails.level(level)));
+            level.auditSnapshot().visibleValues(),
+            "fieldLabels",
+            level.auditSnapshot().labels()));
   }
 }

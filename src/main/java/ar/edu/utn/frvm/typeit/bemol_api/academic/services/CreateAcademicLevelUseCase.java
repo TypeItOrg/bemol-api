@@ -1,5 +1,6 @@
 package ar.edu.utn.frvm.typeit.bemol_api.academic.services;
 
+import ar.edu.utn.frvm.typeit.bemol_api.academic.audit.AcademicAuditAction;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.entities.AcademicLevel;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.exceptions.AcademicConflictException;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.exceptions.AcademicIntegrityViolationTranslator;
@@ -7,8 +8,6 @@ import ar.edu.utn.frvm.typeit.bemol_api.academic.exceptions.AcademicMessages;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.interfaces.AcademicLevelRepository;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.payloads.AcademicLevelResponse;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.payloads.CreateAcademicLevelRequest;
-import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditAction;
-import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditEntityType;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditOrigin;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.services.AuditEventRecorder;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.enums.PermissionCode;
@@ -53,8 +52,8 @@ public class CreateAcademicLevelUseCase {
       auditRecorder.recordCurrentActor(
           plan.getInstitution(),
           null,
-          AuditAction.STUDY_PLAN_LEVEL_CREATED,
-          AuditEntityType.ACADEMIC_LEVEL,
+          AcademicAuditAction.STUDY_PLAN_LEVEL_CREATED,
+          AcademicLevel.AUDIT_TYPE,
           saved.getId(),
           AuditOrigin.administration(),
           Map.of(
@@ -63,7 +62,9 @@ public class CreateAcademicLevelUseCase {
               "studyPlanName",
               plan.getName(),
               "after",
-              AcademicAuditDetails.level(saved),
+              saved.auditSnapshot().visibleValues(),
+              "fieldLabels",
+              saved.auditSnapshot().labels(),
               "changedFields",
               saved.getDescription() == null
                   ? List.of("name", "displayOrder")

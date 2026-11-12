@@ -1,5 +1,7 @@
 package ar.edu.utn.frvm.typeit.bemol_api.academic.services;
 
+import ar.edu.utn.frvm.typeit.bemol_api.academic.audit.AcademicAuditAction;
+import ar.edu.utn.frvm.typeit.bemol_api.academic.entities.Shift;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.exceptions.AcademicConflictException;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.exceptions.AcademicIntegrityViolationTranslator;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.exceptions.AcademicMessages;
@@ -8,8 +10,6 @@ import ar.edu.utn.frvm.typeit.bemol_api.academic.interfaces.ShiftRepository;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.payloads.ShiftResponse;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.payloads.UpdateShiftRequest;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.validation.AcademicNameNormalizer;
-import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditAction;
-import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditEntityType;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.services.AuditEventRecorder;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -35,22 +35,22 @@ public class UpdateShiftUseCase {
     if (shiftRepository.existsByNormalizedNameAndIdNot(institutionId, name, id)) {
       throw AcademicConflictException.forField("name", AcademicMessages.DUPLICATE_NAME);
     }
-    final var before = AcademicCatalogAuditDetails.snapshot(shift);
+    final var before = shift.auditSnapshot();
     shift.update(name, request.description());
     try {
       shiftRepository.flush();
     } catch (DataIntegrityViolationException exception) {
       throw AcademicIntegrityViolationTranslator.translate(exception);
     }
-    auditRecorder.recordChange(
+    auditRecorder.recordSnapshotChange(
         shift.getInstitution(),
         null,
-        AuditAction.SHIFT_UPDATED,
-        AuditEntityType.SHIFT,
+        AcademicAuditAction.SHIFT_UPDATED,
+        Shift.AUDIT_TYPE,
         shift.getId(),
         shift.getName(),
         before,
-        AcademicCatalogAuditDetails.snapshot(shift));
+        shift.auditSnapshot());
     return ShiftResponse.from(shift);
   }
 }

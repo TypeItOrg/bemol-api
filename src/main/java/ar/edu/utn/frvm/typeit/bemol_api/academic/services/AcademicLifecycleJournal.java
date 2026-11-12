@@ -1,5 +1,6 @@
 package ar.edu.utn.frvm.typeit.bemol_api.academic.services;
 
+import ar.edu.utn.frvm.typeit.bemol_api.academic.audit.AcademicAuditAction;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.entities.AcademicLifecycleEvent;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.enums.AcademicLifecycleAction;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.enums.AcademicLifecycleResource;
@@ -8,8 +9,7 @@ import ar.edu.utn.frvm.typeit.bemol_api.academic.exceptions.AcademicIntegrityVio
 import ar.edu.utn.frvm.typeit.bemol_api.academic.exceptions.AcademicMessages;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.interfaces.AcademicLifecycleEventRepository;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.payloads.AcademicLifecycleRequest;
-import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditAction;
-import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditEntityType;
+import ar.edu.utn.frvm.typeit.bemol_api.audit.definition.AuditOperation;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditOrigin;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.services.AuditEventRecorder;
 import ar.edu.utn.frvm.typeit.bemol_api.common.logging.RequestLoggingFilter;
@@ -117,47 +117,47 @@ public class AcademicLifecycleJournal {
     if (details.isEmpty()) {
       return;
     }
-    final AuditAction auditAction =
+    final AuditOperation auditAction =
         switch (type) {
           case COURSE ->
               switch (action) {
-                case DELETE -> AuditAction.COURSE_DELETED;
-                case RESTORE -> AuditAction.COURSE_RESTORED;
+                case DELETE -> AcademicAuditAction.COURSE_DELETED;
+                case RESTORE -> AcademicAuditAction.COURSE_RESTORED;
                 default ->
                     throw new IllegalArgumentException("Unsupported course lifecycle action");
               };
           case STUDY_PLAN ->
               switch (action) {
-                case DELETE -> AuditAction.STUDY_PLAN_DELETED;
-                case RESTORE -> AuditAction.STUDY_PLAN_RESTORED;
-                case CREATE_VERSION -> AuditAction.STUDY_PLAN_VERSION_CREATED;
+                case DELETE -> AcademicAuditAction.STUDY_PLAN_DELETED;
+                case RESTORE -> AcademicAuditAction.STUDY_PLAN_RESTORED;
+                case CREATE_VERSION -> AcademicAuditAction.STUDY_PLAN_VERSION_CREATED;
               };
           case ACADEMIC_YEAR ->
               action == AcademicLifecycleAction.DELETE
-                  ? AuditAction.ACADEMIC_YEAR_DELETED
-                  : AuditAction.ACADEMIC_YEAR_RESTORED;
+                  ? AcademicAuditAction.ACADEMIC_YEAR_DELETED
+                  : AcademicAuditAction.ACADEMIC_YEAR_RESTORED;
           case ACADEMIC_SPACE ->
               action == AcademicLifecycleAction.DELETE
-                  ? AuditAction.ACADEMIC_SPACE_DELETED
-                  : AuditAction.ACADEMIC_SPACE_RESTORED;
+                  ? AcademicAuditAction.ACADEMIC_SPACE_DELETED
+                  : AcademicAuditAction.ACADEMIC_SPACE_RESTORED;
           case INSTRUMENT ->
               action == AcademicLifecycleAction.DELETE
-                  ? AuditAction.INSTRUMENT_DELETED
-                  : AuditAction.INSTRUMENT_RESTORED;
+                  ? AcademicAuditAction.INSTRUMENT_DELETED
+                  : AcademicAuditAction.INSTRUMENT_RESTORED;
           case SHIFT ->
               action == AcademicLifecycleAction.DELETE
-                  ? AuditAction.SHIFT_DELETED
-                  : AuditAction.SHIFT_RESTORED;
+                  ? AcademicAuditAction.SHIFT_DELETED
+                  : AcademicAuditAction.SHIFT_RESTORED;
           case TRAINING_PATH ->
               action == AcademicLifecycleAction.DELETE
-                  ? AuditAction.TRAINING_PATH_DELETED
-                  : AuditAction.TRAINING_PATH_RESTORED;
+                  ? AcademicAuditAction.TRAINING_PATH_DELETED
+                  : AcademicAuditAction.TRAINING_PATH_RESTORED;
         };
     auditRecorder.recordCurrentActor(
         institution,
         null,
         auditAction,
-        AuditEntityType.valueOf(type.name()),
+        type.getAuditResource(),
         id,
         AuditOrigin.administration(),
         details);

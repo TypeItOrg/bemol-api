@@ -1,5 +1,7 @@
 package ar.edu.utn.frvm.typeit.bemol_api.academic.services;
 
+import ar.edu.utn.frvm.typeit.bemol_api.academic.audit.AcademicAuditAction;
+import ar.edu.utn.frvm.typeit.bemol_api.academic.entities.Course;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.enums.CourseStatus;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.exceptions.AcademicIntegrityViolationTranslator;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.exceptions.CourseNotFoundException;
@@ -11,9 +13,8 @@ import ar.edu.utn.frvm.typeit.bemol_api.academic.interfaces.CourseClassTeacherRe
 import ar.edu.utn.frvm.typeit.bemol_api.academic.interfaces.CourseRepository;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.payloads.CourseResponse;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.payloads.ReplaceCourseClassesRequest;
-import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditAction;
-import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditEntityType;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditOrigin;
+import ar.edu.utn.frvm.typeit.bemol_api.audit.services.AuditChangeDetails;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.services.AuditEventRecorder;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.enums.PermissionCode;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.enums.ScopedResource;
@@ -23,7 +24,6 @@ import ar.edu.utn.frvm.typeit.bemol_api.enrollment.exceptions.EnrollmentValidati
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.interfaces.CourseEnrollmentRepository;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.interfaces.CourseIndividualSlotRepository;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.services.EnrollmentInstitutionLock;
-import java.util.Map;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -64,8 +64,7 @@ public class ReplaceCourseClassesUseCase {
     if (enrollmentRepository.existsByCourseIncludingHistorical(institutionId, courseId)) {
       throw new EnrollmentValidationException(EnrollmentMessages.COURSE_CLASSES_HAVE_ENROLLMENTS);
     }
-    final var beforeClasses = courseTreeReader.read(courseId);
-    final var before = AcademicAuditDetails.course(course, beforeClasses);
+    final var before = courseTreeReader.readWithAudit(course);
     try {
       slotRepository.deleteByCourseId(courseId);
       deleteCurrentClasses(courseId);
@@ -78,33 +77,29 @@ public class ReplaceCourseClassesUseCase {
     } catch (DataIntegrityViolationException exception) {
       throw AcademicIntegrityViolationTranslator.translate(exception);
     }
-    final var afterClasses = courseTreeReader.read(courseId);
-    if (!AcademicAuditDetails.classState(beforeClasses)
-        .equals(AcademicAuditDetails.classState(afterClasses))) {
+    final var after = courseTreeReader.readWithAudit(course);
+    if (!before.snapshot().values().equals(after.snapshot().values())) {
+      final var details =
+          AuditChangeDetails.change(course.auditName(), before.snapshot(), after.snapshot());
+      final var relatedPeople =
+          java.util.stream.Stream.concat(before.teacherIds().stream(), after.teacherIds().stream())
+              .distinct()
+              .sorted()
+              .toList();
+      details.put("relatedPersonIds", relatedPeople);
       auditRecorder.recordCurrentActor(
           course.getInstitution(),
           null,
-          AuditAction.COURSE_CLASSES_CHANGED,
-          AuditEntityType.COURSE,
+          AcademicAuditAction.COURSE_CLASSES_CHANGED,
+          Course.AUDIT_TYPE,
           courseId,
           AuditOrigin.administration(),
-          Map.of(
-              "entityName",
-              AcademicAuditDetails.courseName(course),
-              "before",
-              before,
-              "after",
-              AcademicAuditDetails.course(course, afterClasses),
-              "changedFields",
-              java.util.List.of("classes"),
-              "relatedPersonIds",
-              AcademicAuditDetails.relatedTeachers(beforeClasses, afterClasses)));
+          details);
     }
-    return CourseResponse.from(course, afterClasses);
+    return CourseResponse.from(course, after.classes());
   }
 
   private void deleteCurrentClasses(final UUID courseId) {
-    // Derived deletes invoke entity callbacks; bulk JPQL would bypass Envers.
     courseClassScheduleRepository.deleteByDay_CourseClass_Course_Id(courseId);
     courseClassTeacherRepository.deleteByCourseClass_Course_Id(courseId);
     courseClassDayRepository.deleteByCourseClass_Course_Id(courseId);

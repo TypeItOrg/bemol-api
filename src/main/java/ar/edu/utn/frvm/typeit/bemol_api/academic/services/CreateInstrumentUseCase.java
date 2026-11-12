@@ -1,5 +1,6 @@
 package ar.edu.utn.frvm.typeit.bemol_api.academic.services;
 
+import ar.edu.utn.frvm.typeit.bemol_api.academic.audit.AcademicAuditAction;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.entities.Instrument;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.exceptions.AcademicConflictException;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.exceptions.AcademicIntegrityViolationTranslator;
@@ -8,12 +9,10 @@ import ar.edu.utn.frvm.typeit.bemol_api.academic.interfaces.InstrumentRepository
 import ar.edu.utn.frvm.typeit.bemol_api.academic.payloads.CreateInstrumentRequest;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.payloads.InstrumentResponse;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.validation.AcademicNameNormalizer;
-import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditAction;
-import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditEntityType;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.services.AuditEventRecorder;
+import ar.edu.utn.frvm.typeit.bemol_api.audit.snapshot.AuditSnapshot;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.exceptions.InstitutionNotFoundException;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.interfaces.InstitutionRepository;
-import java.util.Map;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -42,15 +41,15 @@ public class CreateInstrumentUseCase {
       final var saved =
           instrumentRepository.save(Instrument.create(institution, name, request.description()));
       instrumentRepository.flush();
-      auditRecorder.recordChange(
+      auditRecorder.recordSnapshotChange(
           saved.getInstitution(),
           null,
-          AuditAction.INSTRUMENT_CREATED,
-          AuditEntityType.INSTRUMENT,
+          AcademicAuditAction.INSTRUMENT_CREATED,
+          Instrument.AUDIT_TYPE,
           saved.getId(),
           saved.getName(),
-          Map.of(),
-          AcademicCatalogAuditDetails.snapshot(saved));
+          AuditSnapshot.empty(),
+          saved.auditSnapshot());
       return InstrumentResponse.from(saved);
     } catch (DataIntegrityViolationException exception) {
       throw AcademicIntegrityViolationTranslator.translate(exception);

@@ -1,5 +1,6 @@
 package ar.edu.utn.frvm.typeit.bemol_api.academic.services;
 
+import ar.edu.utn.frvm.typeit.bemol_api.academic.audit.AcademicAuditAction;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.entities.StudyPlan;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.exceptions.AcademicConflictException;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.exceptions.AcademicIntegrityViolationTranslator;
@@ -10,8 +11,6 @@ import ar.edu.utn.frvm.typeit.bemol_api.academic.interfaces.TrainingPathReposito
 import ar.edu.utn.frvm.typeit.bemol_api.academic.payloads.CreateStudyPlanRequest;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.payloads.StudyPlanResponse;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.validation.AcademicNameNormalizer;
-import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditAction;
-import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditEntityType;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditOrigin;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.services.AuditEventRecorder;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.enums.PermissionCode;
@@ -62,11 +61,17 @@ public class CreateStudyPlanUseCase {
       auditRecorder.recordCurrentActor(
           saved.getInstitution(),
           null,
-          AuditAction.STUDY_PLAN_CREATED,
-          AuditEntityType.STUDY_PLAN,
+          AcademicAuditAction.STUDY_PLAN_CREATED,
+          StudyPlan.AUDIT_TYPE,
           saved.getId(),
           AuditOrigin.administration(),
-          Map.of("entityName", saved.getName(), "after", AcademicAuditDetails.plan(saved)));
+          Map.of(
+              "entityName",
+              saved.getName(),
+              "after",
+              saved.auditSnapshot().visibleValues(),
+              "fieldLabels",
+              saved.auditSnapshot().labels()));
       return StudyPlanResponse.from(saved);
     } catch (DataIntegrityViolationException exception) {
       throw AcademicIntegrityViolationTranslator.translate(exception);

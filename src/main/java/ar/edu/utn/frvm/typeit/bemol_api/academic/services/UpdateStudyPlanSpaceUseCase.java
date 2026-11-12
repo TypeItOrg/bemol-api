@@ -1,7 +1,9 @@
 package ar.edu.utn.frvm.typeit.bemol_api.academic.services;
 
+import ar.edu.utn.frvm.typeit.bemol_api.academic.audit.AcademicAuditAction;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.entities.AcademicLevel;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.entities.Instrument;
+import ar.edu.utn.frvm.typeit.bemol_api.academic.entities.StudyPlanSpace;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.entities.StudyPlanSpaceInstrument;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.exceptions.AcademicConflictException;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.exceptions.AcademicIntegrityViolationTranslator;
@@ -17,9 +19,8 @@ import ar.edu.utn.frvm.typeit.bemol_api.academic.interfaces.StudyPlanSpaceReposi
 import ar.edu.utn.frvm.typeit.bemol_api.academic.payloads.StudyPlanSpaceInstrumentOptionResponse;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.payloads.StudyPlanSpaceResponse;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.payloads.UpdateStudyPlanSpaceRequest;
-import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditAction;
-import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditEntityType;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditOrigin;
+import ar.edu.utn.frvm.typeit.bemol_api.audit.services.AuditChangeDetails;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.services.AuditEventRecorder;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.enums.PermissionCode;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.enums.ScopedResource;
@@ -81,8 +82,7 @@ public class UpdateStudyPlanSpaceUseCase {
     }
     final var instruments = resolveInstruments(institutionId, request.instrumentIds());
     final var before =
-        AcademicAuditDetails.space(
-            existing,
+        existing.auditSnapshot(
             studyPlanSpaceInstrumentRepository
                 .findByStudyPlanSpace_IdOrderByInstrument_Name(id)
                 .stream()
@@ -101,17 +101,16 @@ public class UpdateStudyPlanSpaceUseCase {
     }
 
     final var after =
-        AcademicAuditDetails.space(
-            existing, instruments.stream().map(instrument -> instrument.getId()).toList());
+        existing.auditSnapshot(instruments.stream().map(instrument -> instrument.getId()).toList());
     if (!before.equals(after)) {
       auditRecorder.recordCurrentActor(
           existing.getInstitution(),
           null,
-          AuditAction.STUDY_PLAN_SPACE_UPDATED,
-          AuditEntityType.STUDY_PLAN_SPACE,
+          AcademicAuditAction.STUDY_PLAN_SPACE_UPDATED,
+          StudyPlanSpace.AUDIT_TYPE,
           id,
           AuditOrigin.administration(),
-          AcademicAuditDetails.change(space.getName(), before, after));
+          AuditChangeDetails.change(space.getName(), before, after));
     }
     return StudyPlanSpaceResponse.from(existing, instrumentOptions(instruments));
   }

@@ -4,6 +4,9 @@ import ar.edu.utn.frvm.typeit.bemol_api.academic.enums.AcademicYearStatus;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.exceptions.AcademicMessages;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.exceptions.AcademicValidationException;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.exceptions.InvalidAcademicStateException;
+import ar.edu.utn.frvm.typeit.bemol_api.audit.definition.AuditResource;
+import ar.edu.utn.frvm.typeit.bemol_api.audit.snapshot.AuditSnapshot;
+import ar.edu.utn.frvm.typeit.bemol_api.audit.snapshot.AuditSubject;
 import ar.edu.utn.frvm.typeit.bemol_api.common.persistence.GeneratedUUIDv7;
 import ar.edu.utn.frvm.typeit.bemol_api.common.persistence.SoftDeletable;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.entities.Institution;
@@ -26,13 +29,9 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import org.hibernate.envers.AuditOverride;
-import org.hibernate.envers.Audited;
-import org.hibernate.envers.RelationTargetAuditMode;
 import org.jspecify.annotations.Nullable;
 
 @Entity
-@AuditOverride(forClass = SoftDeletable.class, name = "deletedAt", isAudited = true)
 @Table(
     name = "academic_years",
     uniqueConstraints = {
@@ -44,7 +43,9 @@ import org.jspecify.annotations.Nullable;
 @NoArgsConstructor
 @AllArgsConstructor(access = AccessLevel.PRIVATE)
 @Builder(access = AccessLevel.PACKAGE)
-public class AcademicYear extends SoftDeletable {
+public class AcademicYear extends SoftDeletable implements AuditSubject {
+  public static final AuditResource AUDIT_TYPE =
+      new AuditResource("ACADEMIC_YEAR", "Ciclo lectivo");
 
   public static final int MIN_YEAR = 2000;
 
@@ -57,24 +58,19 @@ public class AcademicYear extends SoftDeletable {
 
   @ManyToOne(fetch = FetchType.LAZY, optional = false)
   @JoinColumn(name = "institution_id", nullable = false)
-  @Audited(targetAuditMode = RelationTargetAuditMode.NOT_AUDITED)
   private Institution institution;
 
   @Column(name = "\"year\"", nullable = false)
-  @Audited
   private int year;
 
   @Column(name = "start_date")
-  @Audited
   private @Nullable LocalDate startDate;
 
   @Column(name = "end_date")
-  @Audited
   private @Nullable LocalDate endDate;
 
   @Enumerated(EnumType.STRING)
   @Column(nullable = false, length = 20)
-  @Audited
   private AcademicYearStatus status;
 
   public static AcademicYear create(
@@ -166,5 +162,27 @@ public class AcademicYear extends SoftDeletable {
       final String field, final String message) {
     return new AcademicValidationException(
         AcademicMessages.ACADEMIC_YEAR_DATES_INVALID, Map.of(field, message));
+  }
+
+  @Override
+  public AuditSnapshot.Snapshot auditSnapshot() {
+    return AuditSnapshot.fields()
+        .expose("year", "Año", year)
+        .expose(
+            "status",
+            "Estado",
+            status.name(),
+            Map.of("code", status.name(), "label", status.getLabel()))
+        .expose(
+            "startDate",
+            "Desde",
+            startDate == null ? null : startDate.toString(),
+            AuditSnapshot.date(startDate))
+        .expose(
+            "endDate",
+            "Hasta",
+            endDate == null ? null : endDate.toString(),
+            AuditSnapshot.date(endDate))
+        .build();
   }
 }

@@ -1,5 +1,7 @@
 package ar.edu.utn.frvm.typeit.bemol_api.academic.services;
 
+import ar.edu.utn.frvm.typeit.bemol_api.academic.audit.AcademicAuditAction;
+import ar.edu.utn.frvm.typeit.bemol_api.academic.entities.StudyPlanSpace;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.exceptions.AcademicConflictException;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.exceptions.AcademicMessages;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.exceptions.StudyPlanSpaceNotFoundException;
@@ -7,14 +9,13 @@ import ar.edu.utn.frvm.typeit.bemol_api.academic.interfaces.CourseRepository;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.interfaces.PrerequisiteRepository;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.interfaces.StudyPlanSpaceInstrumentRepository;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.interfaces.StudyPlanSpaceRepository;
-import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditAction;
-import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditEntityType;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditOrigin;
+import ar.edu.utn.frvm.typeit.bemol_api.audit.services.AuditChangeDetails;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.services.AuditEventRecorder;
+import ar.edu.utn.frvm.typeit.bemol_api.audit.snapshot.AuditSnapshot;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.enums.PermissionCode;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.enums.ScopedResource;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.services.AcademicAccessGuard;
-import java.util.Map;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -54,20 +55,21 @@ public class DeleteStudyPlanSpaceUseCase {
       throw new AcademicConflictException(AcademicMessages.STUDY_PLAN_SPACE_HAS_PREREQUISITES);
     }
 
+    final var before = existing.auditSnapshot();
     studyPlanSpaceInstrumentRepository.deleteByStudyPlanSpace_Id(id);
     studyPlanSpaceInstrumentRepository.flush();
     studyPlanSpaceRepository.delete(existing);
+    final var details =
+        AuditChangeDetails.change(
+            existing.getAcademicSpace().getName(), before, AuditSnapshot.empty());
+    details.put("studyPlanName", existing.getStudyPlan().getName());
     auditRecorder.recordCurrentActor(
         existing.getInstitution(),
         null,
-        AuditAction.STUDY_PLAN_SPACE_DELETED,
-        AuditEntityType.STUDY_PLAN_SPACE,
+        AcademicAuditAction.STUDY_PLAN_SPACE_DELETED,
+        StudyPlanSpace.AUDIT_TYPE,
         id,
         AuditOrigin.administration(),
-        Map.of(
-            "entityName",
-            existing.getAcademicSpace().getName(),
-            "studyPlanName",
-            existing.getStudyPlan().getName()));
+        details);
   }
 }

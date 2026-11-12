@@ -1,5 +1,6 @@
 package ar.edu.utn.frvm.typeit.bemol_api.academic.services;
 
+import ar.edu.utn.frvm.typeit.bemol_api.academic.audit.AcademicAuditAction;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.entities.AcademicYear;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.entities.Course;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.enums.AcademicYearStatus;
@@ -13,9 +14,8 @@ import ar.edu.utn.frvm.typeit.bemol_api.academic.interfaces.AcademicYearReposito
 import ar.edu.utn.frvm.typeit.bemol_api.academic.interfaces.CourseClassTeacherRepository;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.interfaces.CourseRepository;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.payloads.AcademicYearStatusRequest;
-import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditAction;
-import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditEntityType;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditOrigin;
+import ar.edu.utn.frvm.typeit.bemol_api.audit.services.AuditChangeDetails;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.services.AuditEventRecorder;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.RequiresPermission;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.enums.PermissionCode;
@@ -79,26 +79,26 @@ public class UpdateAcademicYearStatusUseCase {
           "status", AcademicMessages.ACADEMIC_YEAR_ACTIVE_CONFLICT);
     }
 
-    final var previousStatus = academicYear.getStatus();
+    final var before = academicYear.auditSnapshot();
     academicYear.transitionTo(targetStatus);
-    auditRecorder.recordChange(
+    auditRecorder.recordSnapshotChange(
         academicYear.getInstitution(),
         null,
-        AuditAction.ACADEMIC_YEAR_STATUS_CHANGED,
-        AuditEntityType.ACADEMIC_YEAR,
+        AcademicAuditAction.ACADEMIC_YEAR_STATUS_CHANGED,
+        AcademicYear.AUDIT_TYPE,
         academicYear.getId(),
         String.valueOf(academicYear.getYear()),
-        Map.of("status", previousStatus.name()),
-        Map.of("status", academicYear.getStatus().name()));
+        before,
+        academicYear.auditSnapshot());
     if (targetStatus == AcademicYearStatus.CLOSED) {
       final var courses =
           courseRepository.findByAcademicYear_IdAndInstitution_IdAndDeletedAtIsNull(
               academicYear.getId(), institutionId);
       final var closingCourses =
           courses.stream().filter(course -> course.getStatus() != CourseStatus.CLOSED).toList();
-      final var previousStatuses =
+      final var previousSnapshots =
           closingCourses.stream()
-              .collect(Collectors.toMap(course -> course.getId(), course -> course.getStatus()));
+              .collect(Collectors.toMap(course -> course.getId(), entry -> entry.auditSnapshot()));
       final var courseIds = closingCourses.stream().map(course -> course.getId()).toList();
       final var auditCourses =
           courseIds.isEmpty()
@@ -121,27 +121,25 @@ public class UpdateAcademicYearStatusUseCase {
         courseClosureService.close(institutionId, course.getId(), null);
       }
       for (final var course : auditCourses) {
+        final var details =
+            AuditChangeDetails.change(
+                course.auditName(),
+                java.util.Objects.requireNonNull(previousSnapshots.get(course.getId())),
+                course.auditSnapshot());
+        details.put(
+            "relatedPersonIds",
+            teachersByCourse.getOrDefault(course.getId(), List.of()).stream()
+                .distinct()
+                .sorted()
+                .toList());
         auditRecorder.recordCurrentActor(
             course.getInstitution(),
             null,
-            AuditAction.COURSE_STATUS_CHANGED,
-            AuditEntityType.COURSE,
+            AcademicAuditAction.COURSE_STATUS_CHANGED,
+            Course.AUDIT_TYPE,
             course.getId(),
             AuditOrigin.administration(),
-            Map.of(
-                "entityName",
-                AcademicAuditDetails.courseName(course),
-                "before",
-                Map.of(
-                    "status",
-                    java.util.Objects.requireNonNull(previousStatuses.get(course.getId())).name()),
-                "after",
-                Map.of("status", CourseStatus.CLOSED.name()),
-                "relatedPersonIds",
-                teachersByCourse.getOrDefault(course.getId(), List.of()).stream()
-                    .distinct()
-                    .sorted()
-                    .toList()));
+            details);
       }
     }
   }

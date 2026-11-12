@@ -1,6 +1,9 @@
 package ar.edu.utn.frvm.typeit.bemol_api.academic.entities;
 
 import ar.edu.utn.frvm.typeit.bemol_api.academic.validation.AcademicNameNormalizer;
+import ar.edu.utn.frvm.typeit.bemol_api.audit.definition.AuditResource;
+import ar.edu.utn.frvm.typeit.bemol_api.audit.snapshot.AuditSnapshot;
+import ar.edu.utn.frvm.typeit.bemol_api.audit.snapshot.AuditSubject;
 import ar.edu.utn.frvm.typeit.bemol_api.common.persistence.Auditable;
 import ar.edu.utn.frvm.typeit.bemol_api.common.persistence.GeneratedUUIDv7;
 import jakarta.persistence.Column;
@@ -17,8 +20,6 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import org.hibernate.envers.Audited;
-import org.hibernate.envers.RelationTargetAuditMode;
 import org.jspecify.annotations.Nullable;
 
 @Entity
@@ -36,7 +37,9 @@ import org.jspecify.annotations.Nullable;
 @NoArgsConstructor
 @AllArgsConstructor(access = AccessLevel.PRIVATE)
 @Builder(access = AccessLevel.PACKAGE)
-public class AcademicLevel extends Auditable {
+public class AcademicLevel extends Auditable implements AuditSubject {
+  public static final AuditResource AUDIT_TYPE =
+      new AuditResource("ACADEMIC_LEVEL", "Nivel de plan");
 
   @Id
   @GeneratedUUIDv7
@@ -45,15 +48,12 @@ public class AcademicLevel extends Auditable {
 
   @ManyToOne(fetch = FetchType.LAZY, optional = false)
   @JoinColumn(name = "study_plan_id", nullable = false)
-  @Audited(targetAuditMode = RelationTargetAuditMode.NOT_AUDITED)
   private StudyPlan studyPlan;
 
   @Column(nullable = false, length = 150)
-  @Audited
   private String name;
 
   @Column(name = "display_order", nullable = false)
-  @Audited
   private int displayOrder;
 
   @Column(length = 1000)
@@ -81,5 +81,14 @@ public class AcademicLevel extends Auditable {
     this.name = AcademicNameNormalizer.display(name);
     this.displayOrder = displayOrder;
     this.description = description;
+  }
+
+  @Override
+  public AuditSnapshot.Snapshot auditSnapshot() {
+    return AuditSnapshot.fields()
+        .expose("name", "Nombre", name)
+        .expose("displayOrder", "Orden", displayOrder)
+        .compare("description", "Descripción", description)
+        .build();
   }
 }

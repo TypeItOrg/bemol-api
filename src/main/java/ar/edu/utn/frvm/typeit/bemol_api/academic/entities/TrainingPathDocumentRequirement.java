@@ -1,47 +1,42 @@
 package ar.edu.utn.frvm.typeit.bemol_api.academic.entities;
 
+import ar.edu.utn.frvm.typeit.bemol_api.audit.snapshot.AuditSnapshot;
+import ar.edu.utn.frvm.typeit.bemol_api.audit.snapshot.AuditSubject;
 import ar.edu.utn.frvm.typeit.bemol_api.common.persistence.GeneratedUUIDv7;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.enums.DocumentRequirementLevel;
 import jakarta.persistence.*;
 import java.util.*;
+import java.util.Map;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import org.hibernate.envers.Audited;
-import org.hibernate.envers.RelationTargetAuditMode;
 import org.jspecify.annotations.Nullable;
 
 @Entity
 @Table(name = "training_path_document_requirements")
 @Getter
 @NoArgsConstructor
-public class TrainingPathDocumentRequirement {
+public class TrainingPathDocumentRequirement implements AuditSubject {
   @Id @GeneratedUUIDv7 private UUID id;
 
   @ManyToOne(fetch = FetchType.LAZY, optional = false)
   @JoinColumn(name = "training_path_id")
-  @Audited(targetAuditMode = RelationTargetAuditMode.NOT_AUDITED)
   private TrainingPath trainingPath;
 
   @ManyToOne(fetch = FetchType.LAZY, optional = false)
   @JoinColumn(name = "document_id")
-  @Audited(targetAuditMode = RelationTargetAuditMode.NOT_AUDITED)
   private DocumentDefinition document;
 
   @Column(name = "institution_id", nullable = false)
-  @Audited
   private UUID institutionId;
 
   @Enumerated(EnumType.STRING)
   @Column(nullable = false)
-  @Audited
   private DocumentRequirementLevel level;
 
   @Column(name = "display_order", nullable = false)
-  @Audited
   private int displayOrder;
 
   @Column(nullable = false)
-  @Audited
   private boolean active;
 
   @Column(name = "specific_instructions", length = 1000)
@@ -84,5 +79,18 @@ public class TrainingPathDocumentRequirement {
 
   public boolean isEffectiveActive() {
     return active && document.isActive() && trainingPath.getDeletedAt() == null;
+  }
+
+  @Override
+  public AuditSnapshot.Snapshot auditSnapshot() {
+    return AuditSnapshot.fields()
+        .compare("trainingPathId", "Trayecto formativo", trainingPath.getId())
+        .expose("trainingPathName", "Trayecto formativo", trainingPath.getName())
+        .expose(
+            "level", "Nivel", level.name(), Map.of("code", level.name(), "label", level.getLabel()))
+        .expose("displayOrder", "Orden", displayOrder)
+        .expose("active", "Estado", active)
+        .compare("specificInstructions", "Instrucciones específicas", specificInstructions)
+        .build();
   }
 }

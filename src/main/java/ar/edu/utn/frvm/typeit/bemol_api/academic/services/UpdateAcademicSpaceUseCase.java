@@ -1,5 +1,7 @@
 package ar.edu.utn.frvm.typeit.bemol_api.academic.services;
 
+import ar.edu.utn.frvm.typeit.bemol_api.academic.audit.AcademicAuditAction;
+import ar.edu.utn.frvm.typeit.bemol_api.academic.entities.AcademicSpace;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.exceptions.AcademicConflictException;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.exceptions.AcademicIntegrityViolationTranslator;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.exceptions.AcademicMessages;
@@ -8,8 +10,6 @@ import ar.edu.utn.frvm.typeit.bemol_api.academic.interfaces.AcademicSpaceReposit
 import ar.edu.utn.frvm.typeit.bemol_api.academic.payloads.AcademicSpaceResponse;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.payloads.UpdateAcademicSpaceRequest;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.validation.AcademicNameNormalizer;
-import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditAction;
-import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditEntityType;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.services.AuditEventRecorder;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -46,7 +46,7 @@ public class UpdateAcademicSpaceUseCase {
         institutionId, name, request.type().name(), request.format().name(), id)) {
       throw AcademicConflictException.forField("name", AcademicMessages.DUPLICATE_NAME);
     }
-    final var before = AcademicCatalogAuditDetails.snapshot(space);
+    final var before = space.auditSnapshot();
     space.update(
         name, request.description(), request.type(), request.format(), request.instrumental());
     try {
@@ -54,15 +54,15 @@ public class UpdateAcademicSpaceUseCase {
     } catch (DataIntegrityViolationException exception) {
       throw AcademicIntegrityViolationTranslator.translate(exception);
     }
-    auditRecorder.recordChange(
+    auditRecorder.recordSnapshotChange(
         space.getInstitution(),
         null,
-        AuditAction.ACADEMIC_SPACE_UPDATED,
-        AuditEntityType.ACADEMIC_SPACE,
+        AcademicAuditAction.ACADEMIC_SPACE_UPDATED,
+        AcademicSpace.AUDIT_TYPE,
         space.getId(),
         space.getName(),
         before,
-        AcademicCatalogAuditDetails.snapshot(space));
+        space.auditSnapshot());
     return AcademicSpaceResponse.from(space);
   }
 }
