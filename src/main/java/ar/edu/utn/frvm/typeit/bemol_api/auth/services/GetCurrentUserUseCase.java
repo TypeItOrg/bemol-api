@@ -34,7 +34,8 @@ public class GetCurrentUserUseCase {
         userRepository
             .findWithPersonAndInstitutionById(principal.userId())
             .orElseThrow(InvalidCredentialsException::new);
-    if (!user.isAccessEnabled() || (!principal.delegated() && !user.isEnabled())) {
+    final boolean ownAccountDisabled = !principal.delegated() && !user.isEnabled();
+    if (!user.isAccessEnabled() || ownAccountDisabled) {
       throw new DisabledException(AuthMessages.USER_DISABLED);
     }
 

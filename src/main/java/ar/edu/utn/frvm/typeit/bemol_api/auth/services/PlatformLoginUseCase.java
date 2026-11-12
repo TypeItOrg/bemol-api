@@ -3,6 +3,7 @@ package ar.edu.utn.frvm.typeit.bemol_api.auth.services;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.config.PlatformAuthenticationPolicy;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.entities.PlatformAccount;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.exceptions.InvalidCredentialsException;
+import ar.edu.utn.frvm.typeit.bemol_api.auth.filters.CurrentPrincipal;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.interfaces.PlatformAccountRepository;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.interfaces.PlatformPasskeyCredentialRepository;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.payloads.requests.PlatformLoginRequest;
@@ -37,9 +38,9 @@ public class PlatformLoginUseCase {
     final Authentication authentication =
         credentialsAuthenticator.authenticate(principal, request.password());
 
-    if (!(authentication.getPrincipal() instanceof PlatformAccount authenticated)) {
-      throw new InvalidCredentialsException();
-    }
+    final var authenticated =
+        CurrentPrincipal.of(authentication, PlatformAccount.class)
+            .orElseThrow(InvalidCredentialsException::new);
 
     final String authenticatedPassword = authenticated.getPassword();
     final String authenticatedEmail = authenticated.getEmail();

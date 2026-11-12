@@ -1,9 +1,10 @@
 package ar.edu.utn.frvm.typeit.bemol_api.authorization.services;
 
-import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditAction;
-import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditEntityType;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditOrigin;
+import ar.edu.utn.frvm.typeit.bemol_api.audit.services.AuditChangeDetails;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.services.AuditEventRecorder;
+import ar.edu.utn.frvm.typeit.bemol_api.authorization.audit.AuthorizationAuditAction;
+import ar.edu.utn.frvm.typeit.bemol_api.authorization.entities.PersonRoleAssignment;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.entities.Role;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.enums.PermissionCode;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.enums.RoleScope;
@@ -14,7 +15,6 @@ import ar.edu.utn.frvm.typeit.bemol_api.authorization.interfaces.RoleRepository;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.payloads.AssignRoleRequest;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.payloads.PersonRoleResponse;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.entities.Person;
-import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -71,7 +71,7 @@ public class AssignPersonRoleUseCase {
     }
     final var current =
         personRoleAssignmentRepository.findByPerson_IdAndInstitution_Id(personId, institutionId);
-    final var before = RoleAuditDetails.assignments(current);
+    final var before = PersonRoleAssignment.auditAssignments(current);
     if (!allowAuthority) {
       for (var assignment : current) {
         if (role.replacesOnAssignment(assignment.getRole())) {
@@ -88,16 +88,16 @@ public class AssignPersonRoleUseCase {
 
     final var finalAssignments =
         personRoleAssignmentRepository.findByPerson_IdAndInstitution_Id(personId, institutionId);
-    final var after = RoleAuditDetails.assignments(finalAssignments);
-    if (!before.equals(after)) {
+    final var after = PersonRoleAssignment.auditAssignments(finalAssignments);
+    if (!before.values().equals(after.values())) {
       auditEventRecorder.recordCurrentActor(
           person.getInstitution(),
           personId,
-          AuditAction.PERSON_ROLES_CHANGED,
-          AuditEntityType.PERSON,
+          AuthorizationAuditAction.PERSON_ROLES_CHANGED,
+          Person.AUDIT_TYPE,
           personId,
           AuditOrigin.administration(),
-          Map.of("before", before, "after", after));
+          AuditChangeDetails.change("Roles y alcances", before, after));
     }
     PersonRoleResponse response =
         finalAssignments.stream()

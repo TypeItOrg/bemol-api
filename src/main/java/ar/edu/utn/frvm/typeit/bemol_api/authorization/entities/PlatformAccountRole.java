@@ -19,8 +19,6 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import org.hibernate.envers.Audited;
-import org.hibernate.envers.RelationTargetAuditMode;
 
 @Entity
 @Table(
@@ -42,12 +40,10 @@ public class PlatformAccountRole extends Auditable {
 
   @ManyToOne(fetch = FetchType.LAZY, optional = false)
   @JoinColumn(name = "platform_account_id", nullable = false)
-  @Audited(targetAuditMode = RelationTargetAuditMode.NOT_AUDITED)
   private PlatformAccount platformAccount;
 
   @ManyToOne(fetch = FetchType.LAZY, optional = false)
   @JoinColumn(name = "role_id", nullable = false)
-  @Audited(targetAuditMode = RelationTargetAuditMode.NOT_AUDITED)
   private Role role;
 
   public static PlatformAccountRole assign(final PlatformAccount platformAccount, final Role role) {

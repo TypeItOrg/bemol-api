@@ -3,6 +3,7 @@ package ar.edu.utn.frvm.typeit.bemol_api.auth.services;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.entities.User;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.exceptions.InvalidCredentialsException;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.exceptions.InvalidLoginAttemptException;
+import ar.edu.utn.frvm.typeit.bemol_api.auth.filters.CurrentPrincipal;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.interfaces.UserRepository;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.payloads.requests.PasswordLoginRequest;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.payloads.responses.AuthResponse;
@@ -38,9 +39,9 @@ public class PasswordLoginWithAttemptUseCase {
         InstitutionalUsername.format(user.getInstitutionId(), user.getDocumentNumber());
     final Authentication authentication =
         credentialsAuthenticator.authenticate(principal, request.password());
-    if (!(authentication.getPrincipal() instanceof User authenticated)) {
-      throw new InvalidCredentialsException();
-    }
+    final var authenticated =
+        CurrentPrincipal.of(authentication, User.class)
+            .orElseThrow(InvalidCredentialsException::new);
     if (!authenticated.isEnabled()) {
       throw new InvalidCredentialsException();
     }

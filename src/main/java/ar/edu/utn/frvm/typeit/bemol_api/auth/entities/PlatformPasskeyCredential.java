@@ -1,5 +1,7 @@
 package ar.edu.utn.frvm.typeit.bemol_api.auth.entities;
 
+import ar.edu.utn.frvm.typeit.bemol_api.audit.snapshot.AuditSnapshot;
+import ar.edu.utn.frvm.typeit.bemol_api.audit.snapshot.AuditSubject;
 import ar.edu.utn.frvm.typeit.bemol_api.common.persistence.Auditable;
 import ar.edu.utn.frvm.typeit.bemol_api.common.persistence.GeneratedUUIDv7;
 import jakarta.persistence.Column;
@@ -46,7 +48,7 @@ import org.jspecify.annotations.Nullable;
 @NoArgsConstructor
 @AllArgsConstructor(access = AccessLevel.PRIVATE)
 @Builder
-public class PlatformPasskeyCredential extends Auditable {
+public class PlatformPasskeyCredential extends Auditable implements AuditSubject {
 
   @Id
   @GeneratedUUIDv7
@@ -144,5 +146,13 @@ public class PlatformPasskeyCredential extends Auditable {
       return;
     }
     this.transports = String.join(",", transportValues);
+  }
+
+  @Override
+  public AuditSnapshot.Snapshot auditSnapshot() {
+    return AuditSnapshot.fields()
+        .expose("label", "Nombre de la llave de acceso", label)
+        .expose("active", "Estado", isActive())
+        .build();
   }
 }

@@ -1,8 +1,6 @@
 package ar.edu.utn.frvm.typeit.bemol_api.authorization.controllers;
 
-import static java.util.Objects.requireNonNull;
-
-import ar.edu.utn.frvm.typeit.bemol_api.auth.filters.JwtAuthenticatedUser;
+import ar.edu.utn.frvm.typeit.bemol_api.auth.filters.CurrentPrincipal;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.RequiresAnyPermission;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.RequiresInstitutionAccess;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.RequiresPermission;
@@ -77,7 +75,7 @@ public class InstitutionRoleController {
   @RequiresPermission(PermissionCode.INSTITUTION_ROLE_READ)
   public InstitutionRoleResponse get(
       @PathVariable UUID institutionId, @PathVariable UUID roleId, Authentication authentication) {
-    var principal = (JwtAuthenticatedUser) requireNonNull(authentication.getPrincipal());
+    var principal = CurrentPrincipal.requireInstitutionalUser(authentication);
     return roleService.get(institutionId, roleId, true, principal.personId());
   }
 
@@ -113,7 +111,7 @@ public class InstitutionRoleController {
       @PathVariable UUID roleId,
       @Valid @RequestBody InstitutionRoleRequest request,
       Authentication authentication) {
-    var principal = (JwtAuthenticatedUser) requireNonNull(authentication.getPrincipal());
+    var principal = CurrentPrincipal.requireInstitutionalUser(authentication);
     return roleService.update(
         institutionId,
         roleId,

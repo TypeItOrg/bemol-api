@@ -1,10 +1,10 @@
 package ar.edu.utn.frvm.typeit.bemol_api.authorization.services;
 
-import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditAction;
-import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditEntityType;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditOrigin;
+import ar.edu.utn.frvm.typeit.bemol_api.audit.services.AuditChangeDetails;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.services.AuditEventRecorder;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.services.SessionRevocationService;
+import ar.edu.utn.frvm.typeit.bemol_api.authorization.audit.AuthorizationAuditAction;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.entities.PersonRoleAssignment;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.entities.Role;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.enums.PermissionCode;
@@ -13,8 +13,8 @@ import ar.edu.utn.frvm.typeit.bemol_api.authorization.exceptions.LastPersonRoleR
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.exceptions.RoleNotAssignableException;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.interfaces.PersonRoleAssignmentRepository;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.interfaces.RoleRepository;
+import ar.edu.utn.frvm.typeit.bemol_api.institutional.entities.Person;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -63,21 +63,21 @@ public class RevokePersonRoleUseCase {
         .findByPerson_IdAndRole_IdAndInstitution_Id(personId, roleId, institutionId)
         .ifPresent(
             assignment -> {
-              final var before = RoleAuditDetails.assignments(currentAssignments);
+              final var before = PersonRoleAssignment.auditAssignments(currentAssignments);
               personRoleAssignmentRepository.delete(assignment);
               final var after =
-                  RoleAuditDetails.assignments(
+                  PersonRoleAssignment.auditAssignments(
                       currentAssignments.stream()
                           .filter(current -> !current.getRole().getId().equals(roleId))
                           .toList());
               auditEventRecorder.recordCurrentActor(
                   person.getInstitution(),
                   personId,
-                  AuditAction.PERSON_ROLES_CHANGED,
-                  AuditEntityType.PERSON,
+                  AuthorizationAuditAction.PERSON_ROLES_CHANGED,
+                  Person.AUDIT_TYPE,
                   personId,
                   AuditOrigin.administration(),
-                  Map.of("before", before, "after", after));
+                  AuditChangeDetails.change("Roles y alcances", before, after));
             });
     sessionRevocationService.revokeInstitutionalSessionsForPerson(personId, institutionId);
     authorizationCacheInvalidator.evictPerson(personId, institutionId);

@@ -2,8 +2,7 @@ package ar.edu.utn.frvm.typeit.bemol_api.authorization.services;
 
 import static ar.edu.utn.frvm.typeit.bemol_api.security.handlers.SecurityErrorMessages.DEFAULT_FORBIDDEN_MESSAGE;
 
-import ar.edu.utn.frvm.typeit.bemol_api.auth.filters.JwtAuthenticatedPlatformAccount;
-import ar.edu.utn.frvm.typeit.bemol_api.auth.filters.JwtAuthenticatedUser;
+import ar.edu.utn.frvm.typeit.bemol_api.auth.filters.CurrentPrincipal;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.enums.AccessScope;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.enums.PermissionCode;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.enums.PlatformRoleCode;
@@ -53,9 +52,11 @@ public class InitialRoleAssignmentGuard {
     if (initialRole == SystemRoleCode.APPLICANT || isPlatformAdministrator(authentication)) {
       return;
     }
-    if (authentication == null
-        || !(authentication.getPrincipal() instanceof JwtAuthenticatedUser user)
-        || !user.institutionId().equals(institutionId)) {
+    final boolean sameInstitution =
+        CurrentPrincipal.institutionalUser(authentication)
+            .map(user -> user.institutionId().equals(institutionId))
+            .orElse(false);
+    if (!sameInstitution) {
       throw new AccessDeniedException(DEFAULT_FORBIDDEN_MESSAGE);
     }
     if (initialRole == SystemRoleCode.INSTITUTIONAL_AUTHORITY) {
@@ -68,8 +69,9 @@ public class InitialRoleAssignmentGuard {
   }
 
   private boolean isPlatformAdministrator(final @Nullable Authentication authentication) {
-    return authentication != null
-        && authentication.getPrincipal() instanceof JwtAuthenticatedPlatformAccount
+    final boolean platformCaller = CurrentPrincipal.platformAccount(authentication).isPresent();
+
+    return platformCaller
         && authorizationService.hasPlatformRole(authentication, PlatformRoleCode.PLATFORM_ADMIN);
   }
 }

@@ -9,6 +9,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import ar.edu.utn.frvm.typeit.bemol_api.audit.services.AuditEventRecorder;
+import ar.edu.utn.frvm.typeit.bemol_api.audit.snapshot.AuditSnapshot;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.config.WebAuthnProperties;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.entities.PasskeyCredential;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.entities.User;
@@ -121,6 +122,7 @@ class RecentAuthCeremonyIntegrationTest {
     when(passkeyCredentialRepository.findByCredentialId(any())).thenReturn(Optional.empty());
     final PasskeyCredential saved = Mockito.mock(PasskeyCredential.class);
     when(saved.getLabel()).thenReturn("Mi PC");
+    when(saved.auditSnapshot()).thenReturn(AuditSnapshot.empty());
     when(passkeyCredentialRepository.saveAndFlush(any())).thenReturn(saved);
     final PasskeyCredentialMapper mapper = Mockito.mock(PasskeyCredentialMapper.class);
     when(mapper.toEntity(any(), any(), any())).thenReturn(saved);

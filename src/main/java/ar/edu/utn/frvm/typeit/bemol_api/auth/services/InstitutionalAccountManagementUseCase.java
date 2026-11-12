@@ -1,9 +1,11 @@
 package ar.edu.utn.frvm.typeit.bemol_api.auth.services;
 
-import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditAction;
-import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditEntityType;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditOrigin;
+import ar.edu.utn.frvm.typeit.bemol_api.audit.services.AuditChangeDetails;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.services.AuditEventRecorder;
+import ar.edu.utn.frvm.typeit.bemol_api.audit.snapshot.AuditSnapshot;
+import ar.edu.utn.frvm.typeit.bemol_api.auth.entities.PersonAccessInvitation;
+import ar.edu.utn.frvm.typeit.bemol_api.auth.entities.User;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.enums.AccessInvitationPurpose;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.filters.JwtAuthenticatedPlatformAccount;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.filters.JwtAuthenticatedUser;
@@ -11,6 +13,7 @@ import ar.edu.utn.frvm.typeit.bemol_api.auth.interfaces.InstitutionalPasswordRes
 import ar.edu.utn.frvm.typeit.bemol_api.auth.interfaces.PersonAccessInvitationRepository;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.interfaces.PlatformAccountRepository;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.interfaces.UserRepository;
+import ar.edu.utn.frvm.typeit.bemol_api.institutional.audit.InstitutionalAuditAction;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.entities.GuardianLinkStatus;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.entities.Person;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.exceptions.InstitutionMessages;
@@ -112,11 +115,12 @@ public class InstitutionalAccountManagementUseCase {
     audit.recordCurrentActor(
         person.getInstitution(),
         person.getId(),
-        AuditAction.PERSON_OWN_ACCESS_INVITED,
-        AuditEntityType.PERSON_ACCESS_INVITATION,
+        InstitutionalAuditAction.PERSON_OWN_ACCESS_INVITED,
+        PersonAccessInvitation.AUDIT_TYPE,
         invitation.getId(),
         AuditOrigin.administration(),
-        Map.of("purpose", purpose.name()));
+        AuditChangeDetails.change(
+            "Invitación de acceso", AuditSnapshot.empty(), invitation.auditSnapshot()));
   }
 
   @Transactional
@@ -158,11 +162,12 @@ public class InstitutionalAccountManagementUseCase {
       audit.recordCurrentActor(
           person.getInstitution(),
           personId,
-          AuditAction.PERSON_OWN_ACCESS_INVITED,
-          AuditEntityType.PERSON_ACCESS_INVITATION,
+          InstitutionalAuditAction.PERSON_OWN_ACCESS_INVITED,
+          PersonAccessInvitation.AUDIT_TYPE,
           invitation.getId(),
           AuditOrigin.SELF_SERVICE,
-          Map.of());
+          AuditChangeDetails.change(
+              "Invitación de acceso", AuditSnapshot.empty(), invitation.auditSnapshot()));
     } else {
       issue(
           person,
@@ -180,8 +185,8 @@ public class InstitutionalAccountManagementUseCase {
     audit.recordCurrentActor(
         person.getInstitution(),
         personId,
-        AuditAction.PERSON_OWN_ACCESS_INVITATION_CANCELLED,
-        AuditEntityType.PERSON,
+        InstitutionalAuditAction.PERSON_OWN_ACCESS_INVITATION_CANCELLED,
+        Person.AUDIT_TYPE,
         personId,
         AuditOrigin.administration(),
         Map.of());
@@ -208,20 +213,23 @@ public class InstitutionalAccountManagementUseCase {
                 .isPresent())) {
       throw new OwnAccessException(InstitutionMessages.OWN_ACCESS_INSTITUTION_REQUIRED);
     }
+    final var before = user.auditSnapshot();
     user.updateSelfAccess(enabled);
     if (!enabled) {
       provisioning.cancelInvitations(personId);
       recoveries.deleteByUserId(user.getId());
       sessions.revokeInstitutionalSessionsForUser(user.getId());
     }
-    audit.recordCurrentActor(
-        person.getInstitution(),
-        personId,
-        AuditAction.PERSON_OWN_ACCESS_CHANGED,
-        AuditEntityType.USER,
-        user.getId(),
-        AuditOrigin.administration(),
-        Map.of("enabled", enabled));
+    if (!before.values().equals(user.auditSnapshot().values())) {
+      audit.recordCurrentActor(
+          person.getInstitution(),
+          personId,
+          InstitutionalAuditAction.PERSON_OWN_ACCESS_CHANGED,
+          User.AUDIT_TYPE,
+          user.getId(),
+          AuditOrigin.administration(),
+          AuditChangeDetails.change("Cuenta institucional", before, user.auditSnapshot()));
+    }
     return describe(person);
   }
 

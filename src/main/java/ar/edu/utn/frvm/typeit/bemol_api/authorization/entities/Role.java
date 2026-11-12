@@ -1,5 +1,9 @@
 package ar.edu.utn.frvm.typeit.bemol_api.authorization.entities;
 
+import ar.edu.utn.frvm.typeit.bemol_api.audit.definition.AuditResource;
+import ar.edu.utn.frvm.typeit.bemol_api.audit.snapshot.AuditSnapshot;
+import ar.edu.utn.frvm.typeit.bemol_api.audit.snapshot.AuditSubject;
+import ar.edu.utn.frvm.typeit.bemol_api.authorization.enums.PermissionCode;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.enums.RoleScope;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.enums.SystemRoleCode;
 import ar.edu.utn.frvm.typeit.bemol_api.common.persistence.Auditable;
@@ -15,14 +19,14 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
+import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import org.hibernate.envers.Audited;
-import org.hibernate.envers.RelationTargetAuditMode;
 
 @Entity
 @Table(
@@ -35,7 +39,8 @@ import org.hibernate.envers.RelationTargetAuditMode;
 @NoArgsConstructor
 @AllArgsConstructor(access = AccessLevel.PRIVATE)
 @Builder
-public class Role extends Auditable {
+public class Role extends Auditable implements AuditSubject {
+  public static final AuditResource AUDIT_TYPE = new AuditResource("ROLE", "Rol");
 
   @Id
   @GeneratedUUIDv7
@@ -43,26 +48,21 @@ public class Role extends Auditable {
   private UUID id;
 
   @Column(nullable = false, length = 50)
-  @Audited
   private String code;
 
   @Column(nullable = false, length = 100)
-  @Audited
   private String name;
 
   @Enumerated(EnumType.STRING)
   @Column(nullable = false, length = 20)
-  @Audited
   private RoleScope scope;
 
   @Column(name = "is_system", nullable = false)
   @Builder.Default
-  @Audited
   private boolean system = true;
 
   @ManyToOne(fetch = FetchType.LAZY)
   @JoinColumn(name = "institution_id")
-  @Audited(targetAuditMode = RelationTargetAuditMode.NOT_AUDITED)
   private Institution institution;
 
   public static Role customInstitutional(
@@ -98,5 +98,29 @@ public class Role extends Auditable {
 
   public boolean isApplicant() {
     return system && SystemRoleCode.APPLICANT.name().equals(code);
+  }
+
+  @Override
+  public AuditSnapshot.Snapshot auditSnapshot() {
+    return AuditSnapshot.fields().expose("name", "Nombre", name).build();
+  }
+
+  public AuditSnapshot.Snapshot auditSnapshot(final Set<String> permissionCodes) {
+    final var codes = permissionCodes.stream().sorted().toList();
+    final var labels =
+        codes.stream().map(code -> Map.of("code", code, "label", permissionLabel(code))).toList();
+    return AuditSnapshot.fields()
+        .expose("name", "Nombre", name)
+        .expose("permissions", "Permisos efectivos", codes, labels)
+        .build();
+  }
+
+  private static String permissionLabel(final String code) {
+    for (final var permission : PermissionCode.values()) {
+      if (permission.getCode().equals(code)) {
+        return permission.getDescription();
+      }
+    }
+    return code;
   }
 }

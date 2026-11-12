@@ -2,7 +2,7 @@ package ar.edu.utn.frvm.typeit.bemol_api.auth.services;
 
 import static java.util.Objects.requireNonNull;
 
-import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditAction;
+import ar.edu.utn.frvm.typeit.bemol_api.auth.audit.AuthAuditAction;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.entities.PlatformAccount;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.exceptions.InvalidLoginAttemptException;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.interfaces.PlatformAccountRepository;
@@ -14,7 +14,6 @@ import ar.edu.utn.frvm.typeit.bemol_api.auth.services.PlatformPasskeyStateStore.
 import ar.edu.utn.frvm.typeit.bemol_api.auth.services.PlatformPasskeyStateStore.Ceremony;
 import jakarta.servlet.http.HttpServletRequest;
 import java.time.Clock;
-import java.util.Map;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -77,13 +76,10 @@ public class PlatformPasskeyUseCase {
 
     final var previous = credentials.findActiveByPlatformAccountId(account.getId());
     for (final var old : previous) {
+      final var before = old.auditSnapshot();
       old.revoke(clock.instant());
       operations.recordChange(
-          account,
-          old,
-          AuditAction.PASSKEY_DELETED,
-          Map.of("active", true),
-          Map.of("active", old.isActive()));
+          account, old, AuthAuditAction.PASSKEY_DELETED, before, old.auditSnapshot());
     }
     operations.saveCredential(account, record, ceremony.label());
     revocation.revokePlatformAccountSessions(account.getId());

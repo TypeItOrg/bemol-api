@@ -1,8 +1,6 @@
 package ar.edu.utn.frvm.typeit.bemol_api.auth.controllers;
 
-import static java.util.Objects.requireNonNull;
-
-import ar.edu.utn.frvm.typeit.bemol_api.auth.filters.JwtAuthenticatedPlatformAccount;
+import ar.edu.utn.frvm.typeit.bemol_api.auth.filters.CurrentPrincipal;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.payloads.requests.CreatePlatformAccountRequest;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.payloads.requests.UpdatePlatformAccountRequest;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.payloads.requests.UpdatePlatformAccountStatusRequest;
@@ -86,8 +84,7 @@ public class PlatformAccountAdminController {
       @PathVariable final UUID id,
       @Valid @RequestBody final UpdatePlatformAccountStatusRequest request,
       final Authentication authentication) {
-    final var principal =
-        (JwtAuthenticatedPlatformAccount) requireNonNull(authentication.getPrincipal());
+    final var principal = CurrentPrincipal.requirePlatformAccount(authentication);
     updatePlatformAccountStatusUseCase.execute(
         id, principal.platformAccountId(), request.enabled());
   }

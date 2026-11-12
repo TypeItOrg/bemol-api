@@ -1,10 +1,10 @@
 package ar.edu.utn.frvm.typeit.bemol_api.auth.services;
 
-import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditAction;
-import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditEntityType;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditOrigin;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.services.AuditChangeDetails;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.services.AuditEventRecorder;
+import ar.edu.utn.frvm.typeit.bemol_api.audit.snapshot.AuditSnapshot;
+import ar.edu.utn.frvm.typeit.bemol_api.auth.audit.AuthAuditAction;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.config.WebAuthnProperties;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.entities.PasskeyCredential;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.entities.User;
@@ -20,7 +20,6 @@ import ar.edu.utn.frvm.typeit.bemol_api.auth.payloads.responses.PasskeyResponse;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.webauthn.WebAuthnOptionsCodec;
 import com.webauthn4j.verifier.exception.MaliciousCounterValueException;
 import com.webauthn4j.verifier.exception.VerificationException;
-import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.hibernate.exception.ConstraintViolationException;
@@ -113,11 +112,11 @@ public class VerifyPasskeyRegistrationUseCase {
     auditRecorder.recordCurrentActor(
         locked.getInstitution(),
         principal.personId(),
-        AuditAction.PASSKEY_CREATED,
-        AuditEntityType.PASSKEY,
+        AuthAuditAction.PASSKEY_CREATED,
+        PasskeyCredential.AUDIT_TYPE,
         saved.getId(),
         AuditOrigin.SELF_SERVICE,
-        AuditChangeDetails.change(saved.getLabel(), Map.of(), Map.of("label", saved.getLabel())));
+        AuditChangeDetails.change(saved.getLabel(), AuditSnapshot.empty(), saved.auditSnapshot()));
     log.info("[Auth] Passkey registered, userId: {}", principal.userId());
     return PasskeyResponse.from(saved);
   }

@@ -1,6 +1,7 @@
 package ar.edu.utn.frvm.typeit.bemol_api.authorization.services;
 
-import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditAction;
+import ar.edu.utn.frvm.typeit.bemol_api.audit.snapshot.AuditSnapshot;
+import ar.edu.utn.frvm.typeit.bemol_api.authorization.audit.AuthorizationAuditAction;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.entities.Role;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.enums.PermissionCode;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.enums.PermissionScope;
@@ -23,7 +24,6 @@ import ar.edu.utn.frvm.typeit.bemol_api.institutional.exceptions.InstitutionNotF
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.interfaces.InstitutionRepository;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -102,7 +102,11 @@ public class InstitutionRoleManagementService {
                 "CUSTOM_" + UUID.randomUUID().toString().replace("-", ""), name, institution));
     permissions.replace(role, request.permissions(), actorPermissions, false);
     final var response = responses.from(role);
-    audit.role(role, AuditAction.ROLE_CREATED, Map.of(), RoleAuditDetails.definition(response));
+    audit.role(
+        role,
+        AuthorizationAuditAction.ROLE_CREATED,
+        AuditSnapshot.empty(),
+        role.auditSnapshot(response.permissions()));
 
     return response;
   }
@@ -130,7 +134,7 @@ public class InstitutionRoleManagementService {
     final var name = normalizedName(request.name());
     ensureUniqueName(institutionId, name, roleId);
 
-    final var before = RoleAuditDetails.definition(role.getName(), permissions.codes(role));
+    final var before = role.auditSnapshot(permissions.codes(role));
     role.rename(name);
     protection.requireRetained(role, institutionId, actorPersonId, request.permissions());
     permissions.requireDelegableChanges(role, request.permissions());
@@ -138,7 +142,11 @@ public class InstitutionRoleManagementService {
     cache.evictPeopleForRole(role.getId(), institutionId);
 
     final var response = responses.from(role);
-    audit.role(role, AuditAction.ROLE_UPDATED, before, RoleAuditDetails.definition(response));
+    audit.role(
+        role,
+        AuthorizationAuditAction.ROLE_UPDATED,
+        before,
+        role.auditSnapshot(response.permissions()));
 
     return response;
   }
@@ -155,13 +163,17 @@ public class InstitutionRoleManagementService {
     final var name = normalizedName(request.name());
     ensureUniqueName(institutionId, name, roleId);
 
-    final var before = RoleAuditDetails.definition(role.getName(), permissions.codes(role));
+    final var before = role.auditSnapshot(permissions.codes(role));
     role.rename(name);
     permissions.replace(role, request.permissions(), PLATFORM_ADMIN_PERMISSIONS, true);
     cache.evictPeopleForRole(role.getId(), institutionId);
 
     final var response = responses.from(role);
-    audit.role(role, AuditAction.ROLE_UPDATED, before, RoleAuditDetails.definition(response));
+    audit.role(
+        role,
+        AuthorizationAuditAction.ROLE_UPDATED,
+        before,
+        role.auditSnapshot(response.permissions()));
 
     return response;
   }
@@ -183,14 +195,13 @@ public class InstitutionRoleManagementService {
 
     final var existingPermissions = rolePermissions.findByRole_Id(roleId);
     final var before =
-        RoleAuditDetails.definition(
-            role.getName(),
+        role.auditSnapshot(
             existingPermissions.stream()
                 .map(value -> value.getPermission().getCode())
                 .collect(Collectors.toSet()));
     rolePermissions.deleteAll(existingPermissions);
     roles.delete(role);
-    audit.role(role, AuditAction.ROLE_DELETED, before, Map.of());
+    audit.role(role, AuthorizationAuditAction.ROLE_DELETED, before, AuditSnapshot.empty());
   }
 
   @Transactional

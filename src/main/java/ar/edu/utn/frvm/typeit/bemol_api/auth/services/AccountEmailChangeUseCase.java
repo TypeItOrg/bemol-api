@@ -1,10 +1,12 @@
 package ar.edu.utn.frvm.typeit.bemol_api.auth.services;
 
-import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditAction;
-import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditEntityType;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditOrigin;
+import ar.edu.utn.frvm.typeit.bemol_api.audit.services.AuditChangeDetails;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.services.AuditEventRecorder;
+import ar.edu.utn.frvm.typeit.bemol_api.audit.snapshot.AuditSnapshot;
+import ar.edu.utn.frvm.typeit.bemol_api.auth.audit.AuthAuditAction;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.entities.AccountEmailChangeToken;
+import ar.edu.utn.frvm.typeit.bemol_api.auth.entities.User;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.events.AccountEmailMessageRequested;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.filters.JwtAuthenticatedPlatformAccount;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.filters.JwtAuthenticatedUser;
@@ -26,7 +28,6 @@ import java.security.SecureRandom;
 import java.time.Clock;
 import java.time.Duration;
 import java.util.Base64;
-import java.util.Map;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
@@ -91,7 +92,7 @@ public class AccountEmailChangeUseCase {
     final String raw = Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
     tokens.deleteByUser_Id(user.get().getId());
     tokens.flush();
-    tokens.saveAndFlush(
+    final var token =
         AccountEmailChangeToken.issue(
             user.get(),
             actorPerson,
@@ -99,16 +100,18 @@ public class AccountEmailChangeUseCase {
             email,
             RequestInstitutionalPasswordRecoveryUseCase.hash(raw),
             clock.instant(),
-            clock.instant().plus(Duration.ofHours(24))));
+            clock.instant().plus(Duration.ofHours(24)));
+    tokens.saveAndFlush(token);
     publish(person, email, raw);
     audit.recordCurrentActor(
         person.getInstitution(),
         personId,
-        AuditAction.ACCOUNT_EMAIL_CHANGE_REQUESTED,
-        AuditEntityType.USER,
+        AuthAuditAction.ACCOUNT_EMAIL_CHANGE_REQUESTED,
+        User.AUDIT_TYPE,
         user.get().getId(),
         AuditOrigin.SELF_SERVICE,
-        Map.of());
+        AuditChangeDetails.change(
+            "Cuenta institucional", AuditSnapshot.empty(), token.auditSnapshot()));
   }
 
   @Transactional
@@ -137,36 +140,44 @@ public class AccountEmailChangeUseCase {
     entityManager.refresh(person, LockModeType.PESSIMISTIC_WRITE);
     final var actorPerson = token.getActorPerson();
     final var platform = token.getActorPlatformAccount();
-    if (!institution.isActive()
-        || person.isDeleted()
-        || (actorPerson != null && !access.canManageInstitutionally(actorPerson.getId(), person))
-        || (actorPerson == null
-            && (platform == null || !access.isPlatformAdministrator(platform.getId())))) {
+    final boolean personAvailable = institution.isActive() && !person.isDeleted();
+    if (!personAvailable || !initiatorCanManage(token, person)) {
       throw new OwnAccessException(InstitutionMessages.OWN_ACCESS_TOKEN_INVALID);
     }
     token.consume(clock.instant());
     final String previous = token.getPreviousEmail();
+    final var before = user.auditSnapshot();
     person.updateContact(token.getNewEmail(), person.getPhoneNumber());
     user.confirmAccountEmail(clock.instant());
     recoveries.deleteByUserId(user.getId());
     sessions.revokeInstitutionalSessionsForUser(user.getId());
     publish(person, previous, null);
+    final var details =
+        AuditChangeDetails.change("Cuenta institucional", before, user.auditSnapshot());
+    details.put("initiatorKind", actorPerson != null ? "INSTITUTION" : "PLATFORM");
+    details.put(
+        "initiatorId",
+        actorPerson != null
+            ? actorPerson.getId().toString()
+            : java.util.Objects.requireNonNull(platform).getId().toString());
     audit.recordCurrentActor(
         institution,
         personId,
-        AuditAction.INSTITUTIONAL_EMAIL_CHANGED,
-        AuditEntityType.USER,
+        AuthAuditAction.INSTITUTIONAL_EMAIL_CHANGED,
+        User.AUDIT_TYPE,
         user.getId(),
         AuditOrigin.EMAIL_VERIFICATION,
-        Map.of(
-            "changedFields",
-            java.util.List.of("email"),
-            "initiatorKind",
-            actorPerson != null ? "INSTITUTION" : "PLATFORM",
-            "initiatorId",
-            actorPerson != null
-                ? actorPerson.getId().toString()
-                : java.util.Objects.requireNonNull(platform).getId().toString()));
+        details);
+  }
+
+  private boolean initiatorCanManage(final AccountEmailChangeToken token, final Person person) {
+    final var actorPerson = token.getActorPerson();
+    if (actorPerson != null) {
+      return access.canManageInstitutionally(actorPerson.getId(), person);
+    }
+
+    final var platform = token.getActorPlatformAccount();
+    return platform != null && access.isPlatformAdministrator(platform.getId());
   }
 
   private void publish(

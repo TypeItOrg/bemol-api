@@ -1,13 +1,13 @@
 package ar.edu.utn.frvm.typeit.bemol_api.authorization.services;
 
-import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditAction;
-import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditEntityType;
+import ar.edu.utn.frvm.typeit.bemol_api.audit.definition.AuditOperation;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditOrigin;
+import ar.edu.utn.frvm.typeit.bemol_api.audit.services.AuditChangeDetails;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.services.AuditEventRecorder;
+import ar.edu.utn.frvm.typeit.bemol_api.audit.snapshot.AuditSnapshot;
+import ar.edu.utn.frvm.typeit.bemol_api.authorization.audit.AuthorizationAuditAction;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.entities.Role;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.entities.Person;
-import java.util.List;
-import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Propagation;
@@ -21,35 +21,34 @@ public class RoleAuditRecorder {
   @Transactional(propagation = Propagation.MANDATORY)
   public void role(
       final Role role,
-      final AuditAction action,
-      final Map<String, Object> before,
-      final Map<String, Object> after) {
-    if (!before.equals(after)) {
-      auditEventRecorder.recordCurrentActor(
-          role.getInstitution(),
-          null,
-          action,
-          AuditEntityType.ROLE,
-          role.getId(),
-          AuditOrigin.administration(),
-          Map.of("before", before, "after", after));
-    }
+      final AuditOperation action,
+      final AuditSnapshot.Snapshot before,
+      final AuditSnapshot.Snapshot after) {
+    auditEventRecorder.recordSnapshotChange(
+        role.getInstitution(),
+        null,
+        action,
+        Role.AUDIT_TYPE,
+        role.getId(),
+        role.getName(),
+        before,
+        after);
   }
 
   @Transactional(propagation = Propagation.MANDATORY)
   public void assignments(
       final Person person,
-      final List<Map<String, Object>> before,
-      final List<Map<String, Object>> after) {
-    if (!before.equals(after)) {
+      final AuditSnapshot.Snapshot before,
+      final AuditSnapshot.Snapshot after) {
+    if (!before.values().equals(after.values())) {
       auditEventRecorder.recordCurrentActor(
           person.getInstitution(),
           person.getId(),
-          AuditAction.PERSON_ROLES_CHANGED,
-          AuditEntityType.PERSON,
+          AuthorizationAuditAction.PERSON_ROLES_CHANGED,
+          Person.AUDIT_TYPE,
           person.getId(),
           AuditOrigin.administration(),
-          Map.of("before", before, "after", after));
+          AuditChangeDetails.change("Roles y alcances", before, after));
     }
   }
 }

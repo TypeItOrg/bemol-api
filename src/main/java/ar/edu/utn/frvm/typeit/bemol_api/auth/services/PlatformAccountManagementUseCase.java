@@ -6,10 +6,12 @@ import static ar.edu.utn.frvm.typeit.bemol_api.auth.events.PlatformAccountSecuri
 import static ar.edu.utn.frvm.typeit.bemol_api.auth.events.PlatformAccountSecurityMessageRequested.Kind.PASSWORD_CHANGED;
 import static java.util.Objects.requireNonNull;
 
-import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditAction;
-import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditEntityType;
+import ar.edu.utn.frvm.typeit.bemol_api.audit.definition.AuditOperation;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditOrigin;
+import ar.edu.utn.frvm.typeit.bemol_api.audit.services.AuditChangeDetails;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.services.AuditEventRecorder;
+import ar.edu.utn.frvm.typeit.bemol_api.audit.snapshot.AuditSnapshot;
+import ar.edu.utn.frvm.typeit.bemol_api.auth.audit.AuthAuditAction;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.entities.PlatformAccount;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.entities.PlatformEmailChangeToken;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.events.PlatformAccountSecurityMessageRequested;
@@ -33,9 +35,7 @@ import java.security.SecureRandom;
 import java.time.Clock;
 import java.time.Duration;
 import java.util.Base64;
-import java.util.List;
 import java.util.Locale;
-import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.hibernate.exception.ConstraintViolationException;
 import org.jspecify.annotations.Nullable;
@@ -65,9 +65,11 @@ public class PlatformAccountManagementUseCase {
       final JwtAuthenticatedPlatformAccount principal,
       final UpdateOwnPlatformProfileRequest request) {
     final var account = account(principal);
+    final var before = account.auditSnapshot();
     account.updateName(request.name().trim(), request.lastName().trim());
     accounts.saveAndFlush(account);
-    record(account, AuditAction.PLATFORM_ACCOUNT_UPDATED, List.of("firstName", "lastName"));
+    recordChange(
+        account, AuthAuditAction.PLATFORM_ACCOUNT_UPDATED, before, account.auditSnapshot());
   }
 
   @Transactional
@@ -89,10 +91,11 @@ public class PlatformAccountManagementUseCase {
     }
     state.requireRecent(account.getId(), principal.sessionId(), "password", true);
 
+    final var before = account.passwordAuditSnapshot();
     account.changePassword(requireNonNull(passwords.encode(request.password())));
     tokens.deleteByPlatformAccount_Id(account.getId());
     accounts.saveAndFlush(account);
-    record(account, AuditAction.PASSWORD_CHANGED, List.of("password"));
+    recordEvent(account, AuthAuditAction.PASSWORD_CHANGED, before, account.passwordAuditSnapshot());
     notify(account, account.getEmail(), PASSWORD_CHANGED, null);
     revocation.revokePlatformAccountSessions(account.getId());
   }
@@ -115,15 +118,20 @@ public class PlatformAccountManagementUseCase {
     final String raw = Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
     tokens.deleteByPlatformAccount_Id(account.getId());
     tokens.flush();
-    tokens.saveAndFlush(
+    final var token =
         PlatformEmailChangeToken.issue(
             account,
             email,
             JwtService.hashToken(account.getPassword()),
             JwtService.hashToken(raw),
             clock.instant(),
-            clock.instant().plus(Duration.ofHours(24))));
-    record(account, AuditAction.ACCOUNT_EMAIL_CHANGE_REQUESTED, List.of("email"));
+            clock.instant().plus(Duration.ofHours(24)));
+    tokens.saveAndFlush(token);
+    recordEvent(
+        account,
+        AuthAuditAction.ACCOUNT_EMAIL_CHANGE_REQUESTED,
+        AuditSnapshot.empty(),
+        token.auditSnapshot());
     notify(account, email, EMAIL_CONFIRMATION, raw);
     notify(account, account.getEmail(), EMAIL_CHANGE_REQUESTED, null);
   }
@@ -139,10 +147,12 @@ public class PlatformAccountManagementUseCase {
     token.consume(clock.instant(), JwtService.hashToken(account.getPassword()));
     requireAvailableEmail(account, token.getNewEmail());
 
+    final var before = account.auditSnapshot();
     final String previousEmail = account.getEmail();
     account.changeEmail(token.getNewEmail());
     saveEmail(account);
-    record(account, AuditAction.PLATFORM_ACCOUNT_UPDATED, List.of("email"));
+    recordChange(
+        account, AuthAuditAction.PLATFORM_ACCOUNT_UPDATED, before, account.auditSnapshot());
     notify(account, previousEmail, EMAIL_CHANGED, null);
     notify(account, account.getEmail(), EMAIL_CHANGED, null);
     revocation.revokePlatformAccountSessions(account.getId());
@@ -180,16 +190,29 @@ public class PlatformAccountManagementUseCase {
     }
   }
 
-  private void record(
-      final PlatformAccount account, final AuditAction action, final List<String> fields) {
+  private void recordChange(
+      final PlatformAccount account,
+      final AuditOperation action,
+      final AuditSnapshot.Snapshot before,
+      final AuditSnapshot.Snapshot after) {
+    if (!before.values().equals(after.values())) {
+      recordEvent(account, action, before, after);
+    }
+  }
+
+  private void recordEvent(
+      final PlatformAccount account,
+      final AuditOperation action,
+      final AuditSnapshot.Snapshot before,
+      final AuditSnapshot.Snapshot after) {
     audit.recordCurrentActor(
         null,
         null,
         action,
-        AuditEntityType.PLATFORM_ACCOUNT,
+        PlatformAccount.AUDIT_TYPE,
         account.getId(),
         AuditOrigin.SELF_SERVICE,
-        Map.of("changedFields", fields));
+        AuditChangeDetails.change("Administrador de plataforma", before, after));
   }
 
   private void notify(

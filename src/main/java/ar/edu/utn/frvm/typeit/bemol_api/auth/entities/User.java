@@ -2,6 +2,9 @@ package ar.edu.utn.frvm.typeit.bemol_api.auth.entities;
 
 import static ar.edu.utn.frvm.typeit.bemol_api.auth.exceptions.AuthMessages.USER_PERSON_INSTITUTION_MISMATCH;
 
+import ar.edu.utn.frvm.typeit.bemol_api.audit.definition.AuditResource;
+import ar.edu.utn.frvm.typeit.bemol_api.audit.snapshot.AuditSnapshot;
+import ar.edu.utn.frvm.typeit.bemol_api.audit.snapshot.AuditSubject;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.enums.EmailVerificationStatus;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.exceptions.InvalidEmailVerificationTokenException;
 import ar.edu.utn.frvm.typeit.bemol_api.common.persistence.Auditable;
@@ -32,8 +35,6 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import org.hibernate.envers.Audited;
-import org.hibernate.envers.RelationTargetAuditMode;
 import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;
 import org.springframework.security.core.GrantedAuthority;
@@ -51,7 +52,8 @@ import org.springframework.security.core.userdetails.UserDetails;
 @NoArgsConstructor
 @AllArgsConstructor(access = AccessLevel.PRIVATE)
 @Builder
-public class User extends Auditable implements UserDetails {
+public class User extends Auditable implements UserDetails, AuditSubject {
+  public static final AuditResource AUDIT_TYPE = new AuditResource("USER", "Cuenta institucional");
 
   @Serial private static final long serialVersionUID = 1L;
 
@@ -62,12 +64,10 @@ public class User extends Auditable implements UserDetails {
 
   @ManyToOne(fetch = FetchType.LAZY, optional = false)
   @JoinColumn(name = "institution_id", nullable = false)
-  @Audited(targetAuditMode = RelationTargetAuditMode.NOT_AUDITED)
   private Institution institution;
 
   @ManyToOne(fetch = FetchType.LAZY, optional = false)
   @JoinColumn(name = "person_id", nullable = false)
-  @Audited(targetAuditMode = RelationTargetAuditMode.NOT_AUDITED)
   private Person person;
 
   @Column(nullable = false, length = PersonFieldConstraints.PASSWORD_HASH_MAX)
@@ -75,12 +75,10 @@ public class User extends Auditable implements UserDetails {
 
   @Column(nullable = false)
   @Builder.Default
-  @Audited
   private boolean enabled = true;
 
   @Column(name = "self_access_enabled", nullable = false)
   @Builder.Default
-  @Audited
   private boolean selfAccessEnabled = true;
 
   public void updateSelfAccess(final boolean enabled) {
@@ -90,11 +88,9 @@ public class User extends Auditable implements UserDetails {
   @Enumerated(EnumType.STRING)
   @Column(name = "email_verification_status", nullable = false, length = 24)
   @Builder.Default
-  @Audited
   private EmailVerificationStatus emailVerificationStatus = EmailVerificationStatus.NOT_REQUIRED;
 
   @Column(name = "email_verified_at")
-  @Audited
   private @Nullable Instant emailVerifiedAt;
 
   @Column(name = "webauthn_user_handle")
@@ -194,5 +190,29 @@ public class User extends Auditable implements UserDetails {
     if (!institution.getId().equals(person.getInstitution().getId())) {
       throw new IllegalStateException(USER_PERSON_INSTITUTION_MISMATCH);
     }
+  }
+
+  @Override
+  public AuditSnapshot.Snapshot auditSnapshot() {
+    final String verificationLabel =
+        switch (emailVerificationStatus) {
+          case NOT_REQUIRED -> "No requerida";
+          case PENDING -> "Pendiente";
+          case VERIFIED -> "Verificada";
+        };
+    return AuditSnapshot.fields()
+        .expose("enabled", "Acceso institucional habilitado", enabled)
+        .expose("selfAccessEnabled", "Acceso propio habilitado", selfAccessEnabled)
+        .expose(
+            "emailVerificationStatus",
+            "Verificación de correo",
+            emailVerificationStatus.name(),
+            java.util.Map.of("code", emailVerificationStatus.name(), "label", verificationLabel))
+        .compare("email", "Correo electrónico", person.getEmail())
+        .build();
+  }
+
+  public AuditSnapshot.Snapshot passwordAuditSnapshot() {
+    return AuditSnapshot.fields().compare("password", "Contraseña", password).build();
   }
 }

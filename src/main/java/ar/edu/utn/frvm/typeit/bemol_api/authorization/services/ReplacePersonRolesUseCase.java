@@ -122,7 +122,7 @@ public class ReplacePersonRolesUseCase {
         allowAuthority,
         allowAuthority ? actorPermissions : scopeValidator.freshPermissions());
 
-    final var before = RoleAuditDetails.assignments(current);
+    final var before = PersonRoleAssignment.auditAssignments(current);
     replaceAssignments(person, current, desiredRoles, requested, currentIds);
 
     if (scopeChanged || !additions.isEmpty() || !removals.isEmpty()) {
@@ -132,7 +132,7 @@ public class ReplacePersonRolesUseCase {
 
     final var finalAssignments =
         assignmentRepository.findByPerson_IdAndInstitution_Id(personId, institutionId);
-    final var after = RoleAuditDetails.assignments(finalAssignments);
+    final var after = PersonRoleAssignment.auditAssignments(finalAssignments);
     audit.assignments(person, before, after);
 
     return finalAssignments.stream().map(responseFactory::from).toList();

@@ -1,7 +1,6 @@
 package ar.edu.utn.frvm.typeit.bemol_api.auth.controllers;
 
-import static java.util.Objects.requireNonNull;
-
+import ar.edu.utn.frvm.typeit.bemol_api.auth.filters.CurrentPrincipal;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.filters.JwtAuthenticatedUser;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.payloads.requests.IdentifyLoginRequest;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.payloads.requests.PasswordLoginRequest;
@@ -94,8 +93,7 @@ public class AuthController {
       @RequestHeader(HttpHeaders.AUTHORIZATION) String authorization,
       Authentication authentication) {
     institutionalCallerGuard.ensureInstitutionalPrincipal(authentication);
-    JwtAuthenticatedUser principal =
-        (JwtAuthenticatedUser) requireNonNull(authentication.getPrincipal());
+    JwtAuthenticatedUser principal = CurrentPrincipal.requireInstitutionalUser(authentication);
     String token = HeaderUtils.bearerValue(authorization);
     logoutUseCase.execute(principal, token);
   }
@@ -106,8 +104,7 @@ public class AuthController {
       @PageableDefault(size = 20, sort = "startedAt", direction = Sort.Direction.DESC)
           Pageable pageable) {
     institutionalCallerGuard.ensureInstitutionalPrincipal(authentication);
-    JwtAuthenticatedUser principal =
-        (JwtAuthenticatedUser) requireNonNull(authentication.getPrincipal());
+    JwtAuthenticatedUser principal = CurrentPrincipal.requireInstitutionalUser(authentication);
     return getActiveSessionsUseCase.execute(principal, pageable);
   }
 
@@ -117,21 +114,19 @@ public class AuthController {
       @Valid @RequestBody SelectActiveIdentityRequest request, Authentication authentication) {
     institutionalCallerGuard.ensureInstitutionalPrincipal(authentication);
     activeIdentityService.select(
-        (JwtAuthenticatedUser) requireNonNull(authentication.getPrincipal()), request.personId());
+        CurrentPrincipal.requireInstitutionalUser(authentication), request.personId());
   }
 
   @GetMapping(version = Version.V1, path = "/session")
   public UserResponse session(Authentication authentication) {
     institutionalCallerGuard.ensureInstitutionalPrincipal(authentication);
-    return getCurrentUserUseCase.execute(
-        (JwtAuthenticatedUser) requireNonNull(authentication.getPrincipal()));
+    return getCurrentUserUseCase.execute(CurrentPrincipal.requireInstitutionalUser(authentication));
   }
 
   @GetMapping(version = Version.V1, path = "/me")
   public UserResponse me(Authentication authentication) {
     institutionalCallerGuard.ensureInstitutionalPrincipal(authentication);
-    JwtAuthenticatedUser principal =
-        (JwtAuthenticatedUser) requireNonNull(authentication.getPrincipal());
+    JwtAuthenticatedUser principal = CurrentPrincipal.requireInstitutionalUser(authentication);
     return getCurrentUserUseCase.execute(principal);
   }
 }

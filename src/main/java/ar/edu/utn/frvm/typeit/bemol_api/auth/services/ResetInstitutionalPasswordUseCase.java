@@ -2,11 +2,12 @@ package ar.edu.utn.frvm.typeit.bemol_api.auth.services;
 
 import static java.util.Objects.requireNonNull;
 
-import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditAction;
-import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditEntityType;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditOrigin;
+import ar.edu.utn.frvm.typeit.bemol_api.audit.services.AuditChangeDetails;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.services.AuditEventRecorder;
+import ar.edu.utn.frvm.typeit.bemol_api.auth.audit.AuthAuditAction;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.entities.InstitutionalPasswordResetToken;
+import ar.edu.utn.frvm.typeit.bemol_api.auth.entities.User;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.exceptions.InvalidPasswordRecoveryTokenException;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.exceptions.PasswordConfirmationMismatchException;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.interfaces.InstitutionalPasswordResetTokenRepository;
@@ -14,7 +15,6 @@ import ar.edu.utn.frvm.typeit.bemol_api.auth.interfaces.UserRepository;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.payloads.requests.ResetPasswordRequest;
 import java.time.Clock;
 import java.time.Instant;
-import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -53,17 +53,18 @@ public class ResetInstitutionalPasswordUseCase {
             .filter(resetToken -> resetToken.isUsableAt(now))
             .orElseThrow(InvalidPasswordRecoveryTokenException::new);
 
+    final var before = token.getUser().passwordAuditSnapshot();
     token.getUser().changePassword(requireNonNull(passwordEncoder.encode(request.password())));
     token.markUsed(now);
     final var user = token.getUser();
     auditRecorder.recordCurrentActor(
         user.getInstitution(),
         user.getPerson().getId(),
-        AuditAction.PASSWORD_CHANGED,
-        AuditEntityType.USER,
+        AuthAuditAction.PASSWORD_CHANGED,
+        User.AUDIT_TYPE,
         user.getId(),
         AuditOrigin.SELF_SERVICE,
-        Map.of());
+        AuditChangeDetails.change("Cuenta institucional", before, user.passwordAuditSnapshot()));
     sessionRevocationService.revokeInstitutionalSessionsForUser(token.getUser().getId());
   }
 }

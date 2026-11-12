@@ -2,14 +2,17 @@ package ar.edu.utn.frvm.typeit.bemol_api.auth.services;
 
 import static java.util.Objects.requireNonNull;
 
-import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditAction;
-import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditEntityType;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditOrigin;
+import ar.edu.utn.frvm.typeit.bemol_api.audit.services.AuditChangeDetails;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.services.AuditEventRecorder;
+import ar.edu.utn.frvm.typeit.bemol_api.audit.snapshot.AuditSnapshot;
+import ar.edu.utn.frvm.typeit.bemol_api.auth.audit.AuthAuditAction;
+import ar.edu.utn.frvm.typeit.bemol_api.auth.entities.PersonAccessInvitation;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.entities.User;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.interfaces.PersonAccessInvitationRepository;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.interfaces.UserRepository;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.payloads.requests.ActivateOwnAccessRequest;
+import ar.edu.utn.frvm.typeit.bemol_api.institutional.audit.InstitutionalAuditAction;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.exceptions.InstitutionMessages;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.exceptions.InstitutionNotFoundException;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.exceptions.OwnAccessException;
@@ -17,7 +20,6 @@ import ar.edu.utn.frvm.typeit.bemol_api.institutional.interfaces.InstitutionRepo
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.LockModeType;
 import java.time.Clock;
-import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -113,20 +115,23 @@ public class ActivatePersonOwnAccessUseCase {
       audit.recordCurrentActor(
           institution,
           current.getPerson().getId(),
-          AuditAction.INSTITUTIONAL_ACCOUNT_CREATED,
-          AuditEntityType.USER,
+          AuthAuditAction.INSTITUTIONAL_ACCOUNT_CREATED,
+          User.AUDIT_TYPE,
           user.getId(),
           AuditOrigin.EMAIL_VERIFICATION,
-          Map.of("created", true));
+          AuditChangeDetails.change(
+              "Cuenta institucional", AuditSnapshot.empty(), user.auditSnapshot()));
     }
+    final var invitationBefore = current.auditSnapshot();
     current.consume(clock.instant());
     audit.recordCurrentActor(
         institution,
         current.getPerson().getId(),
-        AuditAction.PERSON_OWN_ACCESS_ACTIVATED,
-        AuditEntityType.PERSON_ACCESS_INVITATION,
+        InstitutionalAuditAction.PERSON_OWN_ACCESS_ACTIVATED,
+        PersonAccessInvitation.AUDIT_TYPE,
         current.getId(),
         AuditOrigin.SELF_SERVICE,
-        Map.of());
+        AuditChangeDetails.change(
+            "Invitación de acceso", invitationBefore, current.auditSnapshot()));
   }
 }

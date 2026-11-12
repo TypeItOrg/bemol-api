@@ -1,8 +1,6 @@
 package ar.edu.utn.frvm.typeit.bemol_api.auth.controllers;
 
-import static ar.edu.utn.frvm.typeit.bemol_api.security.handlers.SecurityErrorMessages.DEFAULT_FORBIDDEN_MESSAGE;
-import static java.util.Objects.requireNonNull;
-
+import ar.edu.utn.frvm.typeit.bemol_api.auth.filters.CurrentPrincipal;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.filters.JwtAuthenticatedPlatformAccount;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.payloads.requests.PlatformLoginRequest;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.payloads.requests.RefreshTokenRequest;
@@ -20,7 +18,6 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
-import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -54,7 +51,7 @@ public class PlatformAuthController {
   @GetMapping(version = Version.V1, path = "/me")
   public PlatformAccountResponse me(Authentication authentication) {
     JwtAuthenticatedPlatformAccount principal =
-        (JwtAuthenticatedPlatformAccount) requireNonNull(authentication.getPrincipal());
+        CurrentPrincipal.requirePlatformAccount(authentication);
     return getCurrentPlatformAccountUseCase.execute(principal);
   }
 
@@ -63,9 +60,7 @@ public class PlatformAuthController {
   public void logout(
       @RequestHeader(HttpHeaders.AUTHORIZATION) String authorization,
       Authentication authentication) {
-    if (!(authentication.getPrincipal() instanceof JwtAuthenticatedPlatformAccount principal)) {
-      throw new AccessDeniedException(DEFAULT_FORBIDDEN_MESSAGE);
-    }
+    final var principal = CurrentPrincipal.requirePlatformAccount(authentication);
     platformLogoutUseCase.execute(principal, HeaderUtils.bearerValue(authorization));
   }
 }

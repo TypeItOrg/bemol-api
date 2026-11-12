@@ -60,14 +60,18 @@ class PlatformPasskeyPersistenceIntegrationTest extends DatabaseMigrationTestSup
                                 "Equipo personal",
                                 "platformAccountId",
                                 account.getId().toString(),
+                                "fieldLabels",
+                                Map.of("label", "Nombre de la llave de acceso", "active", "Estado"),
                                 "changedFields",
                                 List.of(renamed ? "label" : "active"),
                                 "before",
-                                renamed ? Map.of("label", "Prueba") : Map.of("active", true),
+                                Map.of(
+                                    "label",
+                                    renamed ? "Prueba" : "Equipo personal",
+                                    "active",
+                                    true),
                                 "after",
-                                renamed
-                                    ? Map.of("label", "Equipo personal")
-                                    : Map.of("active", false))));
+                                Map.of("label", "Equipo personal", "active", renamed))));
               });
     } finally {
       accounts.deleteById(account.getId());

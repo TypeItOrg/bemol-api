@@ -2,8 +2,7 @@ package ar.edu.utn.frvm.typeit.bemol_api.authorization.services;
 
 import static ar.edu.utn.frvm.typeit.bemol_api.security.handlers.SecurityErrorMessages.DEFAULT_FORBIDDEN_MESSAGE;
 
-import ar.edu.utn.frvm.typeit.bemol_api.auth.filters.JwtAuthenticatedPlatformAccount;
-import ar.edu.utn.frvm.typeit.bemol_api.auth.filters.JwtAuthenticatedUser;
+import ar.edu.utn.frvm.typeit.bemol_api.auth.filters.CurrentPrincipal;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.enums.PlatformRoleCode;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -19,29 +18,25 @@ public class InstitutionalCallerGuard {
   private final AuthorizationService authorizationService;
 
   public void ensureInstitutionalPrincipal(@Nullable Authentication authentication) {
-    if (authentication == null
-        || !(authentication.getPrincipal() instanceof JwtAuthenticatedUser)) {
-      throw new AccessDeniedException(DEFAULT_FORBIDDEN_MESSAGE);
-    }
+    CurrentPrincipal.requireInstitutionalUser(authentication);
   }
 
   public void ensureCallerBelongsToInstitution(
       @Nullable Authentication authentication, UUID institutionId) {
-    if (authentication == null || authentication.getPrincipal() == null) {
-      throw new AccessDeniedException(DEFAULT_FORBIDDEN_MESSAGE);
-    }
-
-    if (authentication.getPrincipal() instanceof JwtAuthenticatedPlatformAccount
-        && authorizationService.hasPlatformRole(authentication, PlatformRoleCode.PLATFORM_ADMIN)) {
+    if (isPlatformAdministrator(authentication)) {
       return;
     }
 
-    if (!(authentication.getPrincipal() instanceof JwtAuthenticatedUser user)) {
-      throw new AccessDeniedException(DEFAULT_FORBIDDEN_MESSAGE);
-    }
-
+    final var user = CurrentPrincipal.requireInstitutionalUser(authentication);
     if (!user.institutionId().equals(institutionId)) {
       throw new AccessDeniedException(DEFAULT_FORBIDDEN_MESSAGE);
     }
+  }
+
+  private boolean isPlatformAdministrator(final @Nullable Authentication authentication) {
+    final boolean platformCaller = CurrentPrincipal.platformAccount(authentication).isPresent();
+
+    return platformCaller
+        && authorizationService.hasPlatformRole(authentication, PlatformRoleCode.PLATFORM_ADMIN);
   }
 }

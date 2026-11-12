@@ -36,6 +36,11 @@ class InstitutionalPasswordRecoveryMailServiceTest {
 
   @BeforeEach
   void setUp() {
+    mailService = createMailService(new FrontendPublicProperties("http://localhost:3000", ""));
+  }
+
+  private InstitutionalPasswordRecoveryMailService createMailService(
+      final FrontendPublicProperties frontend) {
     final ClassLoaderTemplateResolver templateResolver = new ClassLoaderTemplateResolver();
     templateResolver.setPrefix("templates/");
     templateResolver.setSuffix(".html");
@@ -45,13 +50,37 @@ class InstitutionalPasswordRecoveryMailServiceTest {
 
     final SpringTemplateEngine templateEngine = new SpringTemplateEngine();
     templateEngine.setTemplateResolver(templateResolver);
+    return new InstitutionalPasswordRecoveryMailService(
+        mailSender,
+        new MailProperties("no-reply@example.com"),
+        new PasswordRecoveryProperties("http://localhost:3000", Duration.ofMinutes(30)),
+        templateEngine,
+        new FrontendAccessUrls(frontend));
+  }
+
+  @Test
+  void listenerRendersTheConfiguredBrandLogo() {
+    final String logoUrl = "https://assets.example.com/logo-email.png";
     mailService =
-        new InstitutionalPasswordRecoveryMailService(
-            mailSender,
-            new MailProperties("no-reply@example.com"),
-            new PasswordRecoveryProperties("http://localhost:3000", Duration.ofMinutes(30)),
-            templateEngine,
-            new FrontendAccessUrls(new FrontendPublicProperties("http://localhost:3000", "")));
+        createMailService(
+            new FrontendPublicProperties(
+                "http://localhost:3000", "", "", "http://admin.localhost:3000", logoUrl));
+    final var event =
+        new InstitutionalPasswordRecoveryRequested(
+            new UUID(0, 1),
+            "ana@example.com",
+            "Institución de prueba",
+            "Ana",
+            "token-123",
+            MailAuditContext.capture(new UUID(0, 2), new UUID(0, 3)));
+
+    new InstitutionalPasswordRecoveryMailListener(mailService).on(event);
+
+    final var mailCaptor = ArgumentCaptor.forClass(MailMessage.class);
+    verify(mailSender).send(mailCaptor.capture());
+    assertThat(mailCaptor.getValue().htmlBody())
+        .contains("src=\"" + logoUrl + "\"")
+        .doesNotContain("http://localhost:3000/brand/logo-email.png");
   }
 
   @Test

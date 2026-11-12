@@ -136,6 +136,24 @@ class PlatformAccountFlowIntegrationTest extends DatabaseMigrationTestSupport {
         owner.session(),
         204);
 
+    perform(
+        put(BASE + "/account/profile"),
+        Map.of("name", "María", "lastName", "González"),
+        owner.session(),
+        204);
+    assertThat(
+            database.queryForObject(
+                "SELECT count(*) FROM audit_events WHERE entity_id = ? AND action = 'PLATFORM_ACCOUNT_UPDATED'",
+                Long.class,
+                owner.account().getId()))
+        .isEqualTo(1L);
+    assertThat(
+            database.queryForObject(
+                "SELECT details #>> '{fieldLabels,firstName}' FROM audit_events WHERE entity_id = ? AND action = 'PLATFORM_ACCOUNT_UPDATED'",
+                String.class,
+                owner.account().getId()))
+        .isEqualTo("Nombre");
+
     final var updated = stored(owner);
     assertThat(updated.getName()).isEqualTo("María");
     assertThat(updated.getLastName()).isEqualTo("González");
@@ -201,6 +219,22 @@ class PlatformAccountFlowIntegrationTest extends DatabaseMigrationTestSupport {
                 owner.account().getId())
             .toString();
     assertThat(metadata).doesNotContain(token, PASSWORD, "htmlBody", "token=");
+    final var accountDetails =
+        database.queryForList(
+            "SELECT details::text FROM audit_events WHERE entity_id = ? AND entity_type = 'PLATFORM_ACCOUNT'",
+            String.class,
+            owner.account().getId());
+    assertThat(accountDetails)
+        .isNotEmpty()
+        .allSatisfy(
+            details ->
+                assertThat(details)
+                    .doesNotContain(
+                        token,
+                        PASSWORD,
+                        nextEmail,
+                        owner.account().getEmail(),
+                        stored(owner).getPassword()));
   }
 
   @Test

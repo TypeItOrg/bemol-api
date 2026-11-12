@@ -30,11 +30,10 @@ public class ActiveIdentityFilter extends OncePerRequestFilter {
   protected void doFilterInternal(
       final HttpServletRequest request, final HttpServletResponse response, final FilterChain chain)
       throws ServletException, IOException {
-    final var authentication = SecurityContextHolder.getContext().getAuthentication();
-    if (authentication != null
-        && authentication.getPrincipal() instanceof JwtAuthenticatedUser actor) {
+    final var actor = CurrentPrincipal.institutionalUser();
+    if (actor.isPresent()) {
       try {
-        final var selected = identities.resolve(actor);
+        final var selected = identities.resolve(actor.get());
         SecurityContextHolder.getContext()
             .setAuthentication(new UsernamePasswordAuthenticationToken(selected, null, List.of()));
       } catch (ApplicationException exception) {

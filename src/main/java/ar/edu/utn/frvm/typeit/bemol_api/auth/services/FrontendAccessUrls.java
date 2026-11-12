@@ -38,7 +38,9 @@ public class FrontendAccessUrls {
   }
 
   public String brandLogoUrl() {
-    return base(null) + "/brand/logo-email.png";
+    return properties.brandLogoUrl().isEmpty()
+        ? base(null) + "/brand/logo-email.png"
+        : properties.brandLogoUrl();
   }
 
   public String platformTokenUrl(final String path, final String token) {

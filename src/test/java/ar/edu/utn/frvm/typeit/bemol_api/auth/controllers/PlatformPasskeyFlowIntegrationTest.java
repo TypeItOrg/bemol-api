@@ -86,9 +86,11 @@ class PlatformPasskeyFlowIntegrationTest extends DatabaseMigrationTestSupport {
                 Map.of(
                     "entityName", "Equipo de prueba",
                     "platformAccountId", account.getId().toString(),
-                    "changedFields", List.of("label"),
+                    "fieldLabels",
+                        Map.of("label", "Nombre de la llave de acceso", "active", "Estado"),
+                    "changedFields", List.of("label", "active"),
                     "before", Map.of(),
-                    "after", Map.of("label", "Equipo de prueba"))));
+                    "after", Map.of("label", "Equipo de prueba", "active", true))));
     final var attempt = password();
     assertThat(attempt.path("setupRequired").asBoolean()).isFalse();
     final var options =

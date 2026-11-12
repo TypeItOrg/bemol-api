@@ -1,5 +1,8 @@
 package ar.edu.utn.frvm.typeit.bemol_api.auth.entities;
 
+import ar.edu.utn.frvm.typeit.bemol_api.audit.definition.AuditResource;
+import ar.edu.utn.frvm.typeit.bemol_api.audit.snapshot.AuditSnapshot;
+import ar.edu.utn.frvm.typeit.bemol_api.audit.snapshot.AuditSubject;
 import ar.edu.utn.frvm.typeit.bemol_api.common.persistence.Auditable;
 import ar.edu.utn.frvm.typeit.bemol_api.common.persistence.GeneratedUUIDv7;
 import jakarta.persistence.Column;
@@ -23,8 +26,6 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import org.hibernate.envers.Audited;
-import org.hibernate.envers.RelationTargetAuditMode;
 import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;
 
@@ -44,7 +45,8 @@ import org.jspecify.annotations.Nullable;
 @NoArgsConstructor
 @AllArgsConstructor(access = AccessLevel.PRIVATE)
 @Builder
-public class PasskeyCredential extends Auditable {
+public class PasskeyCredential extends Auditable implements AuditSubject {
+  public static final AuditResource AUDIT_TYPE = new AuditResource("PASSKEY", "Llave de acceso");
 
   @Id
   @GeneratedUUIDv7
@@ -53,7 +55,6 @@ public class PasskeyCredential extends Auditable {
 
   @ManyToOne(fetch = FetchType.LAZY, optional = false)
   @JoinColumn(name = "user_id", nullable = false)
-  @Audited(targetAuditMode = RelationTargetAuditMode.NOT_AUDITED)
   private User user;
 
   @Column(name = "credential_id", nullable = false, columnDefinition = "TEXT")
@@ -97,7 +98,6 @@ public class PasskeyCredential extends Auditable {
   private @Nullable Instant lastUsedAt;
 
   @Column(name = "revoked_at")
-  @Audited
   private @Nullable Instant revokedAt;
 
   public boolean isActive() {
@@ -144,5 +144,13 @@ public class PasskeyCredential extends Auditable {
       return;
     }
     this.transports = String.join(",", transportValues);
+  }
+
+  @Override
+  public AuditSnapshot.Snapshot auditSnapshot() {
+    return AuditSnapshot.fields()
+        .expose("label", "Nombre de la llave de acceso", label)
+        .expose("active", "Estado", isActive())
+        .build();
   }
 }

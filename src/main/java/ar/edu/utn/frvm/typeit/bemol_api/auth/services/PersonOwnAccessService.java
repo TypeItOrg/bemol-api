@@ -2,12 +2,11 @@ package ar.edu.utn.frvm.typeit.bemol_api.auth.services;
 
 import static java.util.Objects.requireNonNull;
 
-import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditAction;
-import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditEntityType;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.services.AuditEventRecorder;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.entities.User;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.interfaces.PersonAccessInvitationRepository;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.interfaces.UserRepository;
+import ar.edu.utn.frvm.typeit.bemol_api.institutional.audit.InstitutionalAuditAction;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.entities.PersonGuardian;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.exceptions.GuardianLinkNotFoundException;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.exceptions.InstitutionMessages;
@@ -122,8 +121,8 @@ public class PersonOwnAccessService {
         link.getInstitution(),
         actorPersonId,
         link.getDependentPerson().getId(),
-        AuditAction.PERSON_OWN_ACCESS_CHANGED,
-        AuditEntityType.PERSON_GUARDIAN,
+        InstitutionalAuditAction.PERSON_OWN_ACCESS_CHANGED,
+        PersonGuardian.AUDIT_TYPE,
         link.getId());
     return status(link);
   }

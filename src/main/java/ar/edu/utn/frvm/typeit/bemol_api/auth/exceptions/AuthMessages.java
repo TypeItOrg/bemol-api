@@ -1,6 +1,8 @@
 package ar.edu.utn.frvm.typeit.bemol_api.auth.exceptions;
 
 public final class AuthMessages {
+  public static final String BRAND_LOGO_URL_INVALID =
+      "La propiedad app.frontend.brand-logo-url debe ser una URL HTTPS absoluta sin credenciales, consulta ni fragmento.";
   public static final String PLATFORM_HOST_REQUIRED =
       "Este acceso requiere el dominio de administración de plataforma.";
   public static final String PLATFORM_PASSKEY_REQUIRED =

@@ -1,9 +1,9 @@
 package ar.edu.utn.frvm.typeit.bemol_api.auth.services;
 
-import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditAction;
-import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditEntityType;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditOrigin;
+import ar.edu.utn.frvm.typeit.bemol_api.audit.services.AuditChangeDetails;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.services.AuditEventRecorder;
+import ar.edu.utn.frvm.typeit.bemol_api.auth.audit.AuthAuditAction;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.config.EmailVerificationProperties;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.entities.InstitutionalEmailVerificationToken;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.entities.User;
@@ -18,7 +18,6 @@ import java.security.SecureRandom;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.Base64;
-import java.util.Map;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import org.hibernate.exception.ConstraintViolationException;
@@ -81,15 +80,16 @@ public class InstitutionalEmailVerificationUseCase {
       throw new InvalidEmailVerificationTokenException();
     }
     token.consume(now);
+    final var before = user.auditSnapshot();
     user.verifyEmail(now);
     auditEventRecorder.recordCurrentActor(
         user.getInstitution(),
         user.getPerson().getId(),
-        AuditAction.INSTITUTIONAL_EMAIL_VERIFIED,
-        AuditEntityType.USER,
+        AuthAuditAction.INSTITUTIONAL_EMAIL_VERIFIED,
+        User.AUDIT_TYPE,
         user.getId(),
         AuditOrigin.EMAIL_VERIFICATION,
-        Map.of());
+        AuditChangeDetails.change("Cuenta institucional", before, user.auditSnapshot()));
   }
 
   private boolean canResend(

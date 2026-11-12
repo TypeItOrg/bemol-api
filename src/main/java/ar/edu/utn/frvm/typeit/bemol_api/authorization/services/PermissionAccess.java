@@ -30,8 +30,10 @@ public record PermissionAccess(AccessScope accessScope, Set<UUID> trainingPathId
   }
 
   public boolean contains(PermissionAccess other) {
-    return institutional()
-        || (!other.institutional() && trainingPathIds.containsAll(other.trainingPathIds));
+    final boolean coversOtherPaths =
+        !other.institutional() && trainingPathIds.containsAll(other.trainingPathIds);
+
+    return institutional() || coversOtherPaths;
   }
 
   public PermissionAccess union(PermissionAccess other) {

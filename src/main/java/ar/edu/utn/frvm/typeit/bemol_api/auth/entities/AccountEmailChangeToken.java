@@ -1,5 +1,7 @@
 package ar.edu.utn.frvm.typeit.bemol_api.auth.entities;
 
+import ar.edu.utn.frvm.typeit.bemol_api.audit.snapshot.AuditSnapshot;
+import ar.edu.utn.frvm.typeit.bemol_api.audit.snapshot.AuditSubject;
 import ar.edu.utn.frvm.typeit.bemol_api.common.persistence.GeneratedUUIDv7;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.entities.Person;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.exceptions.InstitutionMessages;
@@ -22,7 +24,7 @@ import org.jspecify.annotations.Nullable;
 @Table(name = "account_email_change_tokens")
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class AccountEmailChangeToken {
+public class AccountEmailChangeToken implements AuditSubject {
   @Id @GeneratedUUIDv7 private UUID id;
 
   @ManyToOne(fetch = FetchType.LAZY, optional = false)
@@ -85,5 +87,10 @@ public class AccountEmailChangeToken {
       throw new OwnAccessException(InstitutionMessages.OWN_ACCESS_TOKEN_INVALID);
     }
     usedAt = now;
+  }
+
+  @Override
+  public AuditSnapshot.Snapshot auditSnapshot() {
+    return AuditSnapshot.fields().compare("email", "Correo electrónico", newEmail).build();
   }
 }

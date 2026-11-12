@@ -2,26 +2,24 @@ package ar.edu.utn.frvm.typeit.bemol_api.auth.services;
 
 import static java.util.Objects.requireNonNull;
 
-import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditAction;
-import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditEntityType;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditOrigin;
+import ar.edu.utn.frvm.typeit.bemol_api.audit.services.AuditChangeDetails;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.services.AuditEventRecorder;
+import ar.edu.utn.frvm.typeit.bemol_api.auth.audit.AuthAuditAction;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.entities.PlatformAccount;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.exceptions.AuthMessages;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.exceptions.PlatformAccountEmailAlreadyExistsException;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.exceptions.PlatformAccountNotFoundException;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.exceptions.PlatformAccountValidationException;
-import ar.edu.utn.frvm.typeit.bemol_api.auth.filters.JwtAuthenticatedPlatformAccount;
+import ar.edu.utn.frvm.typeit.bemol_api.auth.filters.CurrentPrincipal;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.interfaces.PlatformAccountRepository;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.interfaces.PlatformEmailChangeTokenRepository;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.payloads.requests.UpdatePlatformAccountRequest;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.payloads.responses.PlatformAccountAdminResponse;
 import java.util.Locale;
-import java.util.Map;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -49,22 +47,17 @@ public class UpdatePlatformAccountUseCase {
       throw new PlatformAccountEmailAlreadyExistsException();
     }
 
-    final var before =
-        Map.<String, Object>of(
-            "firstName",
-            account.getName(),
-            "lastName",
-            account.getLastName(),
-            "email",
-            account.getEmail());
+    final var before = account.auditSnapshot();
+    final var passwordBefore = account.passwordAuditSnapshot();
     final boolean emailChanged = !account.getEmail().equals(email);
     final boolean passwordChanged = request.password() != null && !request.password().isEmpty();
 
-    final var authentication = SecurityContextHolder.getContext().getAuthentication();
-    if (authentication != null
-        && authentication.getPrincipal() instanceof JwtAuthenticatedPlatformAccount principal
-        && id.equals(principal.platformAccountId())
-        && (emailChanged || passwordChanged)) {
+    final boolean selfEdit =
+        CurrentPrincipal.platformAccount()
+            .map(principal -> id.equals(principal.platformAccountId()))
+            .orElse(false);
+    final boolean credentialsChanged = emailChanged || passwordChanged;
+    if (selfEdit && credentialsChanged) {
       throw new PlatformAccountValidationException(
           AuthMessages.PLATFORM_ACCOUNT_SELF_CHANGE, emailChanged ? "email" : "password");
     }
@@ -79,30 +72,25 @@ public class UpdatePlatformAccountUseCase {
     }
 
     saveAccount(account);
-    auditRecorder.recordChange(
+    auditRecorder.recordSnapshotChange(
         null,
         null,
-        AuditAction.PLATFORM_ACCOUNT_UPDATED,
-        AuditEntityType.PLATFORM_ACCOUNT,
+        AuthAuditAction.PLATFORM_ACCOUNT_UPDATED,
+        PlatformAccount.AUDIT_TYPE,
         account.getId(),
         "Administrador de plataforma",
         before,
-        Map.of(
-            "firstName",
-            account.getName(),
-            "lastName",
-            account.getLastName(),
-            "email",
-            account.getEmail()));
+        account.auditSnapshot());
     if (passwordChanged) {
       auditRecorder.recordCurrentActor(
           null,
           null,
-          AuditAction.PASSWORD_CHANGED,
-          AuditEntityType.PLATFORM_ACCOUNT,
+          AuthAuditAction.PASSWORD_CHANGED,
+          PlatformAccount.AUDIT_TYPE,
           account.getId(),
           AuditOrigin.administration(),
-          Map.of());
+          AuditChangeDetails.change(
+              "Administrador de plataforma", passwordBefore, account.passwordAuditSnapshot()));
     }
 
     if (emailChanged || passwordChanged) {

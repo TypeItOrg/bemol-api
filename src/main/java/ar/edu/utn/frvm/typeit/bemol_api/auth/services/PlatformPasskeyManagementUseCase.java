@@ -1,6 +1,6 @@
 package ar.edu.utn.frvm.typeit.bemol_api.auth.services;
 
-import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditAction;
+import ar.edu.utn.frvm.typeit.bemol_api.auth.audit.AuthAuditAction;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.config.WebAuthnProperties;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.entities.PlatformAccount;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.entities.PlatformPasskeyCredential;
@@ -19,7 +19,6 @@ import ar.edu.utn.frvm.typeit.bemol_api.auth.services.PlatformPasskeyStateStore.
 import ar.edu.utn.frvm.typeit.bemol_api.common.search.SearchNormalization;
 import java.time.Clock;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -141,14 +140,10 @@ public class PlatformPasskeyManagementUseCase {
   public void rename(final UUID accountId, final UUID credentialId, final String label) {
     final var account = account(accountId, true);
     final var credential = credential(accountId, credentialId);
-    final var previousLabel = credential.getLabel();
+    final var before = credential.auditSnapshot();
     credential.rename(label);
     operations.recordChange(
-        account,
-        credential,
-        AuditAction.PASSKEY_UPDATED,
-        Map.of("label", previousLabel),
-        Map.of("label", credential.getLabel()));
+        account, credential, AuthAuditAction.PASSKEY_UPDATED, before, credential.auditSnapshot());
   }
 
   @Transactional
@@ -159,13 +154,10 @@ public class PlatformPasskeyManagementUseCase {
       throw new PlatformPasskeyRequiredException();
     }
     state.requireRecent(account.getId(), principal.sessionId(), "revoke:" + credentialId, true);
+    final var before = credential.auditSnapshot();
     credential.revoke(clock.instant());
     operations.recordChange(
-        account,
-        credential,
-        AuditAction.PASSKEY_DELETED,
-        Map.of("active", true),
-        Map.of("active", credential.isActive()));
+        account, credential, AuthAuditAction.PASSKEY_DELETED, before, credential.auditSnapshot());
     revocation.revokePlatformAccountSessions(account.getId());
   }
 

@@ -1,7 +1,5 @@
 package ar.edu.utn.frvm.typeit.bemol_api.auth.services;
 
-import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditAction;
-import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditEntityType;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditOrigin;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.services.AuditEventRecorder;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.enums.AccessInvitationPurpose;
@@ -11,7 +9,9 @@ import ar.edu.utn.frvm.typeit.bemol_api.auth.interfaces.InstitutionalPasswordRes
 import ar.edu.utn.frvm.typeit.bemol_api.auth.interfaces.PasskeyCredentialRepository;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.interfaces.UserRepository;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.enums.PermissionCode;
+import ar.edu.utn.frvm.typeit.bemol_api.institutional.audit.InstitutionalAuditAction;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.entities.GuardianLinkStatus;
+import ar.edu.utn.frvm.typeit.bemol_api.institutional.entities.Person;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.exceptions.InstitutionMessages;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.exceptions.OwnAccessException;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.interfaces.PersonGuardianRepository;
@@ -77,8 +77,8 @@ public class GrantPersonAutonomyUseCase {
     audit.recordCurrentActor(
         person.getInstitution(),
         personId,
-        AuditAction.PERSON_AUTONOMY_GRANTED,
-        AuditEntityType.PERSON,
+        InstitutionalAuditAction.PERSON_AUTONOMY_GRANTED,
+        Person.AUDIT_TYPE,
         personId,
         AuditOrigin.administration(),
         Map.of());

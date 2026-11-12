@@ -1,15 +1,14 @@
 package ar.edu.utn.frvm.typeit.bemol_api.auth.services;
 
-import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditAction;
-import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditEntityType;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditOrigin;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.services.AuditChangeDetails;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.services.AuditEventRecorder;
+import ar.edu.utn.frvm.typeit.bemol_api.auth.audit.AuthAuditAction;
+import ar.edu.utn.frvm.typeit.bemol_api.auth.entities.PasskeyCredential;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.exceptions.PasskeyNotFoundException;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.filters.JwtAuthenticatedUser;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.interfaces.PasskeyCredentialRepository;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.payloads.responses.PasskeyResponse;
-import java.util.Map;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -36,19 +35,18 @@ public class RenamePasskeyUseCase {
             .findWithLockByIdAndUserId(passkeyId, principal.userId())
             .filter(c -> c.isActive())
             .orElseThrow(PasskeyNotFoundException::new);
-    final var previousLabel = credential.getLabel();
+    final var before = credential.auditSnapshot();
     credential.rename(label);
     final var saved = passkeyCredentialRepository.save(credential);
-    if (!java.util.Objects.equals(previousLabel, credential.getLabel())) {
+    if (!before.values().equals(saved.auditSnapshot().values())) {
       auditRecorder.recordCurrentActor(
           credential.getUser().getInstitution(),
           principal.personId(),
-          AuditAction.PASSKEY_UPDATED,
-          AuditEntityType.PASSKEY,
+          AuthAuditAction.PASSKEY_UPDATED,
+          PasskeyCredential.AUDIT_TYPE,
           credential.getId(),
           AuditOrigin.SELF_SERVICE,
-          AuditChangeDetails.change(
-              saved.getLabel(), Map.of("label", previousLabel), Map.of("label", saved.getLabel())));
+          AuditChangeDetails.change(saved.getLabel(), before, saved.auditSnapshot()));
     }
     log.info("[Auth] Passkey renamed, userId: {}", principal.userId());
     return PasskeyResponse.from(saved);

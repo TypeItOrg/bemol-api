@@ -1,11 +1,13 @@
 package ar.edu.utn.frvm.typeit.bemol_api.auth.services;
 
-import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditAction;
-import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditEntityType;
+import ar.edu.utn.frvm.typeit.bemol_api.audit.definition.AuditOperation;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditOrigin;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.services.AuditChangeDetails;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.services.AuditEventRecorder;
+import ar.edu.utn.frvm.typeit.bemol_api.audit.snapshot.AuditSnapshot;
+import ar.edu.utn.frvm.typeit.bemol_api.auth.audit.AuthAuditAction;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.config.FrontendPublicProperties;
+import ar.edu.utn.frvm.typeit.bemol_api.auth.entities.PasskeyCredential;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.entities.PlatformAccount;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.entities.PlatformPasskeyCredential;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.exceptions.DuplicatePasskeyCredentialException;
@@ -18,7 +20,6 @@ import ar.edu.utn.frvm.typeit.bemol_api.auth.webauthn.WebAuthnOptionsCodec;
 import com.webauthn4j.verifier.exception.VerificationException;
 import java.util.Arrays;
 import java.util.HashMap;
-import java.util.Map;
 import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import org.hibernate.exception.ConstraintViolationException;
@@ -190,19 +191,19 @@ public class PlatformWebAuthnOperations {
     recordChange(
         account,
         credential,
-        AuditAction.PASSKEY_CREATED,
-        Map.of(),
-        Map.of("label", credential.getLabel()));
+        AuthAuditAction.PASSKEY_CREATED,
+        AuditSnapshot.empty(),
+        credential.auditSnapshot());
     return credential;
   }
 
   public void recordChange(
       final PlatformAccount account,
       final PlatformPasskeyCredential credential,
-      final AuditAction action,
-      final Map<String, Object> before,
-      final Map<String, Object> after) {
-    if (before.equals(after)) {
+      final AuditOperation action,
+      final AuditSnapshot.Snapshot before,
+      final AuditSnapshot.Snapshot after) {
+    if (before.values().equals(after.values())) {
       return;
     }
 
@@ -214,7 +215,7 @@ public class PlatformWebAuthnOperations {
         null,
         null,
         action,
-        AuditEntityType.PASSKEY,
+        PasskeyCredential.AUDIT_TYPE,
         credential.getId(),
         AuditOrigin.SELF_SERVICE,
         details);

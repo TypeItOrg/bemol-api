@@ -2,10 +2,11 @@ package ar.edu.utn.frvm.typeit.bemol_api.auth.services;
 
 import static java.util.Objects.requireNonNull;
 
-import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditAction;
-import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditEntityType;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditOrigin;
+import ar.edu.utn.frvm.typeit.bemol_api.audit.services.AuditChangeDetails;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.services.AuditEventRecorder;
+import ar.edu.utn.frvm.typeit.bemol_api.audit.snapshot.AuditSnapshot;
+import ar.edu.utn.frvm.typeit.bemol_api.auth.audit.AuthAuditAction;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.entities.PlatformAccount;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.exceptions.PlatformAccountEmailAlreadyExistsException;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.interfaces.PlatformAccountRepository;
@@ -14,7 +15,6 @@ import ar.edu.utn.frvm.typeit.bemol_api.auth.payloads.responses.PlatformAccountA
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.enums.PlatformRoleCode;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.services.AssignPlatformRoleUseCase;
 import java.util.Locale;
-import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -44,11 +44,14 @@ public class CreatePlatformAccountUseCase {
     auditEventRecorder.recordCurrentActor(
         null,
         null,
-        AuditAction.PLATFORM_ACCOUNT_CREATED,
-        AuditEntityType.PLATFORM_ACCOUNT,
+        AuthAuditAction.PLATFORM_ACCOUNT_CREATED,
+        PlatformAccount.AUDIT_TYPE,
         account.getId(),
         AuditOrigin.PLATFORM_ADMINISTRATION,
-        Map.of("initialRole", PlatformRoleCode.PLATFORM_ADMIN.name()));
+        AuditChangeDetails.change(
+            "Administrador de plataforma",
+            AuditSnapshot.empty(),
+            account.auditSnapshot(PlatformRoleCode.PLATFORM_ADMIN)));
 
     return PlatformAccountAdminResponse.from(account);
   }

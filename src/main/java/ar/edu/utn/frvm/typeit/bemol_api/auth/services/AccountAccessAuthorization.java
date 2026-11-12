@@ -1,6 +1,7 @@
 package ar.edu.utn.frvm.typeit.bemol_api.auth.services;
 
 import ar.edu.utn.frvm.typeit.bemol_api.auth.exceptions.InvalidCredentialsException;
+import ar.edu.utn.frvm.typeit.bemol_api.auth.filters.CurrentPrincipal;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.filters.JwtAuthenticatedPlatformAccount;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.filters.JwtAuthenticatedUser;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.filters.JwtPrincipal;
@@ -20,7 +21,6 @@ import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -36,11 +36,7 @@ public class AccountAccessAuthorization {
   private final PasswordEncoder passwords;
 
   public JwtPrincipal currentActor() {
-    final var authentication = SecurityContextHolder.getContext().getAuthentication();
-    if (authentication == null || !(authentication.getPrincipal() instanceof JwtPrincipal actor)) {
-      throw new InvalidCredentialsException();
-    }
-    return actor;
+    return CurrentPrincipal.jwt().orElseThrow(InvalidCredentialsException::new);
   }
 
   public boolean isPlatformAdministrator(final UUID id) {

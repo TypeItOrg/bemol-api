@@ -1,15 +1,15 @@
 package ar.edu.utn.frvm.typeit.bemol_api.authorization.services;
 
-import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditAction;
-import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditEntityType;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditOrigin;
+import ar.edu.utn.frvm.typeit.bemol_api.audit.services.AuditChangeDetails;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.services.AuditEventRecorder;
+import ar.edu.utn.frvm.typeit.bemol_api.authorization.audit.AuthorizationAuditAction;
+import ar.edu.utn.frvm.typeit.bemol_api.authorization.entities.PersonRoleAssignment;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.entities.Role;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.enums.SystemRoleCode;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.interfaces.PersonRoleAssignmentRepository;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.payloads.PersonRoleResponse;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.entities.Person;
-import java.util.Map;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -34,23 +34,23 @@ public class BootstrapInstitutionalAuthorityUseCase {
             institutionId, SystemRoleCode.INSTITUTIONAL_AUTHORITY);
 
     final var before =
-        RoleAuditDetails.assignments(
+        PersonRoleAssignment.auditAssignments(
             personRoleAssignmentRepository.findByPerson_IdAndInstitution_Id(
                 personId, institutionId));
     assignPersonSystemRoleUseCase.execute(person, SystemRoleCode.INSTITUTIONAL_AUTHORITY);
     final var after =
-        RoleAuditDetails.assignments(
+        PersonRoleAssignment.auditAssignments(
             personRoleAssignmentRepository.findByPerson_IdAndInstitution_Id(
                 personId, institutionId));
-    if (!before.equals(after)) {
+    if (!before.values().equals(after.values())) {
       auditEventRecorder.recordCurrentActor(
           person.getInstitution(),
           personId,
-          AuditAction.PERSON_ROLES_CHANGED,
-          AuditEntityType.PERSON,
+          AuthorizationAuditAction.PERSON_ROLES_CHANGED,
+          Person.AUDIT_TYPE,
           personId,
           AuditOrigin.PLATFORM_ADMINISTRATION,
-          Map.of("before", before, "after", after));
+          AuditChangeDetails.change("Roles y alcances", before, after));
     }
 
     return personRoleAssignmentRepository

@@ -30,10 +30,8 @@ public class InstitutionalHostFilter extends OncePerRequestFilter {
       final var authentication = SecurityContextHolder.getContext().getAuthentication();
       context.requirePlatformHost(request, authentication);
       final var tenant = context.bind(request);
-      if (authentication != null
-          && authentication.getPrincipal() instanceof JwtAuthenticatedUser user) {
-        context.requireInstitution(tenant, user.institutionId());
-      }
+      CurrentPrincipal.institutionalUser(authentication)
+          .ifPresent(user -> context.requireInstitution(tenant, user.institutionId()));
     } catch (ApplicationException exception) {
       exceptionResolver.resolveException(request, response, null, exception);
       return;

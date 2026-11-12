@@ -10,7 +10,7 @@ import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.when;
 
 import ar.edu.utn.frvm.typeit.bemol_api.audit.entities.AuditEvent;
-import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditAction;
+import ar.edu.utn.frvm.typeit.bemol_api.auth.audit.AuthAuditAction;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.config.WebAuthnProperties;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.entities.PasskeyCredential;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.entities.User;
@@ -182,11 +182,13 @@ class PasskeyConcurrencyPostgresIntegrationTest {
               assertThat(audit)
                   .extracting(event -> event.getAction())
                   .containsExactlyInAnyOrder(
-                      AuditAction.PASSKEY_UPDATED, AuditAction.PASSKEY_DELETED);
+                      AuthAuditAction.PASSKEY_UPDATED.name(),
+                      AuthAuditAction.PASSKEY_DELETED.name());
               assertThat(audit)
                   .allSatisfy(
                       row -> {
-                        final boolean renamed = row.getAction() == AuditAction.PASSKEY_UPDATED;
+                        final boolean renamed =
+                            row.getAction().equals(AuthAuditAction.PASSKEY_UPDATED.name());
                         assertThat(row.getActorPersonId())
                             .isEqualTo(fixture.principal().personId());
                         assertThat(row.getSubjectPersonId())
@@ -196,14 +198,22 @@ class PasskeyConcurrencyPostgresIntegrationTest {
                                 Map.of(
                                     "entityName",
                                     "Equipo personal",
+                                    "fieldLabels",
+                                    Map.of(
+                                        "label",
+                                        "Nombre de la llave de acceso",
+                                        "active",
+                                        "Estado"),
                                     "changedFields",
                                     List.of(renamed ? "label" : "active"),
                                     "before",
-                                    renamed ? Map.of("label", "Test key") : Map.of("active", true),
+                                    Map.of(
+                                        "label",
+                                        renamed ? "Test key" : "Equipo personal",
+                                        "active",
+                                        true),
                                     "after",
-                                    renamed
-                                        ? Map.of("label", "Equipo personal")
-                                        : Map.of("active", false)));
+                                    Map.of("label", "Equipo personal", "active", renamed)));
                       });
             });
     assertThat(adapter.findByCredentialId(fixture.externalId())).isNull();
@@ -290,7 +300,7 @@ class PasskeyConcurrencyPostgresIntegrationTest {
                         .createQuery(
                             "SELECT event FROM AuditEvent event WHERE event.action = :action AND event.subjectPersonId = :person",
                             AuditEvent.class)
-                        .setParameter("action", AuditAction.PASSKEY_CREATED)
+                        .setParameter("action", AuthAuditAction.PASSKEY_CREATED.name())
                         .setParameter("person", fixture.principal().personId())
                         .getResultList();
                 assertThat(audit).hasSize(1);
@@ -302,10 +312,16 @@ class PasskeyConcurrencyPostgresIntegrationTest {
                 assertThat(audit.getFirst().getDetails())
                     .isEqualTo(
                         Map.of(
-                            "entityName", registered.label(),
-                            "changedFields", List.of("label"),
-                            "before", Map.of(),
-                            "after", Map.of("label", registered.label())));
+                            "entityName",
+                            registered.label(),
+                            "fieldLabels",
+                            Map.of("label", "Nombre de la llave de acceso", "active", "Estado"),
+                            "changedFields",
+                            List.of("label", "active"),
+                            "before",
+                            Map.of(),
+                            "after",
+                            Map.of("label", registered.label(), "active", true)));
               });
     } finally {
       org.springframework.security.core.context.SecurityContextHolder.clearContext();

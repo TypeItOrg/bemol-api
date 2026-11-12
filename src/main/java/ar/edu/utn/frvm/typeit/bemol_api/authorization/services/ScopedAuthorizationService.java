@@ -1,7 +1,6 @@
 package ar.edu.utn.frvm.typeit.bemol_api.authorization.services;
 
-import ar.edu.utn.frvm.typeit.bemol_api.auth.filters.JwtAuthenticatedPlatformAccount;
-import ar.edu.utn.frvm.typeit.bemol_api.auth.filters.JwtAuthenticatedUser;
+import ar.edu.utn.frvm.typeit.bemol_api.auth.filters.CurrentPrincipal;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.enums.PermissionCode;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.enums.PlatformRoleCode;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.exceptions.PermissionDelegationNotAllowedException;
@@ -10,7 +9,6 @@ import ar.edu.utn.frvm.typeit.bemol_api.institutional.services.OperatingContextR
 import java.util.Set;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
 @Service("scopedAuthorization")
@@ -24,24 +22,20 @@ public class ScopedAuthorizationService {
     if (operatingContext.currentPersonId().isPresent()) {
       return PermissionAccess.none();
     }
-    var authentication = SecurityContextHolder.getContext().getAuthentication();
-    if (authentication == null
-        || !(authentication.getPrincipal() instanceof JwtAuthenticatedUser user)) {
-      return PermissionAccess.none();
-    }
-    return authorityResolver
-        .resolvePersonAuthorities(user.personId(), user.institutionId())
-        .permissionScopes()
-        .getOrDefault(permission, PermissionAccess.none());
+    return CurrentPrincipal.institutionalUser()
+        .map(
+            user ->
+                authorityResolver.resolvePersonAuthorities(user.personId(), user.institutionId()))
+        .map(authorities -> authorities.permissionScopes())
+        .map(scopes -> scopes.getOrDefault(permission, PermissionAccess.none()))
+        .orElse(PermissionAccess.none());
   }
 
   public boolean isPlatformAdministrator() {
-    var auth = SecurityContextHolder.getContext().getAuthentication();
-    return auth != null
-        && auth.getPrincipal() instanceof JwtAuthenticatedPlatformAccount platform
-        && authorityResolver
-            .resolvePlatformRoles(platform.platformAccountId())
-            .contains(PlatformRoleCode.PLATFORM_ADMIN);
+    return CurrentPrincipal.platformAccount()
+        .map(platform -> authorityResolver.resolvePlatformRoles(platform.platformAccountId()))
+        .map(roles -> roles.contains(PlatformRoleCode.PLATFORM_ADMIN))
+        .orElse(false);
   }
 
   public PermissionAccess managementAccess(PermissionCode permission) {
@@ -89,34 +83,35 @@ public class ScopedAuthorizationService {
     if (isPlatformAdministrator()) {
       return;
     }
-    var authentication = SecurityContextHolder.getContext().getAuthentication();
-    if (authentication == null
-        || !(authentication.getPrincipal() instanceof JwtAuthenticatedUser user)
-        || !user.institutionId().equals(institutionId)
-        || !access(permission).includes(trainingPathId)) {
+    final boolean sameInstitution =
+        CurrentPrincipal.institutionalUser()
+            .map(user -> user.institutionId().equals(institutionId))
+            .orElse(false);
+
+    if (!sameInstitution || !access(permission).includes(trainingPathId)) {
       throw new ScopedResourceNotFoundException();
     }
   }
 
   public Set<PermissionCode> freshPermissions() {
-    var auth = SecurityContextHolder.getContext().getAuthentication();
-    if (auth == null || !(auth.getPrincipal() instanceof JwtAuthenticatedUser user)) {
-      return Set.of();
-    }
-    return snapshotResolver
-        .resolveFreshForPerson(user.personId(), user.institutionId())
-        .permissions();
+    return CurrentPrincipal.institutionalUser()
+        .map(user -> snapshotResolver.resolveFreshForPerson(user.personId(), user.institutionId()))
+        .map(snapshot -> snapshot.permissions())
+        .orElse(Set.of());
   }
 
   public void requireDelegation(PermissionCode permission, PermissionAccess grant) {
-    var auth = SecurityContextHolder.getContext().getAuthentication();
-    if (auth == null
-        || !(auth.getPrincipal() instanceof JwtAuthenticatedUser user)
-        || !snapshotResolver
-            .resolveFreshForPerson(user.personId(), user.institutionId())
-            .permissionScopes()
-            .getOrDefault(permission, PermissionAccess.none())
-            .contains(grant)) {
+    final boolean canDelegate =
+        CurrentPrincipal.institutionalUser()
+            .map(
+                user ->
+                    snapshotResolver.resolveFreshForPerson(user.personId(), user.institutionId()))
+            .map(snapshot -> snapshot.permissionScopes())
+            .map(scopes -> scopes.getOrDefault(permission, PermissionAccess.none()))
+            .map(held -> held.contains(grant))
+            .orElse(false);
+
+    if (!canDelegate) {
       throw new PermissionDelegationNotAllowedException();
     }
   }

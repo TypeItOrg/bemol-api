@@ -1,5 +1,7 @@
 package ar.edu.utn.frvm.typeit.bemol_api.auth.entities;
 
+import ar.edu.utn.frvm.typeit.bemol_api.audit.snapshot.AuditSnapshot;
+import ar.edu.utn.frvm.typeit.bemol_api.audit.snapshot.AuditSubject;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.exceptions.InvalidEmailVerificationTokenException;
 import ar.edu.utn.frvm.typeit.bemol_api.common.persistence.GeneratedUUIDv7;
 import jakarta.persistence.Column;
@@ -20,7 +22,7 @@ import org.jspecify.annotations.Nullable;
 @Table(name = "platform_email_change_tokens")
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class PlatformEmailChangeToken {
+public class PlatformEmailChangeToken implements AuditSubject {
   @Id @GeneratedUUIDv7 private UUID id;
 
   @ManyToOne(fetch = FetchType.LAZY, optional = false)
@@ -75,5 +77,10 @@ public class PlatformEmailChangeToken {
       throw new InvalidEmailVerificationTokenException();
     }
     usedAt = now;
+  }
+
+  @Override
+  public AuditSnapshot.Snapshot auditSnapshot() {
+    return AuditSnapshot.fields().compare("email", "Correo electrónico", newEmail).build();
   }
 }

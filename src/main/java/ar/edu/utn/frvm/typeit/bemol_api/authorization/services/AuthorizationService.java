@@ -1,5 +1,6 @@
 package ar.edu.utn.frvm.typeit.bemol_api.authorization.services;
 
+import ar.edu.utn.frvm.typeit.bemol_api.auth.filters.CurrentPrincipal;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.filters.JwtAuthenticatedPlatformAccount;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.filters.JwtAuthenticatedUser;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.filters.JwtPrincipal;
@@ -26,13 +27,10 @@ public class AuthorizationService {
 
   public boolean hasActorPermission(
       final @Nullable Authentication authentication, final PermissionCode permission) {
-    if (authentication != null
-        && authentication.getPrincipal() instanceof JwtAuthenticatedUser user) {
-      return authorityResolver
-          .resolveForPerson(user.actorPersonId(), user.institutionId())
-          .contains(permission);
-    }
-    return hasPermission(authentication, permission);
+    return CurrentPrincipal.institutionalUser(authentication)
+        .map(user -> authorityResolver.resolveForPerson(user.actorPersonId(), user.institutionId()))
+        .map(granted -> granted.contains(permission))
+        .orElseGet(() -> hasPermission(authentication, permission));
   }
 
   public boolean hasAnyPermission(
@@ -42,18 +40,17 @@ public class AuthorizationService {
   }
 
   public boolean hasPlatformRole(@Nullable Authentication authentication, PlatformRoleCode role) {
-    if (authentication == null
-        || !(authentication.getPrincipal() instanceof JwtAuthenticatedPlatformAccount platform)) {
-      return false;
-    }
-    return authorityResolver.resolvePlatformRoles(platform.platformAccountId()).contains(role);
+    return CurrentPrincipal.platformAccount(authentication)
+        .map(platform -> authorityResolver.resolvePlatformRoles(platform.platformAccountId()))
+        .map(roles -> roles.contains(role))
+        .orElse(false);
   }
 
   public Set<PermissionCode> resolvePermissions(@Nullable Authentication authentication) {
-    if (authentication == null
-        || !(authentication.getPrincipal() instanceof JwtPrincipal principal)) {
-      return Set.of();
-    }
+    return CurrentPrincipal.jwt(authentication).map(this::permissionsOf).orElse(Set.of());
+  }
+
+  private Set<PermissionCode> permissionsOf(final JwtPrincipal principal) {
     return switch (principal) {
       case JwtAuthenticatedUser user -> resolveInstitutionalPermissions(user);
       case JwtAuthenticatedPlatformAccount platform -> resolvePlatformPermissions(platform);
