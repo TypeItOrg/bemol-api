@@ -1,7 +1,6 @@
 package ar.edu.utn.frvm.typeit.bemol_api.audit.enums;
 
-import ar.edu.utn.frvm.typeit.bemol_api.auth.filters.JwtAuthenticatedPlatformAccount;
-import org.springframework.security.core.context.SecurityContextHolder;
+import ar.edu.utn.frvm.typeit.bemol_api.audit.services.AuditActorContext;
 
 public enum AuditOrigin {
   SELF_REGISTRATION,
@@ -12,10 +11,10 @@ public enum AuditOrigin {
   MAIL_DELIVERY;
 
   public static AuditOrigin administration() {
-    final var authentication = SecurityContextHolder.getContext().getAuthentication();
-    return authentication != null
-            && authentication.getPrincipal() instanceof JwtAuthenticatedPlatformAccount
-        ? PLATFORM_ADMINISTRATION
-        : INSTITUTIONAL_ADMINISTRATION;
+    if (AuditActorContext.current().isPlatformAccount()) {
+      return PLATFORM_ADMINISTRATION;
+    }
+
+    return INSTITUTIONAL_ADMINISTRATION;
   }
 }

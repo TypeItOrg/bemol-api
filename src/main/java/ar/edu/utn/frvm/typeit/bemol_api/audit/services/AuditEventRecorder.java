@@ -1,24 +1,20 @@
 package ar.edu.utn.frvm.typeit.bemol_api.audit.services;
 
+import ar.edu.utn.frvm.typeit.bemol_api.audit.definition.AuditOperation;
+import ar.edu.utn.frvm.typeit.bemol_api.audit.definition.AuditResource;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.entities.AuditEvent;
-import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditAction;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditActorKind;
-import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditEntityType;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditOrigin;
-import ar.edu.utn.frvm.typeit.bemol_api.audit.envers.EnversAuditTransaction;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.interfaces.AuditEventRepository;
-import ar.edu.utn.frvm.typeit.bemol_api.auth.filters.JwtAuthenticatedPlatformAccount;
-import ar.edu.utn.frvm.typeit.bemol_api.auth.filters.JwtAuthenticatedUser;
-import ar.edu.utn.frvm.typeit.bemol_api.common.logging.RequestLoggingFilter;
+import ar.edu.utn.frvm.typeit.bemol_api.audit.snapshot.AuditSnapshot;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.entities.Institution;
 import java.time.Clock;
+import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.jspecify.annotations.Nullable;
-import org.slf4j.MDC;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -39,12 +35,29 @@ public class AuditEventRecorder {
       final Institution institution,
       final UUID actorPersonId,
       final UUID subjectPersonId,
-      final AuditAction action,
-      final AuditEntityType entityType,
+      final AuditOperation action,
+      final AuditResource entityType,
       final UUID entityId) {
-    final var actor = currentInstitutionalActor();
-    final UUID realActor = actor == null ? actorPersonId : actor.actorPersonId();
-    auditEventRepository.save(
+    record(institution, actorPersonId, subjectPersonId, action, entityType, entityId, Map.of());
+  }
+
+  @Transactional(propagation = Propagation.MANDATORY)
+  public void record(
+      final Institution institution,
+      final UUID actorPersonId,
+      final UUID subjectPersonId,
+      final AuditOperation action,
+      final AuditResource entityType,
+      final UUID entityId,
+      final Map<String, Object> details) {
+    final var actor = AuditActorContext.current();
+    final UUID realActor = actor.personId() == null ? actorPersonId : actor.personId();
+    final boolean onBehalf = actor.delegated() || !realActor.equals(subjectPersonId);
+    final String requestId = AuditActorContext.currentRequestId();
+    final Map<String, Object> eventDetails = identityDetails(actor, details);
+    final Instant occurredAt = clock.instant();
+
+    final AuditEvent event =
         AuditEvent.record(
             institution,
             AuditActorKind.INSTITUTION,
@@ -54,25 +67,26 @@ public class AuditEventRecorder {
             action,
             entityType,
             entityId,
-            (actor != null && actor.delegated()) || !realActor.equals(subjectPersonId),
-            MDC.get(RequestLoggingFilter.MDC_REQUEST_ID_KEY),
+            onBehalf,
+            requestId,
             null,
-            identityDetails(Map.of()),
-            clock.instant(),
-            EnversAuditTransaction.currentId()));
+            eventDetails,
+            occurredAt);
+
+    auditEventRepository.save(event);
   }
 
   @Transactional(propagation = Propagation.MANDATORY)
-  public void recordChange(
+  public void recordSnapshotChange(
       @Nullable final Institution institution,
       @Nullable final UUID subjectPersonId,
-      final AuditAction action,
-      final AuditEntityType entityType,
+      final AuditOperation action,
+      final AuditResource entityType,
       final UUID entityId,
       final String name,
-      final Map<String, Object> before,
-      final Map<String, Object> after) {
-    if (!before.equals(after)) {
+      final AuditSnapshot.Snapshot before,
+      final AuditSnapshot.Snapshot after) {
+    if (!before.values().equals(after.values())) {
       recordCurrentActor(
           institution,
           subjectPersonId,
@@ -88,66 +102,54 @@ public class AuditEventRecorder {
   public void recordCurrentActor(
       @Nullable final Institution institution,
       @Nullable final UUID subjectPersonId,
-      final AuditAction action,
-      final AuditEntityType entityType,
+      final AuditOperation action,
+      final AuditResource entityType,
       final UUID entityId,
       final AuditOrigin origin,
       final Map<String, Object> details) {
-    final var authentication = SecurityContextHolder.getContext().getAuthentication();
-    final Object principal = authentication == null ? null : authentication.getPrincipal();
-    final AuditActorKind actorKind;
-    final UUID actorPersonId;
-    final UUID platformAccountId;
-    if (principal instanceof JwtAuthenticatedUser user) {
-      actorKind = AuditActorKind.INSTITUTION;
-      actorPersonId = user.actorPersonId();
-      platformAccountId = null;
-    } else if (principal instanceof JwtAuthenticatedPlatformAccount account) {
-      actorKind = AuditActorKind.PLATFORM;
-      actorPersonId = null;
-      platformAccountId = account.platformAccountId();
-    } else {
-      actorKind = AuditActorKind.ANONYMOUS;
-      actorPersonId = null;
-      platformAccountId = null;
-    }
-    auditEventRepository.save(
+    final var actor = AuditActorContext.current();
+    final boolean onBehalf = actedOnBehalf(actor, origin, subjectPersonId);
+    final String requestId = AuditActorContext.currentRequestId();
+    final Map<String, Object> eventDetails = identityDetails(actor, details);
+    final Instant occurredAt = clock.instant();
+
+    final AuditEvent event =
         AuditEvent.record(
             institution,
-            actorKind,
-            actorPersonId,
-            platformAccountId,
+            actor.kind(),
+            actor.personId(),
+            actor.platformAccountId(),
             subjectPersonId,
             action,
             entityType,
             entityId,
-            ((principal instanceof JwtAuthenticatedUser user && user.delegated())
-                    || origin == AuditOrigin.SELF_SERVICE)
-                && actorPersonId != null
-                && subjectPersonId != null
-                && !actorPersonId.equals(subjectPersonId),
-            MDC.get(RequestLoggingFilter.MDC_REQUEST_ID_KEY),
+            onBehalf,
+            requestId,
             origin,
-            identityDetails(details),
-            clock.instant(),
-            EnversAuditTransaction.currentId()));
+            eventDetails,
+            occurredAt);
+
+    auditEventRepository.save(event);
   }
 
-  private static @Nullable JwtAuthenticatedUser currentInstitutionalActor() {
-    final var authentication = SecurityContextHolder.getContext().getAuthentication();
-    return authentication != null
-            && authentication.getPrincipal() instanceof JwtAuthenticatedUser user
-        ? user
-        : null;
+  private static boolean actedOnBehalf(
+      final AuditActorContext actor,
+      final AuditOrigin origin,
+      final @Nullable UUID subjectPersonId) {
+    final UUID actorPersonId = actor.personId();
+    return (actor.delegated() || origin == AuditOrigin.SELF_SERVICE)
+        && actorPersonId != null
+        && subjectPersonId != null
+        && !actorPersonId.equals(subjectPersonId);
   }
 
-  private static Map<String, Object> identityDetails(final Map<String, Object> details) {
-    final var actor = currentInstitutionalActor();
-    if (actor == null || !actor.delegated()) {
+  private static Map<String, Object> identityDetails(
+      final AuditActorContext actor, final Map<String, Object> details) {
+    if (!actor.delegated()) {
       return details;
     }
     final var result = new HashMap<String, Object>(details);
-    result.put("activePersonId", actor.personId());
+    result.put("activePersonId", actor.activePersonId());
     return result;
   }
 }

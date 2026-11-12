@@ -1,8 +1,8 @@
 package ar.edu.utn.frvm.typeit.bemol_api.audit.entities;
 
-import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditAction;
+import ar.edu.utn.frvm.typeit.bemol_api.audit.definition.AuditOperation;
+import ar.edu.utn.frvm.typeit.bemol_api.audit.definition.AuditResource;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditActorKind;
-import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditEntityType;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditOrigin;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.exceptions.AuditMessages;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.exceptions.AuditValidationException;
@@ -29,10 +29,6 @@ import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 import org.jspecify.annotations.Nullable;
 
-/**
- * Immutable record of something a person did, possibly on behalf of another. People are kept as
- * plain ids, without foreign keys, so the log survives any later change to the people table.
- */
 @Entity
 @Table(name = "audit_events")
 @Getter
@@ -71,13 +67,11 @@ public class AuditEvent {
   @Column(nullable = false, columnDefinition = "jsonb", updatable = false)
   private Map<String, Object> details;
 
-  @Enumerated(EnumType.STRING)
   @Column(nullable = false, length = 60, updatable = false)
-  private AuditAction action;
+  private String action;
 
-  @Enumerated(EnumType.STRING)
   @Column(name = "entity_type", nullable = false, length = 40, updatable = false)
-  private AuditEntityType entityType;
+  private String entityType;
 
   @Column(name = "entity_id", nullable = false, updatable = false)
   private UUID entityId;
@@ -91,15 +85,12 @@ public class AuditEvent {
   @Column(name = "occurred_at", nullable = false, updatable = false)
   private Instant occurredAt;
 
-  @Column(name = "transaction_id", updatable = false)
-  private @Nullable UUID transactionId;
-
   public static AuditEvent record(
       final Institution institution,
       final UUID actorPersonId,
       final UUID subjectPersonId,
-      final AuditAction action,
-      final AuditEntityType entityType,
+      final AuditOperation action,
+      final AuditResource entityType,
       final UUID entityId,
       @Nullable final String requestId,
       final Instant occurredAt) {
@@ -116,8 +107,7 @@ public class AuditEvent {
         requestId,
         null,
         Map.of(),
-        occurredAt,
-        null);
+        occurredAt);
   }
 
   public static AuditEvent record(
@@ -126,15 +116,15 @@ public class AuditEvent {
       @Nullable final UUID actorPersonId,
       @Nullable final UUID actorPlatformAccountId,
       @Nullable final UUID subjectPersonId,
-      final AuditAction action,
-      final AuditEntityType entityType,
+      final AuditOperation action,
+      final AuditResource entityType,
       final UUID entityId,
       final boolean actedOnBehalf,
       @Nullable final String requestId,
       @Nullable final AuditOrigin origin,
       final Map<String, Object> details,
-      final Instant occurredAt,
-      @Nullable final UUID transactionId) {
+      final Instant occurredAt) {
+
     final boolean validActor =
         switch (actorKind) {
           case INSTITUTION ->
@@ -142,31 +132,47 @@ public class AuditEvent {
           case PLATFORM -> actorPersonId == null && actorPlatformAccountId != null;
           case ANONYMOUS -> actorPersonId == null && actorPlatformAccountId == null;
         };
+
     if (!validActor) {
       throw new AuditValidationException(AuditMessages.INVALID_ACTOR);
     }
-    if (actedOnBehalf
-        && (actorKind != AuditActorKind.INSTITUTION
-            || subjectPersonId == null
-            || subjectPersonId.equals(actorPersonId))) {
-      throw new AuditValidationException(AuditMessages.INVALID_REPRESENTATION);
-    }
+
+    validateRepresentation(actedOnBehalf, actorKind, actorPersonId, subjectPersonId);
+
     return AuditEvent.builder()
         .institution(institution)
         .actorKind(actorKind)
         .actorPersonId(actorPersonId)
         .actorPlatformAccountId(actorPlatformAccountId)
         .subjectPersonId(subjectPersonId)
-        .action(action)
-        .entityType(entityType)
+        .action(action.name())
+        .entityType(entityType.name())
         .entityId(entityId)
         .actedOnBehalf(actedOnBehalf)
         .requestId(requestId)
         .origin(origin)
         .details(Map.copyOf(details))
-        .transactionId(transactionId)
         .occurredAt(occurredAt)
         .build();
+  }
+
+  private static void validateRepresentation(
+      final boolean actedOnBehalf,
+      final AuditActorKind actorKind,
+      @Nullable final UUID actorPersonId,
+      @Nullable final UUID subjectPersonId) {
+    if (!actedOnBehalf) {
+      return;
+    }
+
+    final boolean representsAnotherPerson =
+        actorKind == AuditActorKind.INSTITUTION
+            && subjectPersonId != null
+            && !subjectPersonId.equals(actorPersonId);
+
+    if (!representsAnotherPerson) {
+      throw new AuditValidationException(AuditMessages.INVALID_REPRESENTATION);
+    }
   }
 
   public @Nullable UUID getActorId() {

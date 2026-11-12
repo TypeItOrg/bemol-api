@@ -4,7 +4,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
-import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -12,13 +11,11 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditAction;
-import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditEntityType;
-import ar.edu.utn.frvm.typeit.bemol_api.audit.payloads.AuditEventFilter;
-import ar.edu.utn.frvm.typeit.bemol_api.audit.payloads.AuditEventResponse;
+import ar.edu.utn.frvm.typeit.bemol_api.audit.definition.AuditFeed;
+import ar.edu.utn.frvm.typeit.bemol_api.audit.definition.AuditModuleDefinition;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.payloads.InstitutionalActivityFilter;
+import ar.edu.utn.frvm.typeit.bemol_api.audit.services.AuditFilterOptionsUseCase;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.services.InstitutionalActivityUseCase;
-import ar.edu.utn.frvm.typeit.bemol_api.audit.services.ListAuditEventsUseCase;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.filters.JwtAuthenticatedUser;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.services.IsPlatformSessionActiveUseCase;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.services.IsSessionActiveUseCase;
@@ -37,7 +34,6 @@ import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -46,8 +42,6 @@ import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.EnableAspectJAutoProxy;
 import org.springframework.context.annotation.Import;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageImpl;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.TestingAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -56,7 +50,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.util.PathMatcher;
 
-@WebMvcTest({AuditEventController.class, InstitutionalActivityController.class})
+@WebMvcTest(InstitutionalActivityController.class)
 @Import({
   RoleAuthorizationAspect.class,
   InstitutionAccessAspect.class,
@@ -66,17 +60,15 @@ import org.springframework.util.PathMatcher;
 })
 @AutoConfigureMockMvc(addFilters = false)
 @EnableAspectJAutoProxy
-class AuditEventControllerWebMvcTest {
+class InstitutionalActivityControllerWebMvcTest {
 
   private static final UUID INSTITUTION_ID = UUID.randomUUID();
-  private static final UUID SUBJECT_ID = UUID.randomUUID();
-  private static final String BASE_PATH = "/api/v1/institutions/{institutionId}/audit-events";
 
   @MockitoBean private InstitutionalCallerGuard institutionalCallerGuard;
   @MockitoBean private InitialRoleAssignmentGuard initialRoleAssignmentGuard;
   @MockitoBean private AuthorizationService authorizationService;
-  @MockitoBean private ListAuditEventsUseCase listAuditEventsUseCase;
   @MockitoBean private InstitutionalActivityUseCase activity;
+  @MockitoBean private AuditFilterOptionsUseCase options;
 
   @MockitoBean private PathMatcher pathMatcher;
   @MockitoBean private AuthenticationEntryPoint authenticationEntryPoint;
@@ -93,42 +85,47 @@ class AuditEventControllerWebMvcTest {
   }
 
   @Test
-  @DisplayName("Should list audit events filtered by subject when the caller can read the audit")
-  void list_returnsFilteredEvents() throws Exception {
-    when(authorizationService.hasPermission(any(), eq(PermissionCode.INSTITUTION_AUDIT_READ)))
+  void auditOptionsRequireAuditPermissionRatherThanMailPermission() throws Exception {
+    when(authorizationService.hasPermission(any(), eq(PermissionCode.INSTITUTION_EMAIL_READ)))
         .thenReturn(true);
-    when(listAuditEventsUseCase.execute(eq(INSTITUTION_ID), any(AuditEventFilter.class), any()))
-        .thenReturn(new PageImpl<>(List.of(event()), PageRequest.of(0, 20), 1));
-
-    mockMvc
-        .perform(
-            get(BASE_PATH, INSTITUTION_ID)
-                .param("subjectPersonId", SUBJECT_ID.toString())
-                .param("actedOnBehalf", "true")
-                .principal(authentication()))
-        .andExpect(status().isOk())
-        .andExpect(jsonPath("$.items[0].action").value("ENROLLMENT_APPLICATION_SUBMITTED"))
-        .andExpect(jsonPath("$.items[0].actedOnBehalf").value(true))
-        .andExpect(jsonPath("$.items[0].actorName").value("Tutor Testing"));
-
-    final var captor = org.mockito.ArgumentCaptor.forClass(AuditEventFilter.class);
-    verify(listAuditEventsUseCase).execute(eq(INSTITUTION_ID), captor.capture(), any());
-    org.assertj.core.api.Assertions.assertThat(captor.getValue().subjectPersonId())
-        .isEqualTo(SUBJECT_ID);
-    org.assertj.core.api.Assertions.assertThat(captor.getValue().actedOnBehalf()).isTrue();
+    for (final var path : List.of("modules", "actions")) {
+      mockMvc
+          .perform(
+              get(
+                      "/api/v1/institutions/{institutionId}/activity/audit-events/" + path,
+                      INSTITUTION_ID)
+                  .principal(authentication()))
+          .andExpect(status().isForbidden());
+    }
+    verifyNoInteractions(options);
   }
 
   @Test
-  @DisplayName("Should reject callers without the audit read permission")
-  void list_forbiddenWithoutPermission() throws Exception {
+  void auditOptionsUseDomainDefinitionsWithTheInstitutionalPermission() throws Exception {
     when(authorizationService.hasPermission(any(), eq(PermissionCode.INSTITUTION_AUDIT_READ)))
-        .thenReturn(false);
-
+        .thenReturn(true);
+    when(options.institutionalModules())
+        .thenReturn(List.of(new AuditModuleDefinition("COURSES", "Cursos")));
+    when(options.institutionalActions(eq("COURSES"), eq(null), eq("curso"), any()))
+        .thenReturn(Page.empty());
     mockMvc
-        .perform(get(BASE_PATH, INSTITUTION_ID).principal(authentication()))
-        .andExpect(status().isForbidden());
-
-    verify(listAuditEventsUseCase, never()).execute(any(), any(), any());
+        .perform(
+            get(
+                    "/api/v1/institutions/{institutionId}/activity/audit-events/modules",
+                    INSTITUTION_ID)
+                .principal(authentication()))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$[0].label").value("Cursos"));
+    mockMvc
+        .perform(
+            get(
+                    "/api/v1/institutions/{institutionId}/activity/audit-events/actions",
+                    INSTITUTION_ID)
+                .param("module", "COURSES")
+                .param("search", "curso")
+                .principal(authentication()))
+        .andExpect(status().isOk());
+    verify(options).institutionalActions(eq("COURSES"), eq(null), eq("curso"), any());
   }
 
   @Test
@@ -136,24 +133,22 @@ class AuditEventControllerWebMvcTest {
       throws Exception {
     when(authorizationService.hasPermission(any(), eq(PermissionCode.INSTITUTION_AUDIT_READ)))
         .thenReturn(true);
-    when(activity.list(eq(INSTITUTION_ID), any(), eq(false), any())).thenReturn(Page.empty());
+    when(activity.list(eq(INSTITUTION_ID), eq(AuditFeed.ACTIVITY), any(), any()))
+        .thenReturn(Page.empty());
 
     mockMvc
         .perform(
             get("/api/v1/institutions/{institutionId}/activity/audit-events", INSTITUTION_ID)
                 .param("institutionId", UUID.randomUUID().toString())
                 .param("scope", "PLATFORM")
-                .param("module", "EMAILS")
                 .param("from", "2026-10-01T03:00:00Z")
                 .principal(authentication()))
         .andExpect(status().isOk());
 
     final var filter = ArgumentCaptor.forClass(InstitutionalActivityFilter.class);
-    verify(activity).list(eq(INSTITUTION_ID), filter.capture(), eq(false), any());
+    verify(activity).list(eq(INSTITUTION_ID), eq(AuditFeed.ACTIVITY), filter.capture(), any());
     assertThat(filter.getValue().from()).isEqualTo(Instant.parse("2026-10-01T03:00:00Z"));
-    assertThat(filter.getValue().scoped(INSTITUTION_ID, false).institutionId())
-        .isEqualTo(INSTITUTION_ID);
-    assertThat(filter.getValue().scoped(INSTITUTION_ID, false).module()).isNull();
+    assertThat(filter.getValue().scoped(INSTITUTION_ID).institutionId()).isEqualTo(INSTITUTION_ID);
   }
 
   @Test
@@ -193,7 +188,9 @@ class AuditEventControllerWebMvcTest {
         .andExpect(status().isForbidden());
     mockMvc
         .perform(
-            get("/api/v1/institutions/{institutionId}/activity/audit-events/labels", INSTITUTION_ID)
+            get(
+                    "/api/v1/institutions/{institutionId}/activity/audit-events/modules",
+                    INSTITUTION_ID)
                 .principal(authentication()))
         .andExpect(status().isForbidden());
     verifyNoInteractions(activity);
@@ -203,14 +200,14 @@ class AuditEventControllerWebMvcTest {
   void emailPermissionAllowsTheEmailListWithoutAuditPermission() throws Exception {
     when(authorizationService.hasPermission(any(), eq(PermissionCode.INSTITUTION_EMAIL_READ)))
         .thenReturn(true);
-    when(activity.list(eq(INSTITUTION_ID), any(), eq(true), any())).thenReturn(Page.empty());
+    when(activity.list(eq(INSTITUTION_ID), eq(AuditFeed.EMAIL), any(), any()))
+        .thenReturn(Page.empty());
     mockMvc
         .perform(
             get("/api/v1/institutions/{institutionId}/activity/emails", INSTITUTION_ID)
-                .param("module", "USERS")
                 .principal(authentication()))
         .andExpect(status().isOk());
-    verify(activity).list(eq(INSTITUTION_ID), any(), eq(true), any());
+    verify(activity).list(eq(INSTITUTION_ID), eq(AuditFeed.EMAIL), any(), any());
   }
 
   @Test
@@ -233,7 +230,7 @@ class AuditEventControllerWebMvcTest {
   }
 
   @Test
-  void activityRequiresInstitutionAccessForListsDetailsAndLabels() throws Exception {
+  void activityRequiresInstitutionAccessForListsDetailsAndOptions() throws Exception {
     when(authorizationService.hasPermission(any(), any())).thenReturn(true);
     doThrow(new AccessDeniedException("Other institution"))
         .when(institutionalCallerGuard)
@@ -242,7 +239,8 @@ class AuditEventControllerWebMvcTest {
         List.of(
             "audit-events",
             "emails",
-            "audit-events/labels",
+            "audit-events/modules",
+            "audit-events/actions",
             "audit-events/" + UUID.randomUUID(),
             "emails/" + UUID.randomUUID())) {
       mockMvc
@@ -252,21 +250,6 @@ class AuditEventControllerWebMvcTest {
           .andExpect(status().isForbidden());
     }
     verifyNoInteractions(activity);
-  }
-
-  private AuditEventResponse event() {
-    return new AuditEventResponse(
-        UUID.randomUUID(),
-        UUID.randomUUID(),
-        "Tutor Testing",
-        SUBJECT_ID,
-        "Martin Crossetin",
-        AuditAction.ENROLLMENT_APPLICATION_SUBMITTED,
-        AuditEntityType.ENROLLMENT_APPLICATION,
-        UUID.randomUUID(),
-        true,
-        "req-1",
-        Instant.parse("2026-09-30T12:00:00Z"));
   }
 
   private TestingAuthenticationToken authentication() {

@@ -14,5 +14,10 @@ public final class AuditMessages {
       "El ámbito de plataforma no admite una institución.";
   public static final String EVENT_NOT_FOUND = "El evento de auditoría no existe.";
 
+  public static final String INVALID_OPERATION_FILTER =
+      "La acción o el módulo de auditoría no existe.";
+
+  public static final String INVALID_RESOURCE_FILTER = "El tipo de recurso de auditoría no existe.";
+
   private AuditMessages() {}
 }

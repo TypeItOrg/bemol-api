@@ -1,7 +1,5 @@
 package ar.edu.utn.frvm.typeit.bemol_api.audit.payloads;
 
-import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditAction;
-import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditModule;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditScope;
 import ar.edu.utn.frvm.typeit.bemol_api.common.mail.MailType;
 import jakarta.validation.constraints.Size;
@@ -11,13 +9,17 @@ import org.jspecify.annotations.Nullable;
 import org.springframework.format.annotation.DateTimeFormat;
 
 public record InstitutionalActivityFilter(
-    @Nullable AuditAction action,
-    @Nullable AuditModule module,
+    @Nullable String action,
+    @Nullable String module,
     @Size(max = 100) @Nullable String search,
     @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) @Nullable Instant from,
     @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) @Nullable Instant to,
     @Nullable MailType mailType) {
-  public GlobalAuditEventFilter scoped(final UUID institutionId, final boolean mailView) {
+  public static InstitutionalActivityFilter empty() {
+    return new InstitutionalActivityFilter(null, null, null, null, null, null);
+  }
+
+  public GlobalAuditEventFilter scoped(final UUID institutionId) {
     return new GlobalAuditEventFilter(
         AuditScope.INSTITUTION,
         institutionId,
@@ -30,9 +32,9 @@ public record InstitutionalActivityFilter(
         null,
         from,
         to,
-        mailView ? AuditModule.EMAILS : module == AuditModule.EMAILS ? null : module,
+        module,
         search,
         null,
-        mailView ? mailType : null);
+        mailType);
   }
 }

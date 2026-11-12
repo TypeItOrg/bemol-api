@@ -1,8 +1,6 @@
 package ar.edu.utn.frvm.typeit.bemol_api.audit.payloads;
 
-import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditAction;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditActorKind;
-import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditEntityType;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditOrigin;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.time.Instant;
@@ -28,7 +26,10 @@ import org.jspecify.annotations.Nullable;
       "origin",
       "details",
       "occurredAt",
-      "history"
+      "actionLabel",
+      "entityLabel",
+      "module",
+      "moduleLabel"
     })
 public record GlobalAuditEventResponse(
     UUID id,
@@ -39,16 +40,20 @@ public record GlobalAuditEventResponse(
     @Schema(nullable = true) @Nullable String subjectName,
     @Schema(nullable = true) @Nullable UUID institutionId,
     @Schema(nullable = true) @Nullable String institutionName,
-    AuditAction action,
-    AuditEntityType entityType,
+    String action,
+    String entityType,
     UUID entityId,
     boolean actedOnBehalf,
     @Schema(nullable = true) @Nullable String requestId,
     @Schema(nullable = true) @Nullable AuditOrigin origin,
     Map<String, Object> details,
     Instant occurredAt,
-    @Schema(nullable = true) @Nullable AuditHistoryResponse history) {
-  public GlobalAuditEventResponse withHistory(@Nullable final AuditHistoryResponse history) {
+    String actionLabel,
+    String entityLabel,
+    @Schema(nullable = true) @Nullable String module,
+    @Schema(nullable = true) @Nullable String moduleLabel) {
+  public GlobalAuditEventResponse withActor(
+      @Nullable final UUID actorId, @Nullable final String actorName) {
     return new GlobalAuditEventResponse(
         id,
         actorKind,
@@ -66,6 +71,57 @@ public record GlobalAuditEventResponse(
         origin,
         details,
         occurredAt,
-        history);
+        actionLabel,
+        entityLabel,
+        module,
+        moduleLabel);
+  }
+
+  public GlobalAuditEventResponse withDetails(final Map<String, Object> details) {
+    return new GlobalAuditEventResponse(
+        id,
+        actorKind,
+        actorId,
+        actorName,
+        subjectPersonId,
+        subjectName,
+        institutionId,
+        institutionName,
+        action,
+        entityType,
+        entityId,
+        actedOnBehalf,
+        requestId,
+        origin,
+        details,
+        occurredAt,
+        actionLabel,
+        entityLabel,
+        module,
+        moduleLabel);
+  }
+
+  public GlobalAuditEventResponse withoutRequestContext() {
+    return new GlobalAuditEventResponse(
+        id,
+        actorKind,
+        actorId,
+        actorName,
+        subjectPersonId,
+        subjectName,
+        institutionId,
+        institutionName,
+        action,
+        entityType,
+        entityId,
+        actedOnBehalf,
+        null,
+        null,
+        details,
+        occurredAt,
+        actionLabel,
+        entityLabel,
+        module,
+        moduleLabel);
   }
 }

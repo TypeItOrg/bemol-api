@@ -1,57 +1,60 @@
 package ar.edu.utn.frvm.typeit.bemol_api.audit.services;
 
+import ar.edu.utn.frvm.typeit.bemol_api.audit.snapshot.AuditSnapshot;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Set;
 import java.util.stream.Stream;
 
-/** Stores catalog/state metadata and credential display names, never authentication data. */
 public final class AuditChangeDetails {
-  private static final Set<String> VISIBLE_FIELDS =
-      Set.of(
-          "name",
-          "label",
-          "active",
-          "deleted",
-          "year",
-          "startDate",
-          "endDate",
-          "status",
-          "type",
-          "format",
-          "instrumental",
-          "academicYearId",
-          "offeringIds",
-          "academicStatus",
-          "courseId");
-
   private AuditChangeDetails() {}
 
-  public static Map<String, Object> change(
+  private static Map<String, Object> change(
       final String name, final Map<String, Object> before, final Map<String, Object> after) {
-    return Map.of(
-        "entityName",
-        name,
-        "changedFields",
-        Stream.concat(before.keySet().stream(), after.keySet().stream())
-            .distinct()
-            .filter(key -> !Objects.equals(before.get(key), after.get(key)))
-            .toList(),
-        "before",
-        visible(before),
-        "after",
-        visible(after));
+    return details(name, before, after, changedFields(before, after));
   }
 
-  private static Map<String, Object> visible(final Map<String, Object> values) {
-    final Map<String, Object> result = new LinkedHashMap<>();
-    values.forEach(
-        (key, value) -> {
-          if (VISIBLE_FIELDS.contains(key)) {
-            result.put(key, value);
-          }
-        });
+  public static Map<String, Object> change(
+      final String name, final AuditSnapshot.Snapshot before, final AuditSnapshot.Snapshot after) {
+    final var result =
+        details(
+            name,
+            before.visibleValues(),
+            after.visibleValues(),
+            changedFields(before.values(), after.values()));
+    final var labels = new LinkedHashMap<>(before.labels());
+    labels.putAll(after.labels());
+    if (!labels.isEmpty()) {
+      result.put("fieldLabels", labels);
+    }
     return result;
+  }
+
+  public static Map<String, Object> lifecycle(final String name, final boolean deleted) {
+    final var result = change(name, Map.of("deleted", !deleted), Map.of("deleted", deleted));
+    result.put("fieldLabels", Map.of("deleted", "Eliminado"));
+    return result;
+  }
+
+  private static Map<String, Object> details(
+      final String name,
+      final Map<String, Object> before,
+      final Map<String, Object> after,
+      final List<String> changedFields) {
+    final Map<String, Object> details = new LinkedHashMap<>();
+    details.put("entityName", name);
+    details.put("changedFields", changedFields);
+    details.put("before", before);
+    details.put("after", after);
+    return details;
+  }
+
+  private static List<String> changedFields(
+      final Map<String, Object> before, final Map<String, Object> after) {
+    return Stream.concat(before.keySet().stream(), after.keySet().stream())
+        .distinct()
+        .filter(key -> !Objects.equals(before.get(key), after.get(key)))
+        .toList();
   }
 }
