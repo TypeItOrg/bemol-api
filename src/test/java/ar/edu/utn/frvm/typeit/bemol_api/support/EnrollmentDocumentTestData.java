@@ -3,21 +3,16 @@ package ar.edu.utn.frvm.typeit.bemol_api.support;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import javax.imageio.ImageIO;
-import org.apache.pdfbox.pdmodel.PDDocument;
-import org.apache.pdfbox.pdmodel.PDPage;
 import org.springframework.mock.web.MockMultipartFile;
 
 public final class EnrollmentDocumentTestData {
   private EnrollmentDocumentTestData() {}
 
-  public static MockMultipartFile pdf(String name) throws IOException {
-    try (var document = new PDDocument();
-        var output = new ByteArrayOutputStream()) {
-      document.addPage(new PDPage());
-      document.save(output);
-      return new MockMultipartFile("file", name, "application/pdf", output.toByteArray());
-    }
+  public static MockMultipartFile pdf(String name) {
+    return new MockMultipartFile(
+        "file", name, "application/pdf", "%PDF-1.4\n%%EOF\n".getBytes(StandardCharsets.US_ASCII));
   }
 
   public static MockMultipartFile png(String name) throws IOException {

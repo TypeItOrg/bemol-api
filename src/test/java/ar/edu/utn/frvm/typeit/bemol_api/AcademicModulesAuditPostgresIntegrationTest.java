@@ -174,6 +174,18 @@ class AcademicModulesAuditPostgresIntegrationTest extends DatabaseMigrationTestS
         new ReplaceCourseClassesRequest(classes(secondTeacher, CourseDay.TUESDAY)));
     assertThat(count(course, "COURSE_CREATED")).isEqualTo(1);
     assertThat(count(course, "COURSE_CLASSES_CHANGED")).isEqualTo(1);
+    assertThat(
+            jdbcTemplate.queryForObject(
+                "SELECT details #>> '{fieldLabels,classes}' FROM audit_events WHERE entity_id = ? AND action = 'COURSE_CLASSES_CHANGED'",
+                String.class,
+                course))
+        .isEqualTo("Clases del curso");
+    assertThat(
+            jdbcTemplate.queryForObject(
+                "SELECT details #>> '{after,classes,0,days,0,fieldLabels,schedules}' FROM audit_events WHERE entity_id = ? AND action = 'COURSE_CLASSES_CHANGED'",
+                String.class,
+                course))
+        .isEqualTo("Horarios");
     courseStatus.execute(institution, course, new CourseStatusRequest(CourseStatus.INACTIVE));
     courseStatus.execute(institution, course, new CourseStatusRequest(CourseStatus.INACTIVE));
     assertThat(count(course, "COURSE_STATUS_CHANGED")).isEqualTo(1);

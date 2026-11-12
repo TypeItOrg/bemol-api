@@ -4,10 +4,7 @@ import static ar.edu.utn.frvm.typeit.bemol_api.support.AuthTestData.authenticati
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doReturn;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -23,6 +20,7 @@ import ar.edu.utn.frvm.typeit.bemol_api.common.logging.RequestLoggingFilter;
 import ar.edu.utn.frvm.typeit.bemol_api.common.mail.MailSender;
 import ar.edu.utn.frvm.typeit.bemol_api.common.storage.StorageService;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.enums.DocumentRequirementLevel;
+import ar.edu.utn.frvm.typeit.bemol_api.institutional.payloads.requests.ConfirmInstitutionLogoUploadRequest;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.payloads.requests.CreateInstitutionRequest;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.payloads.requests.UpdateInstitutionRequest;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.payloads.requests.UpdateInstitutionalInstitutionRequest;
@@ -33,12 +31,9 @@ import ar.edu.utn.frvm.typeit.bemol_api.institutional.services.UpdateInstitution
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.services.UpdateInstitutionUseCase;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.services.UpdateInstitutionalInstitutionUseCase;
 import ar.edu.utn.frvm.typeit.bemol_api.support.IntegrationTest;
-import java.awt.image.BufferedImage;
-import java.io.ByteArrayOutputStream;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import javax.imageio.ImageIO;
 import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -46,8 +41,6 @@ import org.junit.jupiter.api.Test;
 import org.slf4j.MDC;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
-import org.springframework.core.io.InputStreamSource;
-import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.security.authentication.TestingAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -83,9 +76,9 @@ class InstitutionsDocumentsAuditPostgresIntegrationTest extends DatabaseMigratio
 
   @BeforeEach
   void isolateLogoStorageWrites() {
-    doNothing()
+    doReturn(new StorageService.ObjectMetadata("image/png", 128L))
         .when(storageService)
-        .write(anyString(), anyString(), anyLong(), any(InputStreamSource.class));
+        .headObject(anyString());
     doReturn(true).when(storageService).deletePhysicalFile(anyString());
   }
 
@@ -134,11 +127,9 @@ class InstitutionsDocumentsAuditPostgresIntegrationTest extends DatabaseMigratio
     institutionStatus.execute(institutionId, true);
     publicAccess.execute(institutionId, "aurora-" + suffix);
     publicAccess.execute(institutionId, "aurora-" + suffix);
-    final var image = new ByteArrayOutputStream();
-    ImageIO.write(new BufferedImage(2, 2, BufferedImage.TYPE_INT_RGB), "png", image);
     logos.replace(
         institutionId,
-        new MockMultipartFile("file", "private-logo-name.png", "image/png", image.toByteArray()));
+        new ConfirmInstitutionLogoUploadRequest(UUID.randomUUID().toString(), "image/png", 128L));
     logos.delete(institutionId);
     logos.delete(institutionId);
     assertThat(count(institutionId, "INSTITUTION_CREATED")).isEqualTo(1);

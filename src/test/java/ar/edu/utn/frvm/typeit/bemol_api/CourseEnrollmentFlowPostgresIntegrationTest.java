@@ -87,13 +87,25 @@ class CourseEnrollmentFlowPostgresIntegrationTest extends DatabaseMigrationTestS
 
   @Test
   void auditsPeriodAdmissionDocumentsAndEnrollmentAsOneTransactionalWorkflow() throws Exception {
-    org.mockito.Mockito.doNothing()
+    org.mockito.Mockito.doReturn(true)
         .when(storage)
-        .write(
+        .deletePhysicalFile(org.mockito.ArgumentMatchers.anyString());
+    org.mockito.Mockito.doReturn(
+            new ar.edu.utn.frvm.typeit.bemol_api.common.storage.StorageService.PresignedUpload(
+                "https://r2.example/put",
+                Instant.parse("2026-09-24T12:10:00Z"),
+                Map.of("Content-Type", "application/pdf")))
+        .when(storage)
+        .presignUpload(
             org.mockito.ArgumentMatchers.anyString(),
             org.mockito.ArgumentMatchers.anyString(),
             org.mockito.ArgumentMatchers.anyLong(),
             org.mockito.ArgumentMatchers.any());
+    org.mockito.Mockito.doReturn(
+            new ar.edu.utn.frvm.typeit.bemol_api.common.storage.StorageService.ObjectMetadata(
+                "application/pdf", 128L))
+        .when(storage)
+        .headObject(org.mockito.ArgumentMatchers.anyString());
     final var f = fixture(false);
     final UUID planId =
         tx(() -> em.find(Course.class, f.courseId()).getStudyPlanSpace().getStudyPlan().getId());
@@ -160,13 +172,8 @@ class CourseEnrollmentFlowPostgresIntegrationTest extends DatabaseMigrationTestS
                     .getFirst()
                     .getId());
     final var admin = requireNonNull(SecurityContextHolder.getContext().getAuthentication());
-    final var file =
-        ar.edu.utn.frvm.typeit.bemol_api.support.EnrollmentDocumentTestData.pdf(
-            "archivo-privado.pdf");
-    final var first =
-        attachments.uploadAttachment(request.applicationId(), file, requirement, admin);
-    final var second =
-        attachments.uploadAttachment(request.applicationId(), file, requirement, admin);
+    final var first = uploadEnrollmentAttachment(request.applicationId(), requirement, admin);
+    final var second = uploadEnrollmentAttachment(request.applicationId(), requirement, admin);
     assertThat(auditActions(first.id())).containsExactly("ENROLLMENT_ATTACHMENT_UPLOADED");
     assertThat(auditActions(second.id())).containsExactly("ENROLLMENT_ATTACHMENT_REPLACED");
     attachments.review(
@@ -175,8 +182,7 @@ class CourseEnrollmentFlowPostgresIntegrationTest extends DatabaseMigrationTestS
         new DocumentReviewRequest(DocumentReviewStatus.OBSERVED, "Observación privada"),
         admin);
     attachments.deleteAttachment(request.applicationId(), second.id(), admin);
-    final var replacement =
-        attachments.uploadAttachment(request.applicationId(), file, requirement, admin);
+    final var replacement = uploadEnrollmentAttachment(request.applicationId(), requirement, admin);
     approve.executeProvisionally(f.institutionId(), request.applicationId(), null);
     attachments.review(
         request.applicationId(),
@@ -205,9 +211,24 @@ class CourseEnrollmentFlowPostgresIntegrationTest extends DatabaseMigrationTestS
             "test");
     SecurityContextHolder.getContext()
         .setAuthentication(new TestingAuthenticationToken(tutor, "", "ROLE_INSTITUTIONAL_USER"));
+    final var presignedSupport =
+        guardianAttachments.presignUpload(
+            f.institutionId(),
+            request.personId(),
+            linkId,
+            new ar.edu.utn.frvm.typeit.bemol_api.institutional.payloads.guardian
+                .PresignGuardianAttachmentUploadRequest(
+                "archivo-privado.pdf", "application/pdf", 128L));
     final var support =
-        guardianAttachments.upload(f.institutionId(), request.personId(), linkId, file);
+        guardianAttachments.confirmUpload(
+            f.institutionId(),
+            request.personId(),
+            linkId,
+            new ar.edu.utn.frvm.typeit.bemol_api.institutional.payloads.guardian
+                .ConfirmGuardianAttachmentUploadRequest(
+                presignedSupport.storageKey(), "archivo-privado.pdf", "application/pdf", 128L));
     guardianAttachments.delete(f.institutionId(), request.personId(), linkId, support.id());
+    org.mockito.Mockito.verify(storage).deletePhysicalFile(presignedSupport.storageKey());
     assertThat(auditActions(support.id()))
         .containsExactlyInAnyOrder("GUARDIAN_ATTACHMENT_UPLOADED", "GUARDIAN_ATTACHMENT_DELETED");
     assertThat(
@@ -246,6 +267,24 @@ class CourseEnrollmentFlowPostgresIntegrationTest extends DatabaseMigrationTestS
             AcademicEnrollmentStatus.PASSED, "Motivo académico corregido", corrected.version()),
         null);
     assertThat(auditActions(enrollment.id())).hasSize(4);
+    assertThat(
+            jdbcTemplate.queryForObject(
+                "SELECT details #>> '{after,academicStatus,code}' FROM audit_events WHERE entity_id = ? AND action = 'COURSE_ENROLLMENT_ACADEMIC_STATUS_CHANGED' AND details #>> '{after,academicStatus,code}' IS NOT NULL",
+                String.class,
+                enrollment.id()))
+        .isEqualTo("PASSED");
+    assertThat(
+            jdbcTemplate.queryForObject(
+                "SELECT details #>> '{fieldLabels,actionReason}' FROM audit_events WHERE entity_id = ? AND details #>> '{fieldLabels,actionReason}' IS NOT NULL",
+                String.class,
+                enrollment.id()))
+        .isEqualTo("Motivo de la operación");
+    assertThat(
+            jdbcTemplate.queryForObject(
+                "SELECT details #>> '{after,reviewStatus,label}' FROM audit_events WHERE entity_id = ? AND action = 'ENROLLMENT_ATTACHMENT_REVIEWED'",
+                String.class,
+                replacement.id()))
+        .isEqualTo("Aceptado");
     assertThat(auditActions(request.applicationId()))
         .contains(
             "ENROLLMENT_DOCUMENTS_REQUESTED",
@@ -272,6 +311,23 @@ class CourseEnrollmentFlowPostgresIntegrationTest extends DatabaseMigrationTestS
                 replacement.id(),
                 request.personId()))
         .isEqualTo(2);
+  }
+
+  private EnrollmentAttachmentResponse uploadEnrollmentAttachment(
+      final UUID applicationId,
+      final UUID requirementId,
+      final org.springframework.security.core.Authentication auth) {
+    final var presigned =
+        attachments.presignUpload(
+            applicationId,
+            new PresignEnrollmentAttachmentUploadRequest(
+                requirementId, "archivo-privado.pdf", "application/pdf", 128L),
+            auth);
+    return attachments.confirmUpload(
+        applicationId,
+        new ConfirmEnrollmentAttachmentUploadRequest(
+            presigned.uploadId(), requirementId, "archivo-privado.pdf", "application/pdf", 128L),
+        auth);
   }
 
   private List<String> auditActions(UUID id) {

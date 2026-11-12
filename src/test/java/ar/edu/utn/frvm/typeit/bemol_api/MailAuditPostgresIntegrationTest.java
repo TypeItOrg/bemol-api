@@ -15,7 +15,6 @@ import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import ar.edu.utn.frvm.typeit.bemol_api.audit.interfaces.AuditEventRepository;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.entities.User;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.events.InstitutionalEmailVerificationRequested;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.events.InstitutionalPasswordRecoveryRequested;
@@ -47,7 +46,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.ApplicationEventPublisher;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.mail.MailSendException;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.security.authentication.TestingAuthenticationToken;
@@ -76,7 +74,6 @@ class MailAuditPostgresIntegrationTest extends DatabaseMigrationTestSupport {
   @Autowired ApplicationEventPublisher publisher;
   @Autowired TransactionTemplate transaction;
   @Autowired MailSender sender;
-  @Autowired AuditEventRepository events;
   @Autowired MockMvc mvc;
   @Autowired ObjectMapper json;
   @MockitoBean JavaMailSender smtp;
@@ -313,19 +310,6 @@ class MailAuditPostgresIntegrationTest extends DatabaseMigrationTestSupport {
                     .containsEntry("action", "EMAIL_SENT")
                     .containsEntry("actor_kind", "INSTITUTION")
                     .containsEntry("actor_person_id", actor.personId()));
-
-    assertThat(
-            events.search(
-                institutionId,
-                message.auditContext().personId(),
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                PageRequest.of(0, 20)))
-        .isEmpty();
 
     // The real FK fails when the independent audit transaction commits, after SMTP succeeded.
     final var unauditable = message(MailAuditContext.capture(UUID.randomUUID(), UUID.randomUUID()));

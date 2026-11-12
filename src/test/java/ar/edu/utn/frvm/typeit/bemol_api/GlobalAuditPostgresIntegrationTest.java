@@ -8,10 +8,9 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditAction;
-import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditEntityType;
-import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditModule;
+import ar.edu.utn.frvm.typeit.bemol_api.audit.definition.AuditFeed;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.exceptions.AuditEventNotFoundException;
+import ar.edu.utn.frvm.typeit.bemol_api.audit.exceptions.AuditValidationException;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.payloads.InstitutionalActivityFilter;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.services.AuditEventRecorder;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.services.InstitutionalActivityUseCase;
@@ -30,6 +29,8 @@ import ar.edu.utn.frvm.typeit.bemol_api.authorization.payloads.ReplacePersonRole
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.services.InstitutionRoleManagementService;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.services.ReplacePersonRolesUseCase;
 import ar.edu.utn.frvm.typeit.bemol_api.common.mail.MailSender;
+import ar.edu.utn.frvm.typeit.bemol_api.enrollment.audit.EnrollmentAuditAction;
+import ar.edu.utn.frvm.typeit.bemol_api.enrollment.entities.EnrollmentApplication;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.entities.Institution;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.payloads.person.CreatePersonRequest;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.payloads.person.UpdatePersonByAdminRequest;
@@ -134,12 +135,20 @@ class GlobalAuditPostgresIntegrationTest extends DatabaseMigrationTestSupport {
             "PLATFORM_ACCOUNT_CREATED",
             "PLATFORM_ACCOUNT",
             requestId);
-    final var filter =
-        new InstitutionalActivityFilter(null, AuditModule.EMAILS, null, null, null, null);
+    final var mailFilter = new InstitutionalActivityFilter(null, "EMAILS", null, null, null, null);
     final var auditPage =
-        institutionalActivity.list(institution, filter, false, PageRequest.of(0, 20));
+        institutionalActivity.list(
+            institution,
+            AuditFeed.ACTIVITY,
+            InstitutionalActivityFilter.empty(),
+            PageRequest.of(0, 20));
     final var mailPage =
-        institutionalActivity.list(institution, filter, true, PageRequest.of(0, 20));
+        institutionalActivity.list(institution, AuditFeed.EMAIL, mailFilter, PageRequest.of(0, 20));
+    assertThatThrownBy(
+            () ->
+                institutionalActivity.list(
+                    institution, AuditFeed.ACTIVITY, mailFilter, PageRequest.of(0, 20)))
+        .isInstanceOf(AuditValidationException.class);
 
     assertThat(auditPage.getContent()).extracting(event -> event.id()).containsExactly(audit);
     assertThat(mailPage.getContent()).extracting(event -> event.id()).containsExactly(email);
@@ -152,29 +161,29 @@ class GlobalAuditPostgresIntegrationTest extends DatabaseMigrationTestSupport {
             institutionalActivity
                 .list(
                     institution,
+                    AuditFeed.ACTIVITY,
                     new InstitutionalActivityFilter(null, null, accountName, null, null, null),
-                    false,
                     PageRequest.of(0, 20))
                 .getContent())
         .isEmpty();
-    final var detail = institutionalActivity.get(institution, audit, false);
+    final var detail = institutionalActivity.get(institution, AuditFeed.ACTIVITY, audit);
     assertThat(detail.actorId()).isNull();
     assertThat(detail.actorName()).isEqualTo("Administración de plataforma");
     assertThat(detail.requestId()).isNull();
     assertThat(detail.origin()).isNull();
-    final var mail = institutionalActivity.get(institution, email, true);
+    final var mail = institutionalActivity.get(institution, AuditFeed.EMAIL, email);
     assertThat(mail.details()).containsOnlyKeys("recipient", "mailType");
     assertThat(mailPage.getContent().getFirst().details())
         .containsOnlyKeys("recipient", "mailType");
     for (final UUID denied : List.of(foreignAudit, foreignEmail, platformEvent)) {
-      assertThatThrownBy(() -> institutionalActivity.get(institution, denied, false))
+      assertThatThrownBy(() -> institutionalActivity.get(institution, AuditFeed.ACTIVITY, denied))
           .isInstanceOf(AuditEventNotFoundException.class);
-      assertThatThrownBy(() -> institutionalActivity.get(institution, denied, true))
+      assertThatThrownBy(() -> institutionalActivity.get(institution, AuditFeed.EMAIL, denied))
           .isInstanceOf(AuditEventNotFoundException.class);
     }
-    assertThatThrownBy(() -> institutionalActivity.get(institution, email, false))
+    assertThatThrownBy(() -> institutionalActivity.get(institution, AuditFeed.ACTIVITY, email))
         .isInstanceOf(AuditEventNotFoundException.class);
-    assertThatThrownBy(() -> institutionalActivity.get(institution, audit, true))
+    assertThatThrownBy(() -> institutionalActivity.get(institution, AuditFeed.EMAIL, audit))
         .isInstanceOf(AuditEventNotFoundException.class);
   }
 
@@ -261,7 +270,7 @@ class GlobalAuditPostgresIntegrationTest extends DatabaseMigrationTestSupport {
   }
 
   @Test
-  void auditsPersonalChangesAndPasswordsWithoutPrivateSnapshotsOrNoopEvents() throws Exception {
+  void auditsPersonalChangesAndPasswordsWithProfileValuesAndNoopEvents() throws Exception {
     authenticatePlatformAdministrator();
     final UUID institution = fixtures.firstInstitutionId();
     final UUID person = createPerson.execute(institution, personRequest()).personId();
@@ -274,8 +283,13 @@ class GlobalAuditPostgresIntegrationTest extends DatabaseMigrationTestSupport {
     final String details =
         requireNonNull(event(person, "PERSON_UPDATED").get("details")).toString();
     assertThat(details)
-        .contains("firstName", "phoneNumber")
-        .doesNotContain("Nombre Privado", "3515551212");
+        .contains(
+            "firstName",
+            "phoneNumber",
+            "nationalityCountry",
+            "Nombre Privado",
+            "3515551212",
+            "Argentina");
     final var principal =
         new JwtAuthenticatedUser(user, person, "12345678", institution, UUID.randomUUID(), "test");
     SecurityContextHolder.getContext()
@@ -290,8 +304,7 @@ class GlobalAuditPostgresIntegrationTest extends DatabaseMigrationTestSupport {
     assertThat(self.get("actor_person_id")).isEqualTo(person);
     assertThat(self.get("subject_person_id")).isEqualTo(person);
     assertThat(requireNonNull(self.get("details")).toString())
-        .contains("phoneNumber")
-        .doesNotContain("Apellido Privado");
+        .contains("phoneNumber", "3515553434");
     authenticatePlatformAdministrator();
     transaction.executeWithoutResult(
         state -> {
@@ -313,6 +326,8 @@ class GlobalAuditPostgresIntegrationTest extends DatabaseMigrationTestSupport {
             "Perfil", "Privado", UUID.randomUUID() + "@example.test", PASSWORD));
     assertThat(countForEntity(account, "PLATFORM_ACCOUNT_UPDATED")).isEqualTo(1);
     assertThat(countForEntity(account, "PASSWORD_CHANGED")).isEqualTo(1);
+    assertThat(requireNonNull(event(account, "PLATFORM_ACCOUNT_UPDATED").get("details")).toString())
+        .contains("firstName", "lastName", "Perfil", "Privado");
     deletePerson.execute(institution, person);
     deletePerson.execute(institution, person);
     assertThat(countForEntity(person, "PERSON_DELETED")).isEqualTo(1);
@@ -324,8 +339,7 @@ class GlobalAuditPostgresIntegrationTest extends DatabaseMigrationTestSupport {
                 "SELECT string_agg(details::text, '') FROM audit_events WHERE subject_person_id = ?",
                 String.class,
                 person))
-        .doesNotContain(
-            PASSWORD, "OtherPassword123!", "Nombre Privado", "Apellido Privado", "3515551212");
+        .doesNotContain(PASSWORD, "OtherPassword123!");
   }
 
   @Test
@@ -397,6 +411,19 @@ class GlobalAuditPostgresIntegrationTest extends DatabaseMigrationTestSupport {
     roles.updateAsPlatformAdmin(institutionId, roleId, updated);
     roles.updateAsPlatformAdmin(institutionId, roleId, updated);
     assertThat(countForEntity(roleId, "ROLE_UPDATED")).isEqualTo(1);
+    assertThat(
+            jdbcTemplate.queryForList(
+                "SELECT permission ->> 'code' FROM audit_events CROSS JOIN LATERAL jsonb_array_elements(details #> '{after,permissions}') permission WHERE entity_id = ? AND action = 'ROLE_UPDATED'",
+                String.class,
+                roleId))
+        .contains(PermissionCode.TRAINING_PATH_UPDATE.getCode());
+    assertThat(
+            jdbcTemplate.queryForObject(
+                "SELECT permission ->> 'label' FROM audit_events CROSS JOIN LATERAL jsonb_array_elements(details #> '{after,permissions}') permission WHERE entity_id = ? AND action = 'ROLE_UPDATED' AND permission ->> 'code' = ?",
+                String.class,
+                roleId,
+                PermissionCode.TRAINING_PATH_UPDATE.getCode()))
+        .isEqualTo(PermissionCode.TRAINING_PATH_UPDATE.getDescription());
     final UUID applicant =
         jdbcTemplate.queryForObject(
             "SELECT role_id FROM roles WHERE institution_id = ? AND code = 'APPLICANT'",
@@ -821,24 +848,35 @@ class GlobalAuditPostgresIntegrationTest extends DatabaseMigrationTestSupport {
     assertThat(actions.get("totalItems").asInt()).isEqualTo(1);
     assertThat(actions.at("/items/0/action").asString()).isEqualTo("GUARDIAN_LINK_APPROVED");
     final var firstActionPage = asAdmin(get(BASE + "/actions").param("size", "7"));
-    final var actionModules = new ArrayList<AuditModule>();
+    final var actionModules = new ArrayList<String>();
     for (int page = 0; page < firstActionPage.get("totalPages").asInt(); page++) {
       final var actionPage =
           page == 0
               ? firstActionPage
               : asAdmin(
                   get(BASE + "/actions").param("size", "7").param("page", String.valueOf(page)));
-      actionPage
-          .get("items")
-          .forEach(item -> actionModules.add(AuditModule.valueOf(item.get("module").asString())));
+      actionPage.get("items").forEach(item -> actionModules.add(item.get("module").asString()));
     }
     assertThat(actionModules)
         .isSorted()
-        .doesNotContain(AuditModule.EMAILS)
+        .doesNotContain("EMAILS")
         .contains(
-            java.util.Arrays.stream(AuditModule.values())
-                .filter(module -> module != AuditModule.EMAILS)
-                .toArray(AuditModule[]::new));
+            "USERS",
+            "ROLES",
+            "GUARDIAN_LINKS",
+            "ENROLLMENTS",
+            "INSTITUTIONS",
+            "COURSES",
+            "STUDY_PLANS",
+            "DOCUMENTATION",
+            "TRAINING_PATHS",
+            "ACADEMIC_YEARS",
+            "ACADEMIC_SPACES",
+            "INSTRUMENTS",
+            "SHIFTS",
+            "ENROLLMENT_PERIODS",
+            "COURSE_ENROLLMENTS",
+            "SECURITY");
     assertThat(
             asAdmin(get(BASE + "/actions").param("action", "ROLE_CREATED"))
                 .at("/items/0/module")
@@ -893,8 +931,8 @@ class GlobalAuditPostgresIntegrationTest extends DatabaseMigrationTestSupport {
                 entityManager.getReference(Institution.class, institution),
                 actor,
                 subject,
-                AuditAction.ENROLLMENT_APPLICATION_SUBMITTED,
-                AuditEntityType.ENROLLMENT_APPLICATION,
+                EnrollmentAuditAction.ENROLLMENT_APPLICATION_SUBMITTED,
+                EnrollmentApplication.AUDIT_TYPE,
                 entity));
     final UUID legacy =
         requireNonNull(
@@ -933,22 +971,45 @@ class GlobalAuditPostgresIntegrationTest extends DatabaseMigrationTestSupport {
         new TestingAuthenticationToken(
             AuthTestData.platformPrincipal(UUID.randomUUID()), "", "ROLE_USER");
     for (final String path :
-        List.of(BASE, BASE + "/actors", BASE + "/people", BASE + "/actions", BASE + "/" + legacy)) {
+        List.of(
+            BASE,
+            BASE + "/actors",
+            BASE + "/people",
+            BASE + "/actions",
+            BASE + "/modules",
+            BASE + "/" + legacy)) {
       mvc.perform(get(path).with(anonymous())).andExpect(status().isUnauthorized());
       mvc.perform(get(path).with(authentication(institutional))).andExpect(status().isForbidden());
       mvc.perform(get(path).with(authentication(withoutRole))).andExpect(status().isForbidden());
     }
-    final var response = asAdmin(get("/api/v1/institutions/" + institution + "/audit-events"));
+    final var detail = asAdmin(get(BASE + "/" + legacy));
+    assertThat(detail.get("action").asString()).isEqualTo("ENROLLMENT_APPLICATION_SUBMITTED");
+    assertThat(detail.get("actionLabel").asString()).isEqualTo("Inscripción enviada");
+    assertThat(detail.get("module").asString()).isEqualTo("ENROLLMENTS");
+    assertThat(detail.get("moduleLabel").asString()).isEqualTo("Inscripciones");
+    final var modules = asAdmin(get(BASE + "/modules"));
+    assertThat(modules.isArray()).isTrue();
+    assertThat(modules.toString()).contains("COURSES", "Cursos").doesNotContain("EMAILS");
+
+    final var response =
+        asAdmin(
+            get(BASE)
+                .param("institutionId", institution.toString())
+                .param("actorKind", "INSTITUTION"));
     assertThat(response.get("totalItems").asInt()).isEqualTo(1);
-    assertThat(response.at("/items/0/actorPersonId").asString()).isEqualTo(actor.toString());
+    assertThat(response.at("/items/0/actorId").asString()).isEqualTo(actor.toString());
     assertThat(response.at("/items/0/subjectPersonId").asString()).isEqualTo(subject.toString());
     assertThat(response.at("/items/0/actorName").asString()).isEqualTo("Ana Garcia");
     assertThat(response.at("/items/0/subjectName").asString()).isEqualTo("Mateo Delgado");
     assertThat(response.at("/items/0/actedOnBehalf").asBoolean()).isTrue();
     jdbcTemplate.update("DELETE FROM people WHERE person_id = ?", subject);
-    final var historical = asAdmin(get("/api/v1/institutions/" + institution + "/audit-events"));
+    final var historical =
+        asAdmin(
+            get(BASE)
+                .param("institutionId", institution.toString())
+                .param("actorKind", "INSTITUTION"));
     assertThat(historical.get("totalItems").asInt()).isEqualTo(1);
-    assertThat(historical.at("/items/0/actorPersonId").asString()).isEqualTo(actor.toString());
+    assertThat(historical.at("/items/0/actorId").asString()).isEqualTo(actor.toString());
     assertThat(historical.at("/items/0/actorName").asString()).isEqualTo("Ana Garcia");
     assertThat(historical.at("/items/0/subjectName").isNull()).isTrue();
     mvc.perform(get(BASE).param("actorId", actor.toString()).with(authentication(admin())))
@@ -1039,6 +1100,33 @@ class GlobalAuditPostgresIntegrationTest extends DatabaseMigrationTestSupport {
             Long.class,
             personId,
             action));
+  }
+
+  @Test
+  void labelsEntityOptionsForKnownEntityTypes() throws Exception {
+    final String requestId = "entity-options-" + UUID.randomUUID();
+    final UUID entityId = UUID.randomUUID();
+    insertEvent(
+        null,
+        "ANONYMOUS",
+        null,
+        null,
+        null,
+        "PASSKEY_REGISTERED",
+        "PASSKEY",
+        requestId,
+        entityId,
+        "{\"entityName\":\"Llave QA\"}");
+
+    final var response =
+        asAdmin(
+            get(BASE + "/entities")
+                .param("entityType", "PASSKEY")
+                .param("entityId", entityId.toString())
+                .param("search", "Llave de acceso"));
+
+    assertThat(response.get("totalItems").asInt()).isEqualTo(1);
+    assertThat(response.at("/items/0/label").asString()).isEqualTo("Llave de acceso · Llave QA");
   }
 
   private Authentication admin() {

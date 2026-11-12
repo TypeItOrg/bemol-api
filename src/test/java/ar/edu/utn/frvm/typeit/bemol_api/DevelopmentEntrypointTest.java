@@ -36,8 +36,8 @@ class DevelopmentEntrypointTest {
       assertThat(process.exitValue()).isZero();
       assertThat(Files.readAllLines(calls))
           .containsExactly(
-              "mkdir -p /workspace/storage /home/gradle/.gradle",
-              "chown -R -h -P gradle:gradle -- /workspace/storage /home/gradle/.gradle",
+              "mkdir -p /home/gradle/.gradle",
+              "chown -R -h -P gradle:gradle -- /home/gradle/.gradle",
               "runuser -u gradle -- " + script);
     } finally {
       process.destroyForcibly();

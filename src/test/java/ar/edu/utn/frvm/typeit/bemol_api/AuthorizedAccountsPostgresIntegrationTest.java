@@ -683,6 +683,29 @@ class AuthorizedAccountsPostgresIntegrationTest extends DatabaseMigrationTestSup
     assertThatThrownBy(() -> emails.confirm(old)).isInstanceOf(OwnAccessException.class);
     emails.confirm(raw);
     assertThat(user(owner).getPerson().getEmail()).isEqualTo("shared@example.test");
+    final var accountDetails =
+        jdbcTemplate.queryForList(
+            "SELECT details::text FROM audit_events WHERE entity_id = ? AND entity_type = 'USER'",
+            String.class,
+            user(owner).getId());
+    assertThat(accountDetails)
+        .isNotEmpty()
+        .allSatisfy(
+            details ->
+                assertThat(details)
+                    .doesNotContain(
+                        previous,
+                        "alternative@example.test",
+                        "shared@example.test",
+                        raw,
+                        old,
+                        user(owner).getPassword()));
+    assertThat(
+            jdbcTemplate.queryForObject(
+                "SELECT details #>> '{fieldLabels,email}' FROM audit_events WHERE entity_id = ? AND action = 'INSTITUTIONAL_EMAIL_CHANGED'",
+                String.class,
+                user(owner).getId()))
+        .isEqualTo("Correo electrónico");
     assertThatThrownBy(() -> emails.confirm(raw)).isInstanceOf(OwnAccessException.class);
     assertThat(
             events.stream(AccountEmailMessageRequested.class)
