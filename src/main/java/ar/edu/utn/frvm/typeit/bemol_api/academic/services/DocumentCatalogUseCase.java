@@ -14,7 +14,6 @@ import ar.edu.utn.frvm.typeit.bemol_api.academic.payloads.DocumentDefinitionResp
 import ar.edu.utn.frvm.typeit.bemol_api.academic.payloads.DocumentRequirementRequest;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.payloads.DocumentRequirementResponse;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.payloads.PlatformDocumentDefinitionResponse;
-import ar.edu.utn.frvm.typeit.bemol_api.audit.definition.AuditOperation;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.services.AuditEventRecorder;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.snapshot.AuditSnapshot;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.enums.PermissionCode;
@@ -146,17 +145,8 @@ public class DocumentCatalogUseCase {
     assignments.flush();
     final int drafts = synchronize.execute(destinationId, affected);
     final var after = value.auditSnapshot(assignments.findByDocumentId(value.getId()));
-    final AcademicAuditAction action;
-    if (id == null) {
-      action = AcademicAuditAction.DOCUMENT_DEFINITION_CREATED;
-    } else if (transferring) {
-      action = AcademicAuditAction.DOCUMENT_DEFINITION_TRANSFERRED;
-    } else if (DocumentDefinition.definitionChanged(before, after)) {
-      action = AcademicAuditAction.DOCUMENT_DEFINITION_UPDATED;
-    } else {
-      action = AcademicAuditAction.DOCUMENT_REQUIREMENTS_CHANGED;
-    }
-    recordChange(value, action, before, after);
+    final var action = DocumentCatalogAudit.action(id == null, transferring, before, after);
+    DocumentCatalogAudit.record(auditEventRecorder, value, action, before, after);
 
     return queries.result(destinationId, value.getId(), affected.size(), drafts);
   }
@@ -246,17 +236,9 @@ public class DocumentCatalogUseCase {
 
   private void recordChange(
       final DocumentDefinition document,
-      final AuditOperation action,
+      final AcademicAuditAction action,
       final AuditSnapshot.Snapshot before,
       final AuditSnapshot.Snapshot after) {
-    auditEventRecorder.recordSnapshotChange(
-        document.getInstitution(),
-        null,
-        action,
-        DocumentDefinition.AUDIT_TYPE,
-        document.getId(),
-        document.getName(),
-        before,
-        after);
+    DocumentCatalogAudit.record(auditEventRecorder, document, action, before, after);
   }
 }

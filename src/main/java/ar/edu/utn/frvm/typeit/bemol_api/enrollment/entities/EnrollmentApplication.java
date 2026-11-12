@@ -38,10 +38,8 @@ import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
 import jakarta.persistence.Transient;
 import jakarta.persistence.UniqueConstraint;
-import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -448,85 +446,10 @@ public class EnrollmentApplication extends SoftDeletable implements AuditSubject
 
   @Override
   public AuditSnapshot.Snapshot auditSnapshot() {
-    return AuditSnapshot.fields()
-        .compare("trainingPathId", "Trayecto formativo", trainingPathId)
-        .compare("studyPlanId", "Plan de estudio", studyPlan == null ? null : studyPlan.getId())
-        .compare("customAnswers", "Respuestas del formulario", auditAnswers())
-        .compare(
-            "academicBackground",
-            "Escolaridad",
-            educationBackground == null ? null : educationBackground.auditSnapshot().values())
-        .compare(
-            "healthInclusion",
-            "Inclusión",
-            healthInclusion == null ? null : healthInclusion.auditSnapshot().values())
-        .compare(
-            "responsible",
-            "Responsable",
-            responsible == null ? null : responsible.auditSnapshot().values())
-        .compare(
-            "preference",
-            "Preferencias",
-            preference == null ? null : preference.auditSnapshot().values())
-        .compare("selectedSpaces", "Espacios seleccionados", auditSelectedSpaces())
-        .compare("courseSelections", "Cursos seleccionados", auditCourseSelections())
-        .build();
-  }
-
-  private Map<String, Object> auditAnswers() {
-    final var answers = new LinkedHashMap<String, Object>();
-    formState
-        .getCustomAnswers()
-        .forEach(
-            (id, value) ->
-                answers.put(
-                    id,
-                    value instanceof Number number
-                        ? new BigDecimal(number.toString()).stripTrailingZeros()
-                        : value));
-    return answers;
-  }
-
-  private List<String> auditSelectedSpaces() {
-    return selectedSpaces.stream()
-        .map(
-            selection ->
-                selection.getStudyPlanSpace().getId()
-                    + "/"
-                    + (selection.getInstrument() == null ? "" : selection.getInstrument().getId()))
-        .sorted()
-        .toList();
-  }
-
-  private List<String> auditCourseSelections() {
-    return courseSelections.stream()
-        .map(
-            selection ->
-                selection.getCourse().getId()
-                    + "/"
-                    + (selection.getPreferredTeacher() == null
-                        ? ""
-                        : selection.getPreferredTeacher().getId()))
-        .sorted()
-        .toList();
+    return EnrollmentApplicationAuditSnapshot.of(this);
   }
 
   public AuditSnapshot.Snapshot admissionAuditSnapshot() {
-    final String label =
-        switch (status) {
-          case DRAFT -> "Borrador";
-          case SUBMITTED -> "Enviada";
-          case CANCELLED -> "Cancelada";
-          case PROVISIONALLY_APPROVED -> "Aprobada provisoriamente";
-          case APPROVED -> "Aprobada";
-          case REJECTED -> "Rechazada";
-        };
-    return AuditSnapshot.fields()
-        .expose(
-            "status",
-            "Estado de solicitud",
-            status.name(),
-            Map.of("code", status.name(), "label", label))
-        .build();
+    return EnrollmentApplicationAuditSnapshot.admission(this);
   }
 }

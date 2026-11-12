@@ -25,7 +25,6 @@ import jakarta.persistence.Transient;
 import jakarta.persistence.UniqueConstraint;
 import java.time.Instant;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
@@ -244,23 +243,12 @@ public class Course extends SoftDeletable implements AuditSubject {
   }
 
   public String auditName() {
-    return getAcademicSpace().getName()
-        + " — "
-        + getStudyPlan().getName()
-        + " ("
-        + academicYear.getYear()
-        + ")";
+    return CourseAuditSnapshot.name(this);
   }
 
   @Override
   public AuditSnapshot.Snapshot auditSnapshot() {
-    return AuditSnapshot.fields()
-        .expose(
-            "status",
-            "Estado",
-            status.name(),
-            Map.of("code", status.name(), "label", status.getLabel()))
-        .build();
+    return CourseAuditSnapshot.of(this);
   }
 
   public AuditSnapshot.Snapshot auditSnapshot(
@@ -268,21 +256,6 @@ public class Course extends SoftDeletable implements AuditSubject {
       final int teacherCount,
       final int dayCount,
       final int scheduleCount) {
-    return AuditSnapshot.fields()
-        .expose(
-            "status",
-            "Estado",
-            status.name(),
-            Map.of("code", status.name(), "label", status.getLabel()))
-        .expose("classCount", "Clases", classes.size())
-        .expose("teacherCount", "Docentes", teacherCount)
-        .expose("dayCount", "Días de clase", dayCount)
-        .expose("scheduleCount", "Horarios", scheduleCount)
-        .expose(
-            "classes",
-            "Clases del curso",
-            classes.stream().map(entry -> entry.values()).toList(),
-            classes.stream().map(entry -> entry.labeledValues()).toList())
-        .build();
+    return CourseAuditSnapshot.of(this, classes, teacherCount, dayCount, scheduleCount);
   }
 }

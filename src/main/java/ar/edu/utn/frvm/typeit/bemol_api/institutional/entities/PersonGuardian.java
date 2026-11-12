@@ -19,7 +19,6 @@ import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
 import java.time.Instant;
 import java.time.LocalDate;
-import java.util.Map;
 import java.util.UUID;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
@@ -220,36 +219,6 @@ public class PersonGuardian extends Auditable implements AuditSubject {
 
   @Override
   public AuditSnapshot.Snapshot auditSnapshot() {
-    final String statusLabel =
-        switch (status) {
-          case PENDING -> "Pendiente";
-          case ACTIVE -> "Activa";
-          case REJECTED -> "Rechazada";
-          case ENDED -> "Finalizada";
-        };
-    final String relationshipLabel =
-        switch (relationship) {
-          case MOTHER -> "Madre";
-          case FATHER -> "Padre";
-          case LEGAL_GUARDIAN -> "Tutor legal";
-          case OTHER -> "Otro vínculo";
-        };
-    return AuditSnapshot.fields()
-        .expose(
-            "status",
-            "Estado de vinculación",
-            status.name(),
-            Map.of("code", status.name(), "label", statusLabel))
-        .expose(
-            "relationship",
-            "Vínculo",
-            relationship.name(),
-            Map.of("code", relationship.name(), "label", relationshipLabel))
-        .expose("tutorPersonId", "Identificador del representante", tutorPerson.getId())
-        .expose(
-            "dependentPersonId", "Identificador de la persona representada", getDependentPersonId())
-        .expose("ownAccessRequested", "Acceso propio solicitado", ownAccessRequested)
-        .expose("primaryContact", "Contacto principal", primaryContact)
-        .build();
+    return PersonGuardianAuditSnapshot.of(this);
   }
 }
