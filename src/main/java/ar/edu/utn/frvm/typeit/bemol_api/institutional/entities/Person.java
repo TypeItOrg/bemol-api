@@ -10,6 +10,10 @@ import static ar.edu.utn.frvm.typeit.bemol_api.common.validation.PersonFieldCons
 import static ar.edu.utn.frvm.typeit.bemol_api.common.validation.PersonFieldConstraints.NAME_MIN;
 import static ar.edu.utn.frvm.typeit.bemol_api.common.validation.PersonFieldConstraints.NAME_PATTERN;
 
+import ar.edu.utn.frvm.typeit.bemol_api.audit.definition.AuditResource;
+import ar.edu.utn.frvm.typeit.bemol_api.audit.snapshot.AuditSnapshot;
+import ar.edu.utn.frvm.typeit.bemol_api.audit.snapshot.AuditSubject;
+import ar.edu.utn.frvm.typeit.bemol_api.authorization.enums.SystemRoleCode;
 import ar.edu.utn.frvm.typeit.bemol_api.common.persistence.Auditable;
 import ar.edu.utn.frvm.typeit.bemol_api.common.persistence.GeneratedUUIDv7;
 import ar.edu.utn.frvm.typeit.bemol_api.common.validation.MinimumAge;
@@ -31,6 +35,7 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import java.time.LocalDate;
+import java.util.Map;
 import java.util.UUID;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
@@ -38,8 +43,6 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import org.hibernate.annotations.DynamicUpdate;
-import org.hibernate.envers.Audited;
-import org.hibernate.envers.RelationTargetAuditMode;
 
 @Entity
 @DynamicUpdate
@@ -70,7 +73,8 @@ import org.hibernate.envers.RelationTargetAuditMode;
 @NoArgsConstructor
 @AllArgsConstructor(access = AccessLevel.PRIVATE)
 @Builder
-public class Person extends Auditable {
+public class Person extends Auditable implements AuditSubject {
+  public static final AuditResource AUDIT_TYPE = new AuditResource("PERSON", "Persona");
 
   @Id
   @GeneratedUUIDv7
@@ -79,7 +83,6 @@ public class Person extends Auditable {
 
   @ManyToOne(fetch = FetchType.LAZY, optional = false)
   @JoinColumn(name = "institution_id", nullable = false)
-  @Audited(targetAuditMode = RelationTargetAuditMode.NOT_AUDITED)
   private Institution institution;
 
   @ManyToOne(fetch = FetchType.LAZY)
@@ -135,7 +138,6 @@ public class Person extends Auditable {
 
   @Column(name = "deleted", nullable = false)
   @Builder.Default
-  @Audited
   private boolean deleted = false;
 
   public void correctDocumentNumber(final String documentNumber) {
@@ -175,5 +177,48 @@ public class Person extends Auditable {
 
     deleted = true;
     return true;
+  }
+
+  private AuditSnapshot.Builder auditFields() {
+    return AuditSnapshot.fields()
+        .compare("address", "Domicilio", address == null ? null : address.auditSnapshot().values())
+        .compare("birthCity", "Ciudad de nacimiento", birthCity == null ? null : birthCity.getId())
+        .expose(
+            "nationalityCountry",
+            "Nacionalidad",
+            nationalityCountry == null ? null : nationalityCountry.getId(),
+            nationalityCountry == null ? null : nationalityCountry.getName())
+        .compare("documentNumber", "Documento", documentNumber)
+        .expose("firstName", "Nombre", firstName)
+        .expose("lastName", "Apellido", lastName)
+        .compare("birthDate", "Fecha de nacimiento", birthDate)
+        .expose("phoneNumber", "Teléfono", phoneNumber)
+        .compare("email", "Correo electrónico", email);
+  }
+
+  @Override
+  public AuditSnapshot.Snapshot auditSnapshot() {
+    return auditFields().build();
+  }
+
+  public AuditSnapshot.Snapshot auditSnapshot(final SystemRoleCode initialRole) {
+    return auditFields()
+        .expose(
+            "initialRole",
+            "Rol inicial",
+            initialRole.name(),
+            Map.of("code", initialRole.name(), "label", initialRole.getDisplayName()))
+        .expose("emailVerificationRequired", "Requiere verificación de correo", true)
+        .expose(
+            "emailVerificationStatus",
+            "Verificación de correo al crear la cuenta",
+            "PENDING",
+            Map.of("code", "PENDING", "label", "Pendiente"))
+        .expose("personCreated", "Persona creada en esta operación", true)
+        .build();
+  }
+
+  public AuditSnapshot.Snapshot auditSnapshotWithoutAccount() {
+    return auditFields().expose("hasAccount", "Cuenta asociada", false).build();
   }
 }

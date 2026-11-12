@@ -1,9 +1,9 @@
 package ar.edu.utn.frvm.typeit.bemol_api.institutional.services;
 
-import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditAction;
-import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditEntityType;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.services.AuditEventRecorder;
+import ar.edu.utn.frvm.typeit.bemol_api.audit.snapshot.AuditSnapshot;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.services.SessionRevocationService;
+import ar.edu.utn.frvm.typeit.bemol_api.institutional.audit.InstitutionalAuditAction;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.entities.Person;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.exceptions.CountryNotFoundException;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.exceptions.PersonNotFoundException;
@@ -55,7 +55,7 @@ public class UpdatePersonByAdminUseCase {
       throw new ar.edu.utn.frvm.typeit.bemol_api.institutional.exceptions
           .PersonAlreadyExistsException();
     }
-    final var before = PersonAuditDetails.snapshot(person);
+    final var before = AuditSnapshot.of(person);
     if (request.isEmpty()) {
       throw new ConstraintViolationException(Set.of());
     }
@@ -99,15 +99,15 @@ public class UpdatePersonByAdminUseCase {
     if (documentChanged) {
       sessionRevocationService.revokeInstitutionalSessionsForPerson(personId, institutionId);
     }
-    auditRecorder.recordChange(
+    auditRecorder.recordSnapshotChange(
         person.getInstitution(),
         person.getId(),
-        AuditAction.PERSON_UPDATED,
-        AuditEntityType.PERSON,
+        InstitutionalAuditAction.PERSON_UPDATED,
+        Person.AUDIT_TYPE,
         person.getId(),
         "Persona",
         before,
-        PersonAuditDetails.snapshot(person));
+        AuditSnapshot.of(person));
 
     return personRepository
         .findWithDetailsByIdAndInstitution_Id(personId, institutionId)

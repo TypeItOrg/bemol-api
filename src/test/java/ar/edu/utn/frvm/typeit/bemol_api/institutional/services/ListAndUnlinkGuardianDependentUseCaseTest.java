@@ -7,13 +7,13 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
-import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditAction;
-import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditEntityType;
+import ar.edu.utn.frvm.typeit.bemol_api.audit.services.AuditChangeDetails;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.services.AuditEventRecorder;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.services.PersonOwnAccessService;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.entities.PersonRoleAssignment;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.entities.Role;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.interfaces.PersonRoleAssignmentRepository;
+import ar.edu.utn.frvm.typeit.bemol_api.institutional.audit.InstitutionalAuditAction;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.entities.GuardianLinkStatus;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.entities.GuardianRelationship;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.entities.Institution;
@@ -236,6 +236,7 @@ class ListAndUnlinkGuardianDependentUseCaseTest {
                 INSTITUTION_ID, TUTOR_ID, dependentId, GuardianLinkStatus.ACTIVE))
         .thenReturn(Optional.of(link));
 
+    final var before = link.auditSnapshot();
     new UnlinkGuardianDependentUseCase(institutions, personGuardianRepository, auditEventRecorder)
         .execute(INSTITUTION_ID, TUTOR_ID, dependentId);
 
@@ -246,9 +247,10 @@ class ListAndUnlinkGuardianDependentUseCaseTest {
             link.getInstitution(),
             TUTOR_ID,
             dependentId,
-            AuditAction.GUARDIAN_DEPENDENT_UNLINKED,
-            AuditEntityType.PERSON_GUARDIAN,
-            link.getId());
+            InstitutionalAuditAction.GUARDIAN_DEPENDENT_UNLINKED,
+            PersonGuardian.AUDIT_TYPE,
+            link.getId(),
+            AuditChangeDetails.change("Vinculación", before, link.auditSnapshot()));
   }
 
   @Test
@@ -261,6 +263,7 @@ class ListAndUnlinkGuardianDependentUseCaseTest {
                 INSTITUTION_ID, TUTOR_ID, dependentId, GuardianLinkStatus.PENDING))
         .thenReturn(Optional.of(link));
 
+    final var before = link.auditSnapshot();
     new UnlinkGuardianDependentUseCase(institutions, personGuardianRepository, auditEventRecorder)
         .execute(INSTITUTION_ID, TUTOR_ID, dependentId);
 
@@ -271,9 +274,10 @@ class ListAndUnlinkGuardianDependentUseCaseTest {
             link.getInstitution(),
             TUTOR_ID,
             dependentId,
-            AuditAction.GUARDIAN_DEPENDENT_UNLINKED,
-            AuditEntityType.PERSON_GUARDIAN,
-            link.getId());
+            InstitutionalAuditAction.GUARDIAN_DEPENDENT_UNLINKED,
+            PersonGuardian.AUDIT_TYPE,
+            link.getId(),
+            AuditChangeDetails.change("Vinculación", before, link.auditSnapshot()));
   }
 
   @Test

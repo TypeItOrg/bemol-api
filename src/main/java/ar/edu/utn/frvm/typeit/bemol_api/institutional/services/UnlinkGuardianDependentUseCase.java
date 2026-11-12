@@ -1,8 +1,8 @@
 package ar.edu.utn.frvm.typeit.bemol_api.institutional.services;
 
-import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditAction;
-import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditEntityType;
+import ar.edu.utn.frvm.typeit.bemol_api.audit.services.AuditChangeDetails;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.services.AuditEventRecorder;
+import ar.edu.utn.frvm.typeit.bemol_api.institutional.audit.InstitutionalAuditAction;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.entities.GuardianLinkStatus;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.entities.PersonGuardian;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.exceptions.DependentNotFoundException;
@@ -41,14 +41,16 @@ public class UnlinkGuardianDependentUseCase {
                             GuardianLinkStatus.ACTIVE))
             .orElseThrow(DependentNotFoundException::new);
 
+    final var before = link.auditSnapshot();
     link.end();
     auditEventRecorder.record(
         link.getInstitution(),
         tutorPersonId,
         dependentPersonId,
-        AuditAction.GUARDIAN_DEPENDENT_UNLINKED,
-        AuditEntityType.PERSON_GUARDIAN,
-        link.getId());
+        InstitutionalAuditAction.GUARDIAN_DEPENDENT_UNLINKED,
+        PersonGuardian.AUDIT_TYPE,
+        link.getId(),
+        AuditChangeDetails.change("Vinculación", before, link.auditSnapshot()));
   }
 
   @Transactional
@@ -60,14 +62,15 @@ public class UnlinkGuardianDependentUseCase {
             .filter(value -> value.getTutorPerson().getId().equals(tutorPersonId))
             .filter(value -> value.getStatus() == GuardianLinkStatus.PENDING)
             .orElseThrow(DependentNotFoundException::new);
+    final var before = link.auditSnapshot();
     link.end();
     auditEventRecorder.recordCurrentActor(
         link.getInstitution(),
         link.getDependentPersonId(),
-        AuditAction.GUARDIAN_DEPENDENT_UNLINKED,
-        AuditEntityType.PERSON_GUARDIAN,
+        InstitutionalAuditAction.GUARDIAN_DEPENDENT_UNLINKED,
+        PersonGuardian.AUDIT_TYPE,
         link.getId(),
         ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditOrigin.SELF_SERVICE,
-        java.util.Map.of());
+        AuditChangeDetails.change("Vinculación", before, link.auditSnapshot()));
   }
 }

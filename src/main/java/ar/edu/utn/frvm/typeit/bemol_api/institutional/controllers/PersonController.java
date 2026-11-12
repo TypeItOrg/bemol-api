@@ -1,7 +1,6 @@
 package ar.edu.utn.frvm.typeit.bemol_api.institutional.controllers;
 
-import static java.util.Objects.requireNonNull;
-
+import ar.edu.utn.frvm.typeit.bemol_api.auth.filters.CurrentPrincipal;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.filters.JwtAuthenticatedUser;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.services.InstitutionalCallerGuard;
 import ar.edu.utn.frvm.typeit.bemol_api.common.web.Version;
@@ -30,8 +29,7 @@ public class PersonController {
   @GetMapping(value = "/me", version = Version.V1)
   public PersonResponse me(Authentication authentication) {
     institutionalCallerGuard.ensureInstitutionalPrincipal(authentication);
-    JwtAuthenticatedUser principal =
-        (JwtAuthenticatedUser) requireNonNull(authentication.getPrincipal());
+    JwtAuthenticatedUser principal = CurrentPrincipal.requireInstitutionalUser(authentication);
     return getPersonUseCase.execute(principal);
   }
 
@@ -39,8 +37,7 @@ public class PersonController {
   public PersonResponse updateMe(
       Authentication authentication, @Valid @RequestBody UpdatePersonRequest request) {
     institutionalCallerGuard.ensureInstitutionalPrincipal(authentication);
-    JwtAuthenticatedUser principal =
-        (JwtAuthenticatedUser) requireNonNull(authentication.getPrincipal());
+    JwtAuthenticatedUser principal = CurrentPrincipal.requireInstitutionalUser(authentication);
     return updatePersonUseCase.execute(principal, request);
   }
 }

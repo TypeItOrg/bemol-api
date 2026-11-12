@@ -9,8 +9,8 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.http.MediaType.APPLICATION_JSON;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -51,8 +51,6 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.EnableAspectJAutoProxy;
 import org.springframework.context.annotation.Import;
-import org.springframework.http.HttpMethod;
-import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.security.authentication.TestingAuthenticationToken;
 import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
@@ -226,8 +224,9 @@ class InstitutionControllerWebMvcTest {
 
     mockMvc
         .perform(
-            multipart(HttpMethod.PUT, "/api/v1/admin/institutions/{id}", INSTITUTION_ID)
-                .file(updateData(updatePayload()))
+            put("/api/v1/admin/institutions/{id}", INSTITUTION_ID)
+                .contentType(APPLICATION_JSON)
+                .content(updateData(updatePayload()))
                 .principal(authentication))
         .andExpect(status().isForbidden());
   }
@@ -238,13 +237,14 @@ class InstitutionControllerWebMvcTest {
     var authentication = new TestingAuthenticationToken(platformPrincipal(PLATFORM_ACCOUNT_ID), "");
     stubPlatformAdminAccess(true);
     when(updateInstitutionUseCase.execute(
-            eq(INSTITUTION_ID), any(UpdateInstitutionWithBrandingRequest.class), isNull()))
+            eq(INSTITUTION_ID), any(UpdateInstitutionWithBrandingRequest.class)))
         .thenReturn(detailResponse());
 
     mockMvc
         .perform(
-            multipart(HttpMethod.PUT, "/api/v1/admin/institutions/{id}", INSTITUTION_ID)
-                .file(updateData(updatePayload()))
+            put("/api/v1/admin/institutions/{id}", INSTITUTION_ID)
+                .contentType(APPLICATION_JSON)
+                .content(updateData(updatePayload()))
                 .principal(authentication))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.id").value(INSTITUTION_ID.toString()));
@@ -289,13 +289,14 @@ class InstitutionControllerWebMvcTest {
     var authentication = new TestingAuthenticationToken(platformPrincipal(PLATFORM_ACCOUNT_ID), "");
     stubPlatformAdminAccess(true);
     when(updateInstitutionUseCase.execute(
-            eq(INSTITUTION_ID), any(UpdateInstitutionWithBrandingRequest.class), isNull()))
+            eq(INSTITUTION_ID), any(UpdateInstitutionWithBrandingRequest.class)))
         .thenThrow(new CityNotFoundException());
 
     mockMvc
         .perform(
-            multipart(HttpMethod.PUT, "/api/v1/admin/institutions/{id}", INSTITUTION_ID)
-                .file(updateData(updatePayload()))
+            put("/api/v1/admin/institutions/{id}", INSTITUTION_ID)
+                .contentType(APPLICATION_JSON)
+                .content(updateData(updatePayload()))
                 .principal(authentication))
         .andExpect(status().isBadRequest())
         .andExpect(jsonPath("$.message").value("La ciudad especificada no existe."));
@@ -309,8 +310,9 @@ class InstitutionControllerWebMvcTest {
 
     mockMvc
         .perform(
-            multipart(HttpMethod.PUT, "/api/v1/admin/institutions/{id}", INSTITUTION_ID)
-                .file(updateData(invalidCityIdPayload()))
+            put("/api/v1/admin/institutions/{id}", INSTITUTION_ID)
+                .contentType(APPLICATION_JSON)
+                .content(updateData(invalidCityIdPayload()))
                 .principal(authentication))
         .andExpect(status().isBadRequest());
   }
@@ -437,17 +439,11 @@ class InstitutionControllerWebMvcTest {
         .formatted(CITY_ID);
   }
 
-  private static MockMultipartFile updateData(final String institution) {
-    final String payload =
-        """
+  private static String updateData(final String institution) {
+    return """
         {"institution": %s, "publicSubdomain": null, "logoIntent": "KEEP"}
         """
-            .formatted(institution);
-    return new MockMultipartFile(
-        "data",
-        "data.json",
-        "application/json",
-        payload.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        .formatted(institution);
   }
 
   private static String updatePayload() {

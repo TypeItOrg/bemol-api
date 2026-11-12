@@ -1,5 +1,6 @@
 package ar.edu.utn.frvm.typeit.bemol_api.institutional.services;
 
+import ar.edu.utn.frvm.typeit.bemol_api.auth.filters.CurrentPrincipal;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.filters.JwtAuthenticatedUser;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.interfaces.PersonRoleAssignmentRepository;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.services.InstitutionalCapabilitiesService;
@@ -15,7 +16,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.context.request.RequestContextHolder;
@@ -112,11 +112,7 @@ public class OperatingContextResolver {
 
   /** The route subject must match the session identity; the JWT retains its real actor. */
   public Optional<UUID> currentActorPersonId() {
-    final var authentication = SecurityContextHolder.getContext().getAuthentication();
-    return authentication != null
-            && authentication.getPrincipal() instanceof JwtAuthenticatedUser user
-        ? Optional.of(user.actorPersonId())
-        : Optional.empty();
+    return CurrentPrincipal.institutionalUser().map(entry -> entry.actorPersonId());
   }
 
   public Optional<UUID> currentPersonId() {
@@ -131,11 +127,8 @@ public class OperatingContextResolver {
         || !(variables.get("institutionId") instanceof String institution)) {
       return Optional.empty();
     }
-    final var authentication = SecurityContextHolder.getContext().getAuthentication();
-    if (authentication == null
-        || !(authentication.getPrincipal() instanceof JwtAuthenticatedUser actor)) {
-      throw new UnauthorizedGuardianshipException();
-    }
+    final var actor =
+        CurrentPrincipal.institutionalUser().orElseThrow(UnauthorizedGuardianshipException::new);
     final UUID institutionId;
     final UUID personId;
     try {

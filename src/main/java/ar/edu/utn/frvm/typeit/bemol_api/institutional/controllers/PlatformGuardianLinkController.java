@@ -2,6 +2,7 @@ package ar.edu.utn.frvm.typeit.bemol_api.institutional.controllers;
 
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.RequiresPlatformRole;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.enums.PlatformRoleCode;
+import ar.edu.utn.frvm.typeit.bemol_api.common.storage.PresignedDownloadResponse;
 import ar.edu.utn.frvm.typeit.bemol_api.common.web.PaginatedResponse;
 import ar.edu.utn.frvm.typeit.bemol_api.common.web.Version;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.entities.GuardianLinkStatus;
@@ -18,8 +19,6 @@ import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.jspecify.annotations.Nullable;
-import org.springframework.core.io.Resource;
-import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -92,11 +91,10 @@ public class PlatformGuardianLinkController {
   @GetMapping(
       value = "/{institutionId}/{linkId}/attachments/{attachmentId}/content",
       version = Version.V1)
-  public ResponseEntity<Resource> downloadAttachment(
+  public PresignedDownloadResponse downloadAttachment(
       @PathVariable final UUID institutionId,
       @PathVariable final UUID linkId,
       @PathVariable final UUID attachmentId) {
-    return GuardianLinkAttachmentDownload.inline(
-        guardianLinkAttachmentService.content(institutionId, null, linkId, attachmentId));
+    return guardianLinkAttachmentService.content(institutionId, null, linkId, attachmentId);
   }
 }

@@ -1,132 +1,84 @@
 package ar.edu.utn.frvm.typeit.bemol_api.institutional.services;
 
-import ar.edu.utn.frvm.typeit.bemol_api.common.validation.WebpContainer;
+import ar.edu.utn.frvm.typeit.bemol_api.common.storage.StorageService.ObjectMetadata;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.exceptions.InstitutionLogoTooLargeException;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.exceptions.InvalidInstitutionLogoException;
-import java.io.ByteArrayInputStream;
-import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.util.Locale;
-import java.util.concurrent.atomic.AtomicBoolean;
-import javax.imageio.ImageIO;
-import javax.imageio.ImageReader;
-import javax.imageio.stream.MemoryCacheImageInputStream;
-import org.springframework.web.multipart.MultipartFile;
+import java.util.UUID;
+import org.jspecify.annotations.Nullable;
 
 public final class InstitutionLogoPolicy {
   public static final long MAX_BYTES = 2 * 1024 * 1024L;
-  private static final long MAX_PIXELS = 4_000_000L;
 
-  public record Image(byte[] bytes, String contentType) {}
+  public record PreparedLogo(String version, String key, String contentType, long size) {}
 
   private InstitutionLogoPolicy() {}
 
-  public static Image prepare(final MultipartFile file) {
-    validateMetadata(file);
+  public static PreparedLogo prepare(
+      final UUID institutionId,
+      final @Nullable String version,
+      final @Nullable String declaredContentType,
+      final long fileSize) {
+    validateSize(fileSize);
+    final String contentType = normalizeContentType(declaredContentType);
+    final String resolvedVersion = resolveVersion(version);
+    final String key =
+        "institutions/" + institutionId + "/logos/" + resolvedVersion + extensionFor(contentType);
 
-    final byte[] bytes = readContent(file);
-    final String contentType = detectContentType(bytes);
-    if (!contentType.equals(file.getContentType())) {
-      throw new InvalidInstitutionLogoException();
-    }
-
-    return new Image(bytes, contentType);
+    return new PreparedLogo(resolvedVersion, key, contentType, fileSize);
   }
 
-  private static void validateMetadata(final MultipartFile file) {
-    if (file.getSize() > MAX_BYTES) {
+  public static void verifyUploadedObject(
+      final ObjectMetadata actual, final String expectedContentType, final long expectedSize) {
+    validateSize(actual.contentLength());
+    if (actual.contentLength() != expectedSize) {
+      throw new InvalidInstitutionLogoException();
+    }
+    final String actualType = normalizeContentType(actual.contentType());
+    if (!expectedContentType.equals(actualType)) {
+      throw new InvalidInstitutionLogoException();
+    }
+  }
+
+  private static void validateSize(final long fileSize) {
+    if (fileSize > MAX_BYTES) {
       throw new InstitutionLogoTooLargeException();
     }
-    if (file.isEmpty()) {
+    if (fileSize <= 0) {
       throw new InvalidInstitutionLogoException();
     }
   }
 
-  private static byte[] readContent(final MultipartFile file) {
-    try (final var stream = file.getInputStream()) {
-      final byte[] bytes = stream.readNBytes((int) MAX_BYTES + 1);
-      validateContentLength(bytes, file.getSize());
-
-      return bytes;
-    } catch (IOException | IllegalArgumentException exception) {
+  private static String resolveVersion(final @Nullable String version) {
+    if (version == null) {
+      return UUID.randomUUID().toString();
+    }
+    try {
+      return UUID.fromString(version).toString();
+    } catch (IllegalArgumentException exception) {
       throw new InvalidInstitutionLogoException();
     }
   }
 
-  private static void validateContentLength(final byte[] bytes, final long declaredSize) {
-    // Check the actual content too: the declared multipart size is not trusted.
-    if (bytes.length > MAX_BYTES) {
-      throw new InstitutionLogoTooLargeException();
-    }
-    if (bytes.length == 0 || bytes.length != declaredSize) {
+  private static String normalizeContentType(final @Nullable String rawType) {
+    if (rawType == null || rawType.isBlank()) {
       throw new InvalidInstitutionLogoException();
     }
+    final int semicolon = rawType.indexOf(';');
+    final String baseType =
+        (semicolon >= 0 ? rawType.substring(0, semicolon) : rawType)
+            .trim()
+            .toLowerCase(Locale.ROOT);
+    extensionFor(baseType);
+    return baseType;
   }
 
-  private static String detectContentType(final byte[] bytes) {
-    try (final var input = new MemoryCacheImageInputStream(new ByteArrayInputStream(bytes))) {
-      final var readers = ImageIO.getImageReaders(input);
-      if (!readers.hasNext()) {
-        throw new InvalidInstitutionLogoException();
-      }
-
-      final var reader = readers.next();
-      try {
-        final String format = reader.getFormatName().toLowerCase(Locale.ROOT);
-        validateFormatAndTrailer(bytes, format);
-
-        reader.setInput(input, true, true);
-        if (format.equals("webp") && reader.getNumImages(false) != 1) {
-          throw new InvalidInstitutionLogoException();
-        }
-
-        validateDimensions(reader);
-        validateDecodedImage(reader);
-
-        return "image/" + format;
-      } finally {
-        reader.dispose();
-      }
-    } catch (IOException | IllegalArgumentException exception) {
-      throw new InvalidInstitutionLogoException();
-    }
-  }
-
-  private static void validateFormatAndTrailer(final byte[] bytes, final String format) {
-    final boolean complete =
-        switch (format) {
-          case "jpeg" ->
-              bytes.length >= 2
-                  && bytes[bytes.length - 2] == (byte) 0xff
-                  && bytes[bytes.length - 1] == (byte) 0xd9;
-          case "png" ->
-              bytes.length >= 12
-                  && "IEND"
-                      .equals(new String(bytes, bytes.length - 8, 4, StandardCharsets.US_ASCII));
-          case "webp" -> WebpContainer.isComplete(bytes);
-          default -> false;
-        };
-    if (!complete) {
-      throw new InvalidInstitutionLogoException();
-    }
-  }
-
-  private static void validateDimensions(final ImageReader reader) throws IOException {
-    final int width = reader.getWidth(0);
-    final int height = reader.getHeight(0);
-    if (width <= 0 || height <= 0 || (long) width * height > MAX_PIXELS) {
-      throw new InvalidInstitutionLogoException();
-    }
-  }
-
-  private static void validateDecodedImage(final ImageReader reader) throws IOException {
-    final var warning = new AtomicBoolean();
-    reader.addIIOReadWarningListener((source, message) -> warning.set(true));
-
-    final var image = reader.read(0);
-    if (image == null || warning.get()) {
-      throw new InvalidInstitutionLogoException();
-    }
-    image.flush();
+  private static String extensionFor(final String contentType) {
+    return switch (contentType) {
+      case "image/png" -> ".png";
+      case "image/webp" -> ".webp";
+      case "image/jpeg" -> ".jpg";
+      default -> throw new InvalidInstitutionLogoException();
+    };
   }
 }

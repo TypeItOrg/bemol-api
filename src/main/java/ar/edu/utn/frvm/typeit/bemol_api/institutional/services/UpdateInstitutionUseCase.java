@@ -1,10 +1,11 @@
 package ar.edu.utn.frvm.typeit.bemol_api.institutional.services;
 
-import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditAction;
-import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditEntityType;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditOrigin;
+import ar.edu.utn.frvm.typeit.bemol_api.audit.services.AuditChangeDetails;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.services.AuditEventRecorder;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.services.SessionRevocationService;
+import ar.edu.utn.frvm.typeit.bemol_api.institutional.audit.InstitutionalAuditAction;
+import ar.edu.utn.frvm.typeit.bemol_api.institutional.entities.Institution;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.exceptions.CityNotFoundException;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.exceptions.InstitutionNotFoundException;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.interfaces.CityRepository;
@@ -36,7 +37,7 @@ public class UpdateInstitutionUseCase {
 
     boolean deactivating = institution.isActive() && !request.active();
 
-    final var before = InstitutionAuditDetails.snapshot(institution);
+    final var before = institution.auditSnapshot();
 
     institution.rename(request.name());
     institution.changeShortName(request.shortName());
@@ -52,16 +53,16 @@ public class UpdateInstitutionUseCase {
       sessionRevocationService.revokeInstitutionalSessionsForInstitution(id);
     }
 
-    final var after = InstitutionAuditDetails.snapshot(institution);
+    final var after = institution.auditSnapshot();
     if (!before.equals(after)) {
       auditEventRecorder.recordCurrentActor(
           institution,
           null,
-          AuditAction.INSTITUTION_UPDATED,
-          AuditEntityType.INSTITUTION,
+          InstitutionalAuditAction.INSTITUTION_UPDATED,
+          Institution.AUDIT_TYPE,
           id,
           AuditOrigin.administration(),
-          InstitutionAuditDetails.changed(before, after));
+          AuditChangeDetails.change(institution.getName(), before, after));
     }
 
     return InstitutionDetailResponse.from(institution);

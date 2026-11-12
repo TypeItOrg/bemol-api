@@ -55,27 +55,31 @@ public record CreateGuardianDependentRequest(
 
   @AssertTrue(message = "Indicá nombre, apellido y fecha de nacimiento para registrar una persona.")
   public boolean isRegistrationDataPresent() {
-    return requestMode == GuardianDependentRequestMode.EXISTING
-        || (firstName != null
-            && !firstName.isBlank()
-            && lastName != null
-            && !lastName.isBlank()
-            && birthDate != null);
+    final boolean registrationData = hasText(firstName) && hasText(lastName) && birthDate != null;
+
+    return linksExistingPerson() || registrationData;
   }
 
   @AssertTrue(message = ValidationMessages.OWN_ACCESS_EMAIL_REQUIRED)
   public boolean isOwnAccessEmailPresent() {
-    return !ownAccessRequested || (email != null && !email.isBlank());
+    return !ownAccessRequested || hasText(email);
   }
 
   @AssertTrue(message = ValidationMessages.PHONE_REQUIRED)
   public boolean isRegistrationPhonePresent() {
-    return requestMode == GuardianDependentRequestMode.EXISTING
-        || (phoneNumber != null && !phoneNumber.isBlank());
+    return linksExistingPerson() || hasText(phoneNumber);
   }
 
   @AssertTrue(message = ValidationMessages.NATIONALITY_REQUIRED)
   public boolean isRegistrationNationalityPresent() {
-    return requestMode == GuardianDependentRequestMode.EXISTING || nationalityCountryId != null;
+    return linksExistingPerson() || nationalityCountryId != null;
+  }
+
+  private boolean linksExistingPerson() {
+    return requestMode == GuardianDependentRequestMode.EXISTING;
+  }
+
+  private static boolean hasText(final @org.jspecify.annotations.Nullable String value) {
+    return value != null && !value.isBlank();
   }
 }

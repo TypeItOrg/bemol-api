@@ -1,5 +1,6 @@
 package ar.edu.utn.frvm.typeit.bemol_api.institutional.controllers;
 
+import ar.edu.utn.frvm.typeit.bemol_api.common.storage.PresignedDownloadResponse;
 import ar.edu.utn.frvm.typeit.bemol_api.common.web.PaginatedResponse;
 import ar.edu.utn.frvm.typeit.bemol_api.common.web.Version;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.payloads.InstitutionDetailResponse;
@@ -12,11 +13,9 @@ import ar.edu.utn.frvm.typeit.bemol_api.institutional.services.ResolveInstitutio
 import jakarta.validation.constraints.Size;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
-import org.springframework.core.io.Resource;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
-import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -41,15 +40,8 @@ public class InstitutionController {
   }
 
   @GetMapping(value = "/{id}/logo", version = Version.V1)
-  public ResponseEntity<Resource> logo(@PathVariable final UUID id) {
-    final var logo = logos.get(id);
-    return ResponseEntity.ok()
-        .contentType(org.springframework.http.MediaType.parseMediaType(logo.contentType()))
-        .contentLength(logo.size())
-        .eTag(logo.version())
-        .cacheControl(org.springframework.http.CacheControl.noCache())
-        .header("X-Content-Type-Options", "nosniff")
-        .body(logo.resource());
+  public PresignedDownloadResponse logo(@PathVariable final UUID id) {
+    return logos.get(id);
   }
 
   @GetMapping(version = Version.V1)

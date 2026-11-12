@@ -7,10 +7,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -27,14 +24,17 @@ import ar.edu.utn.frvm.typeit.bemol_api.authorization.services.AuthorizationServ
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.services.InitialRoleAssignmentGuard;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.services.InstitutionalCallerGuard;
 import ar.edu.utn.frvm.typeit.bemol_api.common.exceptions.GlobalExceptionHandler;
+import ar.edu.utn.frvm.typeit.bemol_api.common.storage.PresignedDownloadResponse;
 import ar.edu.utn.frvm.typeit.bemol_api.config.WebConfig;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.entities.GuardianLinkStatus;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.entities.GuardianRelationship;
-import ar.edu.utn.frvm.typeit.bemol_api.institutional.entities.PersonGuardianAttachment;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.exceptions.DependentAlreadyLinkedException;
+import ar.edu.utn.frvm.typeit.bemol_api.institutional.payloads.guardian.ConfirmGuardianAttachmentUploadRequest;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.payloads.guardian.CreateGuardianDependentRequest;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.payloads.guardian.GuardianDependentResponse;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.payloads.guardian.GuardianLinkAttachmentResponse;
+import ar.edu.utn.frvm.typeit.bemol_api.institutional.payloads.guardian.PresignGuardianAttachmentUploadRequest;
+import ar.edu.utn.frvm.typeit.bemol_api.institutional.payloads.guardian.PresignedGuardianAttachmentUploadResponse;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.services.GuardianLinkAttachmentService;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.services.ListGuardianDependentsUseCase;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.services.RegisterGuardianDependentUseCase;
@@ -53,16 +53,13 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.EnableAspectJAutoProxy;
 import org.springframework.context.annotation.Import;
-import org.springframework.core.io.ByteArrayResource;
 import org.springframework.http.MediaType;
-import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.security.authentication.TestingAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.util.PathMatcher;
-import org.springframework.web.multipart.MultipartFile;
 
 @WebMvcTest(GuardianDependentController.class)
 @Import({
@@ -230,19 +227,50 @@ class GuardianDependentControllerWebMvcTest {
   }
 
   @Test
-  @DisplayName("Should attach a supporting document to the tutor's request")
+  @DisplayName("Should presign and confirm a supporting document on the tutor's request")
   void uploadAttachment_returnsCreated() throws Exception {
     final var auth = authentication();
-    final var file =
-        new MockMultipartFile("file", "partida.pdf", "application/pdf", "%PDF-1.4".getBytes());
-    when(guardianLinkAttachmentService.upload(
-            eq(INSTITUTION_ID), eq(TUTOR_ID), eq(LINK_ID), any(MultipartFile.class)))
+    final var key = "guardian-links/" + INSTITUTION_ID + "/" + LINK_ID + "/partida.pdf";
+    when(guardianLinkAttachmentService.presignUpload(
+            eq(INSTITUTION_ID),
+            eq(TUTOR_ID),
+            eq(LINK_ID),
+            any(PresignGuardianAttachmentUploadRequest.class)))
+        .thenReturn(
+            new PresignedGuardianAttachmentUploadResponse(
+                key,
+                "https://r2.example/put",
+                Instant.parse("2026-09-24T12:10:00Z"),
+                Map.of("Content-Type", "application/pdf")));
+    when(guardianLinkAttachmentService.confirmUpload(
+            eq(INSTITUTION_ID),
+            eq(TUTOR_ID),
+            eq(LINK_ID),
+            any(ConfirmGuardianAttachmentUploadRequest.class)))
         .thenReturn(attachmentResponse());
 
     mockMvc
         .perform(
-            multipart(BASE_PATH + "/{linkId}/attachments", INSTITUTION_ID, LINK_ID)
-                .file(file)
+            post(BASE_PATH + "/{linkId}/attachments/upload-url", INSTITUTION_ID, LINK_ID)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    """
+                    {"fileName":"partida.pdf","contentType":"application/pdf","fileSize":8}
+                    """)
+                .principal(auth))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.storageKey").value(key))
+        .andExpect(jsonPath("$.uploadUrl").value("https://r2.example/put"));
+
+    mockMvc
+        .perform(
+            post(BASE_PATH + "/{linkId}/attachments", INSTITUTION_ID, LINK_ID)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    """
+                    {"storageKey":"%s","fileName":"partida.pdf","contentType":"application/pdf","fileSize":8}
+                    """
+                        .formatted(key))
                 .principal(auth))
         .andExpect(status().isCreated())
         .andExpect(jsonPath("$.id").value(ATTACHMENT_ID.toString()))
@@ -256,7 +284,9 @@ class GuardianDependentControllerWebMvcTest {
     when(guardianLinkAttachmentService.list(INSTITUTION_ID, TUTOR_ID, LINK_ID))
         .thenReturn(List.of(attachmentResponse()));
     when(guardianLinkAttachmentService.content(INSTITUTION_ID, TUTOR_ID, LINK_ID, ATTACHMENT_ID))
-        .thenReturn(attachmentContent());
+        .thenReturn(
+            new PresignedDownloadResponse(
+                "https://r2.example/get", Instant.parse("2026-09-24T12:05:00Z")));
 
     mockMvc
         .perform(get(BASE_PATH + "/{linkId}/attachments", INSTITUTION_ID, LINK_ID).principal(auth))
@@ -271,9 +301,7 @@ class GuardianDependentControllerWebMvcTest {
                     ATTACHMENT_ID)
                 .principal(auth))
         .andExpect(status().isOk())
-        .andExpect(content().contentType(MediaType.APPLICATION_PDF))
-        .andExpect(
-            header().string("Content-Disposition", org.hamcrest.Matchers.startsWith("inline")));
+        .andExpect(jsonPath("$.url").value("https://r2.example/get"));
     mockMvc
         .perform(
             delete(
@@ -290,16 +318,6 @@ class GuardianDependentControllerWebMvcTest {
   private GuardianLinkAttachmentResponse attachmentResponse() {
     return new GuardianLinkAttachmentResponse(
         ATTACHMENT_ID, "partida.pdf", "application/pdf", 8, Instant.parse("2026-09-24T12:00:00Z"));
-  }
-
-  private GuardianLinkAttachmentService.Content attachmentContent() {
-    return new GuardianLinkAttachmentService.Content(
-        new ByteArrayResource("%PDF-1.4".getBytes()),
-        PersonGuardianAttachment.builder()
-            .originalFileName("partida.pdf")
-            .contentType("application/pdf")
-            .fileSize(8)
-            .build());
   }
 
   private Map<String, Object> validBody() {

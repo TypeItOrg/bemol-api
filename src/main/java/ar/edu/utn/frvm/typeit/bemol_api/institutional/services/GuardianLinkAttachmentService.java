@@ -1,13 +1,17 @@
 package ar.edu.utn.frvm.typeit.bemol_api.institutional.services;
 
-import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditAction;
-import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditEntityType;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditOrigin;
+import ar.edu.utn.frvm.typeit.bemol_api.audit.services.AuditChangeDetails;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.services.AuditEventRecorder;
+import ar.edu.utn.frvm.typeit.bemol_api.audit.snapshot.AuditSnapshot;
+import ar.edu.utn.frvm.typeit.bemol_api.common.storage.PresignedDownloadResponse;
+import ar.edu.utn.frvm.typeit.bemol_api.common.storage.StorageFileNotFoundException;
 import ar.edu.utn.frvm.typeit.bemol_api.common.storage.StorageService;
+import ar.edu.utn.frvm.typeit.bemol_api.enrollment.exceptions.EnrollmentMessages;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.exceptions.InvalidFileException;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.services.EnrollmentFilePolicy;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.services.EnrollmentFilePolicy.StoredFile;
+import ar.edu.utn.frvm.typeit.bemol_api.institutional.audit.InstitutionalAuditAction;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.entities.GuardianLinkStatus;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.entities.PersonGuardian;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.entities.PersonGuardianAttachment;
@@ -17,18 +21,19 @@ import ar.edu.utn.frvm.typeit.bemol_api.institutional.exceptions.GuardianLinkNot
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.exceptions.InstitutionMessages;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.interfaces.PersonGuardianAttachmentRepository;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.interfaces.PersonGuardianRepository;
+import ar.edu.utn.frvm.typeit.bemol_api.institutional.payloads.guardian.ConfirmGuardianAttachmentUploadRequest;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.payloads.guardian.GuardianLinkAttachmentResponse;
+import ar.edu.utn.frvm.typeit.bemol_api.institutional.payloads.guardian.PresignGuardianAttachmentUploadRequest;
+import ar.edu.utn.frvm.typeit.bemol_api.institutional.payloads.guardian.PresignedGuardianAttachmentUploadResponse;
+import java.time.Duration;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.jspecify.annotations.Nullable;
-import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
-import org.springframework.web.multipart.MultipartFile;
 
 /**
  * Documents supporting a guardianship request. The tutor who owns the request uploads them while it
@@ -40,42 +45,64 @@ import org.springframework.web.multipart.MultipartFile;
 public class GuardianLinkAttachmentService {
 
   static final int MAX_ATTACHMENTS = 5;
+  private static final Duration UPLOAD_TTL = Duration.ofMinutes(10);
+  private static final Duration DOWNLOAD_TTL = Duration.ofMinutes(5);
 
   private final PersonGuardianRepository personGuardianRepository;
   private final PersonGuardianAttachmentRepository attachmentRepository;
   private final StorageService storage;
   private final AuditEventRecorder auditRecorder;
 
-  public record Content(Resource resource, PersonGuardianAttachment attachment) {}
-
-  @Transactional
-  public GuardianLinkAttachmentResponse upload(
+  @Transactional(readOnly = true)
+  public PresignedGuardianAttachmentUploadResponse presignUpload(
       final UUID institutionId,
       final UUID tutorPersonId,
       final UUID linkId,
-      final MultipartFile file) {
+      final PresignGuardianAttachmentUploadRequest request) {
+    final PersonGuardian link = findVisibleLink(institutionId, tutorPersonId, linkId);
+    if (link.getStatus() != GuardianLinkStatus.PENDING) {
+      throw new GuardianLinkAlreadyResolvedException();
+    }
+    if (attachmentRepository.countByPersonGuardian(link) >= MAX_ATTACHMENTS) {
+      throw new InvalidFileException(InstitutionMessages.GUARDIAN_LINK_ATTACHMENT_LIMIT);
+    }
+
+    final StoredFile stored =
+        EnrollmentFilePolicy.prepare(
+            linkId, request.fileName(), request.contentType(), request.fileSize());
+    final var presigned =
+        storage.presignUpload(
+            stored.storagePath(), stored.contentType(), stored.size(), UPLOAD_TTL);
+
+    return PresignedGuardianAttachmentUploadResponse.from(stored.storagePath(), presigned);
+  }
+
+  @Transactional
+  public GuardianLinkAttachmentResponse confirmUpload(
+      final UUID institutionId,
+      final UUID tutorPersonId,
+      final UUID linkId,
+      final ConfirmGuardianAttachmentUploadRequest request) {
     final PersonGuardian link = lockPendingLink(institutionId, tutorPersonId, linkId);
 
     if (attachmentRepository.countByPersonGuardian(link) >= MAX_ATTACHMENTS) {
       throw new InvalidFileException(InstitutionMessages.GUARDIAN_LINK_ATTACHMENT_LIMIT);
     }
 
-    final StoredFile stored = EnrollmentFilePolicy.prepare(linkId, file);
-    storage.write(stored.storagePath(), stored.contentType(), stored.size(), file);
-    TransactionSynchronizationManager.registerSynchronization(
-        new TransactionSynchronization() {
-          @Override
-          public void afterCompletion(final int status) {
-            if (status == STATUS_ROLLED_BACK) {
-              storage.deletePhysicalFile(stored.storagePath());
-            }
-          }
-        });
+    final StoredFile stored =
+        EnrollmentFilePolicy.prepare(
+            linkId, request.fileName(), request.contentType(), request.fileSize());
+    validateLinkStorageKey(linkId, request.storageKey(), stored.contentType());
+
+    try {
+      final var actual = storage.headObject(request.storageKey());
+      EnrollmentFilePolicy.verifyUploadedObject(actual, stored.contentType(), stored.size());
+    } catch (StorageFileNotFoundException exception) {
+      throw new InvalidFileException(EnrollmentMessages.FILE_CONTENT_INVALID);
+    }
 
     final String originalName =
-        file.getOriginalFilename() != null && !file.getOriginalFilename().isBlank()
-            ? file.getOriginalFilename()
-            : stored.safeFileName();
+        EnrollmentFilePolicy.resolveOriginalFileName(request.fileName(), stored.safeFileName());
 
     final var attachment =
         attachmentRepository.saveAndFlush(
@@ -83,22 +110,22 @@ public class GuardianLinkAttachmentService {
                 .institution(link.getInstitution())
                 .personGuardian(link)
                 .originalFileName(originalName)
-                .storagePath(stored.storagePath())
+                .storagePath(request.storageKey())
                 .contentType(stored.contentType())
                 .fileSize(stored.size())
                 .build());
+    final var details =
+        AuditChangeDetails.change(
+            "Adjunto de vinculación", AuditSnapshot.empty(), attachment.auditSnapshot());
+    details.put("relatedPersonIds", List.of(link.getTutorPerson().getId().toString()));
     auditRecorder.recordCurrentActor(
         link.getInstitution(),
         link.getDependentPersonId(),
-        AuditAction.GUARDIAN_ATTACHMENT_UPLOADED,
-        AuditEntityType.PERSON_GUARDIAN_ATTACHMENT,
+        InstitutionalAuditAction.GUARDIAN_ATTACHMENT_UPLOADED,
+        PersonGuardianAttachment.AUDIT_TYPE,
         attachment.getId(),
         AuditOrigin.SELF_SERVICE,
-        Map.of(
-            "relatedPersonIds",
-            List.of(link.getTutorPerson().getId().toString()),
-            "after",
-            Map.of("contentType", stored.contentType(), "size", stored.size())));
+        details);
     return GuardianLinkAttachmentResponse.from(attachment);
   }
 
@@ -111,15 +138,19 @@ public class GuardianLinkAttachmentService {
     final PersonGuardian link = lockPendingLink(institutionId, tutorPersonId, linkId);
     final PersonGuardianAttachment attachment = findAttachment(link, attachmentId);
 
+    final var details =
+        AuditChangeDetails.change(
+            "Adjunto de vinculación", attachment.auditSnapshot(), AuditSnapshot.empty());
+    details.put("relatedPersonIds", List.of(link.getTutorPerson().getId().toString()));
     attachmentRepository.delete(attachment);
     auditRecorder.recordCurrentActor(
         link.getInstitution(),
         link.getDependentPersonId(),
-        AuditAction.GUARDIAN_ATTACHMENT_DELETED,
-        AuditEntityType.PERSON_GUARDIAN_ATTACHMENT,
+        InstitutionalAuditAction.GUARDIAN_ATTACHMENT_DELETED,
+        PersonGuardianAttachment.AUDIT_TYPE,
         attachmentId,
         AuditOrigin.SELF_SERVICE,
-        Map.of("relatedPersonIds", List.of(link.getTutorPerson().getId().toString())));
+        details);
     TransactionSynchronizationManager.registerSynchronization(
         new TransactionSynchronization() {
           @Override
@@ -140,7 +171,7 @@ public class GuardianLinkAttachmentService {
   }
 
   @Transactional(readOnly = true)
-  public Content content(
+  public PresignedDownloadResponse content(
       final UUID institutionId,
       final @Nullable UUID tutorPersonId,
       final UUID linkId,
@@ -148,7 +179,28 @@ public class GuardianLinkAttachmentService {
     final PersonGuardian link = findVisibleLink(institutionId, tutorPersonId, linkId);
     final PersonGuardianAttachment attachment = findAttachment(link, attachmentId);
 
-    return new Content(storage.loadAsResource(attachment.getStoragePath()), attachment);
+    return PresignedDownloadResponse.from(
+        storage.presignDownload(
+            attachment.getStoragePath(),
+            attachment.getContentType(),
+            attachment.getOriginalFileName(),
+            DOWNLOAD_TTL));
+  }
+
+  private static void validateLinkStorageKey(
+      final UUID linkId, final String storageKey, final String contentType) {
+    final String prefix = "enrollments/" + linkId + "/";
+    final String extension = EnrollmentFilePolicy.extensionFor(contentType);
+    if (!storageKey.startsWith(prefix) || !storageKey.endsWith(extension)) {
+      throw new InvalidFileException(EnrollmentMessages.FILE_CONTENT_INVALID);
+    }
+    final String uuidPart =
+        storageKey.substring(prefix.length(), storageKey.length() - extension.length());
+    try {
+      UUID.fromString(uuidPart);
+    } catch (IllegalArgumentException exception) {
+      throw new InvalidFileException(EnrollmentMessages.FILE_CONTENT_INVALID);
+    }
   }
 
   /**

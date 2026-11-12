@@ -10,10 +10,8 @@ import ar.edu.utn.frvm.typeit.bemol_api.institutional.payloads.requests.UpdateIn
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.payloads.requests.UpdateInstitutionWithBrandingRequest.LogoIntent;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
-import org.jspecify.annotations.Nullable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.multipart.MultipartFile;
 
 @Service
 @RequiredArgsConstructor
@@ -25,10 +23,8 @@ public class UpdateInstitutionWithBrandingUseCase {
 
   @Transactional
   public InstitutionDetailResponse execute(
-      final UUID id,
-      final UpdateInstitutionWithBrandingRequest request,
-      final @Nullable MultipartFile file) {
-    if ((request.logoIntent() == LogoIntent.REPLACE) != (file != null)) {
+      final UUID id, final UpdateInstitutionWithBrandingRequest request) {
+    if ((request.logoIntent() == LogoIntent.REPLACE) != (request.logo() != null)) {
       throw new InvalidInstitutionLogoException();
     }
 
@@ -37,7 +33,7 @@ public class UpdateInstitutionWithBrandingUseCase {
     // All nested use cases join this transaction, including logo rollback cleanup.
     publicAccess.execute(id, request.publicSubdomain());
     switch (request.logoIntent()) {
-      case REPLACE -> logos.replace(id, requireNonNull(file));
+      case REPLACE -> logos.replace(id, requireNonNull(request.logo()));
       case REMOVE -> logos.delete(id);
       case KEEP -> {}
     }

@@ -1,18 +1,19 @@
 package ar.edu.utn.frvm.typeit.bemol_api.institutional.services;
 
-import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditAction;
-import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditEntityType;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditOrigin;
+import ar.edu.utn.frvm.typeit.bemol_api.audit.services.AuditChangeDetails;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.services.AuditEventRecorder;
+import ar.edu.utn.frvm.typeit.bemol_api.auth.audit.AuthAuditAction;
+import ar.edu.utn.frvm.typeit.bemol_api.auth.entities.User;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.interfaces.UserRepository;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.services.SessionRevocationService;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.services.InstitutionPersonResolver;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.services.InstitutionalAuthorityContinuityGuard;
+import ar.edu.utn.frvm.typeit.bemol_api.institutional.audit.InstitutionalAuditAction;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.entities.Person;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.exceptions.InstitutionNotFoundException;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.interfaces.InstitutionRepository;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.interfaces.PersonRepository;
-import java.util.Map;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -58,30 +59,30 @@ public class DeletePersonUseCase {
     person.delete();
 
     personRepository.save(person);
-    auditEventRecorder.recordChange(
+    auditEventRecorder.recordCurrentActor(
         person.getInstitution(),
         personId,
-        AuditAction.PERSON_DELETED,
-        AuditEntityType.PERSON,
+        InstitutionalAuditAction.PERSON_DELETED,
+        Person.AUDIT_TYPE,
         personId,
-        "Persona",
-        Map.of("deleted", false),
-        Map.of("deleted", true));
+        AuditOrigin.administration(),
+        AuditChangeDetails.lifecycle("Persona", true));
     userRepository
         .findByPersonAndInstitutionForUpdate(personId, institutionId)
         .ifPresent(
             user -> {
-              final boolean previousEnabled = user.isAccessEnabled();
+              final var before = user.auditSnapshot();
               if (user.updateAccess(false)) {
                 userRepository.save(user);
                 auditEventRecorder.recordCurrentActor(
                     user.getInstitution(),
                     personId,
-                    AuditAction.INSTITUTIONAL_ACCESS_CHANGED,
-                    AuditEntityType.USER,
+                    AuthAuditAction.INSTITUTIONAL_ACCESS_CHANGED,
+                    User.AUDIT_TYPE,
                     user.getId(),
                     AuditOrigin.administration(),
-                    Map.of("previousEnabled", previousEnabled, "enabled", false));
+                    AuditChangeDetails.change(
+                        "Cuenta institucional", before, user.auditSnapshot()));
               }
             });
 

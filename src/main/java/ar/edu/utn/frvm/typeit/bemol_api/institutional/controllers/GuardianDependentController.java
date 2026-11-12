@@ -1,22 +1,24 @@
 package ar.edu.utn.frvm.typeit.bemol_api.institutional.controllers;
 
-import static java.util.Objects.requireNonNull;
-
-import ar.edu.utn.frvm.typeit.bemol_api.auth.filters.JwtAuthenticatedUser;
+import ar.edu.utn.frvm.typeit.bemol_api.auth.filters.CurrentPrincipal;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.services.PersonOwnAccessService;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.RequiresInstitutionAccess;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.RequiresPermission;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.enums.PermissionCode;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.services.InstitutionalCallerGuard;
+import ar.edu.utn.frvm.typeit.bemol_api.common.storage.PresignedDownloadResponse;
 import ar.edu.utn.frvm.typeit.bemol_api.common.web.PaginatedResponse;
 import ar.edu.utn.frvm.typeit.bemol_api.common.web.Version;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.entities.GuardianLinkStatus;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.entities.GuardianRelationship;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.payloads.OwnAccessResponse;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.payloads.UpdateOwnAccessRequest;
+import ar.edu.utn.frvm.typeit.bemol_api.institutional.payloads.guardian.ConfirmGuardianAttachmentUploadRequest;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.payloads.guardian.CreateGuardianDependentRequest;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.payloads.guardian.GuardianDependentResponse;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.payloads.guardian.GuardianLinkAttachmentResponse;
+import ar.edu.utn.frvm.typeit.bemol_api.institutional.payloads.guardian.PresignGuardianAttachmentUploadRequest;
+import ar.edu.utn.frvm.typeit.bemol_api.institutional.payloads.guardian.PresignedGuardianAttachmentUploadResponse;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.services.GuardianLinkAttachmentService;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.services.ListGuardianDependentsUseCase;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.services.RegisterGuardianDependentUseCase;
@@ -29,10 +31,7 @@ import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.jspecify.annotations.Nullable;
-import org.springframework.core.io.Resource;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.MediaType;
-import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -45,7 +44,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.multipart.MultipartFile;
 
 @RestController
 @RequestMapping("/institutions/{institutionId}/representations")
@@ -140,19 +138,27 @@ public class GuardianDependentController {
         institutionId, currentPersonId(authentication), personGuardianId);
   }
 
-  @PostMapping(
-      value = "/{personGuardianId}/attachments",
-      consumes = MediaType.MULTIPART_FORM_DATA_VALUE,
-      version = Version.V1)
-  @ResponseStatus(HttpStatus.CREATED)
+  @PostMapping(value = "/{personGuardianId}/attachments/upload-url", version = Version.V1)
   @RequiresPermission(PermissionCode.GUARDIAN_LINK_REQUEST)
-  public GuardianLinkAttachmentResponse uploadAttachment(
+  public PresignedGuardianAttachmentUploadResponse presignUpload(
       @PathVariable final UUID institutionId,
       @PathVariable final UUID personGuardianId,
-      @RequestParam("file") final MultipartFile file,
+      @Valid @RequestBody final PresignGuardianAttachmentUploadRequest request,
       final Authentication authentication) {
-    return guardianLinkAttachmentService.upload(
-        institutionId, currentPersonId(authentication), personGuardianId, file);
+    return guardianLinkAttachmentService.presignUpload(
+        institutionId, currentPersonId(authentication), personGuardianId, request);
+  }
+
+  @PostMapping(value = "/{personGuardianId}/attachments", version = Version.V1)
+  @ResponseStatus(HttpStatus.CREATED)
+  @RequiresPermission(PermissionCode.GUARDIAN_LINK_REQUEST)
+  public GuardianLinkAttachmentResponse confirmUpload(
+      @PathVariable final UUID institutionId,
+      @PathVariable final UUID personGuardianId,
+      @Valid @RequestBody final ConfirmGuardianAttachmentUploadRequest request,
+      final Authentication authentication) {
+    return guardianLinkAttachmentService.confirmUpload(
+        institutionId, currentPersonId(authentication), personGuardianId, request);
   }
 
   @GetMapping(value = "/{personGuardianId}/attachments", version = Version.V1)
@@ -169,14 +175,13 @@ public class GuardianDependentController {
       value = "/{personGuardianId}/attachments/{attachmentId}/content",
       version = Version.V1)
   @RequiresPermission(PermissionCode.GUARDIAN_LINK_REQUEST)
-  public ResponseEntity<Resource> downloadAttachment(
+  public PresignedDownloadResponse downloadAttachment(
       @PathVariable final UUID institutionId,
       @PathVariable final UUID personGuardianId,
       @PathVariable final UUID attachmentId,
       final Authentication authentication) {
-    return GuardianLinkAttachmentDownload.inline(
-        guardianLinkAttachmentService.content(
-            institutionId, currentPersonId(authentication), personGuardianId, attachmentId));
+    return guardianLinkAttachmentService.content(
+        institutionId, currentPersonId(authentication), personGuardianId, attachmentId);
   }
 
   @DeleteMapping(value = "/{personGuardianId}/attachments/{attachmentId}", version = Version.V1)
@@ -194,6 +199,6 @@ public class GuardianDependentController {
   private UUID currentPersonId(final Authentication authentication) {
     institutionalCallerGuard.ensureInstitutionalPrincipal(authentication);
 
-    return ((JwtAuthenticatedUser) requireNonNull(authentication.getPrincipal())).actorPersonId();
+    return CurrentPrincipal.requireInstitutionalUser(authentication).actorPersonId();
   }
 }

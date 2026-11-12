@@ -1,16 +1,16 @@
 package ar.edu.utn.frvm.typeit.bemol_api.institutional.services;
 
-import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditAction;
-import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditEntityType;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditOrigin;
+import ar.edu.utn.frvm.typeit.bemol_api.audit.services.AuditChangeDetails;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.services.AuditEventRecorder;
+import ar.edu.utn.frvm.typeit.bemol_api.institutional.audit.InstitutionalAuditAction;
+import ar.edu.utn.frvm.typeit.bemol_api.institutional.entities.Institution;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.exceptions.InstitutionNotFoundException;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.exceptions.InvalidPublicSubdomainException;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.exceptions.PublicSubdomainAlreadyExistsException;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.interfaces.InstitutionRepository;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.payloads.InstitutionDetailResponse;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.validation.PublicSubdomainPolicy;
-import java.util.Map;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.hibernate.exception.ConstraintViolationException;
@@ -33,7 +33,7 @@ public class UpdateInstitutionPublicAccessUseCase {
     if (name != null && institutions.existsByPublicSubdomainAndIdNot(name, id)) {
       throw new PublicSubdomainAlreadyExistsException();
     }
-    final var before = InstitutionAuditDetails.publicAccess(institution);
+    final var before = institution.publicAccessAuditSnapshot();
     institution.changePublicSubdomain(name);
     try {
       institutions.saveAndFlush(institution);
@@ -52,16 +52,16 @@ public class UpdateInstitutionPublicAccessUseCase {
       }
       throw exception;
     }
-    final var after = InstitutionAuditDetails.publicAccess(institution);
+    final var after = institution.publicAccessAuditSnapshot();
     if (!before.equals(after)) {
       auditEventRecorder.recordCurrentActor(
           institution,
           null,
-          AuditAction.INSTITUTION_PUBLIC_ACCESS_CHANGED,
-          AuditEntityType.INSTITUTION,
+          InstitutionalAuditAction.INSTITUTION_PUBLIC_ACCESS_CHANGED,
+          Institution.AUDIT_TYPE,
           id,
           AuditOrigin.administration(),
-          Map.of("entityName", institution.getName(), "before", before, "after", after));
+          AuditChangeDetails.change(institution.getName(), before, after));
     }
     return InstitutionDetailResponse.from(institution);
   }

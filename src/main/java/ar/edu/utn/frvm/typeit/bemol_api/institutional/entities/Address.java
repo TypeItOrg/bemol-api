@@ -1,5 +1,7 @@
 package ar.edu.utn.frvm.typeit.bemol_api.institutional.entities;
 
+import ar.edu.utn.frvm.typeit.bemol_api.audit.snapshot.AuditSnapshot;
+import ar.edu.utn.frvm.typeit.bemol_api.audit.snapshot.AuditSubject;
 import ar.edu.utn.frvm.typeit.bemol_api.common.persistence.Auditable;
 import ar.edu.utn.frvm.typeit.bemol_api.common.persistence.GeneratedUUIDv7;
 import jakarta.persistence.Column;
@@ -10,6 +12,8 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.UUID;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
@@ -29,7 +33,7 @@ import org.jspecify.annotations.Nullable;
 @NoArgsConstructor
 @AllArgsConstructor(access = AccessLevel.PRIVATE)
 @Builder
-public class Address extends Auditable {
+public class Address extends Auditable implements AuditSubject {
 
   @Id
   @GeneratedUUIDv7
@@ -97,5 +101,35 @@ public class Address extends Auditable {
     this.apartment = apartment;
     this.neighborhood = neighborhood;
     this.additionalInfo = additionalInfo;
+  }
+
+  @Override
+  public AuditSnapshot.Snapshot auditSnapshot() {
+    final Map<String, Object> values = new LinkedHashMap<>();
+    values.put("city", city == null ? null : city.getId());
+    values.put("street", street);
+    values.put("number", number);
+    values.put("floor", floor);
+    values.put("apartment", apartment);
+    values.put("neighborhood", neighborhood);
+    values.put("additionalInfo", additionalInfo);
+    return new AuditSnapshot.Snapshot(
+        values,
+        Map.of(),
+        Map.of(
+            "city",
+            "Ciudad",
+            "street",
+            "Calle",
+            "number",
+            "Número de domicilio",
+            "floor",
+            "Piso",
+            "apartment",
+            "Departamento",
+            "neighborhood",
+            "Barrio",
+            "additionalInfo",
+            "Información adicional"));
   }
 }

@@ -6,7 +6,6 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -23,10 +22,10 @@ import ar.edu.utn.frvm.typeit.bemol_api.authorization.services.AuthorizationServ
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.services.InitialRoleAssignmentGuard;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.services.InstitutionalCallerGuard;
 import ar.edu.utn.frvm.typeit.bemol_api.common.exceptions.GlobalExceptionHandler;
+import ar.edu.utn.frvm.typeit.bemol_api.common.storage.PresignedDownloadResponse;
 import ar.edu.utn.frvm.typeit.bemol_api.config.WebConfig;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.entities.GuardianLinkStatus;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.entities.GuardianRelationship;
-import ar.edu.utn.frvm.typeit.bemol_api.institutional.entities.PersonGuardianAttachment;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.exceptions.GuardianLinkAlreadyResolvedException;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.payloads.guardian.GuardianLinkAttachmentResponse;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.payloads.guardian.GuardianLinkReviewResponse;
@@ -47,8 +46,6 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.EnableAspectJAutoProxy;
 import org.springframework.context.annotation.Import;
-import org.springframework.core.io.ByteArrayResource;
-import org.springframework.http.MediaType;
 import org.springframework.security.authentication.TestingAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.AuthenticationEntryPoint;
@@ -201,13 +198,8 @@ class GuardianLinkReviewControllerWebMvcTest {
                     Instant.parse("2026-09-24T12:00:00Z"))));
     when(guardianLinkAttachmentService.content(INSTITUTION_ID, null, LINK_ID, ATTACHMENT_ID))
         .thenReturn(
-            new GuardianLinkAttachmentService.Content(
-                new ByteArrayResource("%PDF-1.4".getBytes()),
-                PersonGuardianAttachment.builder()
-                    .originalFileName("partida.pdf")
-                    .contentType("application/pdf")
-                    .fileSize(8)
-                    .build()));
+            new PresignedDownloadResponse(
+                "https://r2.example/get", Instant.parse("2026-09-24T12:05:00Z")));
 
     mockMvc
         .perform(get(BASE_PATH + "/{linkId}/attachments", INSTITUTION_ID, LINK_ID).principal(auth))
@@ -222,7 +214,7 @@ class GuardianLinkReviewControllerWebMvcTest {
                     ATTACHMENT_ID)
                 .principal(auth))
         .andExpect(status().isOk())
-        .andExpect(content().contentType(MediaType.APPLICATION_PDF));
+        .andExpect(jsonPath("$.url").value("https://r2.example/get"));
   }
 
   @Test

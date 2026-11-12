@@ -1,7 +1,6 @@
 package ar.edu.utn.frvm.typeit.bemol_api.institutional.controllers;
 
-import static java.util.Objects.requireNonNull;
-
+import ar.edu.utn.frvm.typeit.bemol_api.auth.filters.CurrentPrincipal;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.filters.JwtAuthenticatedUser;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.RequiresInstitutionAccess;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.services.InstitutionalCallerGuard;
@@ -97,6 +96,6 @@ public class OperatingProfileController {
 
   private JwtAuthenticatedUser actor(Authentication authentication) {
     callers.ensureInstitutionalPrincipal(authentication);
-    return (JwtAuthenticatedUser) requireNonNull(authentication.getPrincipal());
+    return CurrentPrincipal.requireInstitutionalUser(authentication);
   }
 }

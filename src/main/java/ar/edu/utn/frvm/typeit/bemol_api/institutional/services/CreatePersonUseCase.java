@@ -1,12 +1,13 @@
 package ar.edu.utn.frvm.typeit.bemol_api.institutional.services;
 
-import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditAction;
-import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditEntityType;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditOrigin;
+import ar.edu.utn.frvm.typeit.bemol_api.audit.services.AuditChangeDetails;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.services.AuditEventRecorder;
+import ar.edu.utn.frvm.typeit.bemol_api.audit.snapshot.AuditSnapshot;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.enums.SystemRoleCode;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.services.AssignPersonSystemRoleUseCase;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.services.InitialRoleAssignmentGuard;
+import ar.edu.utn.frvm.typeit.bemol_api.institutional.audit.InstitutionalAuditAction;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.entities.Institution;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.entities.Person;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.exceptions.CountryNotFoundException;
@@ -19,7 +20,6 @@ import ar.edu.utn.frvm.typeit.bemol_api.institutional.payloads.person.CreatePers
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.payloads.person.PersonResponse;
 import jakarta.validation.ConstraintViolationException;
 import jakarta.validation.Validator;
-import java.util.Map;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -96,22 +96,16 @@ public class CreatePersonUseCase {
     assignPersonSystemRoleUseCase.execute(person, role);
     accounts.invite(institutionId, person.getId(), request.email());
 
+    final var details =
+        AuditChangeDetails.change("Persona", AuditSnapshot.empty(), person.auditSnapshot(role));
     auditEventRecorder.recordCurrentActor(
         institution,
         person.getId(),
-        AuditAction.PERSON_CREATED,
-        AuditEntityType.PERSON,
+        InstitutionalAuditAction.PERSON_CREATED,
+        Person.AUDIT_TYPE,
         person.getId(),
         AuditOrigin.administration(),
-        Map.of(
-            "initialRole",
-            role.name(),
-            "emailVerificationRequired",
-            true,
-            "emailVerificationStatus",
-            "PENDING",
-            "personCreated",
-            true));
+        details);
 
     return PersonResponse.from(person);
   }

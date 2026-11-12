@@ -1,15 +1,17 @@
 package ar.edu.utn.frvm.typeit.bemol_api.institutional.services;
 
-import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditAction;
-import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditEntityType;
+import ar.edu.utn.frvm.typeit.bemol_api.audit.definition.AuditOperation;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditOrigin;
+import ar.edu.utn.frvm.typeit.bemol_api.audit.services.AuditChangeDetails;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.services.AuditEventRecorder;
+import ar.edu.utn.frvm.typeit.bemol_api.audit.snapshot.AuditSnapshot;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.services.AccountAccessAuthorization;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.services.PersonOwnAccessService;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.enums.PermissionCode;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.enums.SystemRoleCode;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.services.AssignPersonSystemRoleUseCase;
 import ar.edu.utn.frvm.typeit.bemol_api.common.validation.ValidationMessages;
+import ar.edu.utn.frvm.typeit.bemol_api.institutional.audit.InstitutionalAuditAction;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.entities.GuardianLinkStatus;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.entities.Person;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.entities.PersonGuardian;
@@ -27,7 +29,6 @@ import ar.edu.utn.frvm.typeit.bemol_api.institutional.payloads.guardian.Guardian
 import jakarta.validation.ConstraintViolationException;
 import jakarta.validation.Validator;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -79,12 +80,13 @@ public class ResolveGuardianLinkUseCase {
         || actorPersonId.equals(link.getTutorPerson().getId())) {
       throw new OwnAccessException(InstitutionMessages.GUARDIAN_SELF_APPROVAL_FORBIDDEN);
     }
+    final var before = link.auditSnapshot();
     materialize(link, reviewerPersonId, confirmedPersonId);
     link.approve(reviewer);
     ownAccess.applyRequestedAccess(link);
     assignPersonSystemRoleUseCase.executePreservingRoles(
         link.getDependentPerson(), SystemRoleCode.APPLICANT);
-    audit(link, reviewer, AuditAction.GUARDIAN_LINK_APPROVED);
+    audit(link, reviewer, InstitutionalAuditAction.GUARDIAN_LINK_APPROVED, before);
 
     return GuardianLinkReviewResponse.from(link);
   }
@@ -97,8 +99,9 @@ public class ResolveGuardianLinkUseCase {
     final Person reviewer = findReviewer(institutionId, reviewerPersonId);
 
     access.requirePermission(institutionId, reviewerPersonId, PermissionCode.GUARDIAN_LINK_REVIEW);
+    final var before = link.auditSnapshot();
     link.reject(reviewer);
-    audit(link, reviewer, AuditAction.GUARDIAN_LINK_REJECTED);
+    audit(link, reviewer, InstitutionalAuditAction.GUARDIAN_LINK_REJECTED, before);
 
     return GuardianLinkReviewResponse.from(link);
   }
@@ -115,12 +118,13 @@ public class ResolveGuardianLinkUseCase {
     access.requirePlatformAdministration();
     institutions.findByIdForUpdate(institutionId).orElseThrow(InstitutionNotFoundException::new);
     final PersonGuardian link = findLink(institutionId, linkId);
+    final var before = link.auditSnapshot();
     materialize(link, null, confirmedPersonId);
     link.approve(null);
     ownAccess.applyRequestedAccess(link);
     assignPersonSystemRoleUseCase.executePreservingRoles(
         link.getDependentPerson(), SystemRoleCode.APPLICANT);
-    audit(link, null, AuditAction.GUARDIAN_LINK_APPROVED);
+    audit(link, null, InstitutionalAuditAction.GUARDIAN_LINK_APPROVED, before);
 
     return GuardianLinkReviewResponse.from(link);
   }
@@ -131,8 +135,9 @@ public class ResolveGuardianLinkUseCase {
     institutions.findByIdForUpdate(institutionId).orElseThrow(InstitutionNotFoundException::new);
     final PersonGuardian link = findLink(institutionId, linkId);
 
+    final var before = link.auditSnapshot();
     link.reject(null);
-    audit(link, null, AuditAction.GUARDIAN_LINK_REJECTED);
+    audit(link, null, InstitutionalAuditAction.GUARDIAN_LINK_REJECTED, before);
 
     return GuardianLinkReviewResponse.from(link);
   }
@@ -195,11 +200,12 @@ public class ResolveGuardianLinkUseCase {
       auditEventRecorder.recordCurrentActor(
           link.getInstitution(),
           person.getId(),
-          AuditAction.PERSON_CREATED,
-          AuditEntityType.PERSON,
+          InstitutionalAuditAction.PERSON_CREATED,
+          Person.AUDIT_TYPE,
           person.getId(),
           AuditOrigin.administration(),
-          Map.of("hasAccount", false));
+          AuditChangeDetails.change(
+              "Persona", AuditSnapshot.empty(), person.auditSnapshotWithoutAccount()));
     }
     if (personGuardianRepository
         .existsByInstitution_IdAndTutorPerson_IdAndDependentPerson_IdAndStatusIn(
@@ -226,16 +232,19 @@ public class ResolveGuardianLinkUseCase {
   }
 
   private void audit(
-      final PersonGuardian link, final @Nullable Person reviewer, final AuditAction action) {
+      final PersonGuardian link,
+      final @Nullable Person reviewer,
+      final AuditOperation action,
+      final AuditSnapshot.Snapshot before) {
     auditEventRecorder.recordCurrentActor(
         link.getInstitution(),
         link.getDependentPersonId(),
         action,
-        AuditEntityType.PERSON_GUARDIAN,
+        PersonGuardian.AUDIT_TYPE,
         link.getId(),
         reviewer == null
             ? AuditOrigin.PLATFORM_ADMINISTRATION
             : AuditOrigin.INSTITUTIONAL_ADMINISTRATION,
-        Map.of());
+        AuditChangeDetails.change("Vinculación", before, link.auditSnapshot()));
   }
 }

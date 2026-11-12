@@ -2,11 +2,11 @@ package ar.edu.utn.frvm.typeit.bemol_api.institutional.services;
 
 import static java.util.Objects.requireNonNull;
 
-import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditAction;
-import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditEntityType;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditOrigin;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.services.AuditChangeDetails;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.services.AuditEventRecorder;
+import ar.edu.utn.frvm.typeit.bemol_api.audit.snapshot.AuditSnapshot;
+import ar.edu.utn.frvm.typeit.bemol_api.auth.audit.AuthAuditAction;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.entities.User;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.exceptions.InvalidCredentialsException;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.exceptions.InvalidCurrentPasswordException;
@@ -14,6 +14,7 @@ import ar.edu.utn.frvm.typeit.bemol_api.auth.filters.JwtAuthenticatedUser;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.interfaces.PersonAccessInvitationRepository;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.interfaces.UserRepository;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.services.SessionRevocationService;
+import ar.edu.utn.frvm.typeit.bemol_api.institutional.audit.InstitutionalAuditAction;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.entities.Address;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.entities.Person;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.exceptions.CityNotFoundException;
@@ -32,9 +33,9 @@ import ar.edu.utn.frvm.typeit.bemol_api.institutional.payloads.person.UpdatePers
 import jakarta.validation.ConstraintViolationException;
 import jakarta.validation.Validator;
 import java.time.Clock;
-import java.util.Map;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
+import org.jspecify.annotations.Nullable;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -73,12 +74,14 @@ public class UpdatePersonUseCase {
                 : personRepository.findByIdAndInstitution_Id(
                     principal.personId(), principal.institutionId()))
             .orElseThrow(PersonNotFoundException::new);
-    if ((request.firstName() != null && !request.firstName().equals(person.getFirstName()))
-        || (request.lastName() != null && !request.lastName().equals(person.getLastName()))
-        || (request.birthDate() != null && !request.birthDate().equals(person.getBirthDate()))) {
+    final boolean identityChanged =
+        changes(request.firstName(), person.getFirstName())
+            || changes(request.lastName(), person.getLastName())
+            || changes(request.birthDate(), person.getBirthDate());
+    if (identityChanged) {
       throw new OwnAccessException(InstitutionMessages.VERIFIED_IDENTITY_ADMIN_ONLY);
     }
-    if (request.email() != null && !request.email().equals(person.getEmail())) {
+    if (changes(request.email(), person.getEmail())) {
       if (!principal.delegated()
           || userRepository
               .findByPerson_IdAndInstitution_Id(principal.personId(), principal.institutionId())
@@ -87,7 +90,7 @@ public class UpdatePersonUseCase {
       }
       operatingContextResolver.requireAccessible(
           principal.institutionId(), principal.personId(), principal);
-      if (request.email().isBlank()) {
+      if (request.email() == null || request.email().isBlank()) {
         throw new OwnAccessException(InstitutionMessages.OWN_ACCESS_EMAIL_REQUIRED);
       }
       accessInvitationRepository
@@ -97,7 +100,7 @@ public class UpdatePersonUseCase {
     if (request.password() != null && !request.password().isEmpty() && principal.delegated()) {
       throw new InvalidCurrentPasswordException();
     }
-    final var before = PersonAuditDetails.snapshot(person);
+    final var before = AuditSnapshot.of(person);
     final String password = request.password();
     final Optional<User> passwordUser = verifyCurrentPassword(principal, request);
 
@@ -159,13 +162,13 @@ public class UpdatePersonUseCase {
 
     assertPersonValid(person);
     personRepository.save(person);
-    final var after = PersonAuditDetails.snapshot(person);
-    if (!before.equals(after)) {
+    final var after = AuditSnapshot.of(person);
+    if (!before.values().equals(after.values())) {
       auditRecorder.recordCurrentActor(
           person.getInstitution(),
           person.getId(),
-          AuditAction.PERSON_UPDATED,
-          AuditEntityType.PERSON,
+          InstitutionalAuditAction.PERSON_UPDATED,
+          Person.AUDIT_TYPE,
           person.getId(),
           AuditOrigin.SELF_SERVICE,
           AuditChangeDetails.change("Persona", before, after));
@@ -173,16 +176,18 @@ public class UpdatePersonUseCase {
 
     passwordUser.ifPresent(
         user -> {
+          final var passwordBefore = user.passwordAuditSnapshot();
           user.changePassword(requireNonNull(passwordEncoder.encode(password)));
           userRepository.save(user);
           auditRecorder.recordCurrentActor(
               user.getInstitution(),
               person.getId(),
-              AuditAction.PASSWORD_CHANGED,
-              AuditEntityType.USER,
+              AuthAuditAction.PASSWORD_CHANGED,
+              User.AUDIT_TYPE,
               user.getId(),
               AuditOrigin.SELF_SERVICE,
-              Map.of());
+              AuditChangeDetails.change(
+                  "Cuenta institucional", passwordBefore, user.passwordAuditSnapshot()));
           sessionRevocationService.revokeInstitutionalSessionsForUser(user.getId());
         });
 
@@ -190,6 +195,10 @@ public class UpdatePersonUseCase {
         .findWithDetailsByIdAndInstitution_Id(principal.personId(), principal.institutionId())
         .map(PersonResponse::from)
         .orElseThrow(PersonNotFoundException::new);
+  }
+
+  private static boolean changes(final @Nullable Object requested, final @Nullable Object current) {
+    return requested != null && !requested.equals(current);
   }
 
   private void assertPersonValid(final Person person) {

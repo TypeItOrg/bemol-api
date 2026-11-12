@@ -1,5 +1,8 @@
 package ar.edu.utn.frvm.typeit.bemol_api.institutional.entities;
 
+import ar.edu.utn.frvm.typeit.bemol_api.audit.definition.AuditResource;
+import ar.edu.utn.frvm.typeit.bemol_api.audit.snapshot.AuditSnapshot;
+import ar.edu.utn.frvm.typeit.bemol_api.audit.snapshot.AuditSubject;
 import ar.edu.utn.frvm.typeit.bemol_api.common.persistence.Auditable;
 import ar.edu.utn.frvm.typeit.bemol_api.common.persistence.GeneratedUUIDv7;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.validation.PublicSubdomainPolicy;
@@ -17,8 +20,6 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import org.hibernate.annotations.DynamicUpdate;
-import org.hibernate.envers.Audited;
-import org.hibernate.envers.RelationTargetAuditMode;
 import org.jspecify.annotations.Nullable;
 
 @DynamicUpdate
@@ -28,7 +29,8 @@ import org.jspecify.annotations.Nullable;
 @NoArgsConstructor
 @AllArgsConstructor(access = AccessLevel.PRIVATE)
 @Builder
-public class Institution extends Auditable {
+public class Institution extends Auditable implements AuditSubject {
+  public static final AuditResource AUDIT_TYPE = new AuditResource("INSTITUTION", "Institución");
 
   @Id
   @GeneratedUUIDv7
@@ -37,34 +39,27 @@ public class Institution extends Auditable {
 
   @ManyToOne(fetch = FetchType.LAZY, optional = false)
   @JoinColumn(name = "city_id", nullable = false)
-  @Audited(targetAuditMode = RelationTargetAuditMode.NOT_AUDITED)
   private City city;
 
   @Column(nullable = false)
-  @Audited
   private String name;
 
   @Column(name = "short_name", length = 50)
-  @Audited
   private @Nullable String shortName;
 
   @Column(name = "public_subdomain", length = 63)
-  @Audited
   private @Nullable String publicSubdomain;
 
   @Column(name = "logo_key")
   private @Nullable String logoKey;
 
   @Column(name = "logo_content_type", length = 32)
-  @Audited
   private @Nullable String logoContentType;
 
   @Column(name = "logo_version", length = 36)
-  @Audited
   private @Nullable String logoVersion;
 
   @Column(name = "logo_size")
-  @Audited
   private @Nullable Long logoSize;
 
   private @Nullable String street;
@@ -85,7 +80,6 @@ public class Institution extends Auditable {
 
   @Column(nullable = false)
   @Builder.Default
-  @Audited
   private boolean active = true;
 
   public void changePublicSubdomain(final @Nullable String publicSubdomain) {
@@ -141,5 +135,40 @@ public class Institution extends Auditable {
 
     this.active = active;
     return true;
+  }
+
+  @Override
+  public AuditSnapshot.Snapshot auditSnapshot() {
+    return AuditSnapshot.fields()
+        .expose("name", "Nombre", name)
+        .expose("shortName", "Nombre corto", shortName)
+        .compare("cityId", "Ciudad", city.getId())
+        .expose("cityName", "Ciudad", city.getName())
+        .compare("street", "Calle", street)
+        .compare("number", "Número de domicilio", number)
+        .compare("neighborhood", "Barrio", neighborhood)
+        .compare("additionalInfo", "Información adicional", additionalInfo)
+        .compare("phoneNumber", "Teléfono", phoneNumber)
+        .compare("email", "Correo electrónico", email)
+        .expose("active", "Estado", active)
+        .build();
+  }
+
+  public AuditSnapshot.Snapshot publicAccessAuditSnapshot() {
+    return AuditSnapshot.fields()
+        .expose("publicSubdomain", "Subdominio público", publicSubdomain)
+        .build();
+  }
+
+  public AuditSnapshot.Snapshot logoAuditSnapshot() {
+    return AuditSnapshot.fields()
+        .expose("logoPresent", "Logo configurado", logoKey != null)
+        .expose("contentType", "Formato del archivo", logoContentType)
+        .expose("size", "Tamaño del archivo", logoSize)
+        .build();
+  }
+
+  public AuditSnapshot.Snapshot statusAuditSnapshot() {
+    return AuditSnapshot.fields().expose("active", "Estado", active).build();
   }
 }

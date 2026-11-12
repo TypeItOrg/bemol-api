@@ -20,8 +20,6 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-import org.hibernate.envers.Audited;
-import org.hibernate.envers.RelationTargetAuditMode;
 
 @Entity
 @Table(
@@ -51,12 +49,10 @@ public class Student extends Auditable {
 
   @ManyToOne(fetch = FetchType.LAZY, optional = false)
   @JoinColumn(name = "institution_id", nullable = false)
-  @Audited(targetAuditMode = RelationTargetAuditMode.NOT_AUDITED)
   private Institution institution;
 
   @ManyToOne(fetch = FetchType.LAZY, optional = false)
   @JoinColumn(name = "person_id", nullable = false)
-  @Audited(targetAuditMode = RelationTargetAuditMode.NOT_AUDITED)
   private Person person;
 
   @Column(name = "file_number", length = 50)
@@ -65,10 +61,8 @@ public class Student extends Auditable {
   @Enumerated(EnumType.STRING)
   @Column(nullable = false, length = 30)
   @Builder.Default
-  @Audited
   private StudentStatus status = StudentStatus.ACTIVE;
 
   @Column(name = "enrollment_date", nullable = false)
-  @Audited
   private LocalDate enrollmentDate;
 }

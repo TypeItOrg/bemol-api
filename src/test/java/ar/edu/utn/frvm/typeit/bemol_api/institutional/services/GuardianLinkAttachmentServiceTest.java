@@ -3,6 +3,7 @@ package ar.edu.utn.frvm.typeit.bemol_api.institutional.services;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -21,10 +22,12 @@ import ar.edu.utn.frvm.typeit.bemol_api.institutional.exceptions.GuardianLinkAtt
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.exceptions.GuardianLinkNotFoundException;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.interfaces.PersonGuardianAttachmentRepository;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.interfaces.PersonGuardianRepository;
+import ar.edu.utn.frvm.typeit.bemol_api.institutional.payloads.guardian.ConfirmGuardianAttachmentUploadRequest;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.payloads.guardian.GuardianLinkAttachmentResponse;
-import ar.edu.utn.frvm.typeit.bemol_api.support.EnrollmentDocumentTestData;
-import java.io.IOException;
+import ar.edu.utn.frvm.typeit.bemol_api.institutional.payloads.guardian.PresignGuardianAttachmentUploadRequest;
+import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
@@ -34,8 +37,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.core.io.ByteArrayResource;
-import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 @ExtendWith(MockitoExtension.class)
@@ -50,12 +51,12 @@ class GuardianLinkAttachmentServiceTest {
   private Person tutor;
   private PersonGuardian link;
   private final UUID linkId = UUID.randomUUID();
-  private MockMultipartFile file;
+  private final PresignGuardianAttachmentUploadRequest presignRequest =
+      new PresignGuardianAttachmentUploadRequest("partida.pdf", "application/pdf", 1024L);
 
   @BeforeEach
-  void setUp() throws IOException {
+  void setUp() {
     TransactionSynchronizationManager.initSynchronization();
-    file = EnrollmentDocumentTestData.pdf("partida.pdf");
     service =
         new GuardianLinkAttachmentService(
             personGuardianRepository,
@@ -94,27 +95,50 @@ class GuardianLinkAttachmentServiceTest {
             "Pendiente",
             java.time.LocalDate.of(2018, 1, 1));
     assertThat(link.getDependentPersonId()).isNull();
+    when(personGuardianRepository.findByIdAndInstitution_Id(linkId, institution.getId()))
+        .thenReturn(Optional.of(link));
     when(personGuardianRepository.findForUpdate(linkId, institution.getId()))
         .thenReturn(Optional.of(link));
     when(attachmentRepository.countByPersonGuardian(link)).thenReturn(0L);
+    when(storage.presignUpload(any(), eq("application/pdf"), eq(1024L), any()))
+        .thenReturn(
+            new StorageService.PresignedUpload(
+                "https://r2.example/put",
+                Instant.parse("2026-09-24T12:10:00Z"),
+                Map.of("Content-Type", "application/pdf")));
+
+    final var presigned =
+        service.presignUpload(institution.getId(), tutor.getId(), linkId, presignRequest);
+    assertThat(presigned.uploadUrl()).isEqualTo("https://r2.example/put");
+
+    when(storage.headObject(presigned.storageKey()))
+        .thenReturn(new StorageService.ObjectMetadata("application/pdf", 1024L));
     when(attachmentRepository.saveAndFlush(any(PersonGuardianAttachment.class)))
         .thenAnswer(invocation -> invocation.getArgument(0));
 
     final GuardianLinkAttachmentResponse response =
-        service.upload(institution.getId(), tutor.getId(), linkId, file);
+        service.confirmUpload(
+            institution.getId(),
+            tutor.getId(),
+            linkId,
+            new ConfirmGuardianAttachmentUploadRequest(
+                presigned.storageKey(), "partida.pdf", "application/pdf", 1024L));
 
     assertThat(response.originalFileName()).isEqualTo("partida.pdf");
-    assertThat(response.size()).isEqualTo(file.getSize());
+    assertThat(response.size()).isEqualTo(1024L);
     assertThat(response.contentType()).isEqualTo("application/pdf");
   }
 
   @Test
   @DisplayName("Should not reveal the link to a tutor who does not own it")
   void upload_failsForAnotherTutor() {
-    when(personGuardianRepository.findForUpdate(linkId, institution.getId()))
+    when(personGuardianRepository.findByIdAndInstitution_Id(linkId, institution.getId()))
         .thenReturn(Optional.of(link));
 
-    assertThatThrownBy(() -> service.upload(institution.getId(), UUID.randomUUID(), linkId, file))
+    assertThatThrownBy(
+            () ->
+                service.presignUpload(
+                    institution.getId(), UUID.randomUUID(), linkId, presignRequest))
         .isInstanceOf(GuardianLinkNotFoundException.class);
     verifyNoInteractions(storage);
   }
@@ -123,10 +147,11 @@ class GuardianLinkAttachmentServiceTest {
   @DisplayName("Should only accept documents while the link is pending")
   void upload_failsOnceResolved() {
     link.approve(Person.builder().id(UUID.randomUUID()).build());
-    when(personGuardianRepository.findForUpdate(linkId, institution.getId()))
+    when(personGuardianRepository.findByIdAndInstitution_Id(linkId, institution.getId()))
         .thenReturn(Optional.of(link));
 
-    assertThatThrownBy(() -> service.upload(institution.getId(), tutor.getId(), linkId, file))
+    assertThatThrownBy(
+            () -> service.presignUpload(institution.getId(), tutor.getId(), linkId, presignRequest))
         .isInstanceOf(GuardianLinkAlreadyResolvedException.class);
     verifyNoInteractions(storage);
   }
@@ -134,12 +159,13 @@ class GuardianLinkAttachmentServiceTest {
   @Test
   @DisplayName("Should cap the number of documents per request")
   void upload_failsWhenLimitReached() {
-    when(personGuardianRepository.findForUpdate(linkId, institution.getId()))
+    when(personGuardianRepository.findByIdAndInstitution_Id(linkId, institution.getId()))
         .thenReturn(Optional.of(link));
     when(attachmentRepository.countByPersonGuardian(link))
         .thenReturn((long) GuardianLinkAttachmentService.MAX_ATTACHMENTS);
 
-    assertThatThrownBy(() -> service.upload(institution.getId(), tutor.getId(), linkId, file))
+    assertThatThrownBy(
+            () -> service.presignUpload(institution.getId(), tutor.getId(), linkId, presignRequest))
         .isInstanceOf(InvalidFileException.class);
     verifyNoInteractions(storage);
   }
@@ -181,20 +207,25 @@ class GuardianLinkAttachmentServiceTest {
   }
 
   @Test
-  @DisplayName("Should serve the stored content of a document")
+  @DisplayName("Should serve a presigned download URL for a document")
   void content_returnsStoredResource() {
     final PersonGuardianAttachment attachment = attachment();
-    final ByteArrayResource resource = new ByteArrayResource("%PDF".getBytes());
+    final var expiresAt = Instant.parse("2026-09-24T12:05:00Z");
     when(personGuardianRepository.findByIdAndInstitution_Id(linkId, institution.getId()))
         .thenReturn(Optional.of(link));
     when(attachmentRepository.findByIdAndPersonGuardian(attachment.getId(), link))
         .thenReturn(Optional.of(attachment));
-    when(storage.loadAsResource(attachment.getStoragePath())).thenReturn(resource);
+    when(storage.presignDownload(
+            eq(attachment.getStoragePath()),
+            eq(attachment.getContentType()),
+            eq(attachment.getOriginalFileName()),
+            any()))
+        .thenReturn(new StorageService.PresignedDownload("https://r2.example/get", expiresAt));
 
     final var content = service.content(institution.getId(), null, linkId, attachment.getId());
 
-    assertThat(content.resource()).isSameAs(resource);
-    assertThat(content.attachment()).isSameAs(attachment);
+    assertThat(content.url()).isEqualTo("https://r2.example/get");
+    assertThat(content.expiresAt()).isEqualTo(expiresAt);
   }
 
   @Test

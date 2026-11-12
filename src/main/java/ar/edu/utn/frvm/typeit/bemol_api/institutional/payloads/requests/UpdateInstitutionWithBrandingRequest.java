@@ -12,7 +12,15 @@ public record UpdateInstitutionWithBrandingRequest(
     @Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true)
         @JsonProperty(value = "publicSubdomain", required = true)
         @Nullable String publicSubdomain,
-    @Schema(requiredMode = Schema.RequiredMode.REQUIRED) @NotNull LogoIntent logoIntent) {
+    @Schema(requiredMode = Schema.RequiredMode.REQUIRED) @NotNull LogoIntent logoIntent,
+    @Schema(nullable = true) @Valid @Nullable ConfirmInstitutionLogoUploadRequest logo) {
+  public UpdateInstitutionWithBrandingRequest(
+      final UpdateInstitutionRequest institution,
+      final @Nullable String publicSubdomain,
+      final LogoIntent logoIntent) {
+    this(institution, publicSubdomain, logoIntent, null);
+  }
+
   public enum LogoIntent {
     KEEP,
     REPLACE,

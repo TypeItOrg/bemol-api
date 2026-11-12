@@ -1,12 +1,13 @@
 package ar.edu.utn.frvm.typeit.bemol_api.institutional.services;
 
-import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditAction;
-import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditEntityType;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditOrigin;
+import ar.edu.utn.frvm.typeit.bemol_api.audit.services.AuditChangeDetails;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.services.AuditEventRecorder;
+import ar.edu.utn.frvm.typeit.bemol_api.audit.snapshot.AuditSnapshot;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.services.AccountAccessAuthorization;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.services.AccountActionRateLimiter;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.enums.PermissionCode;
+import ar.edu.utn.frvm.typeit.bemol_api.institutional.audit.InstitutionalAuditAction;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.entities.PersonGuardian;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.exceptions.CannotGuardianSelfException;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.exceptions.CountryNotFoundException;
@@ -23,7 +24,6 @@ import ar.edu.utn.frvm.typeit.bemol_api.institutional.payloads.guardian.Guardian
 import jakarta.validation.ConstraintViolationException;
 import jakarta.validation.Validator;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -103,11 +103,12 @@ public class RegisterGuardianDependentUseCase {
     auditEventRecorder.recordCurrentActor(
         institution,
         null,
-        AuditAction.GUARDIAN_LINK_REQUESTED,
-        AuditEntityType.PERSON_GUARDIAN,
+        InstitutionalAuditAction.GUARDIAN_LINK_REQUESTED,
+        PersonGuardian.AUDIT_TYPE,
         link.getId(),
         AuditOrigin.SELF_SERVICE,
-        Map.of());
+        AuditChangeDetails.change(
+            "Solicitud de vinculación", AuditSnapshot.empty(), link.auditSnapshot()));
     return GuardianDependentResponse.from(link, 0, List.of());
   }
 }

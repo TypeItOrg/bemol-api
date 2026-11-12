@@ -1,7 +1,6 @@
 package ar.edu.utn.frvm.typeit.bemol_api.institutional.controllers;
 
-import static java.util.Objects.requireNonNull;
-
+import ar.edu.utn.frvm.typeit.bemol_api.auth.filters.CurrentPrincipal;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.filters.JwtAuthenticatedUser;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.RequiresInstitutionAccess;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.RequiresPermission;
@@ -119,8 +118,7 @@ public class PeopleController {
       @PathVariable final UUID personId,
       @RequestBody final UpdateUserStatusRequest request,
       final Authentication authentication) {
-    final JwtAuthenticatedUser actor =
-        (JwtAuthenticatedUser) requireNonNull(authentication.getPrincipal());
+    final JwtAuthenticatedUser actor = CurrentPrincipal.requireInstitutionalUser(authentication);
     updateInstitutionalUserStatusUseCase.execute(
         institutionId, actor.actorPersonId(), personId, request.enabled());
   }

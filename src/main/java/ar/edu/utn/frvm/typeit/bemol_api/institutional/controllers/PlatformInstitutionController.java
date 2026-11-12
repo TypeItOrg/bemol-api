@@ -7,11 +7,14 @@ import ar.edu.utn.frvm.typeit.bemol_api.common.web.Version;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.payloads.InstitutionAdminDetailResponse;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.payloads.InstitutionAdminListItemResponse;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.payloads.InstitutionDetailResponse;
+import ar.edu.utn.frvm.typeit.bemol_api.institutional.payloads.PresignedInstitutionLogoUploadResponse;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.payloads.requests.CreateInstitutionRequest;
+import ar.edu.utn.frvm.typeit.bemol_api.institutional.payloads.requests.PresignInstitutionLogoUploadRequest;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.payloads.requests.UpdateInstitutionStatusRequest;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.payloads.requests.UpdateInstitutionWithBrandingRequest;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.services.CreateInstitutionUseCase;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.services.GetInstitutionAdminUseCase;
+import ar.edu.utn.frvm.typeit.bemol_api.institutional.services.InstitutionLogoUseCase;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.services.ListInstitutionsAdminUseCase;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.services.UpdateInstitutionStatusUseCase;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.services.UpdateInstitutionWithBrandingUseCase;
@@ -19,7 +22,6 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.Size;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
-import org.jspecify.annotations.Nullable;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
@@ -33,10 +35,8 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.multipart.MultipartFile;
 
 @Validated
 @RestController
@@ -50,6 +50,7 @@ public class PlatformInstitutionController {
   private final CreateInstitutionUseCase createInstitutionUseCase;
   private final UpdateInstitutionStatusUseCase updateInstitutionStatusUseCase;
   private final UpdateInstitutionWithBrandingUseCase updateWithBranding;
+  private final InstitutionLogoUseCase logos;
 
   @GetMapping(version = Version.V1)
   public PaginatedResponse<InstitutionAdminListItemResponse> list(
@@ -71,12 +72,18 @@ public class PlatformInstitutionController {
     return createInstitutionUseCase.execute(request);
   }
 
-  @PutMapping(value = "/{id}", version = Version.V1, consumes = "multipart/form-data")
+  @PostMapping(value = "/{id}/logo/upload-url", version = Version.V1)
+  public PresignedInstitutionLogoUploadResponse presignLogoUpload(
+      @PathVariable final UUID id,
+      @Valid @RequestBody final PresignInstitutionLogoUploadRequest request) {
+    return logos.presignUpload(id, request);
+  }
+
+  @PutMapping(value = "/{id}", version = Version.V1)
   public InstitutionDetailResponse updateWithBranding(
       @PathVariable final UUID id,
-      @Valid @RequestPart("data") final UpdateInstitutionWithBrandingRequest request,
-      @RequestPart(value = "file", required = false) final @Nullable MultipartFile file) {
-    return updateWithBranding.execute(id, request, file);
+      @Valid @RequestBody final UpdateInstitutionWithBrandingRequest request) {
+    return updateWithBranding.execute(id, request);
   }
 
   @PatchMapping(value = "/{id}/status", version = Version.V1)

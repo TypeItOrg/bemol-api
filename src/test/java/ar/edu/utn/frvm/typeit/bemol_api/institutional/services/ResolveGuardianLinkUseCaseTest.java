@@ -9,14 +9,14 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
-import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditAction;
-import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditEntityType;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditOrigin;
+import ar.edu.utn.frvm.typeit.bemol_api.audit.services.AuditChangeDetails;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.services.AuditEventRecorder;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.enums.SystemRoleCode;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.services.AssignPersonSystemRoleUseCase;
 import ar.edu.utn.frvm.typeit.bemol_api.common.exceptions.ErrorCategory;
 import ar.edu.utn.frvm.typeit.bemol_api.common.validation.ValidationMessages;
+import ar.edu.utn.frvm.typeit.bemol_api.institutional.audit.InstitutionalAuditAction;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.entities.Country;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.entities.GuardianLinkStatus;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.entities.GuardianRelationship;
@@ -31,7 +31,6 @@ import ar.edu.utn.frvm.typeit.bemol_api.institutional.interfaces.PersonGuardianR
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.interfaces.PersonRepository;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.payloads.guardian.GuardianDependentRequestMode;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.payloads.guardian.GuardianLinkReviewResponse;
-import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
@@ -108,6 +107,7 @@ class ResolveGuardianLinkUseCaseTest {
         PersonGuardian.builder()
             .institution(institution)
             .tutorPerson(link.getTutorPerson())
+            .relationship(GuardianRelationship.MOTHER)
             .declaredDocumentNumber("54123456")
             .declaredNationalityCountry(
                 missingPhone ? Country.builder().name("Argentina").isoCode("ARG").build() : null)
@@ -183,6 +183,7 @@ class ResolveGuardianLinkUseCaseTest {
   void approve_activatesLinkAndGrantsApplicantRole() {
     givenPendingLinkAndReviewer();
 
+    final var before = link.auditSnapshot();
     final GuardianLinkReviewResponse response =
         useCase.approve(institution.getId(), reviewer.getId(), linkId);
 
@@ -197,11 +198,11 @@ class ResolveGuardianLinkUseCaseTest {
         .recordCurrentActor(
             institution,
             link.getDependentPerson().getId(),
-            AuditAction.GUARDIAN_LINK_APPROVED,
-            AuditEntityType.PERSON_GUARDIAN,
+            InstitutionalAuditAction.GUARDIAN_LINK_APPROVED,
+            PersonGuardian.AUDIT_TYPE,
             link.getId(),
             AuditOrigin.INSTITUTIONAL_ADMINISTRATION,
-            Map.of());
+            AuditChangeDetails.change("Vinculación", before, link.auditSnapshot()));
   }
 
   @Test
@@ -227,6 +228,7 @@ class ResolveGuardianLinkUseCaseTest {
   void reject_rejectsLink() {
     givenPendingLinkAndReviewer();
 
+    final var before = link.auditSnapshot();
     final GuardianLinkReviewResponse response =
         useCase.reject(institution.getId(), reviewer.getId(), linkId);
 
@@ -237,11 +239,11 @@ class ResolveGuardianLinkUseCaseTest {
         .recordCurrentActor(
             institution,
             link.getDependentPerson().getId(),
-            AuditAction.GUARDIAN_LINK_REJECTED,
-            AuditEntityType.PERSON_GUARDIAN,
+            InstitutionalAuditAction.GUARDIAN_LINK_REJECTED,
+            PersonGuardian.AUDIT_TYPE,
             link.getId(),
             AuditOrigin.INSTITUTIONAL_ADMINISTRATION,
-            Map.of());
+            AuditChangeDetails.change("Vinculación", before, link.auditSnapshot()));
   }
 
   @Test

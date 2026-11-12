@@ -1,10 +1,11 @@
 package ar.edu.utn.frvm.typeit.bemol_api.institutional.services;
 
-import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditAction;
-import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditEntityType;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditOrigin;
+import ar.edu.utn.frvm.typeit.bemol_api.audit.services.AuditChangeDetails;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.services.AuditEventRecorder;
+import ar.edu.utn.frvm.typeit.bemol_api.audit.snapshot.AuditSnapshot;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.services.InstitutionRoleProvisioner;
+import ar.edu.utn.frvm.typeit.bemol_api.institutional.audit.InstitutionalAuditAction;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.entities.Institution;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.exceptions.CityNotFoundException;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.interfaces.CityRepository;
@@ -58,11 +59,11 @@ public class CreateInstitutionUseCase {
     auditEventRecorder.recordCurrentActor(
         saved,
         null,
-        AuditAction.INSTITUTION_CREATED,
-        AuditEntityType.INSTITUTION,
+        InstitutionalAuditAction.INSTITUTION_CREATED,
+        Institution.AUDIT_TYPE,
         saved.getId(),
         AuditOrigin.administration(),
-        InstitutionAuditDetails.created(saved));
+        AuditChangeDetails.change(saved.getName(), AuditSnapshot.empty(), saved.auditSnapshot()));
 
     log.info("[Institution] Created successfully, institutionId: {}", saved.getId());
     return response;

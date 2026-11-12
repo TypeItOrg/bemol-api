@@ -1,5 +1,8 @@
 package ar.edu.utn.frvm.typeit.bemol_api.institutional.entities;
 
+import ar.edu.utn.frvm.typeit.bemol_api.audit.definition.AuditResource;
+import ar.edu.utn.frvm.typeit.bemol_api.audit.snapshot.AuditSnapshot;
+import ar.edu.utn.frvm.typeit.bemol_api.audit.snapshot.AuditSubject;
 import ar.edu.utn.frvm.typeit.bemol_api.common.persistence.Auditable;
 import ar.edu.utn.frvm.typeit.bemol_api.common.persistence.GeneratedUUIDv7;
 import jakarta.persistence.Column;
@@ -15,8 +18,6 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import org.hibernate.envers.Audited;
-import org.hibernate.envers.RelationTargetAuditMode;
 
 /** A supporting document a tutor attaches to a pending guardianship request. */
 @Entity
@@ -25,7 +26,9 @@ import org.hibernate.envers.RelationTargetAuditMode;
 @NoArgsConstructor
 @AllArgsConstructor(access = AccessLevel.PRIVATE)
 @Builder
-public class PersonGuardianAttachment extends Auditable {
+public class PersonGuardianAttachment extends Auditable implements AuditSubject {
+  public static final AuditResource AUDIT_TYPE =
+      new AuditResource("PERSON_GUARDIAN_ATTACHMENT", "Adjunto de vinculación");
 
   @Id
   @GeneratedUUIDv7
@@ -34,12 +37,10 @@ public class PersonGuardianAttachment extends Auditable {
 
   @ManyToOne(fetch = FetchType.LAZY, optional = false)
   @JoinColumn(name = "institution_id", nullable = false)
-  @Audited(targetAuditMode = RelationTargetAuditMode.NOT_AUDITED)
   private Institution institution;
 
   @ManyToOne(fetch = FetchType.LAZY, optional = false)
   @JoinColumn(name = "person_guardian_id", nullable = false)
-  @Audited(targetAuditMode = RelationTargetAuditMode.NOT_AUDITED)
   private PersonGuardian personGuardian;
 
   @Column(name = "original_file_name", nullable = false, length = 255)
@@ -49,10 +50,16 @@ public class PersonGuardianAttachment extends Auditable {
   private String storagePath;
 
   @Column(name = "content_type", nullable = false, length = 100)
-  @Audited
   private String contentType;
 
   @Column(name = "file_size", nullable = false)
-  @Audited
   private long fileSize;
+
+  @Override
+  public AuditSnapshot.Snapshot auditSnapshot() {
+    return AuditSnapshot.fields()
+        .expose("contentType", "Formato del archivo", contentType)
+        .expose("size", "Tamaño del archivo", fileSize)
+        .build();
+  }
 }
