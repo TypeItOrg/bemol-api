@@ -1,68 +1,61 @@
 package ar.edu.utn.frvm.typeit.bemol_api.common.storage;
 
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.UncheckedIOException;
-import java.util.UUID;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
-import org.springframework.core.io.InputStreamResource;
-import org.springframework.core.io.InputStreamSource;
-import org.springframework.core.io.Resource;
+import java.nio.charset.StandardCharsets;
+import java.time.Duration;
+import java.util.Map;
+import lombok.RequiredArgsConstructor;
+import org.jspecify.annotations.Nullable;
+import org.springframework.http.ContentDisposition;
 import org.springframework.stereotype.Service;
-import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.GetObjectRequest;
+import software.amazon.awssdk.services.s3.model.HeadObjectResponse;
+import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.model.S3Exception;
+import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 
 @Service
-@ConditionalOnProperty(name = "app.storage.provider", havingValue = "s3")
+@RequiredArgsConstructor
 public class S3StorageService implements StorageService {
 
   private final S3Client client;
-  private final String bucket;
-  private final String prefix;
+  private final S3Presigner presigner;
+  private final S3StorageProperties properties;
 
-  public S3StorageService(
-      final S3Client client,
-      @Value("${app.storage.s3.bucket}") final String bucket,
-      @Value("${app.storage.s3.prefix}") final String prefix) {
-    if (bucket.isBlank()) {
-      throw new IllegalStateException(StorageMessages.BUCKET_REQUIRED);
-    }
+  @Override
+  public PresignedUpload presignUpload(
+      final String key, final String contentType, final long size, final Duration ttl) {
+    final var request = uploadRequest(key, contentType, size);
+    final var presigned =
+        presigner.presignPutObject(
+            builder -> builder.signatureDuration(ttl).putObjectRequest(request));
 
-    this.client = client;
-    this.bucket = bucket;
-    this.prefix = prefix.isBlank() ? "" : prefix.replaceAll("/+$", "") + "/";
-
-    verifyStorageAccess();
+    return new PresignedUpload(
+        presigned.url().toString(), presigned.expiration(), Map.of("Content-Type", contentType));
   }
 
   @Override
-  public void write(
-      final String key,
-      final String contentType,
-      final long size,
-      final InputStreamSource content) {
+  public PresignedDownload presignDownload(
+      final String storagePath,
+      final String responseContentType,
+      final @Nullable String fileName,
+      final Duration ttl) {
+    final var request = downloadRequest(storagePath, responseContentType, fileName);
+    final var presigned =
+        presigner.presignGetObject(
+            builder -> builder.signatureDuration(ttl).getObjectRequest(request));
 
-    try (final var input = content.getInputStream()) {
-      client.putObject(
-          request -> request.bucket(bucket).key(resolveKey(key)).contentType(contentType),
-          RequestBody.fromInputStream(input, size));
-
-    } catch (IOException exception) {
-      throw new UncheckedIOException(exception);
-    }
+    return new PresignedDownload(presigned.url().toString(), presigned.expiration());
   }
 
   @Override
-  public Resource loadAsResource(final String storagePath) {
-    return new InputStreamResource(loadAsInputStream(storagePath));
-  }
-
-  @Override
-  public InputStream loadAsInputStream(final String storagePath) {
+  public ObjectMetadata headObject(final String storagePath) {
     try {
-      return client.getObject(request -> request.bucket(bucket).key(resolveKey(storagePath)));
+      final var response =
+          client.headObject(
+              request -> request.bucket(properties.bucket()).key(resolveKey(storagePath)));
+
+      return objectMetadata(response);
     } catch (S3Exception exception) {
       if (exception.statusCode() == 404) {
         throw new StorageFileNotFoundException();
@@ -74,29 +67,64 @@ public class S3StorageService implements StorageService {
 
   @Override
   public Destination destination() {
-    return new Destination("s3", bucket, prefix);
+    return new Destination("s3", storageLocation(), properties.prefix());
   }
 
   @Override
   public boolean deletePhysicalFile(final String storagePath) {
-    client.deleteObject(request -> request.bucket(bucket).key(resolveKey(storagePath)));
+    client.deleteObject(
+        request -> request.bucket(properties.bucket()).key(resolveKey(storagePath)));
     return true;
   }
 
-  private String resolveKey(final String key) {
-    return StorageKey.validate(prefix + StorageKey.validate(key));
+  private PutObjectRequest uploadRequest(
+      final String key, final String contentType, final long size) {
+    return PutObjectRequest.builder()
+        .bucket(properties.bucket())
+        .key(resolveKey(key))
+        .contentType(contentType)
+        .contentLength(size)
+        .build();
   }
 
-  private void verifyStorageAccess() {
-    final String probeKey = resolveKey(".storage-check-" + UUID.randomUUID());
+  private GetObjectRequest downloadRequest(
+      final String storagePath, final String responseContentType, final @Nullable String fileName) {
+    return GetObjectRequest.builder()
+        .bucket(properties.bucket())
+        .key(resolveKey(storagePath))
+        .responseContentType(responseContentType)
+        .responseContentDisposition(contentDisposition(fileName))
+        .build();
+  }
 
-    client.putObject(
-        request -> request.bucket(bucket).key(probeKey), RequestBody.fromBytes(new byte[] {0}));
-
-    try {
-      client.getObjectAsBytes(request -> request.bucket(bucket).key(probeKey));
-    } finally {
-      client.deleteObject(request -> request.bucket(bucket).key(probeKey));
+  private static String contentDisposition(final @Nullable String fileName) {
+    if (fileName == null) {
+      return "inline";
     }
+
+    return ContentDisposition.inline()
+        .filename(fileName, StandardCharsets.UTF_8)
+        .build()
+        .toString();
+  }
+
+  private static ObjectMetadata objectMetadata(final HeadObjectResponse response) {
+    final String contentType =
+        response.contentType() == null ? "application/octet-stream" : response.contentType();
+    final long contentLength = response.contentLength() == null ? 0L : response.contentLength();
+
+    return new ObjectMetadata(contentType, contentLength);
+  }
+
+  private String storageLocation() {
+    return client
+        .serviceClientConfiguration()
+        .endpointOverride()
+        .map(endpoint -> endpoint.toString().replaceAll("/+$", "") + "/" + properties.bucket())
+        .orElse(properties.bucket());
+  }
+
+  private String resolveKey(final String key) {
+    return StorageKey.validate(properties.prefix() + StorageKey.validate(key));
   }
 }

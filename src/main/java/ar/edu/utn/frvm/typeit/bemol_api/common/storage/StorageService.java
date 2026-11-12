@@ -1,20 +1,27 @@
 package ar.edu.utn.frvm.typeit.bemol_api.common.storage;
 
-import java.io.InputStream;
-import org.springframework.core.io.InputStreamSource;
-import org.springframework.core.io.Resource;
+import java.time.Duration;
+import java.time.Instant;
+import java.util.Map;
+import org.jspecify.annotations.Nullable;
 
-/** One application-wide backend. Callers own authorization, validation and object keys. */
 public interface StorageService {
   record Destination(String provider, String location, String prefix) {}
 
+  record PresignedUpload(String url, Instant expiresAt, Map<String, String> headers) {}
+
+  record PresignedDownload(String url, Instant expiresAt) {}
+
+  record ObjectMetadata(String contentType, long contentLength) {}
+
   Destination destination();
 
-  void write(String key, String contentType, long size, InputStreamSource content);
+  PresignedUpload presignUpload(String key, String contentType, long size, Duration ttl);
 
-  Resource loadAsResource(String key);
+  PresignedDownload presignDownload(
+      String key, String responseContentType, @Nullable String fileName, Duration ttl);
 
-  InputStream loadAsInputStream(String key);
+  ObjectMetadata headObject(String key);
 
   boolean deletePhysicalFile(String key);
 }

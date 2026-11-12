@@ -1,6 +1,6 @@
 package ar.edu.utn.frvm.typeit.bemol_api.common.mail;
 
-import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditAction;
+import ar.edu.utn.frvm.typeit.bemol_api.audit.definition.AuditOperation;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.services.MailAuditRecorder;
 import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
@@ -32,15 +32,15 @@ public class SmtpMailSender implements MailSender {
       helper.setText(mailMessage.htmlBody(), true);
       javaMailSender.send(message);
     } catch (MessagingException | MailException exception) {
-      recordOutcome(mailMessage, AuditAction.EMAIL_FAILED);
+      recordOutcome(mailMessage, MailAuditAction.EMAIL_FAILED);
       throw new MailSendingException(exception);
     }
-    recordOutcome(mailMessage, AuditAction.EMAIL_SENT);
+    recordOutcome(mailMessage, MailAuditAction.EMAIL_SENT);
   }
 
   // shortcut: best-effort after SMTP; use durable delivery tracking if loss on crash becomes
   // unacceptable.
-  private void recordOutcome(final MailMessage message, final AuditAction outcome) {
+  private void recordOutcome(final MailMessage message, final AuditOperation outcome) {
     try {
       audit.record(message.auditContext(), message.type(), message.to(), outcome);
     } catch (final RuntimeException exception) {

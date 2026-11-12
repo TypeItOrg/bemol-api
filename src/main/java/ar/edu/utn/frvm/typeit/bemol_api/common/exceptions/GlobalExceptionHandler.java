@@ -7,13 +7,12 @@ import static ar.edu.utn.frvm.typeit.bemol_api.common.exceptions.ErrorMessages.R
 import static ar.edu.utn.frvm.typeit.bemol_api.common.exceptions.ErrorMessages.UNHANDLED_EXCEPTION_MESSAGE;
 import static ar.edu.utn.frvm.typeit.bemol_api.security.handlers.SecurityErrorMessages.DEFAULT_FORBIDDEN_MESSAGE;
 
-import ar.edu.utn.frvm.typeit.bemol_api.academic.entities.DocumentDefinition;
-import ar.edu.utn.frvm.typeit.bemol_api.academic.entities.TrainingPathDocumentRequirement;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.exceptions.AcademicMessages;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.exceptions.DocumentCatalogException;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.exceptions.AuthMessages;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.exceptions.InvalidAccessScopeException;
 import ar.edu.utn.frvm.typeit.bemol_api.common.validation.ValidationMessages;
+import ar.edu.utn.frvm.typeit.bemol_api.enrollment.exceptions.EnrollmentIntegrityViolationTranslator;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.exceptions.EnrollmentMessages;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.exceptions.EnrollmentValidationException;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.exceptions.InstitutionMessages;
@@ -56,14 +55,12 @@ public class GlobalExceptionHandler {
   @ExceptionHandler(ObjectOptimisticLockingFailureException.class)
   public ResponseEntity<ExceptionPayload> handleDocumentRevisionConflict(
       final ObjectOptimisticLockingFailureException exception) {
-    if (!Set.of(DocumentDefinition.class.getName(), TrainingPathDocumentRequirement.class.getName())
-        .contains(Objects.toString(exception.getPersistentClassName(), ""))) {
+    final var conflict = httpMapper.revisionConflict(exception);
+    if (conflict == null) {
       return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
           .body(handleException(exception));
     }
-    return handleApplicationException(
-        new DocumentCatalogException(
-            ErrorCategory.CONFLICT, AcademicMessages.DOCUMENT_REVISION_CONFLICT));
+    return handleApplicationException(conflict);
   }
 
   @ExceptionHandler({DataIntegrityViolationException.class, TransactionSystemException.class})
@@ -80,6 +77,10 @@ public class GlobalExceptionHandler {
     for (Throwable cause = exception; cause != null; cause = cause.getCause()) {
       if (cause instanceof org.hibernate.exception.ConstraintViolationException violation) {
         final String constraint = Objects.toString(violation.getConstraintName(), "");
+        final var formError = EnrollmentIntegrityViolationTranslator.form(constraint);
+        if (formError != null) {
+          return handleApplicationException(formError);
+        }
         if (constraint.startsWith("enrollment_pdf_settings_") && constraint.endsWith("_check")) {
           return handleApplicationException(
               new EnrollmentValidationException(EnrollmentMessages.PDF_SETTINGS_INVALID));

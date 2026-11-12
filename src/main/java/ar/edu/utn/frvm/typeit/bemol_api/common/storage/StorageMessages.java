@@ -5,6 +5,8 @@ public final class StorageMessages {
   public static final String FILE_NOT_FOUND = "El archivo no está disponible.";
   public static final String BUCKET_REQUIRED =
       "Debe configurar el bucket de almacenamiento de la aplicación.";
+  public static final String S3_CREDENTIALS_REQUIRED =
+      "Debe configurar la clave de acceso y la clave secreta del almacenamiento S3.";
   public static final String UNAVAILABLE = "El almacenamiento de archivos no está disponible.";
   public static final String DELETE_FAILED = "No se pudo eliminar el archivo del almacenamiento.";
 
