@@ -1,10 +1,9 @@
 package ar.edu.utn.frvm.typeit.bemol_api.enrollment.controllers;
 
-import static java.util.Objects.requireNonNull;
-
 import ar.edu.utn.frvm.typeit.bemol_api.academic.payloads.ShiftResponse;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.payloads.StudyPlanSpaceResponse;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.payloads.TrainingPathResponse;
+import ar.edu.utn.frvm.typeit.bemol_api.auth.filters.CurrentPrincipal;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.filters.JwtAuthenticatedUser;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.services.InstitutionalCallerGuard;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.services.InstitutionalCapabilitiesService;
@@ -13,12 +12,14 @@ import ar.edu.utn.frvm.typeit.bemol_api.common.web.Version;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.enums.EnrollmentApplicationStatus;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.payloads.EnrollmentApplicationResponse;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.payloads.EnrollmentCourseOptionResponse;
+import ar.edu.utn.frvm.typeit.bemol_api.enrollment.payloads.EnrollmentPdfData;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.payloads.EnrollmentPeriodResponse;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.payloads.EnrollmentStudyPlanSpaceInstrumentOptionsResponse;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.payloads.StartEnrollmentApplicationRequest;
+import ar.edu.utn.frvm.typeit.bemol_api.enrollment.payloads.SubmitEnrollmentApplicationRequest;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.payloads.UpdateEnrollmentDraftRequest;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.services.EnrollmentApplicationService;
-import ar.edu.utn.frvm.typeit.bemol_api.enrollment.services.ExportEnrollmentPdfUseCase;
+import ar.edu.utn.frvm.typeit.bemol_api.enrollment.services.ExtractEnrollmentPdfDataUseCase;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.services.ListAvailableEnrollmentTrainingPathsUseCase;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.services.ListEnrollmentApplicationCoursesUseCase;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.services.ListEnrollmentApplicationPeriodsUseCase;
@@ -32,6 +33,7 @@ import jakarta.validation.Valid;
 import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
+import org.jspecify.annotations.Nullable;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
@@ -54,7 +56,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RequiredArgsConstructor
 public class SelfServiceEnrollmentApplicationController {
 
-  private final ExportEnrollmentPdfUseCase pdf;
+  private final ExtractEnrollmentPdfDataUseCase pdf;
   private final EnrollmentApplicationService applicationService;
   private final InstitutionalCapabilitiesService capabilities;
   private final OperatingContextResolver operatingContext;
@@ -129,11 +131,9 @@ public class SelfServiceEnrollmentApplicationController {
   public ResponseEntity<EnrollmentApplicationResponse> getApplication(
       Authentication authentication, @PathVariable UUID applicationId) {
     requireInstitutionalUser(authentication);
-    EnrollmentApplicationResponse response =
+    return ResponseEntity.ok(
         applicationService.getApplicationById(
-            null, operatingContext.currentPersonId().orElseThrow(), applicationId);
-
-    return ResponseEntity.ok(response);
+            null, operatingContext.currentPersonId().orElseThrow(), applicationId));
   }
 
   @PatchMapping(value = "/{applicationId}/draft", version = Version.V1)
@@ -142,30 +142,30 @@ public class SelfServiceEnrollmentApplicationController {
       @PathVariable UUID applicationId,
       @Valid @RequestBody UpdateEnrollmentDraftRequest request) {
     JwtAuthenticatedUser principal = requireInstitutionalUser(authentication);
-    EnrollmentApplicationResponse response =
-        applicationService.updateDraft(principal.personId(), applicationId, request);
-
-    return ResponseEntity.ok(response);
+    return ResponseEntity.ok(
+        applicationService.updateDraft(principal.personId(), applicationId, request));
   }
 
   @PostMapping(value = "/{applicationId}/cancel", version = Version.V1)
   public ResponseEntity<EnrollmentApplicationResponse> cancelApplication(
       Authentication authentication, @PathVariable UUID applicationId) {
     JwtAuthenticatedUser principal = requireInstitutionalUser(authentication);
-    EnrollmentApplicationResponse response =
-        applicationService.cancelApplication(principal.personId(), applicationId);
-
-    return ResponseEntity.ok(response);
+    return ResponseEntity.ok(
+        applicationService.cancelApplication(principal.personId(), applicationId));
   }
 
   @PostMapping(value = "/{applicationId}/submit", version = Version.V1)
   public ResponseEntity<EnrollmentApplicationResponse> submitApplication(
-      Authentication authentication, @PathVariable UUID applicationId) {
+      Authentication authentication,
+      @PathVariable UUID applicationId,
+      @Valid @RequestBody(required = false)
+          final @Nullable SubmitEnrollmentApplicationRequest request) {
     JwtAuthenticatedUser principal = requireInstitutionalUser(authentication);
-    EnrollmentApplicationResponse response =
-        applicationService.submitApplication(principal.personId(), applicationId);
-
-    return ResponseEntity.ok(response);
+    return ResponseEntity.ok(
+        applicationService.submitApplication(
+            principal.personId(),
+            applicationId,
+            request == null ? null : request.expectedRevision()));
   }
 
   @GetMapping(value = "/{applicationId}/training-paths", version = Version.V1)
@@ -229,21 +229,17 @@ public class SelfServiceEnrollmentApplicationController {
   private JwtAuthenticatedUser requireInstitutionalUser(Authentication authentication) {
     institutionalCallerGuard.ensureInstitutionalPrincipal(authentication);
     final var personId = operatingContext.currentPersonId().orElseThrow();
-    final var principal = (JwtAuthenticatedUser) requireNonNull(authentication.getPrincipal());
+    final var principal = CurrentPrincipal.requireInstitutionalUser(authentication);
     capabilities.requireOwnEnrollmentRead(principal.institutionId(), personId);
 
     return principal;
   }
 
   @GetMapping(value = "/{applicationId}/pdf", version = Version.V1)
-  public ResponseEntity<byte[]> downloadPdf(
+  public EnrollmentPdfData downloadPdf(
       final Authentication authentication, @PathVariable final UUID applicationId) {
     final var principal = requireInstitutionalUser(authentication);
-    return EnrollmentPdfHttpResponse.download(
-        pdf.export(
-            principal.institutionId(),
-            applicationId,
-            operatingContext.currentPersonId().orElseThrow()),
-        applicationId.toString());
+    return pdf.extract(
+        principal.institutionId(), applicationId, operatingContext.currentPersonId().orElseThrow());
   }
 }

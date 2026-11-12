@@ -140,7 +140,6 @@ public class EnrollmentPeriodScopeService {
       return;
     }
 
-    // Delete through Hibernate before scope triggers run, so Envers sees each removed selection.
     selectionRepository.deleteAll(removed);
     selectionRepository.flush();
     // Preserve the trigger's timestamp-only side effect; this field is intentionally not audited.

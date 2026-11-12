@@ -68,7 +68,7 @@ public class ListEnrollmentApplicationsUseCase {
     return enrollmentApplicationRepository
         .findByInstitutionId(
             institutionId, status, trainingPathId, open, pendingDocuments, pendingCourses, pageable)
-        .map(application -> responseFactory.from(application, false));
+        .map(application -> responseFactory.listItem(application, false));
   }
 
   @Transactional(readOnly = true)
@@ -85,7 +85,7 @@ public class ListEnrollmentApplicationsUseCase {
     return enrollmentApplicationRepository
         .findByFilters(
             institutionId, status, trainingPathId, open, pendingDocuments, pendingCourses, pageable)
-        .map(application -> responseFactory.from(application, false));
+        .map(application -> responseFactory.listItem(application, false));
   }
 
   private void requireSafeSort(final Pageable pageable) {

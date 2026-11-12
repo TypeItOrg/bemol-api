@@ -2,6 +2,9 @@ package ar.edu.utn.frvm.typeit.bemol_api.enrollment.entities;
 
 import ar.edu.utn.frvm.typeit.bemol_api.academic.entities.Course;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.entities.CourseClass;
+import ar.edu.utn.frvm.typeit.bemol_api.audit.definition.AuditResource;
+import ar.edu.utn.frvm.typeit.bemol_api.audit.snapshot.AuditSnapshot;
+import ar.edu.utn.frvm.typeit.bemol_api.audit.snapshot.AuditSubject;
 import ar.edu.utn.frvm.typeit.bemol_api.common.persistence.Auditable;
 import ar.edu.utn.frvm.typeit.bemol_api.common.persistence.GeneratedUUIDv7;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.enums.AcademicEnrollmentStatus;
@@ -22,14 +25,13 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import jakarta.persistence.Version;
 import java.time.Instant;
+import java.util.Map;
 import java.util.UUID;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import org.hibernate.envers.Audited;
-import org.hibernate.envers.RelationTargetAuditMode;
 import org.jspecify.annotations.Nullable;
 
 @Entity
@@ -38,7 +40,9 @@ import org.jspecify.annotations.Nullable;
 @NoArgsConstructor
 @AllArgsConstructor(access = AccessLevel.PRIVATE)
 @Builder
-public class CourseEnrollment extends Auditable {
+public class CourseEnrollment extends Auditable implements AuditSubject {
+  public static final AuditResource AUDIT_TYPE =
+      new AuditResource("COURSE_ENROLLMENT", "Inscripción al curso");
 
   @Id
   @GeneratedUUIDv7
@@ -47,65 +51,52 @@ public class CourseEnrollment extends Auditable {
 
   @ManyToOne(fetch = FetchType.LAZY, optional = false)
   @JoinColumn(name = "institution_id", nullable = false)
-  @Audited(targetAuditMode = RelationTargetAuditMode.NOT_AUDITED)
   private Institution institution;
 
   @ManyToOne(fetch = FetchType.LAZY, optional = false)
   @JoinColumn(name = "student_id", nullable = false)
-  @Audited(targetAuditMode = RelationTargetAuditMode.NOT_AUDITED)
   private Student student;
 
   @ManyToOne(fetch = FetchType.LAZY, optional = false)
   @JoinColumn(name = "course_id", nullable = false)
-  @Audited(targetAuditMode = RelationTargetAuditMode.NOT_AUDITED)
   private Course course;
 
   @ManyToOne(fetch = FetchType.LAZY, optional = false)
   @JoinColumn(name = "course_class_id", nullable = false)
-  @Audited(targetAuditMode = RelationTargetAuditMode.NOT_AUDITED)
   private CourseClass courseClass;
 
   @Enumerated(EnumType.STRING)
   @Column(nullable = false, length = 20)
-  @Audited
   private CourseEnrollmentSource source;
 
   @ManyToOne(fetch = FetchType.LAZY)
   @JoinColumn(name = "enrollment_application_id")
-  @Audited(targetAuditMode = RelationTargetAuditMode.NOT_AUDITED)
   private @Nullable EnrollmentApplication enrollmentApplication;
 
   @ManyToOne(fetch = FetchType.LAZY)
   @JoinColumn(name = "enrollment_application_course_id")
-  @Audited(targetAuditMode = RelationTargetAuditMode.NOT_AUDITED)
   private EnrollmentApplicationCourse applicationCourse;
 
   @Enumerated(EnumType.STRING)
   @Column(nullable = false, length = 40)
   @Builder.Default
-  @Audited
   private CourseEnrollmentStatus status = CourseEnrollmentStatus.ENROLLED;
 
   @Enumerated(EnumType.STRING)
   @Column(name = "academic_status", nullable = false, length = 30)
   @Builder.Default
-  @Audited
   private AcademicEnrollmentStatus academicStatus = AcademicEnrollmentStatus.IN_PROGRESS;
 
   @Column(name = "enrolled_at", nullable = false)
-  @Audited
   private Instant enrolledAt;
 
   @Column(name = "completed_at")
-  @Audited
   private Instant completedAt;
 
   @Column(name = "withdrawn_at")
-  @Audited
   private Instant withdrawnAt;
 
   @Column(name = "action_authority_person_id")
-  @Audited
   private @Nullable UUID actionAuthorityPersonId;
 
   @Column(name = "action_reason")
@@ -180,5 +171,57 @@ public class CourseEnrollment extends Auditable {
     }
     academicStatus = target;
     actionReason = reason;
+  }
+
+  @Override
+  public AuditSnapshot.Snapshot auditSnapshot() {
+    return auditStatusSnapshot(status, academicStatus);
+  }
+
+  public AuditSnapshot.Snapshot auditStatusSnapshot(
+      final CourseEnrollmentStatus status,
+      final @Nullable AcademicEnrollmentStatus academicStatus) {
+    return AuditSnapshot.fields()
+        .expose("status", "Estado de cursada", status.name(), statusValue(status))
+        .expose(
+            "academicStatus",
+            "Situación académica",
+            academicStatus == null ? null : academicStatus.name(),
+            academicStatusValue(academicStatus))
+        .expose("courseId", "Identificador del curso", course.getId().toString())
+        .build();
+  }
+
+  public AuditSnapshot.Snapshot auditReasonSnapshot(final @Nullable String reason) {
+    return AuditSnapshot.fields().compare("actionReason", "Motivo de la operación", reason).build();
+  }
+
+  private static Map<String, String> statusValue(final CourseEnrollmentStatus status) {
+    final String label =
+        switch (status) {
+          case ENROLLED -> "En curso";
+          case COMPLETED -> "Finalizada";
+          case WITHDRAWN -> "Baja voluntaria";
+          case ADMINISTRATIVELY_WITHDRAWN -> "Baja administrativa";
+        };
+    return Map.of("code", status.name(), "label", label);
+  }
+
+  private static @Nullable Map<String, String> academicStatusValue(
+      final @Nullable AcademicEnrollmentStatus status) {
+    if (status == null) {
+      return null;
+    }
+    final String label =
+        switch (status) {
+          case IN_PROGRESS -> "En curso";
+          case PENDING_RESULT -> "Pendiente de resultado";
+          case REGULARIZED -> "Regularizado";
+          case PROMOTED -> "Promocionado";
+          case PASSED -> "Aprobado";
+          case FAILED -> "Desaprobado";
+          case NOT_APPLICABLE -> "Sin efecto";
+        };
+    return Map.of("code", status.name(), "label", label);
   }
 }

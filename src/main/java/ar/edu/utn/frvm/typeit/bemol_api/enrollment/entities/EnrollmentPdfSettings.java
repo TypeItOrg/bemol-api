@@ -1,5 +1,7 @@
 package ar.edu.utn.frvm.typeit.bemol_api.enrollment.entities;
 
+import ar.edu.utn.frvm.typeit.bemol_api.audit.snapshot.AuditSnapshot;
+import ar.edu.utn.frvm.typeit.bemol_api.audit.snapshot.AuditSubject;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.exceptions.EnrollmentMessages;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.exceptions.EnrollmentValidationException;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.entities.Institution;
@@ -16,7 +18,7 @@ import org.jspecify.annotations.Nullable;
 @Table(name = "enrollment_pdf_settings")
 @Getter
 @NoArgsConstructor
-public class EnrollmentPdfSettings {
+public class EnrollmentPdfSettings implements AuditSubject {
   @Id
   @Column(name = "institution_id")
   private UUID institutionId;
@@ -72,5 +74,17 @@ public class EnrollmentPdfSettings {
 
   private static @Nullable String normalize(final @Nullable String text) {
     return text == null || text.isBlank() ? null : text.strip();
+  }
+
+  @Override
+  public AuditSnapshot.Snapshot auditSnapshot() {
+    return AuditSnapshot.fields()
+        .compare("pdfTitle", "Título del PDF", title)
+        .compare("pdfHeaderText", "Encabezado del PDF", headerText)
+        .compare("pdfIntroductionText", "Introducción del PDF", introductionText)
+        .compare("pdfFooterText", "Pie del PDF", footerText)
+        .expose("pdfShowApplicantSignature", "Firma de solicitante", showApplicantSignature)
+        .expose("pdfShowResponsibleSignature", "Firma de responsable", showResponsibleSignature)
+        .build();
   }
 }

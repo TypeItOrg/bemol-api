@@ -168,6 +168,22 @@ class ExtractEnrollmentPdfDataUseCaseTest {
   }
 
   @Test
+  void formPreviewUsesCurrentBrandingAndFictitiousDataWithoutReadingApplications() {
+    when(institutions.findWithLocationById(institutionId)).thenReturn(Optional.of(institution));
+    when(settings.get(institutionId)).thenReturn(EnrollmentPdfSettingsResponse.defaults());
+
+    final var result = service.formExample(institutionId, EnrollmentFormBaseDefinition.create());
+
+    assertThat(
+            result.sections().stream()
+                .flatMap(section -> section.fields().stream())
+                .map(field -> field.value()))
+        .contains("Persona de ejemplo", "Dato ficticio", "Responsable de ejemplo");
+    verifyNoInteractions(applications, capabilities, courses, history);
+    verify(settings).get(institutionId);
+  }
+
+  @Test
   void selectionsRequireTheIndependentCoursePermission() {
     final var application = application(EnrollmentApplicationStatus.SUBMITTED);
     final var space = mock(ar.edu.utn.frvm.typeit.bemol_api.academic.entities.StudyPlanSpace.class);

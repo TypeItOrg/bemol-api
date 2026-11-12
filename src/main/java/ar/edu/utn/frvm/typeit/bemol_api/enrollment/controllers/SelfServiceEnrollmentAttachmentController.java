@@ -1,25 +1,24 @@
 package ar.edu.utn.frvm.typeit.bemol_api.enrollment.controllers;
 
+import ar.edu.utn.frvm.typeit.bemol_api.common.storage.PresignedDownloadResponse;
 import ar.edu.utn.frvm.typeit.bemol_api.common.web.PaginatedResponse;
 import ar.edu.utn.frvm.typeit.bemol_api.common.web.Version;
+import ar.edu.utn.frvm.typeit.bemol_api.enrollment.payloads.ConfirmEnrollmentAttachmentUploadRequest;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.payloads.EnrollmentAttachmentResponse;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.payloads.EnrollmentDocumentRequirementResponse;
+import ar.edu.utn.frvm.typeit.bemol_api.enrollment.payloads.PresignEnrollmentAttachmentUploadRequest;
+import ar.edu.utn.frvm.typeit.bemol_api.enrollment.payloads.PresignedAttachmentUploadResponse;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.services.EnrollmentAttachmentService;
-import ar.edu.utn.frvm.typeit.bemol_api.enrollment.services.EnrollmentAttachmentService.AttachmentContentResult;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import java.nio.charset.StandardCharsets;
+import jakarta.validation.Valid;
 import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
-import org.springframework.core.io.Resource;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
-import org.springframework.http.ContentDisposition;
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
@@ -27,10 +26,10 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.multipart.MultipartFile;
 
 /** Academic attachments scoped to the URL profile, with the real authenticated actor retained. */
 @RestController
@@ -45,60 +44,42 @@ public class SelfServiceEnrollmentAttachmentController {
 
   private final EnrollmentAttachmentService attachmentService;
 
-  @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE, version = Version.V1)
-  @Operation(summary = "Subir un archivo adjunto a la solicitud de inscripción")
-  public ResponseEntity<EnrollmentAttachmentResponse> uploadAttachment(
-      @PathVariable UUID applicationId,
-      @RequestParam("file") MultipartFile file,
-      @RequestParam("requirementId") UUID requirementId,
-      Authentication authentication) {
+  @PostMapping(value = "/upload-url", version = Version.V1)
+  @Operation(summary = "Solicitar una URL prefirmada para subir un archivo adjunto")
+  public PresignedAttachmentUploadResponse presignUpload(
+      @PathVariable final UUID applicationId,
+      @Valid @RequestBody final PresignEnrollmentAttachmentUploadRequest request,
+      final Authentication authentication) {
+    return attachmentService.presignUpload(applicationId, request, authentication);
+  }
 
-    EnrollmentAttachmentResponse response =
-        attachmentService.uploadAttachment(applicationId, file, requirementId, authentication);
+  @PostMapping(version = Version.V1)
+  @Operation(summary = "Confirmar la subida de un archivo adjunto a la solicitud de inscripción")
+  public ResponseEntity<EnrollmentAttachmentResponse> confirmUpload(
+      @PathVariable final UUID applicationId,
+      @Valid @RequestBody final ConfirmEnrollmentAttachmentUploadRequest request,
+      final Authentication authentication) {
+    final EnrollmentAttachmentResponse response =
+        attachmentService.confirmUpload(applicationId, request, authentication);
 
     return ResponseEntity.status(HttpStatus.CREATED).body(response);
   }
 
   @GetMapping(value = "/{attachmentId}/content", version = Version.V1)
-  @Operation(summary = "Descargar o previsualizar el contenido de un archivo adjunto")
-  public ResponseEntity<Resource> getAttachmentContent(
-      @PathVariable UUID applicationId,
-      @PathVariable UUID attachmentId,
-      Authentication authentication) {
-
-    AttachmentContentResult result =
-        attachmentService.getAttachmentContent(applicationId, attachmentId, authentication);
-
-    MediaType mediaType;
-
-    try {
-      mediaType = MediaType.parseMediaType(result.attachment().getContentType());
-    } catch (Exception e) {
-      mediaType = MediaType.APPLICATION_OCTET_STREAM;
-    }
-
-    String contentDisposition =
-        ContentDisposition.inline()
-            .filename(result.attachment().getOriginalFileName(), StandardCharsets.UTF_8)
-            .build()
-            .toString();
-
-    return ResponseEntity.ok()
-        .header(HttpHeaders.CACHE_CONTROL, "private, no-store")
-        .header("X-Content-Type-Options", "nosniff")
-        .contentType(mediaType)
-        .header(HttpHeaders.CONTENT_DISPOSITION, contentDisposition)
-        .header(HttpHeaders.CONTENT_LENGTH, String.valueOf(result.attachment().getFileSize()))
-        .body(result.resource());
+  @Operation(summary = "Obtener una URL prefirmada para descargar o previsualizar un adjunto")
+  public PresignedDownloadResponse getAttachmentContent(
+      @PathVariable final UUID applicationId,
+      @PathVariable final UUID attachmentId,
+      final Authentication authentication) {
+    return attachmentService.getAttachmentContent(applicationId, attachmentId, authentication);
   }
 
   @DeleteMapping(value = "/{attachmentId}", version = Version.V1)
   @Operation(summary = "Eliminar un archivo adjunto de la solicitud de inscripción")
   public ResponseEntity<Void> deleteAttachment(
-      @PathVariable UUID applicationId,
-      @PathVariable UUID attachmentId,
-      Authentication authentication) {
-
+      @PathVariable final UUID applicationId,
+      @PathVariable final UUID attachmentId,
+      final Authentication authentication) {
     attachmentService.deleteAttachment(applicationId, attachmentId, authentication);
 
     return ResponseEntity.noContent().build();
@@ -107,9 +88,8 @@ public class SelfServiceEnrollmentAttachmentController {
   @GetMapping(version = Version.V1)
   @Operation(summary = "Listar los archivos adjuntos activos de la solicitud de inscripción")
   public ResponseEntity<List<EnrollmentAttachmentResponse>> listAttachments(
-      @PathVariable UUID applicationId, Authentication authentication) {
-
-    List<EnrollmentAttachmentResponse> response =
+      @PathVariable final UUID applicationId, final Authentication authentication) {
+    final List<EnrollmentAttachmentResponse> response =
         attachmentService.listAttachments(applicationId, authentication);
 
     return ResponseEntity.ok(response);
@@ -117,17 +97,17 @@ public class SelfServiceEnrollmentAttachmentController {
 
   @GetMapping(value = "/requirements", version = Version.V1)
   public List<EnrollmentDocumentRequirementResponse> requirements(
-      @PathVariable UUID applicationId, Authentication authentication) {
+      @PathVariable final UUID applicationId, final Authentication authentication) {
     return attachmentService.requirements(applicationId, authentication);
   }
 
   @GetMapping(value = "/history", version = Version.V1)
   public PaginatedResponse<EnrollmentAttachmentResponse> history(
-      @PathVariable UUID applicationId,
-      @RequestParam UUID requirementId,
+      @PathVariable final UUID applicationId,
+      @RequestParam final UUID requirementId,
       @PageableDefault(size = 10, sort = "createdAt", direction = Sort.Direction.DESC)
-          Pageable pageable,
-      Authentication authentication) {
+          final Pageable pageable,
+      final Authentication authentication) {
     return attachmentService.history(applicationId, requirementId, pageable, authentication);
   }
 }

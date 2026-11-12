@@ -1,5 +1,7 @@
 package ar.edu.utn.frvm.typeit.bemol_api.enrollment.entities;
 
+import ar.edu.utn.frvm.typeit.bemol_api.audit.snapshot.AuditSnapshot;
+import ar.edu.utn.frvm.typeit.bemol_api.audit.snapshot.AuditSubject;
 import ar.edu.utn.frvm.typeit.bemol_api.common.persistence.GeneratedUUIDv7;
 import ar.edu.utn.frvm.typeit.bemol_api.common.persistence.SoftDeletable;
 import jakarta.persistence.Column;
@@ -24,7 +26,7 @@ import lombok.Setter;
 @NoArgsConstructor
 @AllArgsConstructor(access = AccessLevel.PRIVATE)
 @Builder
-public class ApplicantHealthInclusion extends SoftDeletable {
+public class ApplicantHealthInclusion extends SoftDeletable implements AuditSubject {
 
   @Id
   @GeneratedUUIDv7
@@ -41,4 +43,15 @@ public class ApplicantHealthInclusion extends SoftDeletable {
 
   @Column(name = "adjustment_details", columnDefinition = "text")
   private String adjustmentDetails;
+
+  @Override
+  public AuditSnapshot.Snapshot auditSnapshot() {
+    return AuditSnapshot.fields()
+        .compare(
+            "receivesReasonableAdjustments",
+            "Recibe ajustes razonables",
+            receivesReasonableAdjustments)
+        .compare("adjustmentDetails", "Detalles de ajustes", adjustmentDetails)
+        .build();
+  }
 }

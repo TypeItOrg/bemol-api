@@ -39,10 +39,12 @@ final class EnrollmentPdfEducationMapper {
             && level != EducationLevel.NO_SCHOOLING) {
       fields.add(field("Sala, grado o año", education.getCurrentGradeYear()));
     }
-    if (education.getLevelCompleted() != null
-        || Boolean.FALSE.equals(attending)
-            && level != null
-            && level != EducationLevel.NO_SCHOOLING) {
+    // At secondary level "Secundario completo" already answers this question.
+    if (level != EducationLevel.SECONDARY
+        && (education.getLevelCompleted() != null
+            || Boolean.FALSE.equals(attending)
+                && level != null
+                && level != EducationLevel.NO_SCHOOLING)) {
       fields.add(field("Nivel completado", answer(education.getLevelCompleted())));
     }
     if (education.getSecondaryCompleted() != null

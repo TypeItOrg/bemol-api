@@ -27,8 +27,9 @@ public class EnrollmentPeriodAccessService {
   public boolean canManage(EnrollmentPeriod period, PermissionCode permission) {
     var access = authorization.managementAccess(permission);
     var paths = paths(period);
-    return access.institutional()
-        || (!paths.isEmpty() && paths.stream().allMatch(access::includes));
+    var coversEveryPath = !paths.isEmpty() && paths.stream().allMatch(access::includes);
+
+    return access.institutional() || coversEveryPath;
   }
 
   public void requireManage(EnrollmentPeriod period, PermissionCode permission) {

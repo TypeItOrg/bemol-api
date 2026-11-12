@@ -1,6 +1,6 @@
 package ar.edu.utn.frvm.typeit.bemol_api.enrollment.controllers;
 
-import ar.edu.utn.frvm.typeit.bemol_api.auth.filters.JwtAuthenticatedUser;
+import ar.edu.utn.frvm.typeit.bemol_api.auth.filters.CurrentPrincipal;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.RequiresInstitutionAccess;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.RequiresPermission;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.enums.PermissionCode;
@@ -17,7 +17,6 @@ import ar.edu.utn.frvm.typeit.bemol_api.enrollment.payloads.WithdrawCourseEnroll
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.services.CourseEnrollmentService;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.services.ListOwnWeeklySchedulesUseCase;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.services.OperatingContextResolver;
-import ar.edu.utn.frvm.typeit.bemol_api.security.handlers.SecurityErrorMessages;
 import jakarta.validation.Valid;
 import java.time.LocalDate;
 import java.util.List;
@@ -27,7 +26,6 @@ import org.jspecify.annotations.Nullable;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.format.annotation.DateTimeFormat;
-import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -66,9 +64,7 @@ public class CourseEnrollmentController {
       @RequestParam(required = false) final CourseEnrollmentStatus status,
       @RequestParam(required = false) final AcademicEnrollmentStatus academicStatus,
       @PageableDefault(size = 20) final Pageable pageable) {
-    if (!(authentication.getPrincipal() instanceof JwtAuthenticatedUser principal)) {
-      throw new AccessDeniedException(SecurityErrorMessages.DEFAULT_FORBIDDEN_MESSAGE);
-    }
+    final var principal = CurrentPrincipal.requireInstitutionalUser(authentication);
 
     operatingContext.requireStudent(institutionId, principal.personId(), principal);
 
@@ -82,9 +78,7 @@ public class CourseEnrollmentController {
       final Authentication authentication,
       @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
           final LocalDate week) {
-    if (!(authentication.getPrincipal() instanceof JwtAuthenticatedUser principal)) {
-      throw new AccessDeniedException(SecurityErrorMessages.DEFAULT_FORBIDDEN_MESSAGE);
-    }
+    final var principal = CurrentPrincipal.requireInstitutionalUser(authentication);
 
     operatingContext.requireStudent(institutionId, principal.personId(), principal);
 
@@ -138,8 +132,8 @@ public class CourseEnrollmentController {
   }
 
   private @Nullable UUID currentPersonId(final Authentication authentication) {
-    return authentication.getPrincipal() instanceof JwtAuthenticatedUser principal
-        ? principal.personId()
-        : null;
+    return CurrentPrincipal.institutionalUser(authentication)
+        .map(entry -> entry.personId())
+        .orElse(null);
   }
 }

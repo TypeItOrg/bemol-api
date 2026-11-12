@@ -1,5 +1,7 @@
 package ar.edu.utn.frvm.typeit.bemol_api.enrollment.entities;
 
+import ar.edu.utn.frvm.typeit.bemol_api.audit.snapshot.AuditSnapshot;
+import ar.edu.utn.frvm.typeit.bemol_api.audit.snapshot.AuditSubject;
 import ar.edu.utn.frvm.typeit.bemol_api.common.persistence.GeneratedUUIDv7;
 import ar.edu.utn.frvm.typeit.bemol_api.common.persistence.SoftDeletable;
 import jakarta.persistence.Column;
@@ -25,7 +27,7 @@ import org.jspecify.annotations.Nullable;
 @NoArgsConstructor
 @AllArgsConstructor(access = AccessLevel.PRIVATE)
 @Builder
-public class ApplicantResponsible extends SoftDeletable {
+public class ApplicantResponsible extends SoftDeletable implements AuditSubject {
 
   @Id
   @GeneratedUUIDv7
@@ -55,4 +57,16 @@ public class ApplicantResponsible extends SoftDeletable {
 
   @Column(name = "education_level", length = 50)
   private @Nullable String educationLevel;
+
+  @Override
+  public AuditSnapshot.Snapshot auditSnapshot() {
+    return AuditSnapshot.fields()
+        .compare("fullName", "Nombre completo", fullName)
+        .compare("documentNumber", "Documento", documentNumber)
+        .compare("occupation", "Ocupación", occupation)
+        .compare("phoneNumber", "Teléfono", phoneNumber)
+        .compare("email", "Correo electrónico", email)
+        .compare("educationLevel", "Nivel educativo", educationLevel)
+        .build();
+  }
 }

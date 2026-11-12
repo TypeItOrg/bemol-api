@@ -5,14 +5,14 @@ import ar.edu.utn.frvm.typeit.bemol_api.authorization.RequiresPlatformRole;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.enums.PermissionCode;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.enums.PlatformRoleCode;
 import ar.edu.utn.frvm.typeit.bemol_api.common.web.Version;
+import ar.edu.utn.frvm.typeit.bemol_api.enrollment.payloads.EnrollmentPdfData;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.payloads.EnrollmentPdfSettingsRequest;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.payloads.EnrollmentPdfSettingsResponse;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.services.EnrollmentPdfSettingsUseCase;
-import ar.edu.utn.frvm.typeit.bemol_api.enrollment.services.ExportEnrollmentPdfUseCase;
+import ar.edu.utn.frvm.typeit.bemol_api.enrollment.services.ExtractEnrollmentPdfDataUseCase;
 import jakarta.validation.Valid;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -29,7 +29,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RequiredArgsConstructor
 public class PlatformEnrollmentPdfSettingsController {
   private final EnrollmentPdfSettingsUseCase settings;
-  private final ExportEnrollmentPdfUseCase pdf;
+  private final ExtractEnrollmentPdfDataUseCase pdf;
 
   @GetMapping(version = Version.V1)
   @RequiresPermission(PermissionCode.INSTITUTION_READ)
@@ -47,9 +47,9 @@ public class PlatformEnrollmentPdfSettingsController {
 
   @PostMapping(value = "/preview", version = Version.V1)
   @RequiresPermission(PermissionCode.INSTITUTION_UPDATE)
-  public ResponseEntity<byte[]> preview(
+  public EnrollmentPdfData preview(
       @PathVariable final UUID institutionId,
       @Valid @RequestBody final EnrollmentPdfSettingsRequest input) {
-    return EnrollmentPdfHttpResponse.preview(pdf.preview(institutionId, input));
+    return pdf.example(institutionId, input);
   }
 }

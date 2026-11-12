@@ -1,5 +1,7 @@
 package ar.edu.utn.frvm.typeit.bemol_api.enrollment.entities;
 
+import ar.edu.utn.frvm.typeit.bemol_api.audit.snapshot.AuditSnapshot;
+import ar.edu.utn.frvm.typeit.bemol_api.audit.snapshot.AuditSubject;
 import ar.edu.utn.frvm.typeit.bemol_api.common.persistence.GeneratedUUIDv7;
 import ar.edu.utn.frvm.typeit.bemol_api.common.persistence.SoftDeletable;
 import jakarta.persistence.Column;
@@ -16,19 +18,15 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-import org.hibernate.envers.AuditOverride;
-import org.hibernate.envers.Audited;
-import org.hibernate.envers.RelationTargetAuditMode;
 
 @Entity
-@AuditOverride(forClass = SoftDeletable.class, name = "deletedAt", isAudited = true)
 @Table(name = "applicant_preferences")
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor(access = AccessLevel.PRIVATE)
 @Builder
-public class ApplicantPreference extends SoftDeletable {
+public class ApplicantPreference extends SoftDeletable implements AuditSubject {
 
   @Id
   @GeneratedUUIDv7
@@ -37,7 +35,6 @@ public class ApplicantPreference extends SoftDeletable {
 
   @OneToOne(fetch = FetchType.LAZY, optional = false)
   @JoinColumn(name = "enrollment_application_id", nullable = false)
-  @Audited(targetAuditMode = RelationTargetAuditMode.NOT_AUDITED)
   private EnrollmentApplication enrollmentApplication;
 
   // Un DRAFT es parcial por definición: submitApplication() exige este campo
@@ -47,12 +44,10 @@ public class ApplicantPreference extends SoftDeletable {
 
   @Column(name = "allows_image_use", nullable = false)
   @Builder.Default
-  @Audited
   private boolean allowsImageUse = false;
 
   @Column(name = "is_reenrolling", nullable = false)
   @Builder.Default
-  @Audited
   private boolean isReenrolling = false;
 
   @Column(name = "previous_teacher", length = 150)
@@ -60,5 +55,15 @@ public class ApplicantPreference extends SoftDeletable {
 
   public void setIsReenrolling(boolean isReenrolling) {
     this.isReenrolling = isReenrolling;
+  }
+
+  @Override
+  public AuditSnapshot.Snapshot auditSnapshot() {
+    return AuditSnapshot.fields()
+        .compare("preferredShift", "Turno preferido", preferredShift)
+        .compare("allowsImageUse", "Autoriza uso de imagen", allowsImageUse)
+        .compare("reenrolling", "Reinscripción", isReenrolling)
+        .compare("previousTeacher", "Docente anterior", previousTeacher)
+        .build();
   }
 }

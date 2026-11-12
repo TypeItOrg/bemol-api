@@ -2,6 +2,9 @@ package ar.edu.utn.frvm.typeit.bemol_api.enrollment.entities;
 
 import ar.edu.utn.frvm.typeit.bemol_api.academic.entities.AcademicYear;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.entities.StudyPlanSpace;
+import ar.edu.utn.frvm.typeit.bemol_api.audit.definition.AuditResource;
+import ar.edu.utn.frvm.typeit.bemol_api.audit.snapshot.AuditSnapshot;
+import ar.edu.utn.frvm.typeit.bemol_api.audit.snapshot.AuditSubject;
 import ar.edu.utn.frvm.typeit.bemol_api.common.persistence.GeneratedUUIDv7;
 import ar.edu.utn.frvm.typeit.bemol_api.common.persistence.SoftDeletable;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.enums.EnrollmentPeriodStatus;
@@ -22,6 +25,7 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 import lombok.AccessLevel;
@@ -29,18 +33,16 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import org.hibernate.envers.AuditOverride;
-import org.hibernate.envers.Audited;
-import org.hibernate.envers.RelationTargetAuditMode;
 
 @Entity
-@AuditOverride(forClass = SoftDeletable.class, name = "deletedAt", isAudited = true)
 @Table(name = "enrollment_periods")
 @Getter
 @NoArgsConstructor
 @AllArgsConstructor(access = AccessLevel.PRIVATE)
 @Builder
-public class EnrollmentPeriod extends SoftDeletable {
+public class EnrollmentPeriod extends SoftDeletable implements AuditSubject {
+  public static final AuditResource AUDIT_TYPE =
+      new AuditResource("ENROLLMENT_PERIOD", "Período de inscripción");
 
   @Id
   @GeneratedUUIDv7
@@ -49,29 +51,23 @@ public class EnrollmentPeriod extends SoftDeletable {
 
   @ManyToOne(fetch = FetchType.LAZY, optional = false)
   @JoinColumn(name = "institution_id", nullable = false)
-  @Audited(targetAuditMode = RelationTargetAuditMode.NOT_AUDITED)
   private Institution institution;
 
   @ManyToOne(fetch = FetchType.LAZY, optional = false)
   @JoinColumn(name = "academic_year_id", nullable = false)
-  @Audited(targetAuditMode = RelationTargetAuditMode.NOT_AUDITED)
   private AcademicYear academicYear;
 
   @Column(name = "name", nullable = false, length = 150)
-  @Audited
   private String name;
 
   @Column(name = "start_date", nullable = false)
-  @Audited
   private Instant startDate;
 
   @Column(name = "end_date", nullable = false)
-  @Audited
   private Instant endDate;
 
   @Enumerated(EnumType.STRING)
   @Column(name = "status", nullable = false, length = 20)
-  @Audited
   private EnrollmentPeriodStatus status;
 
   @OneToMany(mappedBy = "period", cascade = CascadeType.ALL, orphanRemoval = true)
@@ -80,7 +76,6 @@ public class EnrollmentPeriod extends SoftDeletable {
   private List<EnrollmentPeriodOffering> offerings = new ArrayList<>();
 
   @Column(name = "scope_configured", nullable = false)
-  @Audited
   private boolean scopeConfigured;
 
   public void markScopeConfigured() {
@@ -113,7 +108,7 @@ public class EnrollmentPeriod extends SoftDeletable {
     }
 
     this.name = name.trim();
-    // Match PostgreSQL/JDBC precision so equal dates do not create false Envers revisions.
+    // Match PostgreSQL/JDBC microsecond precision.
     this.startDate = startDate.plusNanos(500).truncatedTo(ChronoUnit.MICROS);
     this.endDate = endDate.plusNanos(500).truncatedTo(ChronoUnit.MICROS);
   }
@@ -124,5 +119,57 @@ public class EnrollmentPeriod extends SoftDeletable {
 
   public boolean markDeleted(final Instant now) {
     return super.markDeleted(now);
+  }
+
+  @Override
+  public AuditSnapshot.Snapshot auditSnapshot() {
+    final var offeringIds =
+        offerings.stream()
+            .flatMap(
+                offering ->
+                    offering.getLevels().stream()
+                        .map(
+                            level ->
+                                offering.getStudyPlan().getId()
+                                    + "/"
+                                    + (level.levelId() == null ? "unassigned" : level.levelId())))
+            .sorted()
+            .toList();
+    return AuditSnapshot.fields()
+        .expose("name", "Nombre", name)
+        .expose(
+            "academicYearId", "Identificador del ciclo lectivo", academicYear.getId().toString())
+        .expose(
+            "startDate",
+            "Desde",
+            auditDate(startDate).toString(),
+            AuditSnapshot.dateTime(auditDate(startDate)))
+        .expose(
+            "endDate",
+            "Hasta",
+            auditDate(endDate).toString(),
+            AuditSnapshot.dateTime(auditDate(endDate)))
+        .expose(
+            "status",
+            "Estado",
+            status.name(),
+            Map.of("code", status.name(), "label", status.getLabel()))
+        .expose("offeringIds", "Ofertas habilitadas (plan / nivel)", offeringIds)
+        .build();
+  }
+
+  private static Instant auditDate(final Instant value) {
+    // PostgreSQL/JDBC rounds timestamps to microseconds; compare at the stored precision.
+    return value.plusNanos(500).truncatedTo(ChronoUnit.MICROS);
+  }
+
+  public AuditSnapshot.Snapshot statusAuditSnapshot() {
+    return AuditSnapshot.fields()
+        .expose(
+            "status",
+            "Estado",
+            status.name(),
+            Map.of("code", status.name(), "label", status.getLabel()))
+        .build();
   }
 }

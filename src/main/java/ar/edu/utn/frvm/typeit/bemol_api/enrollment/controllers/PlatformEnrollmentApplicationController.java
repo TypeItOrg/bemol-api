@@ -7,9 +7,10 @@ import ar.edu.utn.frvm.typeit.bemol_api.common.web.PaginatedResponse;
 import ar.edu.utn.frvm.typeit.bemol_api.common.web.Version;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.enums.EnrollmentApplicationStatus;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.payloads.EnrollmentApplicationResponse;
+import ar.edu.utn.frvm.typeit.bemol_api.enrollment.payloads.EnrollmentPdfData;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.payloads.RejectEnrollmentApplicationRequest;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.services.ApproveEnrollmentApplicationUseCase;
-import ar.edu.utn.frvm.typeit.bemol_api.enrollment.services.ExportEnrollmentPdfUseCase;
+import ar.edu.utn.frvm.typeit.bemol_api.enrollment.services.ExtractEnrollmentPdfDataUseCase;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.services.GetEnrollmentApplicationUseCase;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.services.ListEnrollmentApplicationsUseCase;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.services.RejectEnrollmentApplicationUseCase;
@@ -19,7 +20,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
-import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -36,7 +36,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RequiredArgsConstructor
 public class PlatformEnrollmentApplicationController {
 
-  private final ExportEnrollmentPdfUseCase pdf;
+  private final ExtractEnrollmentPdfDataUseCase pdf;
   private final ar.edu.utn.frvm.typeit.bemol_api.enrollment.services
           .RequestEnrollmentDocumentsUseCase
       documentRequests;
@@ -109,9 +109,8 @@ public class PlatformEnrollmentApplicationController {
   }
 
   @GetMapping(value = "/{institutionId}/{applicationId}/pdf", version = Version.V1)
-  public ResponseEntity<byte[]> downloadPdf(
+  public EnrollmentPdfData downloadPdf(
       @PathVariable final UUID institutionId, @PathVariable final UUID applicationId) {
-    return EnrollmentPdfHttpResponse.download(
-        pdf.export(institutionId, applicationId, null), applicationId.toString());
+    return pdf.extract(institutionId, applicationId, null);
   }
 }

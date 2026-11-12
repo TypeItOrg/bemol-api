@@ -1,5 +1,8 @@
 package ar.edu.utn.frvm.typeit.bemol_api.enrollment.entities;
 
+import ar.edu.utn.frvm.typeit.bemol_api.audit.definition.AuditResource;
+import ar.edu.utn.frvm.typeit.bemol_api.audit.snapshot.AuditSnapshot;
+import ar.edu.utn.frvm.typeit.bemol_api.audit.snapshot.AuditSubject;
 import ar.edu.utn.frvm.typeit.bemol_api.common.persistence.GeneratedUUIDv7;
 import ar.edu.utn.frvm.typeit.bemol_api.common.persistence.SoftDeletable;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.enums.DocumentReviewStatus;
@@ -16,6 +19,7 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import java.time.Instant;
+import java.util.Map;
 import java.util.UUID;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
@@ -23,19 +27,17 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-import org.hibernate.envers.AuditOverride;
-import org.hibernate.envers.Audited;
-import org.hibernate.envers.RelationTargetAuditMode;
 import org.jspecify.annotations.Nullable;
 
 @Entity
-@AuditOverride(forClass = SoftDeletable.class, name = "deletedAt", isAudited = true)
 @Table(name = "enrollment_attachments")
 @Getter
 @NoArgsConstructor
 @AllArgsConstructor(access = AccessLevel.PRIVATE)
 @Builder
-public class EnrollmentAttachment extends SoftDeletable {
+public class EnrollmentAttachment extends SoftDeletable implements AuditSubject {
+  public static final AuditResource AUDIT_TYPE =
+      new AuditResource("ENROLLMENT_ATTACHMENT", "Adjunto de inscripción");
 
   @Id
   @GeneratedUUIDv7
@@ -45,35 +47,32 @@ public class EnrollmentAttachment extends SoftDeletable {
   @ManyToOne(fetch = FetchType.LAZY, optional = false)
   @JoinColumn(name = "enrollment_application_id", nullable = false)
   @Setter
-  @Audited(targetAuditMode = RelationTargetAuditMode.NOT_AUDITED)
   private EnrollmentApplication enrollmentApplication;
 
   @ManyToOne(fetch = FetchType.LAZY, optional = false)
   @JoinColumn(name = "requirement_id", nullable = false)
-  @Audited(targetAuditMode = RelationTargetAuditMode.NOT_AUDITED)
   private EnrollmentDocumentRequirement requirement;
 
   @Enumerated(EnumType.STRING)
   @Column(name = "version_status", nullable = false)
   @Builder.Default
-  @Audited
   private DocumentVersionStatus versionStatus = DocumentVersionStatus.CURRENT;
 
   @Enumerated(EnumType.STRING)
   @Column(name = "review_status", nullable = false)
   @Builder.Default
-  @Audited
   private DocumentReviewStatus reviewStatus = DocumentReviewStatus.PENDING_REVIEW;
 
-  @Audited private UUID uploadedBy;
+  private UUID uploadedBy;
 
   @Column(nullable = false)
-  @Audited
   private String uploaderType;
 
-  @Audited private @Nullable UUID reviewedBy;
-  @Audited private @Nullable String reviewerType;
-  @Audited private @Nullable Instant reviewedAt;
+  private @Nullable UUID reviewedBy;
+
+  private @Nullable String reviewerType;
+
+  private @Nullable Instant reviewedAt;
 
   @Column(length = 2000)
   private @Nullable String observation;
@@ -122,11 +121,9 @@ public class EnrollmentAttachment extends SoftDeletable {
   private String storagePath;
 
   @Column(name = "content_type", nullable = false, length = 100)
-  @Audited
   private String contentType;
 
   @Column(name = "file_size", nullable = false)
-  @Audited
   private Long fileSize;
 
   public boolean markDeleted(final Instant now) {
@@ -145,5 +142,39 @@ public class EnrollmentAttachment extends SoftDeletable {
 
       return this;
     }
+  }
+
+  @Override
+  public AuditSnapshot.Snapshot auditSnapshot() {
+    final String versionLabel =
+        switch (versionStatus) {
+          case CURRENT -> "Vigente";
+          case SUPERSEDED -> "Reemplazado";
+          case WITHDRAWN -> "Retirado";
+        };
+    final String reviewLabel =
+        switch (reviewStatus) {
+          case PENDING_REVIEW -> "Pendiente de revisión";
+          case OBSERVED -> "Observado";
+          case ACCEPTED -> "Aceptado";
+        };
+    return AuditSnapshot.fields()
+        .expose(
+            "applicationId",
+            "Identificador de la solicitud",
+            enrollmentApplication.getId().toString())
+        .expose(
+            "versionStatus",
+            "Estado del adjunto",
+            versionStatus.name(),
+            Map.of("code", versionStatus.name(), "label", versionLabel))
+        .expose(
+            "reviewStatus",
+            "Revisión",
+            reviewStatus.name(),
+            Map.of("code", reviewStatus.name(), "label", reviewLabel))
+        .expose("contentType", "Formato del archivo", contentType)
+        .expose("size", "Tamaño del archivo", fileSize)
+        .build();
   }
 }

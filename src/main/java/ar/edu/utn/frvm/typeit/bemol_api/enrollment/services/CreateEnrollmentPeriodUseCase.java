@@ -2,10 +2,10 @@ package ar.edu.utn.frvm.typeit.bemol_api.enrollment.services;
 
 import ar.edu.utn.frvm.typeit.bemol_api.academic.exceptions.AcademicYearNotFoundException;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.interfaces.AcademicYearRepository;
-import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditAction;
-import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditEntityType;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.services.AuditEventRecorder;
+import ar.edu.utn.frvm.typeit.bemol_api.audit.snapshot.AuditSnapshot;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.enums.PermissionCode;
+import ar.edu.utn.frvm.typeit.bemol_api.enrollment.audit.EnrollmentAuditAction;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.entities.EnrollmentPeriod;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.enums.EnrollmentPeriodStatus;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.exceptions.InvalidEnrollmentPeriodDatesException;
@@ -13,7 +13,6 @@ import ar.edu.utn.frvm.typeit.bemol_api.enrollment.payloads.CreateEnrollmentPeri
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.payloads.EnrollmentPeriodResponse;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.exceptions.InstitutionNotFoundException;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.interfaces.InstitutionRepository;
-import java.util.Map;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -63,15 +62,15 @@ public class CreateEnrollmentPeriodUseCase {
     periodAccess.requireManage(period, PermissionCode.ENROLLMENT_PERIOD_CREATE);
     final var saved = scopeService.save(period);
 
-    auditRecorder.recordChange(
+    auditRecorder.recordSnapshotChange(
         institution,
         null,
-        AuditAction.ENROLLMENT_PERIOD_CREATED,
-        AuditEntityType.ENROLLMENT_PERIOD,
+        EnrollmentAuditAction.ENROLLMENT_PERIOD_CREATED,
+        EnrollmentPeriod.AUDIT_TYPE,
         saved.getId(),
         saved.getName(),
-        Map.of(),
-        EnrollmentPeriodAuditDetails.snapshot(saved));
+        AuditSnapshot.empty(),
+        saved.auditSnapshot());
     return periodAccess.responseAfterMutation(saved, PermissionCode.ENROLLMENT_PERIOD_CREATE);
   }
 }

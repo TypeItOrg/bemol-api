@@ -5,12 +5,10 @@ import ar.edu.utn.frvm.typeit.bemol_api.enrollment.entities.EnrollmentApplicatio
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.payloads.CourseEnrollmentCourseMetadata;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.payloads.EnrollmentPdfData;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.payloads.EnrollmentPdfData.Field;
-import ar.edu.utn.frvm.typeit.bemol_api.enrollment.payloads.EnrollmentPdfData.Section;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.payloads.EnrollmentPdfData.Selection;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.payloads.EnrollmentPdfSettingsResponse;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.entities.Institution;
 import java.time.Instant;
-import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -27,99 +25,13 @@ final class EnrollmentPdfDataMapper {
       final boolean canReadCourses,
       final Instant generatedAt,
       final @Nullable Instant submittedAt) {
-    final var person = application.getApplicantPerson();
-    final var address = person.getAddress();
-    final var sections = new ArrayList<Section>();
-    sections.add(
-        new Section(
-            "Estudiante",
-            List.of(
-                field("Apellido y nombre", join(person.getLastName(), person.getFirstName())),
-                field("Documento", person.getDocumentNumber()),
-                field(
-                    "Fecha de nacimiento",
-                    person.getBirthDate() == null
-                        ? null
-                        : person.getBirthDate().format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))),
-                field(
-                    "Lugar de nacimiento",
-                    person.getBirthCity() == null ? null : person.getBirthCity().getName()),
-                field(
-                    "Nacionalidad",
-                    person.getNationalityCountry() == null
-                        ? null
-                        : person.getNationalityCountry().getName()),
-                field(
-                    "Domicilio",
-                    address == null
-                        ? null
-                        : join(
-                            address.getStreet(),
-                            address.getNumber(),
-                            address.getFloor(),
-                            address.getApartment(),
-                            address.getNeighborhood())),
-                field(
-                    "Localidad y provincia",
-                    address == null
-                        ? null
-                        : join(
-                            address.getCity().getName(),
-                            address.getCity().getProvince().getName())),
-                field("Teléfono", person.getPhoneNumber()),
-                field("Correo electrónico", person.getEmail()))));
-    final var year = application.commonAcademicYear();
-    final var path = application.getTrainingPath();
-    sections.add(
-        new Section(
-            "Inscripción",
-            List.of(
-                field("Propuesta académica", path == null ? null : path.getName()),
-                field("Ciclo lectivo", year == null ? null : year.getYear()),
-                field(
-                    "Período",
-                    application.getEnrollmentPeriod() == null
-                        ? null
-                        : application.getEnrollmentPeriod().getName()))));
-    final var education = application.getEducationBackground();
-    if (education != null) {
-      sections.add(EnrollmentPdfEducationMapper.from(education));
-    }
-
-    final var responsible = application.getResponsible();
-    if (responsible != null) {
-      sections.add(
-          new Section(
-              "Responsable",
-              List.of(
-                  field("Apellido y nombre", responsible.getFullName()),
-                      field("Documento", responsible.getDocumentNumber()),
-                  field("Ocupación", responsible.getOccupation()),
-                      field("Teléfono", responsible.getPhoneNumber()),
-                  field("Correo electrónico", responsible.getEmail()),
-                      field("Nivel de instrucción", responsible.getEducationLevel()))));
-    }
-    final var health = application.getHealthInclusion();
-    if (health != null) {
-      final var fields = new ArrayList<Field>();
-      fields.add(
-          field("Recibe ajustes razonables", answer(health.isReceivesReasonableAdjustments())));
-      if (health.isReceivesReasonableAdjustments() || health.getAdjustmentDetails() != null) {
-        fields.add(field("Detalle", health.getAdjustmentDetails()));
-      }
-      sections.add(new Section("Inclusión", List.copyOf(fields)));
-    }
-    final var preference = application.getPreference();
-    if (preference != null) {
-      final var fields = new ArrayList<Field>();
-      fields.add(field("Turno preferido", preference.getPreferredShift()));
-      fields.add(field("Reinscripción", answer(preference.isReenrolling())));
-      if (preference.isReenrolling() || preference.getPreviousTeacher() != null) {
-        fields.add(field("Docente anterior", preference.getPreviousTeacher()));
-      }
-      fields.add(field("Autoriza el uso de imágenes", answer(preference.isAllowsImageUse())));
-      sections.add(new Section("Preferencias y autorizaciones", List.copyOf(fields)));
-    }
+    final var nativeSections = EnrollmentPdfNativeSections.from(application);
+    final var form = application.getFormState();
+    final var sections =
+        form.getFormVersion() == null
+            ? EnrollmentPdfNativeSections.legacy(nativeSections)
+            : EnrollmentPdfFormSections.from(
+                form.definition(), nativeSections, form.getCustomAnswers());
 
     final var selections = new ArrayList<Selection>();
     final boolean coursesSelected = canReadCourses && !application.getCourseSelections().isEmpty();
@@ -132,7 +44,7 @@ final class EnrollmentPdfDataMapper {
               new Selection(
                   metadata.academicSpaceName(),
                   levelName(course.getStudyPlanSpace().getAcademicLevel()),
-                  text(metadata.instrumentName()),
+                  instrument(metadata.instrumentName()),
                   metadata.studyPlanName(),
                   switch (selection.getStatus()) {
                     case PENDING -> "Pendiente";
@@ -149,7 +61,7 @@ final class EnrollmentPdfDataMapper {
               new Selection(
                   space.getAcademicSpace().getName(),
                   levelName(space.getAcademicLevel()),
-                  text(
+                  instrument(
                       selection.getInstrument() == null
                           ? null
                           : selection.getInstrument().getName()),
@@ -166,7 +78,9 @@ final class EnrollmentPdfDataMapper {
         .sections(List.copyOf(sections))
         .selections(List.copyOf(selections))
         .coursesSelected(coursesSelected)
-        .hasResponsible(responsible != null)
+        .hasResponsible(
+            application.getResponsible() != null
+                && EnrollmentPdfNativeSections.hasResponsibleData(application.getResponsible()))
         .build();
   }
 
@@ -188,6 +102,11 @@ final class EnrollmentPdfDataMapper {
         text(institution.getEmail()));
   }
 
+  /** Spaces without an instrument do not lack data: the column does not apply to them. */
+  static String instrument(final @Nullable String name) {
+    return name == null || name.isBlank() ? "No corresponde" : name;
+  }
+
   static Field field(final String label, final @Nullable Object value) {
     return new Field(label, text(value));
   }
@@ -196,7 +115,7 @@ final class EnrollmentPdfDataMapper {
     return value == null || value.toString().isBlank() ? "Sin informar" : value.toString();
   }
 
-  private static String join(final @Nullable String... values) {
+  static String join(final @Nullable String... values) {
     return Stream.of(values)
         .filter(Objects::nonNull)
         .filter(value -> !value.isBlank())

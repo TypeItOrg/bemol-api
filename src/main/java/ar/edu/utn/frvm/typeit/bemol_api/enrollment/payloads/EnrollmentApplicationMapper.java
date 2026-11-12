@@ -2,6 +2,7 @@ package ar.edu.utn.frvm.typeit.bemol_api.enrollment.payloads;
 
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.entities.EnrollmentApplication;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.entities.EnrollmentApplicationSpace;
+import ar.edu.utn.frvm.typeit.bemol_api.enrollment.enums.EnrollmentFormNativeBlock;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
@@ -26,10 +27,20 @@ final class EnrollmentApplicationMapper {
   static EnrollmentApplicationResponse from(
       final EnrollmentApplication application,
       final boolean includeCourses,
-      final boolean includeAttachments) {
+      final boolean includeAttachments,
+      final boolean includeFormDetails) {
+    final var form = application.getFormState();
+    final var education = application.getEducationBackground();
     return base(application)
         .canReadAttachments(includeAttachments)
-        .data(EnrollmentDraftDataMapper.from(application, includeCourses, includeAttachments))
+        .formDefinition(includeFormDetails ? form.definition() : null)
+        .secondarySchool(
+            education == null || !form.hasBlock(EnrollmentFormNativeBlock.SCHOOLING)
+                ? null
+                : education.getSecondarySchool())
+        .data(
+            EnrollmentDraftDataMapper.from(
+                application, includeCourses, includeAttachments, includeFormDetails))
         .spaces(includeCourses ? spaces(application) : new ArrayList<>())
         .courses(
             !includeCourses || application.getCourseSelections() == null
@@ -50,6 +61,7 @@ final class EnrollmentApplicationMapper {
     final var period = application.getEnrollmentPeriod();
     final var education = application.getEducationBackground();
     final var submitter = application.getSubmittedByPerson();
+    final var form = application.getFormState();
 
     return EnrollmentApplicationResponse.builder()
         .applicationId(application.getId())
@@ -72,7 +84,12 @@ final class EnrollmentApplicationMapper {
         .status(application.getStatus())
         .pendingCourses(application.getPendingCourses())
         .isEditable(application.isEditable())
-        .secondarySchool(education == null ? null : education.getSecondarySchool())
+        .secondarySchool(
+            education == null || form.getFormVersion() != null
+                ? null
+                : education.getSecondarySchool())
+        .formVersionId(form.getFormVersion() == null ? null : form.getFormVersion().getId())
+        .draftRevision(form.getDraftRevision())
         .rejectionReason(application.getRejectionReason())
         .resolvedAt(application.getResolvedAt())
         .resolvedByPersonId(application.getResolvedByPersonId())

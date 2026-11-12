@@ -1,8 +1,6 @@
 package ar.edu.utn.frvm.typeit.bemol_api.enrollment.controllers;
 
-import static ar.edu.utn.frvm.typeit.bemol_api.security.handlers.SecurityErrorMessages.DEFAULT_FORBIDDEN_MESSAGE;
-
-import ar.edu.utn.frvm.typeit.bemol_api.auth.filters.JwtAuthenticatedUser;
+import ar.edu.utn.frvm.typeit.bemol_api.auth.filters.CurrentPrincipal;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.RequiresInstitutionAccess;
 import ar.edu.utn.frvm.typeit.bemol_api.common.web.PaginatedResponse;
 import ar.edu.utn.frvm.typeit.bemol_api.common.web.Version;
@@ -20,7 +18,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.format.annotation.DateTimeFormat;
-import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
@@ -98,9 +95,6 @@ public class TeacherCourseController {
   }
 
   private UUID personId(final Authentication authentication) {
-    if (!(authentication.getPrincipal() instanceof JwtAuthenticatedUser user)) {
-      throw new AccessDeniedException(DEFAULT_FORBIDDEN_MESSAGE);
-    }
-    return user.personId();
+    return CurrentPrincipal.requireInstitutionalUser(authentication).personId();
   }
 }

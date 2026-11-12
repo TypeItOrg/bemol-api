@@ -5,11 +5,16 @@ import ar.edu.utn.frvm.typeit.bemol_api.enrollment.entities.ApplicantHealthInclu
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.entities.ApplicantPreference;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.entities.ApplicantResponsible;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.entities.EnrollmentApplication;
+import ar.edu.utn.frvm.typeit.bemol_api.enrollment.enums.EnrollmentFormNativeBlock;
+import ar.edu.utn.frvm.typeit.bemol_api.enrollment.exceptions.EnrollmentNativeFormMessages;
+import ar.edu.utn.frvm.typeit.bemol_api.enrollment.exceptions.EnrollmentValidationException;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.payloads.AcademicBackgroundDto;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.payloads.EnrollmentDraftData;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.payloads.HealthInclusionDto;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.payloads.PreferenceDto;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.payloads.ResponsibleDto;
+import java.util.HashMap;
+import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.jspecify.annotations.Nullable;
 import org.springframework.stereotype.Component;
@@ -24,6 +29,8 @@ public class EnrollmentDraftUpdater {
 
   @Transactional(propagation = Propagation.MANDATORY)
   public void update(final EnrollmentApplication application, final EnrollmentDraftData data) {
+    requireEnabledBlocks(application, data);
+
     // Personal data belongs to the institutional Person register, not draft autosaves.
     updateEducation(application, data.getAcademicBackground());
     updateHealth(application, data.getHealthInclusion());
@@ -34,6 +41,32 @@ public class EnrollmentDraftUpdater {
     // A legacy plan does not prevent selecting concrete courses.
     if (data.getCourses() != null && courses.changed(application, data.getCourses())) {
       courses.update(application, data.getCourses());
+    }
+  }
+
+  private void requireEnabledBlocks(
+      final EnrollmentApplication application, final EnrollmentDraftData data) {
+    final var form = application.getFormState();
+    final Map<String, String> errors = new HashMap<>();
+    if (data.getAcademicBackground() != null
+        && !form.hasBlock(EnrollmentFormNativeBlock.SCHOOLING)) {
+      errors.put("academicBackground", EnrollmentNativeFormMessages.BLOCK_DISABLED);
+    }
+    if (data.getHealthInclusion() != null
+        && !form.hasBlock(EnrollmentFormNativeBlock.HEALTH_INCLUSION)) {
+      errors.put("healthInclusion", EnrollmentNativeFormMessages.BLOCK_DISABLED);
+    }
+    final var preference = data.getPreference();
+    if (preference != null
+        && !form.hasBlock(EnrollmentFormNativeBlock.PREFERENCES)
+        && (!form.hasBlock(EnrollmentFormNativeBlock.PREFERRED_SHIFT)
+            || preference.getAllowsImageUse() != null
+            || preference.getIsReenrolling() != null
+            || preference.getPreviousTeacher() != null)) {
+      errors.put("preference", EnrollmentNativeFormMessages.BLOCK_DISABLED);
+    }
+    if (!errors.isEmpty()) {
+      throw new EnrollmentValidationException(EnrollmentNativeFormMessages.BLOCK_DISABLED, errors);
     }
   }
 

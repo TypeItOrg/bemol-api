@@ -3,6 +3,7 @@ package ar.edu.utn.frvm.typeit.bemol_api.enrollment.services;
 import ar.edu.utn.frvm.typeit.bemol_api.common.storage.StorageService;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.exceptions.EnrollmentMessages;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.interfaces.EnrollmentStorageJobRepository;
+import ar.edu.utn.frvm.typeit.bemol_api.enrollment.interfaces.EnrollmentStorageJobRepository.Job;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.services.EnrollmentDocumentAudit.Actor;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.services.EnrollmentFilePolicy.StoredFile;
 import java.time.Clock;
@@ -39,14 +40,17 @@ public class EnrollmentStorageJournal {
   }
 
   @Transactional(propagation = Propagation.MANDATORY)
-  public void lockReservation(final UUID id) {
+  public Job lockReservation(final UUID id, final UUID applicationId) {
     final var job =
         jobs.lock(id)
             .orElseThrow(
                 () -> new IllegalStateException(EnrollmentMessages.STORAGE_JOB_UNAVAILABLE));
-    if (!"PENDING".equals(job.state()) || !job.destination().equals(storage.destination())) {
+    if (!"PENDING".equals(job.state())
+        || !job.destination().equals(storage.destination())
+        || !job.applicationId().equals(applicationId)) {
       throw new IllegalStateException(EnrollmentMessages.STORAGE_JOB_UNAVAILABLE);
     }
+    return job;
   }
 
   @Transactional(propagation = Propagation.MANDATORY)

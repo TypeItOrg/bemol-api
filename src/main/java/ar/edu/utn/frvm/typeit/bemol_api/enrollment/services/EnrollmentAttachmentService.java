@@ -3,6 +3,7 @@ package ar.edu.utn.frvm.typeit.bemol_api.enrollment.services;
 import static java.util.Objects.requireNonNull;
 
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.enums.PermissionCode;
+import ar.edu.utn.frvm.typeit.bemol_api.common.storage.PresignedDownloadResponse;
 import ar.edu.utn.frvm.typeit.bemol_api.common.storage.StorageService;
 import ar.edu.utn.frvm.typeit.bemol_api.common.web.PaginatedResponse;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.entities.EnrollmentApplication;
@@ -14,25 +15,29 @@ import ar.edu.utn.frvm.typeit.bemol_api.enrollment.exceptions.AttachmentNotFound
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.exceptions.EnrollmentMessages;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.exceptions.EnrollmentValidationException;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.interfaces.EnrollmentAttachmentRepository;
+import ar.edu.utn.frvm.typeit.bemol_api.enrollment.payloads.ConfirmEnrollmentAttachmentUploadRequest;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.payloads.DocumentReviewRequest;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.payloads.EnrollmentAttachmentResponse;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.payloads.EnrollmentDocumentRequirementResponse;
+import ar.edu.utn.frvm.typeit.bemol_api.enrollment.payloads.PresignEnrollmentAttachmentUploadRequest;
+import ar.edu.utn.frvm.typeit.bemol_api.enrollment.payloads.PresignedAttachmentUploadResponse;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.services.EnrollmentDocumentAudit.Actor;
 import java.time.Clock;
+import java.time.Duration;
 import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.jspecify.annotations.Nullable;
-import org.springframework.core.io.Resource;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.multipart.MultipartFile;
 
 @Service
 @RequiredArgsConstructor
 public class EnrollmentAttachmentService {
+  private static final Duration DOWNLOAD_TTL = Duration.ofMinutes(5);
+
   private final EnrollmentAttachmentRepository attachments;
   private final StorageService storage;
   private final EnrollmentDocumentAuthorization authorization;
@@ -42,19 +47,24 @@ public class EnrollmentAttachmentService {
   private final EnrollmentDocumentAccess access;
   private final UploadEnrollmentAttachmentUseCase upload;
 
-  public record AttachmentContentResult(Resource resource, EnrollmentAttachment attachment) {}
+  @Transactional
+  public PresignedAttachmentUploadResponse presignUpload(
+      final UUID applicationId,
+      final PresignEnrollmentAttachmentUploadRequest request,
+      final @Nullable Authentication authentication) {
+    return upload.presignUpload(applicationId, request, authentication);
+  }
 
   @Transactional
-  public EnrollmentAttachmentResponse uploadAttachment(
+  public EnrollmentAttachmentResponse confirmUpload(
       final UUID applicationId,
-      final MultipartFile file,
-      final UUID requirementId,
+      final ConfirmEnrollmentAttachmentUploadRequest request,
       final @Nullable Authentication authentication) {
-    return upload.execute(applicationId, file, requirementId, authentication);
+    return upload.confirmUpload(applicationId, request, authentication);
   }
 
   @Transactional(readOnly = true)
-  public AttachmentContentResult getAttachmentContent(
+  public PresignedDownloadResponse getAttachmentContent(
       final UUID applicationId,
       final UUID attachmentId,
       final @Nullable Authentication authentication) {
@@ -67,7 +77,7 @@ public class EnrollmentAttachmentService {
         attachmentId);
     final var attachment = attachment(applicationId, attachmentId);
 
-    // Commit the access event before opening the stream, even in a read-only transaction.
+    // Commit the access event before issuing the presigned URL, even in a read-only transaction.
     audit.recordIndependent(
         authentication,
         application.getInstitution().getId(),
@@ -76,8 +86,12 @@ public class EnrollmentAttachmentService {
         EnrollmentDocumentAction.CONTENT_ACCESS,
         "ALLOWED");
 
-    return new AttachmentContentResult(
-        storage.loadAsResource(attachment.getStoragePath()), attachment);
+    return PresignedDownloadResponse.from(
+        storage.presignDownload(
+            attachment.getStoragePath(),
+            attachment.getContentType(),
+            attachment.getOriginalFileName(),
+            DOWNLOAD_TTL));
   }
 
   @Transactional

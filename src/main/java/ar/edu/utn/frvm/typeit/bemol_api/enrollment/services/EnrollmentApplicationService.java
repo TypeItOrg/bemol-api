@@ -5,13 +5,13 @@ import static java.util.Objects.requireNonNull;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.enums.AcademicYearStatus;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.interfaces.AcademicYearRepository;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.interfaces.TrainingPathRepository;
-import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditAction;
-import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditEntityType;
+import ar.edu.utn.frvm.typeit.bemol_api.audit.definition.AuditOperation;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditOrigin;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.services.AuditChangeDetails;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.services.AuditEventRecorder;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.services.InstitutionalCapabilitiesService;
 import ar.edu.utn.frvm.typeit.bemol_api.common.web.PaginatedResponse;
+import ar.edu.utn.frvm.typeit.bemol_api.enrollment.audit.EnrollmentAuditAction;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.entities.ApplicantResponsible;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.entities.EnrollmentApplication;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.enums.EnrollmentApplicationStatus;
@@ -22,6 +22,7 @@ import ar.edu.utn.frvm.typeit.bemol_api.enrollment.exceptions.EnrollmentMessages
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.exceptions.EnrollmentPeriodClosedException;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.exceptions.EnrollmentValidationException;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.interfaces.EnrollmentApplicationRepository;
+import ar.edu.utn.frvm.typeit.bemol_api.enrollment.interfaces.EnrollmentFormAssignmentRepository;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.payloads.CourseSelectionDto;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.payloads.EnrollmentApplicationResponse;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.payloads.StartEnrollmentApplicationRequest;
@@ -59,6 +60,8 @@ public class EnrollmentApplicationService {
   private final AuditEventRecorder auditEventRecorder;
   private final OperatingContextResolver operatingContext;
   private final InstitutionalCapabilitiesService capabilities;
+  private final EnrollmentFormAssignmentRepository formAssignments;
+  private final EnrollmentCustomAnswersValidator customAnswers;
 
   @Transactional
   public EnrollmentApplicationResponse startOrGetApplication(
@@ -116,6 +119,10 @@ public class EnrollmentApplicationService {
     final var application =
         EnrollmentApplication.createForTrainingPath(
             path.getInstitution(), person, path, academicYear);
+    formAssignments
+        .findByInstitutionIdAndTrainingPathIdAndAcademicYearId(
+            institutionId, path.getId(), academicYear.getId())
+        .ifPresent(assignment -> application.bindFormVersion(assignment.getFormVersion()));
     if (actingForDependent) {
       final var submitter =
           people
@@ -129,7 +136,7 @@ public class EnrollmentApplicationService {
     documents.snapshot(application);
     saveDraft(application);
     history.record(application);
-    audit(personId, application, AuditAction.ENROLLMENT_APPLICATION_STARTED);
+    audit(personId, application, EnrollmentAuditAction.ENROLLMENT_APPLICATION_STARTED);
 
     return responses.from(application);
   }
@@ -150,19 +157,35 @@ public class EnrollmentApplicationService {
     capabilities.requireOwnEnrollmentManage(
         application.getInstitution().getId(), application.getApplicantPerson().getId());
     requireOpenDraft(application);
+    final var form = application.getFormState();
+    form.requireRevision(request.expectedRevision());
 
-    final var before = EnrollmentDraftAuditDetails.snapshot(application);
+    final var before = application.auditSnapshot();
     if (request.getData() != null) {
+      final var submittedAnswers = request.getData().getCustomAnswers();
+      final var answers =
+          submittedAnswers == null
+              ? null
+              : customAnswers.validate(
+                  form.getFormVersion() == null ? null : form.getFormVersion().getDefinition(),
+                  submittedAnswers,
+                  false);
       drafts.update(application, request.getData());
+      if (answers != null) {
+        application.replaceCustomAnswers(answers);
+      }
+    }
+    final var after = application.auditSnapshot();
+    if (!before.equals(after)) {
+      form.advanceRevision();
     }
     final var saved = saveDraft(application);
-    final var after = EnrollmentDraftAuditDetails.snapshot(saved);
     if (!before.equals(after)) {
       auditEventRecorder.recordCurrentActor(
           saved.getInstitution(),
           saved.getApplicantPerson().getId(),
-          AuditAction.ENROLLMENT_APPLICATION_DRAFT_UPDATED,
-          AuditEntityType.ENROLLMENT_APPLICATION,
+          EnrollmentAuditAction.ENROLLMENT_APPLICATION_DRAFT_UPDATED,
+          EnrollmentApplication.AUDIT_TYPE,
           saved.getId(),
           AuditOrigin.SELF_SERVICE,
           AuditChangeDetails.change("Solicitud de inscripción", before, after));
@@ -185,7 +208,7 @@ public class EnrollmentApplicationService {
       }
     }
     final var saved = applications.save(application);
-    audit(personId, saved, AuditAction.ENROLLMENT_APPLICATION_CANCELLED);
+    audit(personId, saved, EnrollmentAuditAction.ENROLLMENT_APPLICATION_CANCELLED);
 
     return responses.from(saved);
   }
@@ -193,12 +216,24 @@ public class EnrollmentApplicationService {
   @Transactional
   public EnrollmentApplicationResponse submitApplication(
       final UUID personId, final UUID applicationId) {
+    return submitApplication(personId, applicationId, null);
+  }
+
+  @Transactional
+  public EnrollmentApplicationResponse submitApplication(
+      final UUID personId, final UUID applicationId, final @Nullable Long expectedRevision) {
     final var application = lockOwnedApplication(personId, applicationId);
     capabilities.requireOwnEnrollmentManage(
         application.getInstitution().getId(), application.getApplicantPerson().getId());
     requireOpenDraft(application);
+    final var form = application.getFormState();
+    form.requireRevision(expectedRevision);
     final UUID actorPersonId = operatingContext.currentActorPersonId().orElse(personId);
     submissionValidator.validate(application, actorPersonId);
+    customAnswers.validate(
+        form.getFormVersion() == null ? null : form.getFormVersion().getDefinition(),
+        form.getCustomAnswers(),
+        true);
 
     if (application.getCourseSelections() != null && !application.getCourseSelections().isEmpty()) {
       courses.update(
@@ -223,6 +258,7 @@ public class EnrollmentApplicationService {
                 () ->
                     new EnrollmentValidationException(
                         EnrollmentMessages.ENROLLMENT_APPLICATION_APPLICANT_REQUIRED)));
+    form.advanceRevision();
     application.submit();
     history.record(application);
 
@@ -232,7 +268,7 @@ public class EnrollmentApplicationService {
     } catch (DataIntegrityViolationException exception) {
       throw EnrollmentIntegrityViolationTranslator.submission(exception);
     }
-    audit(personId, saved, AuditAction.ENROLLMENT_APPLICATION_SUBMITTED);
+    audit(personId, saved, EnrollmentAuditAction.ENROLLMENT_APPLICATION_SUBMITTED);
 
     return responses.from(saved);
   }
@@ -283,13 +319,15 @@ public class EnrollmentApplicationService {
 
   /** The subject is always the applicant; the actor may be the applicant or their tutor. */
   private void audit(
-      final UUID actorPersonId, final EnrollmentApplication application, final AuditAction action) {
+      final UUID actorPersonId,
+      final EnrollmentApplication application,
+      final AuditOperation action) {
     auditEventRecorder.record(
         application.getInstitution(),
         actorPersonId,
         application.getApplicantPerson().getId(),
         action,
-        AuditEntityType.ENROLLMENT_APPLICATION,
+        EnrollmentApplication.AUDIT_TYPE,
         application.getId());
   }
 

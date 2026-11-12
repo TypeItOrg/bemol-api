@@ -1,5 +1,7 @@
 package ar.edu.utn.frvm.typeit.bemol_api.enrollment.entities;
 
+import ar.edu.utn.frvm.typeit.bemol_api.audit.snapshot.AuditSnapshot;
+import ar.edu.utn.frvm.typeit.bemol_api.audit.snapshot.AuditSubject;
 import ar.edu.utn.frvm.typeit.bemol_api.common.persistence.GeneratedUUIDv7;
 import ar.edu.utn.frvm.typeit.bemol_api.common.persistence.SoftDeletable;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.enums.EducationLevel;
@@ -28,7 +30,7 @@ import org.jspecify.annotations.Nullable;
 @NoArgsConstructor
 @AllArgsConstructor(access = AccessLevel.PRIVATE)
 @Builder
-public class ApplicantEducationBackground extends SoftDeletable {
+public class ApplicantEducationBackground extends SoftDeletable implements AuditSubject {
 
   @Id
   @GeneratedUUIDv7
@@ -141,5 +143,19 @@ public class ApplicantEducationBackground extends SoftDeletable {
     }
 
     return value.trim();
+  }
+
+  @Override
+  public AuditSnapshot.Snapshot auditSnapshot() {
+    return AuditSnapshot.fields()
+        .compare("secondarySchool", "Escuela secundaria", secondarySchool)
+        .compare("currentlyStudying", "Estudia actualmente", currentlyStudying)
+        .compare("educationLevel", "Nivel educativo", educationLevel)
+        .compare("schoolOrigin", "Escuela de origen", schoolOrigin)
+        .compare("currentGradeYear", "Año que cursa", currentGradeYear)
+        .compare("levelCompleted", "Nivel completado", levelCompleted)
+        .compare("secondaryCompleted", "Secundario completo", secondaryCompleted)
+        .compare("secondaryDegreeTitle", "Título secundario", secondaryDegreeTitle)
+        .build();
   }
 }

@@ -1,11 +1,15 @@
 package ar.edu.utn.frvm.typeit.bemol_api.enrollment.services;
 
-import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditAction;
-import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditEntityType;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditOrigin;
+import ar.edu.utn.frvm.typeit.bemol_api.audit.services.AuditChangeDetails;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.services.AuditEventRecorder;
+import ar.edu.utn.frvm.typeit.bemol_api.audit.snapshot.AuditSnapshot;
+import ar.edu.utn.frvm.typeit.bemol_api.auth.filters.CurrentPrincipal;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.filters.JwtAuthenticatedPlatformAccount;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.filters.JwtAuthenticatedUser;
+import ar.edu.utn.frvm.typeit.bemol_api.auth.filters.JwtPrincipal;
+import ar.edu.utn.frvm.typeit.bemol_api.enrollment.audit.EnrollmentAuditAction;
+import ar.edu.utn.frvm.typeit.bemol_api.enrollment.entities.EnrollmentAttachment;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.enums.DocumentVersionStatus;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.enums.EnrollmentDocumentAction;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.interfaces.EnrollmentApplicationRepository;
@@ -13,7 +17,6 @@ import ar.edu.utn.frvm.typeit.bemol_api.enrollment.interfaces.EnrollmentAttachme
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.services.OperatingContextResolver;
 import java.sql.Timestamp;
 import java.time.Clock;
-import java.util.Map;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.jspecify.annotations.Nullable;
@@ -37,15 +40,17 @@ public class EnrollmentDocumentAudit {
   public record Actor(@Nullable UUID id, String accountType, @Nullable String requestId) {
     public static Actor from(final @Nullable Authentication authentication) {
       final String requestId = MDC.get("requestId");
-      if (authentication != null
-          && authentication.getPrincipal() instanceof JwtAuthenticatedUser user) {
-        return new Actor(user.actorPersonId(), "INSTITUTION", requestId);
-      }
-      if (authentication != null
-          && authentication.getPrincipal() instanceof JwtAuthenticatedPlatformAccount account) {
-        return new Actor(account.platformAccountId(), "PLATFORM", requestId);
-      }
-      return new Actor(null, "ANONYMOUS", requestId);
+      return CurrentPrincipal.jwt(authentication)
+          .map(principal -> of(principal, requestId))
+          .orElseGet(() -> new Actor(null, "ANONYMOUS", requestId));
+    }
+
+    private static Actor of(final JwtPrincipal principal, final @Nullable String requestId) {
+      return switch (principal) {
+        case JwtAuthenticatedUser user -> new Actor(user.actorPersonId(), "INSTITUTION", requestId);
+        case JwtAuthenticatedPlatformAccount account ->
+            new Actor(account.platformAccountId(), "PLATFORM", requestId);
+      };
     }
   }
 
@@ -87,10 +92,10 @@ public class EnrollmentDocumentAudit {
     }
     final var globalAction =
         switch (action) {
-          case UPLOAD -> AuditAction.ENROLLMENT_ATTACHMENT_UPLOADED;
-          case REPLACE -> AuditAction.ENROLLMENT_ATTACHMENT_REPLACED;
-          case DELETE -> AuditAction.ENROLLMENT_ATTACHMENT_DELETED;
-          case REVIEW -> AuditAction.ENROLLMENT_ATTACHMENT_REVIEWED;
+          case UPLOAD -> EnrollmentAuditAction.ENROLLMENT_ATTACHMENT_UPLOADED;
+          case REPLACE -> EnrollmentAuditAction.ENROLLMENT_ATTACHMENT_REPLACED;
+          case DELETE -> EnrollmentAuditAction.ENROLLMENT_ATTACHMENT_DELETED;
+          case REVIEW -> EnrollmentAuditAction.ENROLLMENT_ATTACHMENT_REVIEWED;
           default -> null;
         };
     if (globalAction == null) {
@@ -110,24 +115,11 @@ public class EnrollmentDocumentAudit {
         application.getInstitution(),
         application.getApplicantPerson().getId(),
         globalAction,
-        AuditEntityType.ENROLLMENT_ATTACHMENT,
+        EnrollmentAttachment.AUDIT_TYPE,
         attachmentId,
         selfService ? AuditOrigin.SELF_SERVICE : AuditOrigin.administration(),
-        Map.of(
-            "entityName",
-            "Adjunto de inscripción",
-            "after",
-            Map.of(
-                "applicationId",
-                applicationId.toString(),
-                "versionStatus",
-                attachment.getVersionStatus().name(),
-                "reviewStatus",
-                attachment.getReviewStatus().name(),
-                "contentType",
-                attachment.getContentType(),
-                "size",
-                attachment.getFileSize())));
+        AuditChangeDetails.change(
+            "Adjunto de inscripción", AuditSnapshot.empty(), attachment.auditSnapshot()));
   }
 
   @Transactional(propagation = Propagation.REQUIRES_NEW)

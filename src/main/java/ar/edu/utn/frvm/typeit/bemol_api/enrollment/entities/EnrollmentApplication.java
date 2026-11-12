@@ -4,10 +4,16 @@ import ar.edu.utn.frvm.typeit.bemol_api.academic.entities.AcademicYear;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.entities.StudyPlan;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.entities.TrainingPath;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.enums.AcademicYearStatus;
+import ar.edu.utn.frvm.typeit.bemol_api.audit.definition.AuditResource;
+import ar.edu.utn.frvm.typeit.bemol_api.audit.snapshot.AuditSnapshot;
+import ar.edu.utn.frvm.typeit.bemol_api.audit.snapshot.AuditSubject;
+import ar.edu.utn.frvm.typeit.bemol_api.common.exceptions.ErrorCategory;
 import ar.edu.utn.frvm.typeit.bemol_api.common.persistence.GeneratedUUIDv7;
 import ar.edu.utn.frvm.typeit.bemol_api.common.persistence.SoftDeletable;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.enums.EnrollmentApplicationStatus;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.exceptions.ApplicationNotEditableException;
+import ar.edu.utn.frvm.typeit.bemol_api.enrollment.exceptions.EnrollmentFormException;
+import ar.edu.utn.frvm.typeit.bemol_api.enrollment.exceptions.EnrollmentFormMessages;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.exceptions.EnrollmentMessages;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.exceptions.EnrollmentValidationException;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.exceptions.InvalidEnrollmentApplicationStateException;
@@ -16,6 +22,7 @@ import ar.edu.utn.frvm.typeit.bemol_api.institutional.entities.Institution;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.entities.Person;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
+import jakarta.persistence.Embedded;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
@@ -31,9 +38,12 @@ import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
 import jakarta.persistence.Transient;
 import jakarta.persistence.UniqueConstraint;
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
@@ -42,13 +52,9 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import org.hibernate.annotations.BatchSize;
-import org.hibernate.envers.AuditOverride;
-import org.hibernate.envers.Audited;
-import org.hibernate.envers.RelationTargetAuditMode;
 import org.jspecify.annotations.Nullable;
 
 @Entity
-@AuditOverride(forClass = SoftDeletable.class, name = "deletedAt", isAudited = true)
 @Table(
     name = "enrollment_applications",
     uniqueConstraints =
@@ -59,7 +65,9 @@ import org.jspecify.annotations.Nullable;
 @NoArgsConstructor
 @AllArgsConstructor(access = AccessLevel.PRIVATE)
 @Builder
-public class EnrollmentApplication extends SoftDeletable {
+public class EnrollmentApplication extends SoftDeletable implements AuditSubject {
+  public static final AuditResource AUDIT_TYPE =
+      new AuditResource("ENROLLMENT_APPLICATION", "Inscripción");
 
   @Id
   @GeneratedUUIDv7
@@ -68,23 +76,19 @@ public class EnrollmentApplication extends SoftDeletable {
 
   @ManyToOne(fetch = FetchType.LAZY, optional = false)
   @JoinColumn(name = "institution_id", nullable = false)
-  @Audited(targetAuditMode = RelationTargetAuditMode.NOT_AUDITED)
   private Institution institution;
 
   @ManyToOne(fetch = FetchType.LAZY, optional = false)
   @JoinColumn(name = "applicant_person_id", nullable = false)
-  @Audited(targetAuditMode = RelationTargetAuditMode.NOT_AUDITED)
   private Person applicantPerson;
 
   /** Who physically submitted the application: the tutor when acting for a dependent. */
   @ManyToOne(fetch = FetchType.LAZY)
   @JoinColumn(name = "submitted_by_person_id")
-  @Audited(targetAuditMode = RelationTargetAuditMode.NOT_AUDITED)
   private @Nullable Person submittedByPerson;
 
   @ManyToOne(fetch = FetchType.LAZY)
   @JoinColumn(name = "study_plan_id")
-  @Audited(targetAuditMode = RelationTargetAuditMode.NOT_AUDITED)
   private @Nullable StudyPlan studyPlan;
 
   @Column(name = "study_plan_id", insertable = false, updatable = false)
@@ -103,7 +107,6 @@ public class EnrollmentApplication extends SoftDeletable {
 
   @Setter(AccessLevel.NONE)
   @Column(name = "training_path_id", nullable = false)
-  @Audited
   private UUID trainingPathId;
 
   @ManyToOne(fetch = FetchType.LAZY)
@@ -120,28 +123,26 @@ public class EnrollmentApplication extends SoftDeletable {
 
   @ManyToOne(fetch = FetchType.LAZY)
   @JoinColumn(name = "academic_year_id")
-  @Audited(targetAuditMode = RelationTargetAuditMode.NOT_AUDITED)
   private @Nullable AcademicYear academicYear;
 
   @ManyToOne(fetch = FetchType.LAZY)
   @JoinColumn(name = "enrollment_period_id")
-  @Audited(targetAuditMode = RelationTargetAuditMode.NOT_AUDITED)
   private @Nullable EnrollmentPeriod enrollmentPeriod;
+
+  @Embedded @Builder.Default
+  private EnrollmentApplicationFormState formState = new EnrollmentApplicationFormState();
 
   @Enumerated(EnumType.STRING)
   @Column(name = "status", nullable = false, length = 40)
-  @Audited
   private EnrollmentApplicationStatus status;
 
   @Column(name = "rejection_reason", columnDefinition = "text")
   private @Nullable String rejectionReason;
 
   @Column(name = "resolved_at")
-  @Audited
   private @Nullable Instant resolvedAt;
 
   @Column(name = "resolved_by_person_id")
-  @Audited
   private @Nullable UUID resolvedByPersonId;
 
   @OneToOne(
@@ -263,13 +264,15 @@ public class EnrollmentApplication extends SoftDeletable {
     courseSelections.add(selection);
   }
 
-  public void clearCourseSelections() {
-    courseSelections.clear();
-  }
-
   public void changeStudyPlan(final StudyPlan studyPlan) {
     if (!isEditable()) {
       throw new ApplicationNotEditableException(id);
+    }
+
+    if (formState.getFormVersion() != null
+        && !studyPlan.getTrainingPath().getId().equals(trainingPathId)) {
+      throw new EnrollmentFormException(
+          ErrorCategory.CONFLICT, EnrollmentFormMessages.APPLICATION_FORM_CONTEXT_IMMUTABLE);
     }
 
     this.studyPlan = studyPlan;
@@ -278,16 +281,16 @@ public class EnrollmentApplication extends SoftDeletable {
     clearSelectedSpaces();
   }
 
-  public void changeTrainingPath(final TrainingPath trainingPath) {
-    if (!isEditable()) {
-      throw new ApplicationNotEditableException(id);
+  public void bindFormVersion(final EnrollmentFormVersion version) {
+    if (id != null
+        || formState.getFormVersion() != null
+        || status != EnrollmentApplicationStatus.DRAFT) {
+      throw new EnrollmentFormException(
+          ErrorCategory.CONFLICT, EnrollmentFormMessages.APPLICATION_FORM_IMMUTABLE);
     }
 
-    this.trainingPath = trainingPath;
-    this.trainingPathId = trainingPath.getId();
-    this.studyPlan = null;
-    clearSelectedSpaces();
-    clearCourseSelections();
+    version.requireAssignableTo(institution.getId());
+    formState.bindFormVersion(version);
   }
 
   public @Nullable AcademicYear commonAcademicYear() {
@@ -303,6 +306,13 @@ public class EnrollmentApplication extends SoftDeletable {
                 selection -> selection.getCourse().getAcademicYear().getId().equals(year.getId()))
         ? year
         : null;
+  }
+
+  public void replaceCustomAnswers(final Map<String, Object> answers) {
+    if (!isEditable()) {
+      throw new ApplicationNotEditableException(id);
+    }
+    formState.replaceAnswers(answers);
   }
 
   public void assignSubmitter(final Person submitter) {
@@ -354,24 +364,6 @@ public class EnrollmentApplication extends SoftDeletable {
     }
 
     status = EnrollmentApplicationStatus.CANCELLED;
-  }
-
-  public void updateEducationBackground(final String secondarySchool) {
-    if (!isEditable()) {
-      throw new InvalidEnrollmentApplicationStateException(
-          EnrollmentMessages.APPLICATION_NOT_EDITABLE);
-    }
-
-    if (educationBackground == null) {
-      educationBackground =
-          ApplicantEducationBackground.builder()
-              .enrollmentApplication(this)
-              .secondarySchool(secondarySchool)
-              .build();
-      return;
-    }
-
-    educationBackground.setSecondarySchool(secondarySchool);
   }
 
   public boolean isEditable() {
@@ -452,5 +444,89 @@ public class EnrollmentApplication extends SoftDeletable {
       throw new InvalidEnrollmentApplicationStateException(
           EnrollmentMessages.APPLICATION_NOT_PENDING_EVALUATION);
     }
+  }
+
+  @Override
+  public AuditSnapshot.Snapshot auditSnapshot() {
+    return AuditSnapshot.fields()
+        .compare("trainingPathId", "Trayecto formativo", trainingPathId)
+        .compare("studyPlanId", "Plan de estudio", studyPlan == null ? null : studyPlan.getId())
+        .compare("customAnswers", "Respuestas del formulario", auditAnswers())
+        .compare(
+            "academicBackground",
+            "Escolaridad",
+            educationBackground == null ? null : educationBackground.auditSnapshot().values())
+        .compare(
+            "healthInclusion",
+            "Inclusión",
+            healthInclusion == null ? null : healthInclusion.auditSnapshot().values())
+        .compare(
+            "responsible",
+            "Responsable",
+            responsible == null ? null : responsible.auditSnapshot().values())
+        .compare(
+            "preference",
+            "Preferencias",
+            preference == null ? null : preference.auditSnapshot().values())
+        .compare("selectedSpaces", "Espacios seleccionados", auditSelectedSpaces())
+        .compare("courseSelections", "Cursos seleccionados", auditCourseSelections())
+        .build();
+  }
+
+  private Map<String, Object> auditAnswers() {
+    final var answers = new LinkedHashMap<String, Object>();
+    formState
+        .getCustomAnswers()
+        .forEach(
+            (id, value) ->
+                answers.put(
+                    id,
+                    value instanceof Number number
+                        ? new BigDecimal(number.toString()).stripTrailingZeros()
+                        : value));
+    return answers;
+  }
+
+  private List<String> auditSelectedSpaces() {
+    return selectedSpaces.stream()
+        .map(
+            selection ->
+                selection.getStudyPlanSpace().getId()
+                    + "/"
+                    + (selection.getInstrument() == null ? "" : selection.getInstrument().getId()))
+        .sorted()
+        .toList();
+  }
+
+  private List<String> auditCourseSelections() {
+    return courseSelections.stream()
+        .map(
+            selection ->
+                selection.getCourse().getId()
+                    + "/"
+                    + (selection.getPreferredTeacher() == null
+                        ? ""
+                        : selection.getPreferredTeacher().getId()))
+        .sorted()
+        .toList();
+  }
+
+  public AuditSnapshot.Snapshot admissionAuditSnapshot() {
+    final String label =
+        switch (status) {
+          case DRAFT -> "Borrador";
+          case SUBMITTED -> "Enviada";
+          case CANCELLED -> "Cancelada";
+          case PROVISIONALLY_APPROVED -> "Aprobada provisoriamente";
+          case APPROVED -> "Aprobada";
+          case REJECTED -> "Rechazada";
+        };
+    return AuditSnapshot.fields()
+        .expose(
+            "status",
+            "Estado de solicitud",
+            status.name(),
+            Map.of("code", status.name(), "label", label))
+        .build();
   }
 }

@@ -144,24 +144,6 @@ class EnrollmentApplicationTest {
   }
 
   @Test
-  void updateEducationBackground_createsBackgroundOnFirstUpdate() {
-    final var application = draft();
-
-    application.updateEducationBackground("Escuela N° 1");
-
-    assertThat(application.getEducationBackground()).isNotNull();
-    assertThat(application.getEducationBackground().getSecondarySchool()).isEqualTo("Escuela N° 1");
-  }
-
-  @Test
-  void updateEducationBackground_rejectsNonEditableApplication() {
-    final var application = submitted();
-
-    assertThatThrownBy(() -> application.updateEducationBackground("Escuela N° 1"))
-        .isInstanceOf(InvalidEnrollmentApplicationStateException.class);
-  }
-
-  @Test
   void resolvedApplicationIsNotEditable() {
     final var application = submitted();
     application.approve(RESOLVED_AT, RESOLVER_PERSON_ID);

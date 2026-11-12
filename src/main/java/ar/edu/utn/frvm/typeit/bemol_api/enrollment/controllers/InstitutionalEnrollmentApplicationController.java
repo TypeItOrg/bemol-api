@@ -1,9 +1,6 @@
 package ar.edu.utn.frvm.typeit.bemol_api.enrollment.controllers;
 
-import static java.util.Objects.requireNonNull;
-
-import ar.edu.utn.frvm.typeit.bemol_api.auth.filters.JwtAuthenticatedPlatformAccount;
-import ar.edu.utn.frvm.typeit.bemol_api.auth.filters.JwtAuthenticatedUser;
+import ar.edu.utn.frvm.typeit.bemol_api.auth.filters.CurrentPrincipal;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.RequiresInstitutionAccess;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.RequiresPermission;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.enums.PermissionCode;
@@ -14,11 +11,12 @@ import ar.edu.utn.frvm.typeit.bemol_api.enrollment.payloads.CourseEnrollmentResp
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.payloads.EnrollApplicationCourseRequest;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.payloads.EnrollmentApplicationCourseResponse;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.payloads.EnrollmentApplicationResponse;
+import ar.edu.utn.frvm.typeit.bemol_api.enrollment.payloads.EnrollmentPdfData;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.payloads.RejectEnrollmentApplicationCourseRequest;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.payloads.RejectEnrollmentApplicationRequest;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.services.ApproveEnrollmentApplicationUseCase;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.services.CourseEnrollmentService;
-import ar.edu.utn.frvm.typeit.bemol_api.enrollment.services.ExportEnrollmentPdfUseCase;
+import ar.edu.utn.frvm.typeit.bemol_api.enrollment.services.ExtractEnrollmentPdfDataUseCase;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.services.GetEnrollmentApplicationUseCase;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.services.ListEnrollmentApplicationsUseCase;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.services.RejectEnrollmentApplicationCourseUseCase;
@@ -31,7 +29,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
-import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -49,7 +46,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RequiredArgsConstructor
 public class InstitutionalEnrollmentApplicationController {
 
-  private final ExportEnrollmentPdfUseCase pdf;
+  private final ExtractEnrollmentPdfDataUseCase pdf;
   private final ar.edu.utn.frvm.typeit.bemol_api.enrollment.services
           .RequestEnrollmentDocumentsUseCase
       documentRequests;
@@ -174,18 +171,17 @@ public class InstitutionalEnrollmentApplicationController {
   }
 
   private @Nullable UUID currentPersonId(final Authentication authentication) {
-    if (authentication.getPrincipal() instanceof JwtAuthenticatedPlatformAccount) {
+    if (CurrentPrincipal.platformAccount(authentication).isPresent()) {
       return null;
     }
 
-    return ((JwtAuthenticatedUser) requireNonNull(authentication.getPrincipal())).personId();
+    return CurrentPrincipal.requireInstitutionalUser(authentication).personId();
   }
 
   @GetMapping(value = "/{applicationId}/pdf", version = Version.V1)
   @RequiresPermission(PermissionCode.ENROLLMENT_APPLICATION_READ)
-  public ResponseEntity<byte[]> downloadPdf(
+  public EnrollmentPdfData downloadPdf(
       @PathVariable final UUID institutionId, @PathVariable final UUID applicationId) {
-    return EnrollmentPdfHttpResponse.download(
-        pdf.export(institutionId, applicationId, null), applicationId.toString());
+    return pdf.extract(institutionId, applicationId, null);
   }
 }

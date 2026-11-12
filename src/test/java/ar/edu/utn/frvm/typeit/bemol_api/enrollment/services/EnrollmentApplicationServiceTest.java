@@ -22,27 +22,32 @@ import ar.edu.utn.frvm.typeit.bemol_api.academic.interfaces.CourseRepository;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.interfaces.InstrumentRepository;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.interfaces.StudyPlanSpaceRepository;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.interfaces.TrainingPathRepository;
-import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditAction;
-import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditEntityType;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.services.AuditEventRecorder;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.interfaces.PersonRoleAssignmentRepository;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.services.InstitutionalCapabilitiesService;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.services.ScopedAuthorizationService;
 import ar.edu.utn.frvm.typeit.bemol_api.common.time.BusinessDateProvider;
+import ar.edu.utn.frvm.typeit.bemol_api.enrollment.audit.EnrollmentAuditAction;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.entities.ApplicantEducationBackground;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.entities.ApplicantPreference;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.entities.EnrollmentApplication;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.entities.EnrollmentApplicationSpace;
+import ar.edu.utn.frvm.typeit.bemol_api.enrollment.entities.EnrollmentFormAssignment;
+import ar.edu.utn.frvm.typeit.bemol_api.enrollment.entities.EnrollmentFormBaseDefinition;
+import ar.edu.utn.frvm.typeit.bemol_api.enrollment.entities.EnrollmentFormVersion;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.entities.EnrollmentPeriod;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.enums.EnrollmentApplicationStatus;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.exceptions.ApplicationNotEditableException;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.exceptions.EnrollmentApplicationNotFoundException;
+import ar.edu.utn.frvm.typeit.bemol_api.enrollment.exceptions.EnrollmentFormException;
+import ar.edu.utn.frvm.typeit.bemol_api.enrollment.exceptions.EnrollmentFormMessages;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.exceptions.EnrollmentMessages;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.exceptions.EnrollmentPeriodClosedException;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.exceptions.EnrollmentValidationException;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.interfaces.CourseEnrollmentRepository;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.interfaces.EnrollmentApplicationCourseRepository;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.interfaces.EnrollmentApplicationRepository;
+import ar.edu.utn.frvm.typeit.bemol_api.enrollment.interfaces.EnrollmentFormAssignmentRepository;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.payloads.AcademicBackgroundDto;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.payloads.AcademicSpaceSelectionDto;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.payloads.CareerSelectionDto;
@@ -82,6 +87,7 @@ import org.springframework.data.domain.Pageable;
 class EnrollmentApplicationServiceTest {
 
   @Mock private EnrollmentApplicationRepository applicationRepository;
+  @Mock private EnrollmentFormAssignmentRepository formAssignments;
   @Mock private PersonRepository personRepository;
   @Mock private PersonGuardianRepository personGuardianRepository;
   @Mock private PersonRoleAssignmentRepository personRoleAssignmentRepository;
@@ -182,7 +188,9 @@ class EnrollmentApplicationServiceTest {
             org.mockito.Mockito.mock(
                 ar.edu.utn.frvm.typeit.bemol_api.institutional.services.OperatingContextResolver
                     .class),
-            Mockito.mock(InstitutionalCapabilitiesService.class));
+            Mockito.mock(InstitutionalCapabilitiesService.class),
+            formAssignments,
+            new EnrollmentCustomAnswersValidator());
   }
 
   @Test
@@ -218,9 +226,34 @@ class EnrollmentApplicationServiceTest {
     assertThat(saved.getValue().getTrainingPath()).isSameAs(path);
     assertThat(saved.getValue().getAcademicYear()).isSameAs(activeYear);
     assertThat(saved.getValue().getEnrollmentPeriod()).isNull();
+    assertThat(saved.getValue().getFormState().getFormVersion()).isNull();
+    assertThat(saved.getValue().getFormState().getCustomAnswers()).isEmpty();
+    assertThat(saved.getValue().getFormState().getDraftRevision()).isZero();
     assertThat(response.getStatus()).isEqualTo(EnrollmentApplicationStatus.DRAFT);
     verify(documentRequirements).snapshot(saved.getValue());
     verify(admissionHistory).record(saved.getValue());
+  }
+
+  @Test
+  void startPinsThePublishedVersionAssignedToTheTrainingPathAndYear() {
+    final var path = givenAvailableTrainingPath();
+    final var assignment = Mockito.mock(EnrollmentFormAssignment.class);
+    final var version = Mockito.mock(EnrollmentFormVersion.class);
+    when(version.getDefinition()).thenReturn(EnrollmentFormBaseDefinition.create());
+    when(assignment.getFormVersion()).thenReturn(version);
+    when(formAssignments.findByInstitutionIdAndTrainingPathIdAndAcademicYearId(
+            institutionId, path.getId(), academicYearId))
+        .thenReturn(Optional.of(assignment));
+    when(applicationRepository.saveAndFlush(any(EnrollmentApplication.class)))
+        .thenAnswer(invocation -> invocation.getArgument(0));
+
+    service.startOrGetApplication(
+        institutionId, personId, new StartEnrollmentApplicationRequest(path.getId(), null, null));
+
+    final var saved = ArgumentCaptor.forClass(EnrollmentApplication.class);
+    verify(applicationRepository).saveAndFlush(saved.capture());
+    assertThat(saved.getValue().getFormState().getFormVersion()).isSameAs(version);
+    verify(version).requireAssignableTo(institutionId);
   }
 
   @Test
@@ -286,11 +319,18 @@ class EnrollmentApplicationServiceTest {
         .thenAnswer(invocation -> invocation.getArgument(0));
 
     UpdateEnrollmentDraftRequest request =
-        UpdateEnrollmentDraftRequest.builder().data(EnrollmentDraftData.builder().build()).build();
+        UpdateEnrollmentDraftRequest.builder()
+            .data(EnrollmentDraftData.builder().build())
+            .expectedRevision(0L)
+            .build();
 
     assertThatCode(() -> service.updateDraft(personId, applicationId, request))
         .doesNotThrowAnyException();
     assertThat(requireNonNull(application.getStudyPlan()).getId()).isEqualTo(effectivePlan.getId());
+    assertThat(application.getFormState().getDraftRevision()).isEqualTo(1);
+    assertThatThrownBy(() -> service.updateDraft(personId, applicationId, request))
+        .isInstanceOf(EnrollmentFormException.class)
+        .hasMessage(EnrollmentFormMessages.DRAFT_REVISION_CONFLICT);
   }
 
   @Test
@@ -329,6 +369,36 @@ class EnrollmentApplicationServiceTest {
         .extracting(period -> period.getId())
         .isEqualTo(periodId);
     verify(documentRequirements, never()).snapshot(any());
+    verify(formAssignments, never())
+        .findByInstitutionIdAndTrainingPathIdAndAcademicYearId(any(), any(), any());
+    assertThat(draft.getFormState().getFormVersion()).isNull();
+  }
+
+  @Test
+  void reusingAnInstitutionalFormDraftDoesNotResolveTheCurrentAssignment() {
+    final var path = givenAvailableTrainingPath();
+    final var version = Mockito.mock(EnrollmentFormVersion.class);
+    when(version.getDefinition()).thenReturn(EnrollmentFormBaseDefinition.create());
+    final var draft =
+        EnrollmentApplication.builder()
+            .institution(path.getInstitution())
+            .applicantPerson(Person.builder().id(personId).build())
+            .trainingPath(path)
+            .academicYear(activeYear)
+            .status(EnrollmentApplicationStatus.DRAFT)
+            .build();
+    draft.bindFormVersion(version);
+    when(applicationRepository.findDraftsForTrainingPathAndAcademicYear(
+            institutionId, personId, path.getId(), academicYearId, Pageable.ofSize(1)))
+        .thenReturn(List.of(draft));
+
+    service.startOrGetApplication(
+        institutionId, personId, new StartEnrollmentApplicationRequest(path.getId(), null, null));
+
+    assertThat(draft.getFormState().getFormVersion()).isSameAs(version);
+    verify(formAssignments, never())
+        .findByInstitutionIdAndTrainingPathIdAndAcademicYearId(any(), any(), any());
+    verify(applicationRepository, never()).saveAndFlush(any());
   }
 
   private TrainingPath givenAvailableTrainingPath() {
@@ -411,8 +481,8 @@ class EnrollmentApplicationServiceTest {
         .recordCurrentActor(
             eq(institution),
             eq(personId),
-            eq(AuditAction.ENROLLMENT_APPLICATION_DRAFT_UPDATED),
-            eq(AuditEntityType.ENROLLMENT_APPLICATION),
+            eq(EnrollmentAuditAction.ENROLLMENT_APPLICATION_DRAFT_UPDATED),
+            eq(EnrollmentApplication.AUDIT_TYPE),
             eq(applicationId),
             eq(ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditOrigin.SELF_SERVICE),
             any());
@@ -625,8 +695,8 @@ class EnrollmentApplicationServiceTest {
             institution,
             personId,
             personId,
-            AuditAction.ENROLLMENT_APPLICATION_CANCELLED,
-            AuditEntityType.ENROLLMENT_APPLICATION,
+            EnrollmentAuditAction.ENROLLMENT_APPLICATION_CANCELLED,
+            EnrollmentApplication.AUDIT_TYPE,
             applicationId);
     verify(applicationRepository).save(application);
   }

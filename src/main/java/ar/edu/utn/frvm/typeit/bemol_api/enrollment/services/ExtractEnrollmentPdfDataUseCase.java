@@ -4,6 +4,7 @@ import ar.edu.utn.frvm.typeit.bemol_api.authorization.enums.PermissionCode;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.enums.ScopedResource;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.services.AcademicAccessGuard;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.services.InstitutionalCapabilitiesService;
+import ar.edu.utn.frvm.typeit.bemol_api.enrollment.entities.EnrollmentFormDefinition;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.entities.EnrollmentPdfSettings;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.enums.EnrollmentApplicationStatus;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.exceptions.EnrollmentApplicationNotFoundException;
@@ -15,8 +16,10 @@ import ar.edu.utn.frvm.typeit.bemol_api.enrollment.payloads.EnrollmentPdfData.Fi
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.payloads.EnrollmentPdfData.Section;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.payloads.EnrollmentPdfData.Selection;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.payloads.EnrollmentPdfSettingsRequest;
+import ar.edu.utn.frvm.typeit.bemol_api.enrollment.payloads.EnrollmentPdfSettingsResponse;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.exceptions.InstitutionNotFoundException;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.interfaces.InstitutionRepository;
+import ar.edu.utn.frvm.typeit.bemol_api.institutional.payloads.InstitutionPublicAccessResponse;
 import java.time.Clock;
 import java.util.List;
 import java.util.Set;
@@ -73,12 +76,34 @@ public class ExtractEnrollmentPdfDataUseCase {
             .map(event -> event.occurredAt())
             .findFirst()
             .orElse(null);
+
     return EnrollmentPdfDataMapper.from(
-        application,
-        settings.get(institutionId),
-        courses.canRead(application),
-        clock.instant(),
-        submittedAt);
+            application,
+            settings.get(institutionId),
+            courses.canRead(application),
+            clock.instant(),
+            submittedAt)
+        .toBuilder()
+        .institutionId(application.getInstitution().getId())
+        .logoUrl(InstitutionPublicAccessResponse.logoUrl(application.getInstitution()))
+        .build();
+  }
+
+  @Transactional(readOnly = true)
+  public EnrollmentPdfData formExample(
+      final UUID institutionId, final EnrollmentFormDefinition definition) {
+    definition.validateForPublication();
+    final var institution =
+        institutions
+            .findWithLocationById(institutionId)
+            .orElseThrow(InstitutionNotFoundException::new);
+
+    return EnrollmentPdfFormPreview.from(
+            definition, institution, settings.get(institutionId), clock.instant())
+        .toBuilder()
+        .institutionId(institution.getId())
+        .logoUrl(InstitutionPublicAccessResponse.logoUrl(institution))
+        .build();
   }
 
   @Transactional(readOnly = true)
@@ -96,19 +121,22 @@ public class ExtractEnrollmentPdfDataUseCase {
         input.footerText(),
         input.showApplicantSignature(),
         input.showResponsibleSignature());
+
     return EnrollmentPdfData.builder()
         .institution(EnrollmentPdfDataMapper.institution(institution))
         .coursesSelected(false)
         .generatedAt(clock.instant())
-        .settings(EnrollmentPdfSettingsUseCase.response(configuration))
+        .settings(EnrollmentPdfSettingsResponse.from(configuration))
         .hasResponsible(true)
+        .institutionId(institution.getId())
+        .logoUrl(InstitutionPublicAccessResponse.logoUrl(institution))
         .sections(
             List.of(
                 new Section(
                     "Estudiante",
                     List.of(
                         new Field("Apellido y nombre", "Persona de ejemplo"),
-                        new Field("Documento", "Dato ficticio"),
+                        new Field("Documento nacional de identidad", "Dato ficticio"),
                         new Field("Nacionalidad", "Sin informar"),
                         new Field("Domicilio", "Domicilio de ejemplo"),
                         new Field("Teléfono", "Sin informar"))),
@@ -135,7 +163,7 @@ public class ExtractEnrollmentPdfDataUseCase {
                 new Selection(
                     "Espacio académico de ejemplo",
                     "Nivel 1",
-                    "Sin informar",
+                    "No corresponde",
                     "Plan de ejemplo",
                     "Solicitada")))
         .build();

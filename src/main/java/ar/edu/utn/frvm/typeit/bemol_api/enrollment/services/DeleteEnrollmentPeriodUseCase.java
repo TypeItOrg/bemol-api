@@ -1,13 +1,14 @@
 package ar.edu.utn.frvm.typeit.bemol_api.enrollment.services;
 
-import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditAction;
-import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditEntityType;
+import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditOrigin;
+import ar.edu.utn.frvm.typeit.bemol_api.audit.services.AuditChangeDetails;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.services.AuditEventRecorder;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.enums.PermissionCode;
+import ar.edu.utn.frvm.typeit.bemol_api.enrollment.audit.EnrollmentAuditAction;
+import ar.edu.utn.frvm.typeit.bemol_api.enrollment.entities.EnrollmentPeriod;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.exceptions.EnrollmentPeriodNotFoundException;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.interfaces.EnrollmentPeriodRepository;
 import java.time.Clock;
-import java.util.Map;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -36,14 +37,13 @@ public class DeleteEnrollmentPeriodUseCase {
 
     period.markDeleted(clock.instant());
     scopeService.save(period);
-    auditRecorder.recordChange(
+    auditRecorder.recordCurrentActor(
         period.getInstitution(),
         null,
-        AuditAction.ENROLLMENT_PERIOD_DELETED,
-        AuditEntityType.ENROLLMENT_PERIOD,
+        EnrollmentAuditAction.ENROLLMENT_PERIOD_DELETED,
+        EnrollmentPeriod.AUDIT_TYPE,
         period.getId(),
-        period.getName(),
-        Map.of("deleted", false),
-        Map.of("deleted", true));
+        AuditOrigin.administration(),
+        AuditChangeDetails.lifecycle(period.getName(), true));
   }
 }

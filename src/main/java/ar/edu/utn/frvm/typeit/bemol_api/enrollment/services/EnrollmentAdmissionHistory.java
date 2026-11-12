@@ -1,15 +1,15 @@
 package ar.edu.utn.frvm.typeit.bemol_api.enrollment.services;
 
-import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditAction;
-import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditEntityType;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditOrigin;
+import ar.edu.utn.frvm.typeit.bemol_api.audit.services.AuditChangeDetails;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.services.AuditEventRecorder;
+import ar.edu.utn.frvm.typeit.bemol_api.audit.snapshot.AuditSnapshot;
+import ar.edu.utn.frvm.typeit.bemol_api.enrollment.audit.EnrollmentAuditAction;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.entities.EnrollmentApplication;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.payloads.EnrollmentAdmissionHistoryResponse;
 import java.sql.Timestamp;
 import java.time.Clock;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -39,9 +39,10 @@ public class EnrollmentAdmissionHistory {
         actor.accountType());
     final var action =
         switch (application.getStatus()) {
-          case APPROVED -> AuditAction.ENROLLMENT_APPLICATION_APPROVED;
-          case PROVISIONALLY_APPROVED -> AuditAction.ENROLLMENT_APPLICATION_APPROVED_PROVISIONALLY;
-          case REJECTED -> AuditAction.ENROLLMENT_APPLICATION_REJECTED;
+          case APPROVED -> EnrollmentAuditAction.ENROLLMENT_APPLICATION_APPROVED;
+          case PROVISIONALLY_APPROVED ->
+              EnrollmentAuditAction.ENROLLMENT_APPLICATION_APPROVED_PROVISIONALLY;
+          case REJECTED -> EnrollmentAuditAction.ENROLLMENT_APPLICATION_REJECTED;
           default -> null;
         };
     if (action != null) {
@@ -49,10 +50,13 @@ public class EnrollmentAdmissionHistory {
           application.getInstitution(),
           application.getApplicantPerson().getId(),
           action,
-          AuditEntityType.ENROLLMENT_APPLICATION,
+          EnrollmentApplication.AUDIT_TYPE,
           application.getId(),
           AuditOrigin.administration(),
-          Map.of("after", Map.of("status", application.getStatus().name())));
+          AuditChangeDetails.change(
+              "Solicitud de inscripción",
+              AuditSnapshot.empty(),
+              application.admissionAuditSnapshot()));
     }
   }
 

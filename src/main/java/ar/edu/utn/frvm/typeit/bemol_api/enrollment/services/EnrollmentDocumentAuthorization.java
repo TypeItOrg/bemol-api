@@ -1,6 +1,6 @@
 package ar.edu.utn.frvm.typeit.bemol_api.enrollment.services;
 
-import ar.edu.utn.frvm.typeit.bemol_api.auth.filters.JwtAuthenticatedPlatformAccount;
+import ar.edu.utn.frvm.typeit.bemol_api.auth.filters.CurrentPrincipal;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.filters.JwtAuthenticatedUser;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.enums.PermissionCode;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.enums.PlatformRoleCode;
@@ -25,6 +25,12 @@ import org.springframework.stereotype.Service;
 @Service
 @RequiredArgsConstructor
 public class EnrollmentDocumentAuthorization {
+  private static final Set<PermissionCode> OWN_ATTACHMENT_PERMISSIONS =
+      Set.of(
+          PermissionCode.ENROLLMENT_ATTACHMENT_READ,
+          PermissionCode.ENROLLMENT_ATTACHMENT_UPLOAD,
+          PermissionCode.ENROLLMENT_ATTACHMENT_DELETE);
+
   private final AuthorityResolver authorityResolver;
   private final OperatingContextResolver operatingContext;
   private final AuthorizationService authorizationService;
@@ -51,30 +57,52 @@ public class EnrollmentDocumentAuthorization {
     if (authentication == null || !authentication.isAuthenticated()) {
       return false;
     }
-    if (authentication.getPrincipal() instanceof JwtAuthenticatedPlatformAccount) {
+    if (CurrentPrincipal.platformAccount(authentication).isPresent()) {
       return authorizationService.hasPlatformRole(authentication, PlatformRoleCode.PLATFORM_ADMIN);
     }
-    if (authentication.getPrincipal() instanceof JwtAuthenticatedUser user
-        && user.institutionId() != null
-        && application.getInstitution() != null
-        && user.institutionId().equals(application.getInstitution().getId())) {
-      if (user.personId() != null
-          && Set.of(
-                  PermissionCode.ENROLLMENT_ATTACHMENT_READ,
-                  PermissionCode.ENROLLMENT_ATTACHMENT_UPLOAD,
-                  PermissionCode.ENROLLMENT_ATTACHMENT_DELETE)
-              .contains(permission)
-          && Objects.equals(user.personId(), application.getApplicantPerson().getId())
-          && canAccessOwn(application, user.personId(), permission, fresh)) {
-        return true;
-      }
-      return authorityResolver
-          .resolvePersonAuthorities(user.personId(), user.institutionId())
-          .permissionScopes()
-          .getOrDefault(permission, PermissionAccess.none())
-          .includes(application.getTrainingPathId());
+    return CurrentPrincipal.institutionalUser(authentication)
+        .filter(user -> belongsTo(user, application))
+        .map(user -> canAccessAsMember(application, user, permission, fresh))
+        .orElse(false);
+  }
+
+  private static boolean belongsTo(
+      final JwtAuthenticatedUser user, final EnrollmentApplication application) {
+    final var institution = application.getInstitution();
+    if (user.institutionId() == null || institution == null) {
+      return false;
     }
-    return false;
+    return user.institutionId().equals(institution.getId());
+  }
+
+  private boolean canAccessAsMember(
+      final EnrollmentApplication application,
+      final JwtAuthenticatedUser user,
+      final PermissionCode permission,
+      final boolean fresh) {
+    if (canAccessOwnAttachment(application, user, permission, fresh)) {
+      return true;
+    }
+    return authorityResolver
+        .resolvePersonAuthorities(user.personId(), user.institutionId())
+        .permissionScopes()
+        .getOrDefault(permission, PermissionAccess.none())
+        .includes(application.getTrainingPathId());
+  }
+
+  private boolean canAccessOwnAttachment(
+      final EnrollmentApplication application,
+      final JwtAuthenticatedUser user,
+      final PermissionCode permission,
+      final boolean fresh) {
+    final UUID personId = user.personId();
+    final boolean ownApplication =
+        personId != null && Objects.equals(personId, application.getApplicantPerson().getId());
+    final boolean attachmentPermission = OWN_ATTACHMENT_PERMISSIONS.contains(permission);
+
+    return ownApplication
+        && attachmentPermission
+        && canAccessOwn(application, personId, permission, fresh);
   }
 
   private boolean canAccessOwn(

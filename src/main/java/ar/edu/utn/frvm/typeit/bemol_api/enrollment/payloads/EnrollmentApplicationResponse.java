@@ -1,6 +1,7 @@
 package ar.edu.utn.frvm.typeit.bemol_api.enrollment.payloads;
 
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.entities.EnrollmentApplication;
+import ar.edu.utn.frvm.typeit.bemol_api.enrollment.entities.EnrollmentFormDefinition;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.enums.EnrollmentApplicationStatus;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -49,7 +50,10 @@ import org.jspecify.annotations.Nullable;
       "documentRequests",
       "canRequestDocuments",
       "admissionHistory",
-      "pendingCourses"
+      "pendingCourses",
+      "formVersionId",
+      "formDefinition",
+      "draftRevision"
     })
 public record EnrollmentApplicationResponse(
     @Schema(nullable = true) @Nullable UUID applicationId,
@@ -91,7 +95,15 @@ public record EnrollmentApplicationResponse(
             nullable = true,
             description =
                 "Null unless admitted with course selections; true includes the waitlist.")
-        @Nullable Boolean pendingCourses) {
+        @Nullable Boolean pendingCourses,
+    @Schema(nullable = true, description = "Null identifica el formulario fijo BASE_V1.")
+        @Nullable UUID formVersionId,
+    @Schema(
+            nullable = true,
+            description =
+                "Definición fijada en la solicitud; null únicamente en listados resumidos.")
+        @Nullable EnrollmentFormDefinition formDefinition,
+    long draftRevision) {
   public EnrollmentApplicationResponse {
     documents = documents == null ? List.of() : documents;
     documentRequests = documentRequests == null ? List.of() : documentRequests;
@@ -209,6 +221,15 @@ public record EnrollmentApplicationResponse(
       final EnrollmentApplication application,
       final boolean includeCourseDetails,
       final boolean includeAttachments) {
-    return EnrollmentApplicationMapper.from(application, includeCourseDetails, includeAttachments);
+    return EnrollmentApplicationMapper.from(
+        application, includeCourseDetails, includeAttachments, true);
+  }
+
+  public static EnrollmentApplicationResponse listItem(
+      final EnrollmentApplication application,
+      final boolean includeCourseDetails,
+      final boolean includeAttachments) {
+    return EnrollmentApplicationMapper.from(
+        application, includeCourseDetails, includeAttachments, false);
   }
 }

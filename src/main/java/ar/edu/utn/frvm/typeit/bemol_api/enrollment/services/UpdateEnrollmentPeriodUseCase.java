@@ -1,9 +1,9 @@
 package ar.edu.utn.frvm.typeit.bemol_api.enrollment.services;
 
-import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditAction;
-import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditEntityType;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.services.AuditEventRecorder;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.enums.PermissionCode;
+import ar.edu.utn.frvm.typeit.bemol_api.enrollment.audit.EnrollmentAuditAction;
+import ar.edu.utn.frvm.typeit.bemol_api.enrollment.entities.EnrollmentPeriod;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.exceptions.EnrollmentPeriodNotFoundException;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.exceptions.InvalidEnrollmentPeriodDatesException;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.interfaces.EnrollmentPeriodRepository;
@@ -39,21 +39,21 @@ public class UpdateEnrollmentPeriodUseCase {
             .orElseThrow(EnrollmentPeriodNotFoundException::new);
 
     periodAccess.requireManage(period, PermissionCode.ENROLLMENT_PERIOD_UPDATE);
-    final var before = EnrollmentPeriodAuditDetails.snapshot(period);
+    final var before = period.auditSnapshot();
     scopeService.configure(period, request.offerings());
     periodAccess.requireManage(period, PermissionCode.ENROLLMENT_PERIOD_UPDATE);
     period.updateDetails(request.name(), request.startDate(), request.endDate());
     final var saved = scopeService.save(period);
 
-    auditRecorder.recordChange(
+    auditRecorder.recordSnapshotChange(
         period.getInstitution(),
         null,
-        AuditAction.ENROLLMENT_PERIOD_UPDATED,
-        AuditEntityType.ENROLLMENT_PERIOD,
+        EnrollmentAuditAction.ENROLLMENT_PERIOD_UPDATED,
+        EnrollmentPeriod.AUDIT_TYPE,
         saved.getId(),
         saved.getName(),
         before,
-        EnrollmentPeriodAuditDetails.snapshot(saved));
+        saved.auditSnapshot());
     return periodAccess.responseAfterMutation(saved, PermissionCode.ENROLLMENT_PERIOD_UPDATE);
   }
 }

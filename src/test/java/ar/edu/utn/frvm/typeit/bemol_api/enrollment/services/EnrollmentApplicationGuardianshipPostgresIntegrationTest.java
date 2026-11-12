@@ -22,7 +22,6 @@ import ar.edu.utn.frvm.typeit.bemol_api.academic.enums.AcademicYearStatus;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.enums.ApprovalMode;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.enums.RequirementType;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.entities.AuditEvent;
-import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditAction;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.entities.PersonAccessInvitation;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.entities.User;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.entities.UserSession;
@@ -39,12 +38,14 @@ import ar.edu.utn.frvm.typeit.bemol_api.authorization.enums.SystemRoleCode;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.services.AssignPersonSystemRoleUseCase;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.services.InstitutionRoleProvisioner;
 import ar.edu.utn.frvm.typeit.bemol_api.common.mail.MailSender;
+import ar.edu.utn.frvm.typeit.bemol_api.enrollment.audit.EnrollmentAuditAction;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.entities.CourseEnrollment;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.entities.EnrollmentPeriod;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.entities.EnrollmentPeriodOffering;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.enums.CourseEnrollmentSource;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.enums.DocumentRequirementLevel;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.enums.EnrollmentPeriodStatus;
+import ar.edu.utn.frvm.typeit.bemol_api.institutional.audit.InstitutionalAuditAction;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.entities.GuardianLinkStatus;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.entities.GuardianRelationship;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.entities.Institution;
@@ -53,7 +54,6 @@ import ar.edu.utn.frvm.typeit.bemol_api.institutional.entities.PersonGuardian;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.entities.Student;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.payloads.guardian.GuardianDependentResponse;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.services.ListGuardianDependentsUseCase;
-import ar.edu.utn.frvm.typeit.bemol_api.support.EnrollmentDocumentTestData;
 import ar.edu.utn.frvm.typeit.bemol_api.support.InstitutionalTestData;
 import ar.edu.utn.frvm.typeit.bemol_api.support.IntegrationTest;
 import jakarta.persistence.EntityManager;
@@ -136,6 +136,10 @@ class EnrollmentApplicationGuardianshipPostgresIntegrationTest {
   @Autowired ListGuardianDependentsUseCase listDependents;
   @Autowired StringRedisTemplate redis;
   @MockitoBean MailSender mailSender;
+
+  @org.springframework.test.context.bean.override.mockito.MockitoSpyBean
+  ar.edu.utn.frvm.typeit.bemol_api.common.storage.StorageService storage;
+
   private static final String PASSWORD = "DummyPassword123!";
 
   private <T> T tx(Supplier<T> action) {
@@ -480,8 +484,43 @@ class EnrollmentApplicationGuardianshipPostgresIntegrationTest {
   @ParameterizedTest
   @ValueSource(strings = {"1956-01-01", "2018-01-01"})
   void representsAndSubmitsAnAdultOrMinorWithoutOwnEmail(String birthDate) throws Exception {
+    org.mockito.Mockito.doReturn(
+            new ar.edu.utn.frvm.typeit.bemol_api.common.storage.StorageService.PresignedUpload(
+                "https://storage.example/upload",
+                Instant.now().plusSeconds(600),
+                Map.of("Content-Type", "application/pdf")))
+        .when(storage)
+        .presignUpload(
+            org.mockito.ArgumentMatchers.anyString(),
+            org.mockito.ArgumentMatchers.anyString(),
+            org.mockito.ArgumentMatchers.anyLong(),
+            org.mockito.ArgumentMatchers.any());
+    org.mockito.Mockito.doReturn(
+            new ar.edu.utn.frvm.typeit.bemol_api.common.storage.StorageService.ObjectMetadata(
+                "application/pdf", 128L))
+        .when(storage)
+        .headObject(org.mockito.ArgumentMatchers.anyString());
     final var s = setup();
     final var link = represent(s, false, null, birthDate);
+    final var linkAudit =
+        tx(
+            () ->
+                entityManager
+                    .createQuery(
+                        "select a from AuditEvent a where a.entityId = :link and a.action = 'GUARDIAN_LINK_APPROVED'",
+                        AuditEvent.class)
+                    .setParameter("link", UUID.fromString(link.get("personGuardianId").asString()))
+                    .getSingleResult()
+                    .getDetails());
+    assertThat(json.valueToTree(linkAudit).at("/after/status/code").asString()).isEqualTo("ACTIVE");
+    assertThat(json.valueToTree(linkAudit).at("/fieldLabels/status").asString())
+        .isEqualTo("Estado de vinculación");
+    assertThat(linkAudit.toString())
+        .doesNotContain(
+            "dummy-person@example.test",
+            birthDate,
+            "declaredDocumentNumber",
+            "declaredPhoneNumber");
     final String person = link.get("dependentPersonId").asString();
     final var selected = actor(s, person);
     final var context = request(selected, get(profile(s, person)), 200);
@@ -543,11 +582,38 @@ class EnrollmentApplicationGuardianshipPostgresIntegrationTest {
                     List.of(Map.of("courseId", course))))),
         200);
     final String requirement = app.get("documents").get(0).get("id").asString();
-    final var file = EnrollmentDocumentTestData.pdf("dummy.pdf");
+    final var upload =
+        request(
+            selected,
+            body(
+                post(path + "/attachments/upload-url"),
+                Map.of(
+                    "requirementId",
+                    requirement,
+                    "fileName",
+                    "dummy.pdf",
+                    "contentType",
+                    "application/pdf",
+                    "fileSize",
+                    128)),
+            200);
     request(
         selected,
-        multipart(path + "/attachments").file(file).param("requirementId", requirement),
+        body(
+            post(path + "/attachments"),
+            Map.of(
+                "uploadId",
+                upload.get("uploadId").asString(),
+                "requirementId",
+                requirement,
+                "fileName",
+                "dummy.pdf",
+                "contentType",
+                "application/pdf",
+                "fileSize",
+                128)),
         201);
+    org.mockito.Mockito.verify(storage).headObject(org.mockito.ArgumentMatchers.anyString());
     final var submitted = request(selected, post(path + "/submit"), 200);
     assertThat(submitted.get("submittedByPersonId").asString())
         .isEqualTo(s.tutor().getId().toString());
@@ -564,7 +630,8 @@ class EnrollmentApplicationGuardianshipPostgresIntegrationTest {
                         "select a from AuditEvent a where a.entityId = :application and a.action = :action",
                         AuditEvent.class)
                     .setParameter("application", UUID.fromString(appId))
-                    .setParameter("action", AuditAction.ENROLLMENT_APPLICATION_SUBMITTED)
+                    .setParameter(
+                        "action", EnrollmentAuditAction.ENROLLMENT_APPLICATION_SUBMITTED.name())
                     .getSingleResult());
     assertThat(audit.getActorPersonId()).isEqualTo(s.tutor().getId());
     assertThat(audit.getSubjectPersonId()).isEqualTo(UUID.fromString(person));
@@ -1019,7 +1086,8 @@ class EnrollmentApplicationGuardianshipPostgresIntegrationTest {
                         "select a from AuditEvent a where a.entityId = :invitation and a.action = :action",
                         AuditEvent.class)
                     .setParameter("invitation", stored.getId())
-                    .setParameter("action", AuditAction.PERSON_OWN_ACCESS_INVITED)
+                    .setParameter(
+                        "action", InstitutionalAuditAction.PERSON_OWN_ACCESS_INVITED.name())
                     .getSingleResult());
     assertThat(audit.getActorPersonId()).isEqualTo(s.tutor().getId());
     assertThat(audit.getSubjectPersonId()).isEqualTo(personId);

@@ -5,6 +5,7 @@ import ar.edu.utn.frvm.typeit.bemol_api.enrollment.entities.ApplicantHealthInclu
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.entities.ApplicantPreference;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.entities.ApplicantResponsible;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.entities.EnrollmentApplication;
+import ar.edu.utn.frvm.typeit.bemol_api.enrollment.enums.EnrollmentFormNativeBlock;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.entities.Person;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.payloads.CountrySummaryResponse;
 import java.util.ArrayList;
@@ -18,15 +19,33 @@ final class EnrollmentDraftDataMapper {
   static EnrollmentDraftData from(
       final EnrollmentApplication application,
       final boolean includeCourses,
-      final boolean includeAttachments) {
+      final boolean includeAttachments,
+      final boolean includeFormDetails) {
     final var path = application.getTrainingPath();
+    final var form = application.getFormState();
 
     return EnrollmentDraftData.builder()
         .personalData(personal(application.getApplicantPerson()))
-        .academicBackground(education(application.getEducationBackground()))
-        .healthInclusion(health(application.getHealthInclusion()))
+        .academicBackground(
+            form.hasBlock(EnrollmentFormNativeBlock.SCHOOLING)
+                ? education(application.getEducationBackground())
+                : null)
+        .healthInclusion(
+            form.hasBlock(EnrollmentFormNativeBlock.HEALTH_INCLUSION)
+                ? health(application.getHealthInclusion())
+                : null)
         .responsible(responsible(application.getResponsible()))
-        .preference(preference(application.getPreference()))
+        .preference(
+            form.hasBlock(EnrollmentFormNativeBlock.PREFERENCES)
+                ? preference(application.getPreference())
+                : form.hasBlock(EnrollmentFormNativeBlock.PREFERRED_SHIFT)
+                    ? PreferenceDto.builder()
+                        .preferredShift(
+                            application.getPreference() == null
+                                ? null
+                                : application.getPreference().getPreferredShift())
+                        .build()
+                    : null)
         .careerSelection(
             path == null ? new CareerSelectionDto() : new CareerSelectionDto(path.getId()))
         .academicSpaceSelection(
@@ -46,6 +65,7 @@ final class EnrollmentDraftDataMapper {
                                     : selection.getPreferredTeacher().getId()))
                     .toList())
         .attachments(attachments(application, includeAttachments))
+        .customAnswers(includeFormDetails ? form.getCustomAnswers() : null)
         .build();
   }
 

@@ -37,6 +37,18 @@ public class EnrollmentApplicationResponseFactory {
 
   public EnrollmentApplicationResponse from(
       final EnrollmentApplication application, final boolean includeCourses) {
+    return from(application, includeCourses, true);
+  }
+
+  public EnrollmentApplicationResponse listItem(
+      final EnrollmentApplication application, final boolean includeCourses) {
+    return from(application, includeCourses, false);
+  }
+
+  private EnrollmentApplicationResponse from(
+      final EnrollmentApplication application,
+      final boolean includeCourses,
+      final boolean includeFormDetails) {
     final var authentication = SecurityContextHolder.getContext().getAuthentication();
     final boolean canRead =
         authorization.canAccess(
@@ -54,13 +66,15 @@ public class EnrollmentApplicationResponseFactory {
           "ALLOWED");
     }
 
+    final boolean canReadCourses = includeCourses && courseAuthorization.canRead(application);
     final var response =
-        EnrollmentApplicationResponse.from(
-                application, includeCourses && courseAuthorization.canRead(application), canRead)
+        (includeFormDetails
+                ? EnrollmentApplicationResponse.from(application, canReadCourses, canRead)
+                : EnrollmentApplicationResponse.listItem(application, canReadCourses, canRead))
             .toBuilder()
-            .admissionHistory(history.list(application.getId()))
-            .periodOpen(periods.isOpen(application))
-            .documents(canRead ? documents.responses(application, authentication) : List.of());
+                .admissionHistory(history.list(application.getId()))
+                .periodOpen(periods.isOpen(application))
+                .documents(canRead ? documents.responses(application, authentication) : List.of());
     final boolean canConfirm =
         canApprove
             && (application.isPendingEvaluation()

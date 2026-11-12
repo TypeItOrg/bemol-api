@@ -8,6 +8,7 @@ import ar.edu.utn.frvm.typeit.bemol_api.enrollment.entities.ApplicantPreference;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.entities.ApplicantResponsible;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.entities.EnrollmentApplication;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.enums.EducationLevel;
+import ar.edu.utn.frvm.typeit.bemol_api.enrollment.enums.EnrollmentFormNativeBlock;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.exceptions.EnrollmentMessages;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.exceptions.EnrollmentValidationException;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.entities.Person;
@@ -28,11 +29,20 @@ public class EnrollmentSubmissionValidator {
     final Map<String, String> errors = new HashMap<>();
     validateApplicant(
         application.getApplicantPerson(), application.getResponsible(), actorPersonId, errors);
-    validateEducation(application.getEducationBackground(), errors);
+    final var form = application.getFormState();
+    if (form.hasBlock(EnrollmentFormNativeBlock.SCHOOLING)) {
+      validateEducation(application.getEducationBackground(), errors);
+    }
     if (application.getCourseSelections() == null || application.getCourseSelections().isEmpty()) {
       errors.put("courses", EnrollmentMessages.ENROLLMENT_APPLICATION_SPACES_REQUIRED);
     }
-    validatePreference(application.getPreference(), errors);
+    if (form.hasBlock(EnrollmentFormNativeBlock.PREFERENCES)
+        || form.hasBlock(EnrollmentFormNativeBlock.PREFERRED_SHIFT)) {
+      validatePreference(
+          application.getPreference(),
+          form.hasBlock(EnrollmentFormNativeBlock.PREFERENCES),
+          errors);
+    }
 
     if (!errors.isEmpty()) {
       throw new EnrollmentValidationException(EnrollmentMessages.SUBMISSION_INCOMPLETE, errors);
@@ -155,12 +165,14 @@ public class EnrollmentSubmissionValidator {
   }
 
   private void validatePreference(
-      final @Nullable ApplicantPreference preference, final Map<String, String> errors) {
+      final @Nullable ApplicantPreference preference,
+      final boolean includeReenrollment,
+      final Map<String, String> errors) {
     if (preference == null
         || preference.getPreferredShift() == null
         || preference.getPreferredShift().isBlank()) {
       errors.put("preference.preferredShift", EnrollmentMessages.SHIFT_REQUIRED);
-    } else if (preference.isReenrolling()) {
+    } else if (includeReenrollment && preference.isReenrolling()) {
       requireText(
           preference.getPreviousTeacher(),
           "preference.previousTeacher",

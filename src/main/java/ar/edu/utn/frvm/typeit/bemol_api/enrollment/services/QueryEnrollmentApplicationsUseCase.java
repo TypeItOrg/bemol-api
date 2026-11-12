@@ -39,7 +39,7 @@ public class QueryEnrollmentApplicationsUseCase {
     final var page =
         applications.findAll(filters(institutionId, periodId, status, search), pageable);
 
-    return PaginatedResponse.from(page.map(responses::from));
+    return PaginatedResponse.from(page.map(application -> responses.listItem(application, true)));
   }
 
   @Transactional(readOnly = true)

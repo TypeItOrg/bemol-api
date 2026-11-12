@@ -3,15 +3,17 @@ package ar.edu.utn.frvm.typeit.bemol_api.enrollment.services;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.entities.DocumentDefinition;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.exceptions.DocumentCatalogException;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.interfaces.DocumentDefinitionRepository;
-import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditAction;
-import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditEntityType;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditOrigin;
+import ar.edu.utn.frvm.typeit.bemol_api.audit.services.AuditChangeDetails;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.services.AuditEventRecorder;
+import ar.edu.utn.frvm.typeit.bemol_api.audit.snapshot.AuditSnapshot;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.interfaces.PlatformAccountRepository;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.enums.PermissionCode;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.services.ScopedAuthorizationService;
 import ar.edu.utn.frvm.typeit.bemol_api.common.exceptions.ErrorCategory;
+import ar.edu.utn.frvm.typeit.bemol_api.enrollment.audit.EnrollmentAuditAction;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.entities.*;
+import ar.edu.utn.frvm.typeit.bemol_api.enrollment.entities.EnrollmentApplication;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.enums.*;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.exceptions.*;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.interfaces.EnrollmentApplicationRepository;
@@ -122,11 +124,14 @@ public class RequestEnrollmentDocumentsUseCase {
     auditRecorder.recordCurrentActor(
         application.getInstitution(),
         application.getApplicantPerson().getId(),
-        AuditAction.ENROLLMENT_DOCUMENTS_REQUESTED,
-        AuditEntityType.ENROLLMENT_APPLICATION,
+        EnrollmentAuditAction.ENROLLMENT_DOCUMENTS_REQUESTED,
+        EnrollmentApplication.AUDIT_TYPE,
         application.getId(),
         AuditOrigin.administration(),
-        Map.of("after", Map.of("requirementCount", selected.size())));
+        AuditChangeDetails.change(
+            "Pedido de documentación",
+            AuditSnapshot.empty(),
+            request.auditSnapshot(selected.size())));
     return EnrollmentDocumentRequestResponse.from(request);
   }
 }

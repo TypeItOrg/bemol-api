@@ -6,9 +6,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -19,15 +17,18 @@ import ar.edu.utn.frvm.typeit.bemol_api.auth.services.JwtService;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.services.TokenBlacklistService;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.services.AuthorizationService;
 import ar.edu.utn.frvm.typeit.bemol_api.common.exceptions.GlobalExceptionHandler;
+import ar.edu.utn.frvm.typeit.bemol_api.common.storage.PresignedDownloadResponse;
 import ar.edu.utn.frvm.typeit.bemol_api.config.WebConfig;
-import ar.edu.utn.frvm.typeit.bemol_api.enrollment.entities.EnrollmentAttachment;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.enums.DocumentReviewStatus;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.enums.DocumentVersionStatus;
+import ar.edu.utn.frvm.typeit.bemol_api.enrollment.payloads.ConfirmEnrollmentAttachmentUploadRequest;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.payloads.EnrollmentAttachmentResponse;
+import ar.edu.utn.frvm.typeit.bemol_api.enrollment.payloads.PresignEnrollmentAttachmentUploadRequest;
+import ar.edu.utn.frvm.typeit.bemol_api.enrollment.payloads.PresignedAttachmentUploadResponse;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.services.EnrollmentAttachmentService;
-import ar.edu.utn.frvm.typeit.bemol_api.enrollment.services.EnrollmentAttachmentService.AttachmentContentResult;
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -36,10 +37,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
-import org.springframework.core.io.ByteArrayResource;
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
-import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.security.authentication.TestingAuthenticationToken;
 import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
@@ -94,11 +92,41 @@ class EnrollmentAttachmentControllerWebMvcTest {
   }
 
   @Test
-  @DisplayName("POST /attachments should upload file and return CREATED response")
-  void uploadAttachment_success() throws Exception {
-    MockMultipartFile file =
-        new MockMultipartFile("file", "dni.pdf", "application/pdf", "dummy-content".getBytes());
+  @DisplayName("POST /attachments/upload-url should return presigned upload URL")
+  void presignUpload_success() throws Exception {
+    final var reservationId = UUID.randomUUID();
+    final var response =
+        new PresignedAttachmentUploadResponse(
+            reservationId,
+            "https://r2.example/put",
+            Instant.parse("2026-09-08T12:10:00Z"),
+            Map.of("Content-Type", "application/pdf"));
 
+    when(attachmentService.presignUpload(
+            eq(APPLICATION_ID), any(PresignEnrollmentAttachmentUploadRequest.class), any()))
+        .thenReturn(response);
+
+    mockMvc
+        .perform(
+            post(
+                    "/api/v1/enrollment-applications/{applicationId}/attachments/upload-url",
+                    APPLICATION_ID)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    """
+                    {"requirementId":"%s","fileName":"dni.pdf","contentType":"application/pdf","fileSize":13}
+                    """
+                        .formatted(REQUIREMENT_ID))
+                .principal(staffAuthentication()))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.uploadId").value(reservationId.toString()))
+        .andExpect(jsonPath("$.uploadUrl").value("https://r2.example/put"));
+  }
+
+  @Test
+  @DisplayName("POST /attachments should confirm upload and return CREATED response")
+  void confirmUpload_success() throws Exception {
+    final var reservationId = UUID.randomUUID();
     EnrollmentAttachmentResponse response =
         new EnrollmentAttachmentResponse(
             ATTACHMENT_ID,
@@ -117,14 +145,19 @@ class EnrollmentAttachmentControllerWebMvcTest {
             null,
             null);
 
-    when(attachmentService.uploadAttachment(eq(APPLICATION_ID), any(), eq(REQUIREMENT_ID), any()))
+    when(attachmentService.confirmUpload(
+            eq(APPLICATION_ID), any(ConfirmEnrollmentAttachmentUploadRequest.class), any()))
         .thenReturn(response);
 
     mockMvc
         .perform(
-            multipart("/api/v1/enrollment-applications/{applicationId}/attachments", APPLICATION_ID)
-                .file(file)
-                .param("requirementId", REQUIREMENT_ID.toString())
+            post("/api/v1/enrollment-applications/{applicationId}/attachments", APPLICATION_ID)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    """
+                    {"uploadId":"%s","requirementId":"%s","fileName":"dni.pdf","contentType":"application/pdf","fileSize":13}
+                    """
+                        .formatted(reservationId, REQUIREMENT_ID))
                 .principal(staffAuthentication()))
         .andExpect(status().isCreated())
         .andExpect(jsonPath("$.id").value(ATTACHMENT_ID.toString()))
@@ -134,22 +167,11 @@ class EnrollmentAttachmentControllerWebMvcTest {
   }
 
   @Test
-  @DisplayName("GET /attachments/{id}/content should stream resource with content headers")
+  @DisplayName("GET /attachments/{id}/content should return presigned download response")
   void getAttachmentContent_success() throws Exception {
-    byte[] fileBytes = "test-pdf-bytes".getBytes();
-    ByteArrayResource resource = new ByteArrayResource(fileBytes);
-
-    EnrollmentAttachment attachment =
-        EnrollmentAttachment.builder()
-            .id(ATTACHMENT_ID)
-            .originalFileName("dni.pdf")
-            .storagePath(APPLICATION_ID + "/safe-dni.pdf")
-            .contentType("application/pdf")
-            .fileSize((long) fileBytes.length)
-            .build();
-
+    final var expiresAt = Instant.parse("2026-09-08T12:05:00Z");
     when(attachmentService.getAttachmentContent(eq(APPLICATION_ID), eq(ATTACHMENT_ID), any()))
-        .thenReturn(new AttachmentContentResult(resource, attachment));
+        .thenReturn(new PresignedDownloadResponse("https://r2.example/get", expiresAt));
 
     mockMvc
         .perform(
@@ -159,10 +181,8 @@ class EnrollmentAttachmentControllerWebMvcTest {
                     ATTACHMENT_ID)
                 .principal(staffAuthentication()))
         .andExpect(status().isOk())
-        .andExpect(content().contentType(MediaType.APPLICATION_PDF))
-        .andExpect(header().string(HttpHeaders.CONTENT_LENGTH, String.valueOf(fileBytes.length)))
-        .andExpect(header().exists(HttpHeaders.CONTENT_DISPOSITION))
-        .andExpect(content().bytes(fileBytes));
+        .andExpect(jsonPath("$.url").value("https://r2.example/get"))
+        .andExpect(jsonPath("$.expiresAt").value("2026-09-08T12:05:00Z"));
   }
 
   @Test

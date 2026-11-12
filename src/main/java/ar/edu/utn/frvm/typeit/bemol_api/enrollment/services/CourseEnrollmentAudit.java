@@ -1,15 +1,15 @@
 package ar.edu.utn.frvm.typeit.bemol_api.enrollment.services;
 
-import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditAction;
-import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditEntityType;
+import ar.edu.utn.frvm.typeit.bemol_api.audit.definition.AuditOperation;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.services.AuditEventRecorder;
+import ar.edu.utn.frvm.typeit.bemol_api.audit.snapshot.AuditSnapshot;
+import ar.edu.utn.frvm.typeit.bemol_api.enrollment.audit.EnrollmentAuditAction;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.entities.CourseEnrollment;
+import ar.edu.utn.frvm.typeit.bemol_api.enrollment.entities.EnrollmentApplication;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.entities.EnrollmentApplicationCourse;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.enums.AcademicEnrollmentStatus;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.enums.CourseEnrollmentStatus;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.enums.EnrollmentApplicationCourseStatus;
-import java.util.LinkedHashMap;
-import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.jspecify.annotations.Nullable;
 import org.springframework.stereotype.Component;
@@ -26,54 +26,41 @@ public class CourseEnrollmentAudit {
       final CourseEnrollment enrollment,
       final @Nullable CourseEnrollmentStatus previousStatus,
       final @Nullable AcademicEnrollmentStatus previousAcademicStatus) {
-    final AuditAction action;
+    final AuditOperation action;
     if (previousStatus == null) {
-      action = AuditAction.COURSE_ENROLLMENT_CREATED;
+      action = EnrollmentAuditAction.COURSE_ENROLLMENT_CREATED;
     } else if (previousStatus != enrollment.getStatus()) {
-      action = AuditAction.COURSE_ENROLLMENT_STATUS_CHANGED;
+      action = EnrollmentAuditAction.COURSE_ENROLLMENT_STATUS_CHANGED;
     } else {
-      action = AuditAction.COURSE_ENROLLMENT_ACADEMIC_STATUS_CHANGED;
+      action = EnrollmentAuditAction.COURSE_ENROLLMENT_ACADEMIC_STATUS_CHANGED;
     }
-    final Map<String, Object> before = new LinkedHashMap<>();
-    if (previousStatus != null) {
-      before.put("status", previousStatus.name());
-      before.put("courseId", enrollment.getCourse().getId().toString());
-      before.put(
-          "academicStatus", previousAcademicStatus == null ? null : previousAcademicStatus.name());
-    }
-    audit.recordChange(
+    final var before =
+        previousStatus == null
+            ? AuditSnapshot.empty()
+            : enrollment.auditStatusSnapshot(previousStatus, previousAcademicStatus);
+    audit.recordSnapshotChange(
         enrollment.getInstitution(),
         enrollment.getStudent().getPerson().getId(),
         action,
-        AuditEntityType.COURSE_ENROLLMENT,
+        CourseEnrollment.AUDIT_TYPE,
         enrollment.getId(),
         "Cursada",
         before,
-        Map.of(
-            "status",
-            enrollment.getStatus().name(),
-            "academicStatus",
-            enrollment.getAcademicStatus().name(),
-            "courseId",
-            enrollment.getCourse().getId().toString()));
+        enrollment.auditSnapshot());
   }
 
   @Transactional(propagation = Propagation.MANDATORY)
   public void recordReasonChange(
       final CourseEnrollment enrollment, final @Nullable String previousReason) {
-    final Map<String, Object> before = new LinkedHashMap<>();
-    before.put("actionReason", previousReason);
-    final Map<String, Object> after = new LinkedHashMap<>();
-    after.put("actionReason", enrollment.getActionReason());
-    audit.recordChange(
+    audit.recordSnapshotChange(
         enrollment.getInstitution(),
         enrollment.getStudent().getPerson().getId(),
-        AuditAction.COURSE_ENROLLMENT_ACADEMIC_STATUS_CHANGED,
-        AuditEntityType.COURSE_ENROLLMENT,
+        EnrollmentAuditAction.COURSE_ENROLLMENT_ACADEMIC_STATUS_CHANGED,
+        CourseEnrollment.AUDIT_TYPE,
         enrollment.getId(),
         "Cursada",
-        before,
-        after);
+        enrollment.auditReasonSnapshot(previousReason),
+        enrollment.auditReasonSnapshot(enrollment.getActionReason()));
   }
 
   @Transactional(propagation = Propagation.MANDATORY)
@@ -82,21 +69,22 @@ public class CourseEnrollmentAudit {
       final EnrollmentApplicationCourseStatus previousStatus,
       final boolean removed) {
     final var application = selection.getEnrollmentApplication();
-    final var courseId = selection.getCourse().getId().toString();
-    final var action =
-        removed
-            ? AuditAction.ENROLLMENT_APPLICATION_DRAFT_UPDATED
-            : selection.getStatus() == EnrollmentApplicationCourseStatus.WAITLISTED
-                ? AuditAction.ENROLLMENT_APPLICATION_COURSE_WAITLISTED
-                : AuditAction.ENROLLMENT_APPLICATION_COURSE_REJECTED;
-    audit.recordChange(
+    final AuditOperation action;
+    if (removed) {
+      action = EnrollmentAuditAction.ENROLLMENT_APPLICATION_DRAFT_UPDATED;
+    } else if (selection.getStatus() == EnrollmentApplicationCourseStatus.WAITLISTED) {
+      action = EnrollmentAuditAction.ENROLLMENT_APPLICATION_COURSE_WAITLISTED;
+    } else {
+      action = EnrollmentAuditAction.ENROLLMENT_APPLICATION_COURSE_REJECTED;
+    }
+    audit.recordSnapshotChange(
         application.getInstitution(),
         application.getApplicantPerson().getId(),
         action,
-        AuditEntityType.ENROLLMENT_APPLICATION,
+        EnrollmentApplication.AUDIT_TYPE,
         application.getId(),
         "Selección de curso",
-        Map.of("courseId", courseId, "status", previousStatus.name(), "deleted", false),
-        Map.of("courseId", courseId, "status", selection.getStatus().name(), "deleted", removed));
+        selection.auditSnapshot(previousStatus, false),
+        selection.auditSnapshot(selection.getStatus(), removed));
   }
 }

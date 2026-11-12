@@ -1,8 +1,6 @@
 package ar.edu.utn.frvm.typeit.bemol_api.enrollment.controllers;
 
-import static java.util.Objects.requireNonNull;
-
-import ar.edu.utn.frvm.typeit.bemol_api.auth.filters.JwtAuthenticatedUser;
+import ar.edu.utn.frvm.typeit.bemol_api.auth.filters.CurrentPrincipal;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.RequiresPermission;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.enums.PermissionCode;
 import ar.edu.utn.frvm.typeit.bemol_api.common.web.Version;
@@ -26,7 +24,7 @@ public class EnrollmentApplicationController {
   @RequiresPermission(PermissionCode.ENROLLMENT_APPLICATION_READ)
   public EnrollmentApplicationResponse getApplication(
       Authentication authentication, @PathVariable UUID applicationId) {
-    final var actor = (JwtAuthenticatedUser) requireNonNull(authentication.getPrincipal());
+    final var actor = CurrentPrincipal.requireInstitutionalUser(authentication);
     return applicationService.getApplicationById(actor.institutionId(), null, applicationId);
   }
 }

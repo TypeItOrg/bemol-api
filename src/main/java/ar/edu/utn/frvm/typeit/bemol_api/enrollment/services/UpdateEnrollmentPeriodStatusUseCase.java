@@ -1,15 +1,14 @@
 package ar.edu.utn.frvm.typeit.bemol_api.enrollment.services;
 
-import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditAction;
-import ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditEntityType;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.services.AuditEventRecorder;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.enums.PermissionCode;
+import ar.edu.utn.frvm.typeit.bemol_api.enrollment.audit.EnrollmentAuditAction;
+import ar.edu.utn.frvm.typeit.bemol_api.enrollment.entities.EnrollmentPeriod;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.enums.EnrollmentPeriodStatus;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.exceptions.EnrollmentMessages;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.exceptions.EnrollmentPeriodNotFoundException;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.interfaces.EnrollmentPeriodRepository;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.payloads.EnrollmentPeriodStatusRequest;
-import java.util.Map;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -40,17 +39,17 @@ public class UpdateEnrollmentPeriodStatusUseCase {
       throw new ar.edu.utn.frvm.typeit.bemol_api.enrollment.exceptions
           .EnrollmentValidationException(EnrollmentMessages.PERIOD_SCOPE_REQUIRED);
     }
-    final var before = Map.<String, Object>of("status", period.getStatus().name());
+    final var before = period.statusAuditSnapshot();
     period.changeStatus(request.status());
     scopeService.save(period);
-    auditRecorder.recordChange(
+    auditRecorder.recordSnapshotChange(
         period.getInstitution(),
         null,
-        AuditAction.ENROLLMENT_PERIOD_STATUS_CHANGED,
-        AuditEntityType.ENROLLMENT_PERIOD,
+        EnrollmentAuditAction.ENROLLMENT_PERIOD_STATUS_CHANGED,
+        EnrollmentPeriod.AUDIT_TYPE,
         period.getId(),
         period.getName(),
         before,
-        Map.of("status", period.getStatus().name()));
+        period.statusAuditSnapshot());
   }
 }

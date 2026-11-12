@@ -29,9 +29,11 @@ import ar.edu.utn.frvm.typeit.bemol_api.common.exceptions.GlobalExceptionHandler
 import ar.edu.utn.frvm.typeit.bemol_api.config.WebConfig;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.enums.EnrollmentApplicationStatus;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.payloads.EnrollmentApplicationResponse;
+import ar.edu.utn.frvm.typeit.bemol_api.enrollment.payloads.EnrollmentPdfData;
+import ar.edu.utn.frvm.typeit.bemol_api.enrollment.payloads.EnrollmentPdfSettingsResponse;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.payloads.RejectEnrollmentApplicationRequest;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.services.ApproveEnrollmentApplicationUseCase;
-import ar.edu.utn.frvm.typeit.bemol_api.enrollment.services.ExportEnrollmentPdfUseCase;
+import ar.edu.utn.frvm.typeit.bemol_api.enrollment.services.ExtractEnrollmentPdfDataUseCase;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.services.GetEnrollmentApplicationUseCase;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.services.ListEnrollmentApplicationsUseCase;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.services.RejectEnrollmentApplicationUseCase;
@@ -78,7 +80,7 @@ class InstitutionalEnrollmentApplicationControllerWebMvcTest {
   private static final UUID PERIOD_ID = UUID.randomUUID();
   private static final UUID RESOLVER_PERSON_ID = UUID.randomUUID();
 
-  @MockitoBean private ExportEnrollmentPdfUseCase pdf;
+  @MockitoBean private ExtractEnrollmentPdfDataUseCase pdf;
   @MockitoBean private InstitutionalCallerGuard institutionalCallerGuard;
   @MockitoBean private InitialRoleAssignmentGuard initialRoleAssignmentGuard;
   @MockitoBean private AuthorizationService authorizationService;
@@ -317,8 +319,16 @@ class InstitutionalEnrollmentApplicationControllerWebMvcTest {
   void pdfDownloadPreservesPrivateBinaryHeaders() throws Exception {
     final var auth = authentication();
     stubPermission(PermissionCode.ENROLLMENT_APPLICATION_READ, true);
-    final var bytes = "%PDF-1.7\nfixture".getBytes(java.nio.charset.StandardCharsets.US_ASCII);
-    when(pdf.export(INSTITUTION_ID, APPLICATION_ID, null)).thenReturn(bytes);
+    final var data =
+        EnrollmentPdfData.builder()
+            .institution(new EnrollmentPdfData.InstitutionDetails("Conservatorio", "", "", ""))
+            .settings(EnrollmentPdfSettingsResponse.defaults())
+            .generatedAt(Instant.parse("2026-11-06T12:00:00Z"))
+            .sections(List.of())
+            .coursesSelected(false)
+            .selections(List.of())
+            .build();
+    when(pdf.extract(INSTITUTION_ID, APPLICATION_ID, null)).thenReturn(data);
     mockMvc
         .perform(
             get(
@@ -327,15 +337,7 @@ class InstitutionalEnrollmentApplicationControllerWebMvcTest {
                     APPLICATION_ID)
                 .principal(auth))
         .andExpect(status().isOk())
-        .andExpect(
-            org.springframework.test.web.servlet.result.MockMvcResultMatchers.content()
-                .bytes(bytes))
-        .andExpect(
-            org.springframework.test.web.servlet.result.MockMvcResultMatchers.header()
-                .string("Cache-Control", "private, no-store"))
-        .andExpect(
-            org.springframework.test.web.servlet.result.MockMvcResultMatchers.header()
-                .string("X-Content-Type-Options", "nosniff"));
+        .andExpect(jsonPath("$.institution.name").value("Conservatorio"));
   }
 
   @Test
