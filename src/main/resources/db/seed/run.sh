@@ -12,6 +12,11 @@ SEED_YEAR=${SEED_YEAR:-$(date +%Y)}
 seed_dataset=bemol-2025
 SEED_TIMEZONE=${SEED_TIMEZONE:-America/Argentina/Cordoba}
 SEED_TRANSPORT=${SEED_TRANSPORT:-compose}
+# local copies the PDFs to local storage; external expects them already uploaded to S3/R2.
+SEED_ASSETS=${SEED_ASSETS:-local}
+if [[ "$SEED_ASSETS" != local && "$SEED_ASSETS" != external ]]; then
+    echo 'SEED_ASSETS debe ser local o external.' >&2; exit 2
+fi
 if [[ ! "$SEED_YEAR" =~ ^[0-9]{1,4}$ ]]; then
     echo 'SEED_YEAR debe ser un año de 1 a 9998.' >&2; exit 2
 fi
@@ -63,6 +68,10 @@ copy_asset='set -eu
 for asset_name in dni-muestra.pdf dni-observado-muestra.pdf certificado-aptitud-fisica-muestra.pdf partida-nacimiento-muestra.pdf; do
     asset="$asset_dir/$asset_name"
     key="$asset_prefix/$asset_name"
+    if [[ "$SEED_ASSETS" == external ]]; then
+        echo "Adjunto externo, debe existir en el bucket: $key"
+        continue
+    fi
     case "$SEED_TRANSPORT" in
         compose) "${compose[@]}" exec -T "${SEED_API_SERVICE:-dev}" sh -c "$copy_asset" sh "$key" < "$asset" ;;
         psql) STORAGE_LOCAL_DIR="${SEED_STORAGE_DIR:?Indicar SEED_STORAGE_DIR para los adjuntos}" sh -c "$copy_asset" sh "$key" < "$asset" ;;

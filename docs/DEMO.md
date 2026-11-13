@@ -46,7 +46,10 @@ pues de allí se leen los SQL y PDFs.
 
 Con SEED_TRANSPORT=psql, usar las variables libpq habituales e indicar
 SEED_STORAGE_DIR, el storage local de la API accesible a esa shell.
-El loader requiere almacenamiento local; no carga los archivos en S3.
+El loader copia los adjuntos sólo a almacenamiento local. Con S3 o R2 usar
+SEED_ASSETS=external: no copia nada, lista las claves esperadas y exige subir
+antes los cuatro PDFs de assets/ al bucket con esas claves, sin cambiar sus
+nombres. Con STORAGE_S3_PREFIX vacío, la clave es la indicada tal cual.
 
 ## Cuentas de demostración
 
