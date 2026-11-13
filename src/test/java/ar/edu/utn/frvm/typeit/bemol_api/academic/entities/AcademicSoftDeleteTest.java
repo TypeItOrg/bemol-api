@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import ar.edu.utn.frvm.typeit.bemol_api.academic.enums.AcademicSpaceFormat;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.enums.AcademicSpaceType;
+import ar.edu.utn.frvm.typeit.bemol_api.academic.enums.InstrumentIcon;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.exceptions.InvalidAcademicStateException;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.entities.Institution;
 import java.time.Instant;
@@ -38,7 +39,7 @@ class AcademicSoftDeleteTest {
             null,
             AcademicSpaceType.SUBJECT,
             AcademicSpaceFormat.INDIVIDUAL);
-    final var instrument = Instrument.create(institution, "Examen", null);
+    final var instrument = Instrument.create(institution, "Examen", null, InstrumentIcon.MUSIC);
     final var shift = Shift.create(institution, "Turno mañana", null);
 
     path.updateStatus(false);
@@ -75,7 +76,7 @@ class AcademicSoftDeleteTest {
             null,
             AcademicSpaceType.SUBJECT,
             AcademicSpaceFormat.INDIVIDUAL);
-    final var instrument = Instrument.create(institution, "Examen", null);
+    final var instrument = Instrument.create(institution, "Examen", null, InstrumentIcon.MUSIC);
     final var shift = Shift.create(institution, "Turno mañana", null);
 
     assertThatThrownBy(() -> path.delete(deletedAt))

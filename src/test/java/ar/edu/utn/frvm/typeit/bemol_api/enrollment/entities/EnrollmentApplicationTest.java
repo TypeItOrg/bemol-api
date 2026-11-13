@@ -3,7 +3,6 @@ package ar.edu.utn.frvm.typeit.bemol_api.enrollment.entities;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import ar.edu.utn.frvm.typeit.bemol_api.academic.entities.StudyPlanSpace;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.enums.EnrollmentApplicationStatus;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.exceptions.ApplicationNotEditableException;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.exceptions.InvalidEnrollmentApplicationStateException;
@@ -28,22 +27,6 @@ class EnrollmentApplicationTest {
     final var application = EnrollmentApplication.builder().status(status).build();
 
     assertThat(application.isEditable()).isEqualTo(editable);
-  }
-
-  @Test
-  void managesSelectedSpacesAndTheirOwningApplication() {
-    final var application = draft();
-    final var selectedSpace =
-        EnrollmentApplicationSpace.builder().studyPlanSpace(new StudyPlanSpace()).build();
-
-    application.addSelectedSpace(selectedSpace);
-
-    assertThat(application.getSelectedSpaces()).containsExactly(selectedSpace);
-    assertThat(selectedSpace.getEnrollmentApplication()).isSameAs(application);
-
-    application.clearSelectedSpaces();
-
-    assertThat(application.getSelectedSpaces()).isEmpty();
   }
 
   @Test

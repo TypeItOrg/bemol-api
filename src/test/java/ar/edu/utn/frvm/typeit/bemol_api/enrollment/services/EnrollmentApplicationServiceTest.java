@@ -11,16 +11,11 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import ar.edu.utn.frvm.typeit.bemol_api.academic.entities.AcademicYear;
-import ar.edu.utn.frvm.typeit.bemol_api.academic.entities.Instrument;
-import ar.edu.utn.frvm.typeit.bemol_api.academic.entities.StudyPlan;
-import ar.edu.utn.frvm.typeit.bemol_api.academic.entities.StudyPlanSpace;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.entities.TrainingPath;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.enums.AcademicYearStatus;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.interfaces.AcademicYearRepository;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.interfaces.CourseClassTeacherRepository;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.interfaces.CourseRepository;
-import ar.edu.utn.frvm.typeit.bemol_api.academic.interfaces.InstrumentRepository;
-import ar.edu.utn.frvm.typeit.bemol_api.academic.interfaces.StudyPlanSpaceRepository;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.interfaces.TrainingPathRepository;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.services.AuditEventRecorder;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.interfaces.PersonRoleAssignmentRepository;
@@ -31,7 +26,6 @@ import ar.edu.utn.frvm.typeit.bemol_api.enrollment.audit.EnrollmentAuditAction;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.entities.ApplicantEducationBackground;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.entities.ApplicantPreference;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.entities.EnrollmentApplication;
-import ar.edu.utn.frvm.typeit.bemol_api.enrollment.entities.EnrollmentApplicationSpace;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.entities.EnrollmentFormAssignment;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.entities.EnrollmentFormBaseDefinition;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.entities.EnrollmentFormVersion;
@@ -49,11 +43,8 @@ import ar.edu.utn.frvm.typeit.bemol_api.enrollment.interfaces.EnrollmentApplicat
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.interfaces.EnrollmentApplicationRepository;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.interfaces.EnrollmentFormAssignmentRepository;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.payloads.AcademicBackgroundDto;
-import ar.edu.utn.frvm.typeit.bemol_api.enrollment.payloads.AcademicSpaceSelectionDto;
-import ar.edu.utn.frvm.typeit.bemol_api.enrollment.payloads.CareerSelectionDto;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.payloads.EnrollmentApplicationResponse;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.payloads.EnrollmentDraftData;
-import ar.edu.utn.frvm.typeit.bemol_api.enrollment.payloads.InstrumentSelectionDto;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.payloads.PersonalDataDto;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.payloads.StartEnrollmentApplicationRequest;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.payloads.UpdateEnrollmentDraftRequest;
@@ -67,7 +58,6 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import org.assertj.core.api.InstanceOfAssertFactories;
@@ -91,9 +81,6 @@ class EnrollmentApplicationServiceTest {
   @Mock private PersonRepository personRepository;
   @Mock private PersonGuardianRepository personGuardianRepository;
   @Mock private PersonRoleAssignmentRepository personRoleAssignmentRepository;
-  @Mock private StudyPlanSpaceRepository studyPlanSpaceRepository;
-
-  @Mock private InstrumentRepository instrumentRepository;
 
   @Mock private TrainingPathRepository trainingPathRepository;
   @Mock private AcademicYearRepository academicYearRepository;
@@ -106,7 +93,6 @@ class EnrollmentApplicationServiceTest {
   @Mock private StudentRepository studentRepository;
   @Mock private EnrollmentApplicationCourseApprovalService applicationCourseApprovalService;
 
-  @Mock private EnrollmentDraftDataValidator enrollmentDraftDataValidator;
   @Mock private AuditEventRecorder auditEventRecorder;
 
   @Mock private EnrollmentApplicationPeriodService applicationPeriods;
@@ -119,7 +105,6 @@ class EnrollmentApplicationServiceTest {
 
   private final UUID institutionId = UUID.randomUUID();
   private final UUID personId = UUID.randomUUID();
-  private final UUID studyPlanId = UUID.randomUUID();
   private final UUID academicYearId = UUID.randomUUID();
   private final UUID periodId = UUID.randomUUID();
   private final UUID applicationId = UUID.randomUUID();
@@ -160,9 +145,6 @@ class EnrollmentApplicationServiceTest {
             studentRepository,
             applicationPeriods,
             Mockito.mock(AcademicEligibilityService.class));
-    final var spaces =
-        new EnrollmentLegacySpaceSelectionService(
-            enrollmentDraftDataValidator, courses, studyPlanSpaceRepository, instrumentRepository);
     service =
         new EnrollmentApplicationService(
             applicationRepository,
@@ -170,7 +152,7 @@ class EnrollmentApplicationServiceTest {
             responses,
             personRepository,
             trainingPathRepository,
-            new EnrollmentDraftUpdater(spaces, courses),
+            new EnrollmentDraftUpdater(courses),
             courses,
             new EnrollmentSubmissionValidator(new BusinessDateProvider(CLOCK)),
             applicationCourseApprovalService,
@@ -194,7 +176,7 @@ class EnrollmentApplicationServiceTest {
   }
 
   @Test
-  void startRejectsLegacyPlanSelection() {
+  void startRequiresTrainingPath() {
     when(personRepository.findByIdAndInstitution_Id(personId, institutionId))
         .thenReturn(Optional.of(Mockito.mock(Person.class)));
     assertThatThrownBy(
@@ -202,7 +184,7 @@ class EnrollmentApplicationServiceTest {
                 service.startOrGetApplication(
                     institutionId,
                     personId,
-                    new StartEnrollmentApplicationRequest(studyPlanId, academicYearId)))
+                    new StartEnrollmentApplicationRequest(null, academicYearId, null)))
         .isInstanceOf(EnrollmentValidationException.class)
         .hasMessage(EnrollmentMessages.COURSE_SELECTION_REQUIRED);
   }
@@ -281,26 +263,15 @@ class EnrollmentApplicationServiceTest {
   }
 
   @Test
-  @DisplayName("Should allow changing plans without overlapping course selections")
-  void updateDraft_allowsPlanChangeWithoutCourseOverlap() {
+  @DisplayName("Should advance the draft revision and reject a stale revision")
+  void updateDraft_rejectsStaleRevision() {
     Institution institution = Mockito.mock(Institution.class);
-    when(institution.getId()).thenReturn(institutionId);
-
-    StudyPlan currentPlan = Mockito.mock(StudyPlan.class);
-    when(currentPlan.getId()).thenReturn(studyPlanId);
-
-    TrainingPath newPath = Mockito.mock(TrainingPath.class);
-    when(newPath.getId()).thenReturn(UUID.randomUUID());
-    StudyPlan effectivePlan = Mockito.mock(StudyPlan.class);
-    when(effectivePlan.getId()).thenReturn(UUID.randomUUID());
-    when(effectivePlan.getTrainingPath()).thenReturn(newPath);
 
     EnrollmentApplication application =
         EnrollmentApplication.builder()
             .id(applicationId)
             .institution(institution)
             .applicantPerson(Mockito.mock(Person.class))
-            .studyPlan(currentPlan)
             .academicYear(Mockito.mock(AcademicYear.class))
             .enrollmentPeriod(
                 EnrollmentPeriod.builder()
@@ -313,20 +284,21 @@ class EnrollmentApplicationServiceTest {
 
     when(applicationRepository.findAccessibleForUpdate(applicationId, personId))
         .thenReturn(Optional.of(application));
-    when(enrollmentDraftDataValidator.validate(eq(institutionId), eq(application), any()))
-        .thenReturn(effectivePlan);
     when(applicationRepository.saveAndFlush(any(EnrollmentApplication.class)))
         .thenAnswer(invocation -> invocation.getArgument(0));
 
     UpdateEnrollmentDraftRequest request =
         UpdateEnrollmentDraftRequest.builder()
-            .data(EnrollmentDraftData.builder().build())
+            .data(
+                EnrollmentDraftData.builder()
+                    .academicBackground(
+                        AcademicBackgroundDto.builder().secondarySchool("Colegio Nacional").build())
+                    .build())
             .expectedRevision(0L)
             .build();
 
     assertThatCode(() -> service.updateDraft(personId, applicationId, request))
         .doesNotThrowAnyException();
-    assertThat(requireNonNull(application.getStudyPlan()).getId()).isEqualTo(effectivePlan.getId());
     assertThat(application.getFormState().getDraftRevision()).isEqualTo(1);
     assertThatThrownBy(() -> service.updateDraft(personId, applicationId, request))
         .isInstanceOf(EnrollmentFormException.class)
@@ -430,9 +402,6 @@ class EnrollmentApplicationServiceTest {
     Institution institution = Mockito.mock(Institution.class);
     when(institution.getId()).thenReturn(institutionId);
 
-    StudyPlan studyPlan = Mockito.mock(StudyPlan.class);
-    when(studyPlan.getId()).thenReturn(studyPlanId);
-
     AcademicYear academicYear = Mockito.mock(AcademicYear.class);
     when(academicYear.getId()).thenReturn(academicYearId);
 
@@ -448,7 +417,6 @@ class EnrollmentApplicationServiceTest {
             .id(applicationId)
             .institution(institution)
             .applicantPerson(person)
-            .studyPlan(studyPlan)
             .academicYear(academicYear)
             .enrollmentPeriod(period)
             .status(EnrollmentApplicationStatus.DRAFT)
@@ -458,8 +426,6 @@ class EnrollmentApplicationServiceTest {
         .thenReturn(Optional.of(application));
     when(applicationRepository.saveAndFlush(any(EnrollmentApplication.class)))
         .thenReturn(application);
-    when(enrollmentDraftDataValidator.validate(eq(institutionId), any(), any()))
-        .thenReturn(studyPlan);
 
     UpdateEnrollmentDraftRequest request =
         UpdateEnrollmentDraftRequest.builder()
@@ -469,6 +435,7 @@ class EnrollmentApplicationServiceTest {
                     .academicBackground(
                         AcademicBackgroundDto.builder().secondarySchool("Colegio Nacional").build())
                     .build())
+            .expectedRevision(0L)
             .build();
 
     service.updateDraft(personId, applicationId, request);
@@ -486,140 +453,6 @@ class EnrollmentApplicationServiceTest {
             eq(applicationId),
             eq(ar.edu.utn.frvm.typeit.bemol_api.audit.enums.AuditOrigin.SELF_SERVICE),
             any());
-  }
-
-  @Test
-  @DisplayName("Should persist selected study plan spaces and their instruments")
-  void updateDraft_persistsSelectedSpacesAndInstruments() {
-    Person person = Mockito.mock(Person.class);
-    when(person.getId()).thenReturn(personId);
-
-    Institution institution = Mockito.mock(Institution.class);
-    when(institution.getId()).thenReturn(institutionId);
-
-    StudyPlan studyPlan = Mockito.mock(StudyPlan.class);
-    when(studyPlan.getId()).thenReturn(studyPlanId);
-
-    AcademicYear academicYear = Mockito.mock(AcademicYear.class);
-    when(academicYear.getId()).thenReturn(academicYearId);
-
-    EnrollmentPeriod period =
-        EnrollmentPeriod.builder()
-            .id(periodId)
-            .institution(institution)
-            .academicYear(academicYear)
-            .build();
-
-    EnrollmentApplication application =
-        EnrollmentApplication.builder()
-            .id(applicationId)
-            .institution(institution)
-            .applicantPerson(person)
-            .studyPlan(studyPlan)
-            .academicYear(academicYear)
-            .enrollmentPeriod(period)
-            .status(EnrollmentApplicationStatus.DRAFT)
-            .build();
-
-    UUID spaceId = UUID.randomUUID();
-    UUID instrumentId = UUID.randomUUID();
-    StudyPlanSpace space = Mockito.mock(StudyPlanSpace.class);
-    when(space.getId()).thenReturn(spaceId);
-    Instrument instrument = Mockito.mock(Instrument.class);
-    when(instrument.getId()).thenReturn(instrumentId);
-
-    when(applicationRepository.findAccessibleForUpdate(applicationId, personId))
-        .thenReturn(Optional.of(application));
-    when(applicationRepository.saveAndFlush(any(EnrollmentApplication.class)))
-        .thenReturn(application);
-    when(enrollmentDraftDataValidator.validate(eq(institutionId), any(), any()))
-        .thenReturn(studyPlan);
-    when(studyPlanSpaceRepository.findById(spaceId)).thenReturn(Optional.of(space));
-    when(instrumentRepository.findById(instrumentId)).thenReturn(Optional.of(instrument));
-
-    UpdateEnrollmentDraftRequest request =
-        UpdateEnrollmentDraftRequest.builder()
-            .data(
-                EnrollmentDraftData.builder()
-                    .academicSpaceSelection(new AcademicSpaceSelectionDto(List.of(spaceId)))
-                    .instrumentSelection(new InstrumentSelectionDto(Map.of(spaceId, instrumentId)))
-                    .build())
-            .build();
-
-    service.updateDraft(personId, applicationId, request);
-
-    assertThat(application.getSelectedSpaces()).hasSize(1);
-    EnrollmentApplicationSpace persisted = application.getSelectedSpaces().getFirst();
-    assertThat(persisted.getStudyPlanSpace().getId()).isEqualTo(spaceId);
-    assertThat(requireNonNull(persisted.getInstrument()).getId()).isEqualTo(instrumentId);
-  }
-
-  @Test
-  @DisplayName(
-      "Should reassign the study plan and discard previously selected spaces when the career"
-          + " changes")
-  void updateDraft_careerChangeReassignsStudyPlanAndClearsSpaces() {
-    Person person = Mockito.mock(Person.class);
-    when(person.getId()).thenReturn(personId);
-
-    Institution institution = Mockito.mock(Institution.class);
-    when(institution.getId()).thenReturn(institutionId);
-
-    StudyPlan oldStudyPlan = Mockito.mock(StudyPlan.class);
-    when(oldStudyPlan.getId()).thenReturn(studyPlanId);
-
-    UUID newStudyPlanId = UUID.randomUUID();
-    StudyPlan newStudyPlan = Mockito.mock(StudyPlan.class);
-    when(newStudyPlan.getId()).thenReturn(newStudyPlanId);
-    TrainingPath destination = Mockito.mock(TrainingPath.class);
-    when(destination.getId()).thenReturn(UUID.randomUUID());
-    when(newStudyPlan.getTrainingPath()).thenReturn(destination);
-
-    AcademicYear academicYear = Mockito.mock(AcademicYear.class);
-    when(academicYear.getId()).thenReturn(academicYearId);
-
-    EnrollmentPeriod period =
-        EnrollmentPeriod.builder()
-            .id(periodId)
-            .institution(institution)
-            .academicYear(academicYear)
-            .build();
-
-    StudyPlanSpace oldSpace = Mockito.mock(StudyPlanSpace.class);
-    EnrollmentApplicationSpace previouslySelected =
-        EnrollmentApplicationSpace.builder().studyPlanSpace(oldSpace).build();
-
-    EnrollmentApplication application =
-        EnrollmentApplication.builder()
-            .id(applicationId)
-            .institution(institution)
-            .applicantPerson(person)
-            .studyPlan(oldStudyPlan)
-            .academicYear(academicYear)
-            .enrollmentPeriod(period)
-            .status(EnrollmentApplicationStatus.DRAFT)
-            .build();
-    application.addSelectedSpace(previouslySelected);
-
-    when(applicationRepository.findAccessibleForUpdate(applicationId, personId))
-        .thenReturn(Optional.of(application));
-    when(applicationRepository.saveAndFlush(any(EnrollmentApplication.class)))
-        .thenReturn(application);
-    when(enrollmentDraftDataValidator.validate(eq(institutionId), any(), any()))
-        .thenReturn(newStudyPlan);
-
-    UpdateEnrollmentDraftRequest request =
-        UpdateEnrollmentDraftRequest.builder()
-            .data(
-                EnrollmentDraftData.builder()
-                    .careerSelection(new CareerSelectionDto(UUID.randomUUID()))
-                    .build())
-            .build();
-
-    service.updateDraft(personId, applicationId, request);
-
-    assertThat(requireNonNull(application.getStudyPlan())).isEqualTo(newStudyPlan);
-    assertThat(application.getSelectedSpaces()).isEmpty();
   }
 
   @Test
@@ -659,9 +492,6 @@ class EnrollmentApplicationServiceTest {
     Institution institution = Mockito.mock(Institution.class);
     when(institution.getId()).thenReturn(institutionId);
 
-    StudyPlan studyPlan = Mockito.mock(StudyPlan.class);
-    when(studyPlan.getId()).thenReturn(studyPlanId);
-
     AcademicYear academicYear = Mockito.mock(AcademicYear.class);
     when(academicYear.getId()).thenReturn(academicYearId);
 
@@ -677,7 +507,6 @@ class EnrollmentApplicationServiceTest {
             .id(applicationId)
             .institution(institution)
             .applicantPerson(person)
-            .studyPlan(studyPlan)
             .academicYear(academicYear)
             .enrollmentPeriod(period)
             .status(EnrollmentApplicationStatus.DRAFT)
@@ -722,50 +551,6 @@ class EnrollmentApplicationServiceTest {
   }
 
   @Test
-  @DisplayName("Legacy space selections cannot replace concrete courses when submitting")
-  void submitApplication_rejectsLegacySpaceSelection() {
-    Person person = Mockito.mock(Person.class);
-    when(person.getFirstName()).thenReturn("Juan");
-    when(person.getLastName()).thenReturn("Pérez");
-    when(person.getDocumentNumber()).thenReturn("12345678");
-    when(person.getBirthDate()).thenReturn(LocalDate.of(2000, 1, 1));
-
-    Institution institution = Mockito.mock(Institution.class);
-
-    StudyPlan studyPlan = Mockito.mock(StudyPlan.class);
-
-    AcademicYear academicYear = Mockito.mock(AcademicYear.class);
-
-    EnrollmentPeriod period = Mockito.mock(EnrollmentPeriod.class);
-
-    ApplicantEducationBackground edu =
-        ApplicantEducationBackground.builder().secondarySchool("Colegio San Martín").build();
-
-    ApplicantPreference pref = ApplicantPreference.builder().preferredShift("TARDE").build();
-
-    EnrollmentApplication application =
-        EnrollmentApplication.builder()
-            .id(applicationId)
-            .institution(institution)
-            .applicantPerson(person)
-            .studyPlan(studyPlan)
-            .academicYear(academicYear)
-            .enrollmentPeriod(period)
-            .educationBackground(edu)
-            .preference(pref)
-            .status(EnrollmentApplicationStatus.DRAFT)
-            .build();
-    StudyPlanSpace selectedStudyPlanSpace = Mockito.mock(StudyPlanSpace.class);
-    application.addSelectedSpace(
-        EnrollmentApplicationSpace.builder().studyPlanSpace(selectedStudyPlanSpace).build());
-
-    when(applicationRepository.findAccessibleForUpdate(applicationId, personId))
-        .thenReturn(Optional.of(application));
-    assertThatThrownBy(() -> service.submitApplication(personId, applicationId))
-        .isInstanceOf(EnrollmentValidationException.class);
-  }
-
-  @Test
   @DisplayName("Should require at least one selected course to submit")
   void submitApplication_requiresSelectedCourses() {
     Person person = Mockito.mock(Person.class);
@@ -791,7 +576,7 @@ class EnrollmentApplicationServiceTest {
     when(applicationRepository.findAccessibleForUpdate(applicationId, personId))
         .thenReturn(Optional.of(application));
 
-    assertThatThrownBy(() -> service.submitApplication(personId, applicationId))
+    assertThatThrownBy(() -> service.submitApplication(personId, applicationId, 0L))
         .isInstanceOf(EnrollmentValidationException.class)
         .asInstanceOf(InstanceOfAssertFactories.type(EnrollmentValidationException.class))
         .extracting(
@@ -823,7 +608,7 @@ class EnrollmentApplicationServiceTest {
     when(applicationRepository.findAccessibleForUpdate(applicationId, personId))
         .thenReturn(Optional.of(application));
 
-    assertThatThrownBy(() -> service.submitApplication(personId, applicationId))
+    assertThatThrownBy(() -> service.submitApplication(personId, applicationId, 0L))
         .isInstanceOf(EnrollmentValidationException.class)
         .asInstanceOf(InstanceOfAssertFactories.type(EnrollmentValidationException.class))
         .extracting(
@@ -873,7 +658,7 @@ class EnrollmentApplicationServiceTest {
     when(applicationRepository.findAccessibleForUpdate(applicationId, personId))
         .thenReturn(Optional.of(application));
 
-    assertThatThrownBy(() -> service.submitApplication(personId, applicationId))
+    assertThatThrownBy(() -> service.submitApplication(personId, applicationId, 0L))
         .isInstanceOf(EnrollmentValidationException.class)
         .asInstanceOf(InstanceOfAssertFactories.type(EnrollmentValidationException.class))
         .extracting(
@@ -906,7 +691,7 @@ class EnrollmentApplicationServiceTest {
     when(applicationRepository.findAccessibleForUpdate(applicationId, personId))
         .thenReturn(Optional.of(application));
 
-    assertThatThrownBy(() -> service.submitApplication(personId, applicationId))
+    assertThatThrownBy(() -> service.submitApplication(personId, applicationId, 0L))
         .isInstanceOf(EnrollmentValidationException.class)
         .asInstanceOf(InstanceOfAssertFactories.type(EnrollmentValidationException.class))
         .extracting(EnrollmentValidationException::fieldErrors)
@@ -930,7 +715,7 @@ class EnrollmentApplicationServiceTest {
     when(applicationRepository.findAccessibleForUpdate(applicationId, personId))
         .thenReturn(Optional.of(application));
 
-    assertThatThrownBy(() -> service.submitApplication(personId, applicationId))
+    assertThatThrownBy(() -> service.submitApplication(personId, applicationId, 0L))
         .isInstanceOf(EnrollmentValidationException.class)
         .asInstanceOf(InstanceOfAssertFactories.type(EnrollmentValidationException.class))
         .extracting(EnrollmentValidationException::fieldErrors)

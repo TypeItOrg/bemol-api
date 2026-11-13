@@ -16,6 +16,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import ar.edu.utn.frvm.typeit.bemol_api.academic.enums.AcademicSpaceFormat;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.enums.AcademicSpaceType;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.enums.AcademicYearStatus;
+import ar.edu.utn.frvm.typeit.bemol_api.academic.enums.InstrumentIcon;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.exceptions.ShiftNotFoundException;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.payloads.AcademicYearStatusRequest;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.payloads.ActiveStatusRequest;
@@ -271,10 +272,12 @@ class AcademicCatalogAuditPostgresIntegrationTest extends DatabaseMigrationTestS
         createInstrument
             .execute(
                 institution,
-                new CreateInstrumentRequest("Instrumento auditado", privateDescription))
+                new CreateInstrumentRequest(
+                    "Instrumento auditado", privateDescription, InstrumentIcon.MUSIC))
             .id();
     final var instrumentChange =
-        new UpdateInstrumentRequest("Instrumento actualizado", privateDescription);
+        new UpdateInstrumentRequest(
+            "Instrumento actualizado", privateDescription, InstrumentIcon.PIANO);
     updateInstrument.execute(institution, instrument, instrumentChange);
     updateInstrument.execute(institution, instrument, instrumentChange);
     updateInstrumentStatus.execute(institution, instrument, new ActiveStatusRequest(false));

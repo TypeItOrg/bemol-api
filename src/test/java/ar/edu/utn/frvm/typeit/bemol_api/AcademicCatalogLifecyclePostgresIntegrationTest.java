@@ -4,6 +4,7 @@ import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import ar.edu.utn.frvm.typeit.bemol_api.academic.enums.InstrumentIcon;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.exceptions.AcademicSpaceNotFoundException;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.exceptions.InstrumentNotFoundException;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.exceptions.ShiftNotFoundException;
@@ -135,7 +136,9 @@ class AcademicCatalogLifecyclePostgresIntegrationTest extends DatabaseMigrationT
           updatePathStatus.execute(institutionId, resourceId, new ActiveStatusRequest(true));
       case INSTRUMENT_EDIT ->
           updateInstrument.execute(
-              institutionId, resourceId, new UpdateInstrumentRequest("Changed", null));
+              institutionId,
+              resourceId,
+              new UpdateInstrumentRequest("Changed", null, InstrumentIcon.MUSIC));
       case INSTRUMENT_STATUS ->
           updateInstrumentStatus.execute(institutionId, resourceId, new ActiveStatusRequest(true));
       case SHIFT_EDIT ->

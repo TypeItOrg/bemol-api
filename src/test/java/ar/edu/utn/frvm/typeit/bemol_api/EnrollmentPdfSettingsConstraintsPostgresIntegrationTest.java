@@ -7,29 +7,25 @@ import ar.edu.utn.frvm.typeit.bemol_api.support.IntegrationTest;
 import ar.edu.utn.frvm.typeit.bemol_api.support.PostgresTestDatabase;
 import java.util.UUID;
 import org.flywaydb.core.Flyway;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.ValueSource;
+import org.junit.jupiter.api.Test;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.datasource.DriverManagerDataSource;
 
 @IntegrationTest
-class EnrollmentPdfMigrationPostgresIntegrationTest {
-  @ParameterizedTest
-  @ValueSource(booleans = {false, true})
-  void supportsFreshInstallAndUpgradeWithoutBackfill(final boolean upgrade) {
-    final var database =
-        new PostgresTestDatabase("postgres:18-alpine", upgrade ? "pdf_upgrade" : "pdf_fresh");
+class EnrollmentPdfSettingsConstraintsPostgresIntegrationTest {
+  @Test
+  void enforcesPdfSettingsConstraints() {
+    final var database = new PostgresTestDatabase("postgres:18-alpine", "pdf_fresh");
     final var jdbc =
         new JdbcTemplate(
             new DriverManagerDataSource(
                 database.getJdbcUrl(), database.getUsername(), database.getPassword()));
-    migrations(jdbc, upgrade ? "20261105173842" : "20261105175029").migrate();
+    migrations(jdbc, "latest").migrate();
     final UUID institution = new MigrationFixtures(jdbc).firstInstitutionId();
     final var before =
         jdbc.queryForMap("SELECT * FROM institutions WHERE institution_id=?", institution);
-    final var current = migrations(jdbc, "20261105175029");
-    assertThat(current.migrate().migrationsExecuted).isEqualTo(upgrade ? 2 : 0);
+    final var current = migrations(jdbc, "latest");
     assertThat(current.validateWithResult().validationSuccessful).isTrue();
     assertThat(current.migrate().migrationsExecuted).isZero();
     assertThat(jdbc.queryForMap("SELECT * FROM institutions WHERE institution_id=?", institution))

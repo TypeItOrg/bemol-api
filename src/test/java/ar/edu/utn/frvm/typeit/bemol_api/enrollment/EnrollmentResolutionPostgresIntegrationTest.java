@@ -108,7 +108,6 @@ class EnrollmentResolutionPostgresIntegrationTest {
   private Institution institution;
   private Person person;
   private Person constraintPerson;
-  private UUID studyPlanId;
   private UUID trainingPathId;
   private UUID academicYearId;
   private EnrollmentPeriod enrollmentPeriod;
@@ -146,7 +145,6 @@ class EnrollmentResolutionPostgresIntegrationTest {
             LocalDate.of(2026, 1, 1),
             LocalDate.of(2030, 12, 31));
     InstitutionalTestData.persist(entityManager, studyPlan);
-    studyPlanId = studyPlan.getId();
 
     final int year = Year.now().getValue() + 1;
     final var academicYear =
@@ -177,8 +175,8 @@ class EnrollmentResolutionPostgresIntegrationTest {
   @ParameterizedTest
   @ValueSource(booleans = {false, true})
   @DisplayName(
-      "Should approve a submitted application, create the student and block a second approval")
-  void approve_createsOrPreservesTheStudentAndCannotResolveTwice(boolean alreadyStudent) {
+      "Should approve without course enrollments, create no student and block a second approval")
+  void approve_withoutCoursesCreatesNoStudentAndCannotResolveTwice(boolean alreadyStudent) {
     UUID existingStudentId = null;
     if (alreadyStudent) {
       Student existing =
@@ -199,22 +197,16 @@ class EnrollmentResolutionPostgresIntegrationTest {
     assertThat(approved.status()).isEqualTo(EnrollmentApplicationStatus.APPROVED);
     entityManager.flush();
     entityManager.clear();
-    assertThat(
-            studentRepository.existsByInstitution_IdAndPerson_Id(
-                institution.getId(), person.getId()))
-        .isTrue();
-    assertThat(studentRepository.countByInstitution_Id(institution.getId())).isEqualTo(1);
-    var student =
-        studentRepository
-            .findByInstitution_IdAndPerson_Id(institution.getId(), person.getId())
-            .orElseThrow();
+    final long expectedStudents = alreadyStudent ? 1 : 0;
+    assertThat(studentRepository.countByInstitution_Id(institution.getId()))
+        .isEqualTo(expectedStudents);
     if (alreadyStudent) {
+      var student =
+          studentRepository
+              .findByInstitution_IdAndPerson_Id(institution.getId(), person.getId())
+              .orElseThrow();
       assertThat(student.getId()).isEqualTo(existingStudentId);
       assertThat(student.getFileNumber()).isEqualTo("2020-00001");
-      assertThat(student.getEnrollmentDate()).isEqualTo(LocalDate.of(2020, 3, 1));
-    } else {
-      assertThat(student.getFileNumber()).matches("\\d{4}-\\d{5}");
-      assertThat(student.getEnrollmentDate()).isNotNull();
     }
 
     assertThatThrownBy(
@@ -225,7 +217,8 @@ class EnrollmentResolutionPostgresIntegrationTest {
     assertThat(reloaded.getStatus()).isEqualTo(EnrollmentApplicationStatus.APPROVED);
     assertThat(reloaded.getResolvedAt()).isNotNull();
     assertThat(reloaded.getResolvedByPersonId()).isEqualTo(resolverPersonId);
-    assertThat(studentRepository.countByInstitution_Id(institution.getId())).isEqualTo(1);
+    assertThat(studentRepository.countByInstitution_Id(institution.getId()))
+        .isEqualTo(expectedStudents);
   }
 
   @Test
@@ -332,15 +325,14 @@ class EnrollmentResolutionPostgresIntegrationTest {
                         """
 INSERT INTO enrollment_applications (
   enrollment_application_id, institution_id, applicant_person_id,
-  study_plan_id, training_path_id, academic_year_id, enrollment_period_id, status,
+  training_path_id, academic_year_id, enrollment_period_id, status,
   rejection_reason, created_at, updated_at
-) VALUES (:id, :institutionId, :personId, :studyPlanId, :trainingPathId, :academicYearId,
+) VALUES (:id, :institutionId, :personId, :trainingPathId, :academicYearId,
          :periodId, 'SUBMITTED', 'Reason without rejected status', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
 """)
                     .setParameter("id", UUID.randomUUID())
                     .setParameter("institutionId", institution.getId())
                     .setParameter("personId", constraintPerson.getId())
-                    .setParameter("studyPlanId", studyPlanId)
                     .setParameter("trainingPathId", trainingPathId)
                     .setParameter("academicYearId", academicYearId)
                     .setParameter(
@@ -370,15 +362,14 @@ INSERT INTO enrollment_applications (
                         """
 INSERT INTO enrollment_applications (
   enrollment_application_id, institution_id, applicant_person_id,
-  study_plan_id, training_path_id, academic_year_id, enrollment_period_id, status,
+  training_path_id, academic_year_id, enrollment_period_id, status,
   rejection_reason, created_at, updated_at
-) VALUES (:id, :institutionId, :personId, :studyPlanId, :trainingPathId, :academicYearId,
+) VALUES (:id, :institutionId, :personId, :trainingPathId, :academicYearId,
          :periodId, 'REJECTED', NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
 """)
                     .setParameter("id", UUID.randomUUID())
                     .setParameter("institutionId", institution.getId())
                     .setParameter("personId", constraintPerson.getId())
-                    .setParameter("studyPlanId", studyPlanId)
                     .setParameter("trainingPathId", trainingPathId)
                     .setParameter("academicYearId", academicYearId)
                     .setParameter(
@@ -399,7 +390,7 @@ INSERT INTO enrollment_applications (
         EnrollmentApplication.builder()
             .institution(institution)
             .applicantPerson(person)
-            .studyPlan(entityManager.find(StudyPlan.class, studyPlanId))
+            .trainingPathId(trainingPathId)
             .academicYear(entityManager.find(AcademicYear.class, academicYearId))
             .enrollmentPeriod(entityManager.find(EnrollmentPeriod.class, enrollmentPeriod.getId()))
             .status(EnrollmentApplicationStatus.SUBMITTED)

@@ -17,6 +17,7 @@ import ar.edu.utn.frvm.typeit.bemol_api.academic.enums.AcademicSpaceFormat;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.enums.AcademicSpaceType;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.enums.AcademicYearStatus;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.enums.ApprovalMode;
+import ar.edu.utn.frvm.typeit.bemol_api.academic.enums.InstrumentIcon;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.enums.RequiredCondition;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.enums.RequirementStage;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.enums.RequirementType;
@@ -549,7 +550,10 @@ class AcademicQueryPerformanceIntegrationTest {
 
   private void persistInstruments(final Institution institution) {
     IntStream.range(0, COLLECTION_SIZE)
-        .mapToObj(index -> Instrument.create(institution, "Performance Instrument " + index, null))
+        .mapToObj(
+            index ->
+                Instrument.create(
+                    institution, "Performance Instrument " + index, null, InstrumentIcon.MUSIC))
         .forEach(instrumentRepository::save);
   }
 

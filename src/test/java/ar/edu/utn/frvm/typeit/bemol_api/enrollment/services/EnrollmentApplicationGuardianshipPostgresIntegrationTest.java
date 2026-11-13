@@ -567,20 +567,23 @@ class EnrollmentApplicationGuardianshipPostgresIntegrationTest {
     final String path = profile(s, person) + "/enrollment-applications/" + appId;
     final var options = request(selected, get(path + "/courses"), 200);
     final String course = options.get("items").get(0).get("courseId").asString();
-    request(
-        selected,
-        body(
-            patch(path + "/draft"),
-            Map.of(
-                "data",
+    final var draft =
+        request(
+            selected,
+            body(
+                patch(path + "/draft"),
                 Map.of(
-                    "academicBackground",
-                    Map.of("currentlyStudying", false, "educationLevel", "NO_SCHOOLING"),
-                    "preference",
-                    Map.of("preferredShift", "Mañana"),
-                    "courses",
-                    List.of(Map.of("courseId", course))))),
-        200);
+                    "expectedRevision",
+                    app.get("draftRevision").asLong(),
+                    "data",
+                    Map.of(
+                        "academicBackground",
+                        Map.of("currentlyStudying", false, "educationLevel", "NO_SCHOOLING"),
+                        "preference",
+                        Map.of("preferredShift", "Mañana"),
+                        "courses",
+                        List.of(Map.of("courseId", course))))),
+            200);
     final String requirement = app.get("documents").get(0).get("id").asString();
     final var upload =
         request(
@@ -614,7 +617,13 @@ class EnrollmentApplicationGuardianshipPostgresIntegrationTest {
                 128)),
         201);
     org.mockito.Mockito.verify(storage).headObject(org.mockito.ArgumentMatchers.anyString());
-    final var submitted = request(selected, post(path + "/submit"), 200);
+    final var submitted =
+        request(
+            selected,
+            body(
+                post(path + "/submit"),
+                Map.of("expectedRevision", draft.get("draftRevision").asLong())),
+            200);
     assertThat(submitted.get("submittedByPersonId").asString())
         .isEqualTo(s.tutor().getId().toString());
     assertThat(submitted.get("personId").asString()).isEqualTo(person);

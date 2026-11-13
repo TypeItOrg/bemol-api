@@ -6,7 +6,6 @@ import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.verifyNoInteractions;
 
 import ar.edu.utn.frvm.typeit.bemol_api.academic.entities.AcademicYear;
-import ar.edu.utn.frvm.typeit.bemol_api.academic.entities.StudyPlan;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.entities.TrainingPath;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.interfaces.TrainingPathRepository;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.filters.JwtAuthenticatedUser;
@@ -102,7 +101,6 @@ class ListEnrollmentApplicationTrainingPathsUseCaseTest {
             .email("ana@example.com")
             .build();
     final var path = TrainingPath.create(institution, "Base", null);
-    final var plan = StudyPlan.create(institution, path, "Plan", LocalDate.of(2026, 3, 1), null);
     final var year =
         AcademicYear.create(
             institution,
@@ -114,7 +112,8 @@ class ListEnrollmentApplicationTrainingPathsUseCaseTest {
         .id(UUID.randomUUID())
         .institution(institution)
         .applicantPerson(person)
-        .studyPlan(plan)
+        .trainingPathId(path.getId())
+        .trainingPath(path)
         .academicYear(year)
         .status(EnrollmentApplicationStatus.DRAFT)
         .build();

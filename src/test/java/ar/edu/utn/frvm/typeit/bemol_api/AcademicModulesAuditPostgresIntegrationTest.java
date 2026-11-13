@@ -163,8 +163,7 @@ class AcademicModulesAuditPostgresIntegrationTest extends DatabaseMigrationTestS
     final var originalClasses = classes(firstTeacher, CourseDay.MONDAY);
     final var createdCourse =
         createCourse.execute(
-            institution,
-            new CreateCourseRequest(placement, null, null, null, year, originalClasses));
+            institution, new CreateCourseRequest(placement, null, year, originalClasses));
     final UUID course = createdCourse.id();
     replaceClasses.execute(institution, course, new ReplaceCourseClassesRequest(originalClasses));
     assertThat(count(course, "COURSE_CLASSES_CHANGED")).isZero();

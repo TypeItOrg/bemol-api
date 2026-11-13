@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.*;
 
 import ar.edu.utn.frvm.typeit.bemol_api.academic.entities.*;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.enums.*;
+import ar.edu.utn.frvm.typeit.bemol_api.academic.enums.InstrumentIcon;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.exceptions.AcademicValidationException;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.payloads.AcademicYearStatusRequest;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.payloads.CourseClassDayRequest;
@@ -140,9 +141,11 @@ class CourseEnrollmentFlowPostgresIntegrationTest extends DatabaseMigrationTestS
             "ENROLLMENT_PERIOD_DELETED");
 
     final var request = submitted(f, "00014001");
-    final var unchanged = new UpdateEnrollmentDraftRequest(null);
     final var draft = draft(f, "00014002");
-    applications.updateDraft(draft.personId(), draft.applicationId(), unchanged);
+    applications.updateDraft(
+        draft.personId(),
+        draft.applicationId(),
+        new UpdateEnrollmentDraftRequest(null, revision(draft)));
     select(draft, f.courseId());
     select(draft, f.courseId());
     assertThat(auditActions(draft.applicationId()))
@@ -772,12 +775,15 @@ class CourseEnrollmentFlowPostgresIntegrationTest extends DatabaseMigrationTestS
                         .allowsImageUse(false)
                         .isReenrolling(false)
                         .build())
-                .build()));
+                .build(),
+            revision(request)));
     jdbcTemplate.update(
         "UPDATE enrollment_periods SET end_date = CURRENT_TIMESTAMP - interval '1 minute' WHERE enrollment_period_id = ?",
         f.periodId());
     assertThatThrownBy(
-            () -> applications.submitApplication(request.personId(), request.applicationId()))
+            () ->
+                applications.submitApplication(
+                    request.personId(), request.applicationId(), revision(request)))
         .isInstanceOf(EnrollmentPeriodClosedException.class);
     assertThat(status(request)).isEqualTo("PENDING");
   }
@@ -1036,6 +1042,14 @@ class CourseEnrollmentFlowPostgresIntegrationTest extends DatabaseMigrationTestS
                 .getId());
   }
 
+  private long revision(Request request) {
+    return requireNonNull(
+        jdbcTemplate.queryForObject(
+            "SELECT draft_revision FROM enrollment_applications WHERE enrollment_application_id = ?",
+            Long.class,
+            request.applicationId()));
+  }
+
   private String status(Request request) {
     return tx(
         () ->
@@ -1081,8 +1095,9 @@ class CourseEnrollmentFlowPostgresIntegrationTest extends DatabaseMigrationTestS
                         .allowsImageUse(false)
                         .isReenrolling(false)
                         .build())
-                .build()));
-    applications.submitApplication(request.personId(), request.applicationId());
+                .build(),
+            revision(request)));
+    applications.submitApplication(request.personId(), request.applicationId(), revision(request));
     return request;
   }
 
@@ -1093,7 +1108,8 @@ class CourseEnrollmentFlowPostgresIntegrationTest extends DatabaseMigrationTestS
         new UpdateEnrollmentDraftRequest(
             EnrollmentDraftData.builder()
                 .courses(List.of(new CourseSelectionDto(courseId, null)))
-                .build()));
+                .build(),
+            revision(request)));
   }
 
   private Request draft(Fixture f, String document) {
@@ -1155,7 +1171,9 @@ class CourseEnrollmentFlowPostgresIntegrationTest extends DatabaseMigrationTestS
                       LocalDate.of(2026, 1, 1)));
           year.transitionTo(AcademicYearStatus.ACTIVE);
           final var instrument =
-              individual ? persist(Instrument.create(institution, "Guitarra", null)) : null;
+              individual
+                  ? persist(Instrument.create(institution, "Guitarra", null, InstrumentIcon.GUITAR))
+                  : null;
           final var course = persist(Course.create(institution, placement, year, instrument));
           final var courseClass = persist(CourseClass.create(institution, course, 1));
           final var day =
@@ -1222,7 +1240,9 @@ class CourseEnrollmentFlowPostgresIntegrationTest extends DatabaseMigrationTestS
                       displayOrder,
                       ApprovalMode.PROMOTION));
           final var instrument =
-              individual ? persist(Instrument.create(institution, name, null)) : null;
+              individual
+                  ? persist(Instrument.create(institution, name, null, InstrumentIcon.MUSIC))
+                  : null;
           final var course =
               persist(
                   Course.create(

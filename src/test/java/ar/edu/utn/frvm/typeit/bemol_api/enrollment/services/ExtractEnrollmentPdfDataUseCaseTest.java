@@ -186,16 +186,22 @@ class ExtractEnrollmentPdfDataUseCaseTest {
   @Test
   void selectionsRequireTheIndependentCoursePermission() {
     final var application = application(EnrollmentApplicationStatus.SUBMITTED);
-    final var space = mock(ar.edu.utn.frvm.typeit.bemol_api.academic.entities.StudyPlanSpace.class);
-    final var academic =
-        mock(ar.edu.utn.frvm.typeit.bemol_api.academic.entities.AcademicSpace.class);
-    final var plan = mock(ar.edu.utn.frvm.typeit.bemol_api.academic.entities.StudyPlan.class);
-    when(space.getAcademicSpace()).thenReturn(academic);
-    when(academic.getName()).thenReturn("Selección protegida");
-    when(space.getStudyPlan()).thenReturn(plan);
-    when(plan.getName()).thenReturn("Plan");
-    application.addSelectedSpace(
-        EnrollmentApplicationSpace.builder().studyPlanSpace(space).build());
+    final var course =
+        mock(ar.edu.utn.frvm.typeit.bemol_api.academic.entities.Course.class, RETURNS_DEEP_STUBS);
+    final var space = course.getStudyPlanSpace();
+    when(space.getAcademicSpace().getName()).thenReturn("Selección protegida");
+    when(space.getAcademicSpace().getFormat())
+        .thenReturn(ar.edu.utn.frvm.typeit.bemol_api.academic.enums.AcademicSpaceFormat.GRUPAL);
+    when(space.getAcademicLevel()).thenReturn(null);
+    when(space.getStudyPlan().getName()).thenReturn("Plan");
+    when(course.getInstrument()).thenReturn(null);
+    application.addCourseSelection(
+        EnrollmentApplicationCourse.builder()
+            .course(course)
+            .status(
+                ar.edu.utn.frvm.typeit.bemol_api.enrollment.enums.EnrollmentApplicationCourseStatus
+                    .PENDING)
+            .build());
     when(applications.findForPdf(institutionId, applicationId))
         .thenReturn(Optional.of(application));
     when(history.list(applicationId)).thenReturn(List.of());

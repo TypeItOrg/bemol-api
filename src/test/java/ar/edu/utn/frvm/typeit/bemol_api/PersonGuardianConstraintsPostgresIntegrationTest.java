@@ -8,66 +8,29 @@ import ar.edu.utn.frvm.typeit.bemol_api.support.IntegrationTest;
 import ar.edu.utn.frvm.typeit.bemol_api.support.PostgresTestDatabase;
 import java.util.UUID;
 import org.flywaydb.core.Flyway;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.ValueSource;
+import org.junit.jupiter.api.Test;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.datasource.DriverManagerDataSource;
 
 @IntegrationTest
-class AuthorizedAccountsMigrationPostgresIntegrationTest {
-  @ParameterizedTest
-  @ValueSource(booleans = {false, true})
-  void supportsFreshInstallAndUpgradeWithDeferredSubjects(final boolean upgrade) {
-    final var database =
-        new PostgresTestDatabase(
-            "postgres:18-alpine", upgrade ? "accounts_upgrade" : "accounts_fresh");
+class PersonGuardianConstraintsPostgresIntegrationTest {
+  @Test
+  void enforcesDeferredGuardianSubjects() {
+    final var database = new PostgresTestDatabase("postgres:18-alpine", "accounts_fresh");
     final var jdbc =
         new JdbcTemplate(
             new DriverManagerDataSource(
                 database.getJdbcUrl(), database.getUsername(), database.getPassword()));
-    migrations(jdbc, upgrade ? "20261025205535" : "latest").migrate();
+    migrations(jdbc, "latest").migrate();
     final var fixtures = new MigrationFixtures(jdbc);
     final UUID institution = fixtures.firstInstitutionId();
-    final UUID tutor = UUID.randomUUID(), dependent = UUID.randomUUID(), legacy = UUID.randomUUID();
+    final UUID tutor = UUID.randomUUID(), dependent = UUID.randomUUID();
     fixtures.insertPerson(tutor, institution, fixtures.randomDocumentNumber(), false);
     fixtures.insertPerson(dependent, institution, "99119901", false);
-    if (upgrade) {
-      jdbc.update(
-          "INSERT INTO person_guardians(person_guardian_id,institution_id,tutor_person_id,dependent_person_id,relationship,status,created_at,updated_at) VALUES(?,?,?,?,'FATHER','PENDING',now(),now())",
-          legacy,
-          institution,
-          tutor,
-          dependent);
-      jdbc.update(
-          "INSERT INTO person_access_invitations(invitation_id,person_id,representation_id,email,token_hash,expires_at) VALUES(?,?,?,'legacy@example.test','legacy-hash',now()+interval '24 hours')",
-          UUID.randomUUID(),
-          dependent,
-          legacy);
-    }
     final var current = migrations(jdbc, "latest");
     current.migrate();
     assertThat(current.validateWithResult().validationSuccessful).isTrue();
-    if (upgrade) {
-      assertThat(
-              jdbc.queryForObject(
-                  "SELECT declared_document_number FROM person_guardians WHERE person_guardian_id=?",
-                  String.class,
-                  legacy))
-          .isEqualTo("99119901");
-      assertThat(
-              jdbc.queryForObject(
-                  "SELECT purpose FROM person_access_invitations WHERE person_id=?",
-                  String.class,
-                  dependent))
-          .isEqualTo("INITIAL_ACCESS");
-      assertThat(
-              jdbc.queryForObject(
-                  "SELECT issued_at IS NOT NULL FROM person_access_invitations WHERE person_id=?",
-                  Boolean.class,
-                  dependent))
-          .isTrue();
-    }
     final String unreserved = "99119902";
     insertPending(jdbc, institution, tutor, unreserved);
     assertThat(

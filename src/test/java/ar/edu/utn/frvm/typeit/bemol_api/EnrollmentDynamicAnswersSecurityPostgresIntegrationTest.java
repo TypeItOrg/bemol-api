@@ -132,7 +132,7 @@ class EnrollmentDynamicAnswersSecurityPostgresIntegrationTest
   }
 
   @Test
-  void theLegacyHttpContractStillAcceptsSaveAndSubmitWithoutRevision() throws Exception {
+  void saveAndSubmitRequireTheDraftRevision() throws Exception {
     final var context = academicContext();
     final var draft =
         applications.startOrGetApplication(
@@ -153,11 +153,9 @@ class EnrollmentDynamicAnswersSecurityPostgresIntegrationTest
                 .with(authentication(principal))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(data))
-        .andExpect(status().isOk())
-        .andExpect(jsonPath("$.formVersionId").isEmpty());
+        .andExpect(status().isBadRequest());
     mvc.perform(post(path + "/submit").with(authentication(principal)))
-        .andExpect(status().isOk())
-        .andExpect(jsonPath("$.status").value("SUBMITTED"));
+        .andExpect(status().isBadRequest());
   }
 
   @Test

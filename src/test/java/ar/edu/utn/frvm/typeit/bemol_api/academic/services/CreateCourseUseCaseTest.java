@@ -19,10 +19,8 @@ import ar.edu.utn.frvm.typeit.bemol_api.academic.enums.AcademicSpaceType;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.enums.AcademicYearStatus;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.enums.StudyPlanStatus;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.exceptions.AcademicConflictException;
-import ar.edu.utn.frvm.typeit.bemol_api.academic.interfaces.AcademicSpaceRepository;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.interfaces.AcademicYearRepository;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.interfaces.CourseRepository;
-import ar.edu.utn.frvm.typeit.bemol_api.academic.interfaces.StudyPlanRepository;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.interfaces.StudyPlanSpaceRepository;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.payloads.CourseClassResponse;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.payloads.CreateCourseRequest;
@@ -58,8 +56,6 @@ class CreateCourseUseCaseTest {
       UUID.fromString("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
 
   @Mock private InstitutionRepository institutionRepository;
-  @Mock private StudyPlanRepository studyPlanRepository;
-  @Mock private AcademicSpaceRepository academicSpaceRepository;
   @Mock private AcademicYearRepository academicYearRepository;
   @Mock private StudyPlanSpaceRepository studyPlanSpaceRepository;
   @Mock private CourseRepository courseRepository;
@@ -72,29 +68,6 @@ class CreateCourseUseCaseTest {
   private void stubInstitution() {
     given(institutionRepository.findByIdForUpdate(INSTITUTION_ID))
         .willReturn(Optional.of(institution));
-  }
-
-  private void stubPlan(final StudyPlanStatus status) {
-    final var plan = mock(StudyPlan.class);
-    given(plan.getId()).willReturn(PLAN_ID);
-    given(plan.getName()).willReturn("Plan");
-    given(plan.getStatus()).willReturn(status);
-    final var path = mock(TrainingPath.class);
-    given(path.getId()).willReturn(UUID.randomUUID());
-    given(path.getName()).willReturn("Trayecto");
-    given(plan.getTrainingPath()).willReturn(path);
-    given(studyPlanRepository.findByIdAndInstitution_IdForUpdate(PLAN_ID, INSTITUTION_ID))
-        .willReturn(Optional.of(plan));
-  }
-
-  private void stubSpace() {
-    final var space = mock(AcademicSpace.class);
-    given(space.getId()).willReturn(SPACE_ID);
-    given(space.getName()).willReturn("Espacio");
-    given(space.getType()).willReturn(AcademicSpaceType.SUBJECT);
-    given(space.getFormat()).willReturn(AcademicSpaceFormat.INDIVIDUAL);
-    given(academicSpaceRepository.findByIdAndInstitution_IdForUpdate(SPACE_ID, INSTITUTION_ID))
-        .willReturn(Optional.of(space));
   }
 
   private void stubYear() {
@@ -135,11 +108,7 @@ class CreateCourseUseCaseTest {
   }
 
   private CreateCourseRequest request() {
-    return new CreateCourseRequest(STUDY_PLAN_SPACE_ID, null, null, null, YEAR_ID, List.of());
-  }
-
-  private CreateCourseRequest legacyRequest() {
-    return new CreateCourseRequest(PLAN_ID, SPACE_ID, YEAR_ID, List.of());
+    return new CreateCourseRequest(STUDY_PLAN_SPACE_ID, null, YEAR_ID, List.of());
   }
 
   @Test
@@ -181,32 +150,15 @@ class CreateCourseUseCaseTest {
   }
 
   @Test
-  @DisplayName("Should reject a course whose space does not belong to the plan")
-  void rejectsSpaceOutsidePlan() {
+  @DisplayName("Should reject a course whose plan placement does not exist")
+  void rejectsUnknownStudyPlanSpace() {
     stubInstitution();
-    stubPlan(StudyPlanStatus.ACTIVE);
-    stubSpace();
-    given(studyPlanSpaceRepository.existsByStudyPlan_IdAndAcademicSpace_Id(PLAN_ID, SPACE_ID))
-        .willReturn(false);
-
-    assertThatThrownBy(() -> useCase.execute(INSTITUTION_ID, legacyRequest()))
-        .isInstanceOf(AcademicConflictException.class);
-  }
-
-  @Test
-  @DisplayName("Should reject a legacy selection when the space is in several levels")
-  void rejectsAmbiguousLegacySelection() {
-    stubInstitution();
-    stubPlan(StudyPlanStatus.ACTIVE);
-    stubSpace();
-    final var first = mock(StudyPlanSpace.class);
-    final var second = mock(StudyPlanSpace.class);
     given(
-            studyPlanSpaceRepository.findByStudyPlanIdAndAcademicSpaceId(
-                PLAN_ID, SPACE_ID, INSTITUTION_ID))
-        .willReturn(List.of(first, second));
+            studyPlanSpaceRepository.findDetailsByIdAndInstitutionIdForUpdate(
+                STUDY_PLAN_SPACE_ID, INSTITUTION_ID))
+        .willReturn(Optional.empty());
 
-    assertThatThrownBy(() -> useCase.execute(INSTITUTION_ID, legacyRequest()))
+    assertThatThrownBy(() -> useCase.execute(INSTITUTION_ID, request()))
         .isInstanceOf(AcademicConflictException.class);
     verify(courseRepository, never()).save(any());
   }

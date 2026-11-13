@@ -14,7 +14,6 @@ import ar.edu.utn.frvm.typeit.bemol_api.academic.entities.TrainingPath;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.enums.AcademicSpaceFormat;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.entities.EnrollmentApplication;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.entities.EnrollmentApplicationCourse;
-import ar.edu.utn.frvm.typeit.bemol_api.enrollment.entities.EnrollmentApplicationSpace;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.enums.EnrollmentApplicationCourseStatus;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.enums.EnrollmentApplicationStatus;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.payloads.EnrollmentPdfSettingsResponse;
@@ -25,22 +24,20 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.ValueSource;
+import org.junit.jupiter.api.Test;
 
 class EnrollmentPdfDataMapperTest {
   private static final Instant GENERATED_AT = Instant.parse("2026-11-05T12:00:00Z");
 
-  @ParameterizedTest
-  @ValueSource(booleans = {false, true})
-  void identifiesSelectionTypeAndUsesTheActualLevelOrder(final boolean courses) {
-    final var application = application(courses, 2);
+  @Test
+  void identifiesSelectionTypeAndUsesTheActualLevelOrder() {
+    final var application = application(2);
 
     final var result =
         EnrollmentPdfDataMapper.from(
             application, EnrollmentPdfSettingsResponse.defaults(), true, GENERATED_AT, null);
 
-    assertThat(result.coursesSelected()).isEqualTo(courses);
+    assertThat(result.coursesSelected()).isTrue();
     assertThat(result.selections())
         .singleElement()
         .satisfies(
@@ -50,40 +47,29 @@ class EnrollmentPdfDataMapperTest {
             });
   }
 
-  @ParameterizedTest
-  @ValueSource(booleans = {false, true})
-  void missingLevelIsNotInferredFromOtherNames(final boolean courses) {
+  @Test
+  void missingLevelIsNotInferredFromOtherNames() {
     final var result =
         EnrollmentPdfDataMapper.from(
-            application(courses, null),
-            EnrollmentPdfSettingsResponse.defaults(),
-            true,
-            GENERATED_AT,
-            null);
+            application(null), EnrollmentPdfSettingsResponse.defaults(), true, GENERATED_AT, null);
 
-    assertThat(result.coursesSelected()).isEqualTo(courses);
+    assertThat(result.coursesSelected()).isTrue();
     assertThat(result.selections())
         .extracting(selection -> selection.level())
         .containsExactly("Sin informar");
   }
 
-  @ParameterizedTest
-  @ValueSource(booleans = {false, true})
-  void permissionControlsBothSelectionDataAndItsType(final boolean courses) {
+  @Test
+  void permissionControlsBothSelectionDataAndItsType() {
     final var result =
         EnrollmentPdfDataMapper.from(
-            application(courses, 2),
-            EnrollmentPdfSettingsResponse.defaults(),
-            false,
-            GENERATED_AT,
-            null);
+            application(2), EnrollmentPdfSettingsResponse.defaults(), false, GENERATED_AT, null);
 
     assertThat(result.selections()).isEmpty();
     assertThat(result.coursesSelected()).isFalse();
   }
 
-  private EnrollmentApplication application(
-      final boolean courses, final @Nullable Integer levelOrder) {
+  private EnrollmentApplication application(final @Nullable Integer levelOrder) {
     final var country = InstitutionalTestData.country("ARG");
     final var province = InstitutionalTestData.province(country, "1");
     final var institution =
@@ -122,18 +108,13 @@ class EnrollmentPdfDataMapperTest {
             .academicYear(year)
             .status(EnrollmentApplicationStatus.SUBMITTED)
             .build();
-    if (courses) {
-      final var course = mock(Course.class);
-      when(course.getStudyPlanSpace()).thenReturn(space);
-      application.addCourseSelection(
-          EnrollmentApplicationCourse.builder()
-              .course(course)
-              .status(EnrollmentApplicationCourseStatus.PENDING)
-              .build());
-    } else {
-      application.addSelectedSpace(
-          EnrollmentApplicationSpace.builder().studyPlanSpace(space).build());
-    }
+    final var course = mock(Course.class);
+    when(course.getStudyPlanSpace()).thenReturn(space);
+    application.addCourseSelection(
+        EnrollmentApplicationCourse.builder()
+            .course(course)
+            .status(EnrollmentApplicationCourseStatus.PENDING)
+            .build());
     return application;
   }
 }

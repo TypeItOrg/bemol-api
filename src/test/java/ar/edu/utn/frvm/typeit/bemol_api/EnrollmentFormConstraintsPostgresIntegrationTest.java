@@ -7,7 +7,6 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import ar.edu.utn.frvm.typeit.bemol_api.support.IntegrationTest;
 import ar.edu.utn.frvm.typeit.bemol_api.support.PostgresTestDatabase;
 import java.sql.SQLException;
-import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
@@ -15,6 +14,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import org.flywaydb.core.Flyway;
 import org.jspecify.annotations.Nullable;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -24,91 +24,22 @@ import org.springframework.jdbc.datasource.DriverManagerDataSource;
 import org.springframework.transaction.support.TransactionTemplate;
 
 @IntegrationTest
-class EnrollmentFormMigrationPostgresIntegrationTest {
-  private static final String PREVIOUS_VERSION = "20261105175029";
-  private static final String EMPTY_VERSION = "20261106201322";
-  private static final String FORM_VERSION = "20261107005229";
-
-  @ParameterizedTest
-  @ValueSource(strings = {PREVIOUS_VERSION, EMPTY_VERSION, FORM_VERSION})
-  void preservesLegacyDataAndEnforcesVersionBoundaries(final String initialVersion) {
-    final boolean upgrade = !FORM_VERSION.equals(initialVersion);
-    final var jdbc = database("form_migration_" + initialVersion);
-    migrations(jdbc, initialVersion).migrate();
-    final var historyBefore =
-        jdbc.queryForList("SELECT * FROM flyway_schema_history ORDER BY installed_rank");
-    if (EMPTY_VERSION.equals(initialVersion)) {
-      assertThat(
-              jdbc.queryForObject(
-                  "SELECT checksum FROM flyway_schema_history WHERE version = ?",
-                  Integer.class,
-                  EMPTY_VERSION))
-          .isZero();
-      assertThat(
-              jdbc.queryForObject(
-                  "SELECT to_regclass('public.enrollment_forms')::text", String.class))
-          .isNull();
-    }
+class EnrollmentFormConstraintsPostgresIntegrationTest {
+  @Test
+  void enforcesVersionAndAssignmentBoundaries() {
+    final var jdbc = database("form_constraints");
+    migrations(jdbc).migrate();
     final var context = context(jdbc);
-    final var legacy =
-        List.of("DRAFT", "SUBMITTED", "APPROVED").stream()
-            .map(status -> application(jdbc, context, status, null, upgrade))
-            .toList();
-    jdbc.update(
-        """
-        INSERT INTO applicant_education_backgrounds (
-          applicant_education_background_id, enrollment_application_id, secondary_school,
-          created_at, updated_at
-        ) VALUES (?, ?, 'Escuela histórica', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-        """,
-        UUID.randomUUID(),
-        legacy.getFirst());
-    jdbc.update(
-        """
-        INSERT INTO enrollment_pdf_settings (
-          institution_id, title, header_text, show_applicant_signature, show_responsible_signature
-        ) VALUES (?, 'Planilla existente', 'Texto institucional', false, true)
-        """,
-        context.institution());
-    final var before = legacyRows(jdbc, context);
-    final var pdfBefore =
-        jdbc.queryForMap(
-            "SELECT * FROM enrollment_pdf_settings WHERE institution_id = ?",
-            context.institution());
+    final UUID baseApplication = application(jdbc, context, "DRAFT", null);
 
-    final var migration = migrations(jdbc, FORM_VERSION);
-    final int expectedMigrations = PREVIOUS_VERSION.equals(initialVersion) ? 2 : upgrade ? 1 : 0;
-    assertThat(migration.migrate().migrationsExecuted).isEqualTo(expectedMigrations);
-    assertThat(
-            jdbc.queryForList("SELECT * FROM flyway_schema_history ORDER BY installed_rank")
-                .subList(0, historyBefore.size()))
-        .isEqualTo(historyBefore);
-    assertThat(migration.validateWithResult().validationSuccessful).isTrue();
-    assertThat(migration.migrate().migrationsExecuted).isZero();
-    assertThat(legacyRows(jdbc, context)).isEqualTo(before);
-    assertThat(
-            jdbc.queryForMap(
-                "SELECT * FROM enrollment_pdf_settings WHERE institution_id = ?",
-                context.institution()))
-        .isEqualTo(pdfBefore);
-    assertThat(
-            jdbc.queryForObject(
-                """
-                SELECT count(*) FROM enrollment_applications WHERE institution_id = ?
-                AND form_version_id IS NULL AND custom_answers = '{}'::jsonb AND draft_revision = 0
-                """,
-                Long.class,
-                context.institution()))
-        .isEqualTo(3);
-
-    verifyVersionsAndAssignments(jdbc, context, legacy.getFirst());
+    verifyVersionsAndAssignments(jdbc, context, baseApplication);
   }
 
   @ParameterizedTest
   @ValueSource(booleans = {false, true})
   void assignmentAndArchivalSerializeBothDirections(final boolean archiveFirst) throws Exception {
     final var jdbc = database(archiveFirst ? "form_archive_race" : "form_assignment_race");
-    migrations(jdbc, FORM_VERSION).migrate();
+    migrations(jdbc).migrate();
     final var context = context(jdbc);
     final UUID version = draft(jdbc, context.institution(), form(jdbc, context.institution()), 1);
     publish(jdbc, version);
@@ -166,7 +97,7 @@ class EnrollmentFormMigrationPostgresIntegrationTest {
   }
 
   private void verifyVersionsAndAssignments(
-      final JdbcTemplate jdbc, final Context context, final UUID legacyApplication) {
+      final JdbcTemplate jdbc, final Context context, final UUID baseApplication) {
     final UUID form = form(jdbc, context.institution());
     final UUID version = draft(jdbc, context.institution(), form, 1);
     violates(
@@ -240,7 +171,7 @@ class EnrollmentFormMigrationPostgresIntegrationTest {
         "enrollment_form_assignments_context_unique");
     violates(() -> archive(jdbc, version), "enrollment_form_versions_assigned_check");
 
-    final UUID application = application(jdbc, context, "DRAFT", version, false);
+    final UUID application = application(jdbc, context, "DRAFT", version);
     jdbc.update(
         "UPDATE enrollment_applications SET custom_answers = '{\"question\":false}'::jsonb, draft_revision = 1 WHERE enrollment_application_id = ?",
         application);
@@ -256,13 +187,13 @@ class EnrollmentFormMigrationPostgresIntegrationTest {
             jdbc.update(
                 "UPDATE enrollment_applications SET form_version_id = ? WHERE enrollment_application_id = ?",
                 version,
-                legacyApplication),
+                baseApplication),
         "enrollment_application_form_immutable_check");
     violates(
         () ->
             jdbc.update(
                 "UPDATE enrollment_applications SET custom_answers = '{\"question\":true}'::jsonb WHERE enrollment_application_id = ?",
-                legacyApplication),
+                baseApplication),
         "enrollment_application_base_answers_check");
     violates(
         () ->
@@ -306,7 +237,7 @@ class EnrollmentFormMigrationPostgresIntegrationTest {
     violates(
         () -> assignment(jdbc, context, version), "enrollment_form_assignments_published_check");
     violates(
-        () -> application(jdbc, context, "DRAFT", version, false),
+        () -> application(jdbc, context, "DRAFT", version),
         "enrollment_application_form_published_check");
   }
 
@@ -334,13 +265,12 @@ class EnrollmentFormMigrationPostgresIntegrationTest {
             database.getJdbcUrl(), database.getUsername(), database.getPassword()));
   }
 
-  private static Flyway migrations(final JdbcTemplate jdbc, final String target) {
+  private static Flyway migrations(final JdbcTemplate jdbc) {
     return Flyway.configure()
         .dataSource(requireNonNull(jdbc.getDataSource()))
         .locations("classpath:db/migration", "classpath:db/dev")
         .sqlMigrationPrefix("")
         .outOfOrder(true)
-        .target(target)
         .load();
   }
 
@@ -414,57 +344,26 @@ class EnrollmentFormMigrationPostgresIntegrationTest {
       final JdbcTemplate jdbc,
       final Context context,
       final String status,
-      final @Nullable UUID version,
-      final boolean beforeMigration) {
+      final @Nullable UUID version) {
     final var fixtures = new MigrationFixtures(jdbc);
     final UUID person = UUID.randomUUID();
     fixtures.insertPerson(person, context.institution(), fixtures.randomDocumentNumber(), false);
     final UUID id = UUID.randomUUID();
-    if (beforeMigration) {
-      jdbc.update(
-          """
-          INSERT INTO enrollment_applications (
-            enrollment_application_id, institution_id, applicant_person_id, training_path_id,
-            academic_year_id, status, created_at, updated_at
-          ) VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-          """,
-          id,
-          context.institution(),
-          person,
-          context.path(),
-          context.year(),
-          status);
-    } else {
-      jdbc.update(
-          """
-          INSERT INTO enrollment_applications (
-            enrollment_application_id, institution_id, applicant_person_id, training_path_id,
-            academic_year_id, status, form_version_id, created_at, updated_at
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-          """,
-          id,
-          context.institution(),
-          person,
-          context.path(),
-          context.year(),
-          status,
-          version);
-    }
-    return id;
-  }
-
-  private static List<?> legacyRows(final JdbcTemplate jdbc, final Context context) {
-    return jdbc.queryForList(
+    jdbc.update(
         """
-        SELECT a.enrollment_application_id, a.institution_id, a.applicant_person_id,
-          a.training_path_id, a.academic_year_id, a.status, a.created_at, a.updated_at,
-          education.secondary_school, education.currently_studying, education.secondary_completed
-        FROM enrollment_applications a
-        LEFT JOIN applicant_education_backgrounds education
-          ON education.enrollment_application_id = a.enrollment_application_id
-        WHERE a.institution_id = ? ORDER BY a.enrollment_application_id
+        INSERT INTO enrollment_applications (
+          enrollment_application_id, institution_id, applicant_person_id, training_path_id,
+          academic_year_id, status, form_version_id, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
         """,
-        context.institution());
+        id,
+        context.institution(),
+        person,
+        context.path(),
+        context.year(),
+        status,
+        version);
+    return id;
   }
 
   private record Context(UUID institution, UUID path, UUID year) {}

@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import ar.edu.utn.frvm.typeit.bemol_api.academic.entities.AcademicYearFixtures;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.entities.Instrument;
+import ar.edu.utn.frvm.typeit.bemol_api.academic.enums.InstrumentIcon;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.services.AuditChangeDetails;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.entities.EnrollmentPeriod;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.enums.EnrollmentPeriodStatus;
@@ -61,9 +62,11 @@ class AuditSnapshotTest {
 
   @Test
   void catalogOwnsItsLabelsAndComparesDescriptionsWithoutPersistingThem() {
-    final var instrument = Instrument.create(new Institution(), "Piano", "Texto privado inicial");
+    final var instrument =
+        Instrument.create(
+            new Institution(), "Piano", "Texto privado inicial", InstrumentIcon.PIANO);
     final var before = instrument.auditSnapshot();
-    instrument.update("Piano", "Texto privado nuevo");
+    instrument.update("Piano", "Texto privado nuevo", InstrumentIcon.PIANO);
     final var after = instrument.auditSnapshot();
 
     final var details = AuditChangeDetails.change("Piano", before, after);

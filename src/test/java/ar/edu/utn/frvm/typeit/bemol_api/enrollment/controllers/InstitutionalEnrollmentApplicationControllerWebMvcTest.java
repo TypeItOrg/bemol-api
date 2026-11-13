@@ -75,7 +75,6 @@ class InstitutionalEnrollmentApplicationControllerWebMvcTest {
   private static final UUID INSTITUTION_ID = UUID.randomUUID();
   private static final UUID APPLICATION_ID = UUID.randomUUID();
   private static final UUID PERSON_ID = UUID.randomUUID();
-  private static final UUID STUDY_PLAN_ID = UUID.randomUUID();
   private static final UUID ACADEMIC_YEAR_ID = UUID.randomUUID();
   private static final UUID PERIOD_ID = UUID.randomUUID();
   private static final UUID RESOLVER_PERSON_ID = UUID.randomUUID();
@@ -300,8 +299,6 @@ class InstitutionalEnrollmentApplicationControllerWebMvcTest {
         .applicantFirstName("Ana")
         .applicantLastName("Garcia")
         .applicantDocumentNumber("12345678")
-        .studyPlanId(STUDY_PLAN_ID)
-        .studyPlanName("Profesorado de Música")
         .academicYearId(ACADEMIC_YEAR_ID)
         .academicYear(2026)
         .enrollmentPeriodId(PERIOD_ID)

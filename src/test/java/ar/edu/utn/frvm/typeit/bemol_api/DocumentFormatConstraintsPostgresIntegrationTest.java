@@ -9,27 +9,21 @@ import ar.edu.utn.frvm.typeit.bemol_api.support.PostgresTestDatabase;
 import java.util.UUID;
 import org.flywaydb.core.Flyway;
 import org.flywaydb.core.api.MigrationVersion;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.ValueSource;
+import org.junit.jupiter.api.Test;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.datasource.DriverManagerDataSource;
 
 @IntegrationTest
-class WebpMigrationPostgresIntegrationTest {
-  @ParameterizedTest
-  @ValueSource(booleans = {false, true})
-  void supportsFreshInstallAndUpgradeWithoutChangingExistingFormats(final boolean upgrade) {
-    final var database =
-        new PostgresTestDatabase("postgres:18-alpine", upgrade ? "webp_upgrade" : "webp_fresh");
+class DocumentFormatConstraintsPostgresIntegrationTest {
+  @Test
+  void acceptsWebpAndRejectsUnsupportedFormats() {
+    final var database = new PostgresTestDatabase("postgres:18-alpine", "webp_fresh");
     final var jdbc =
         new JdbcTemplate(
             new DriverManagerDataSource(
                 database.getJdbcUrl(), database.getUsername(), database.getPassword()));
-    migrations(
-            jdbc,
-            upgrade ? MigrationVersion.fromVersion("20261025181740") : MigrationVersion.LATEST)
-        .migrate();
+    migrations(jdbc, MigrationVersion.LATEST).migrate();
 
     final var institution = new MigrationFixtures(jdbc).firstInstitutionId();
     final var document = UUID.randomUUID();

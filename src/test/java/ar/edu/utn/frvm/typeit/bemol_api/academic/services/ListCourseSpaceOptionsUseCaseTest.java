@@ -31,6 +31,7 @@ class ListCourseSpaceOptionsUseCaseTest {
   private static final UUID INSTITUTION_ID = UUID.randomUUID();
   private static final UUID STUDY_PLAN_ID = UUID.randomUUID();
   private static final UUID ACADEMIC_SPACE_ID = UUID.randomUUID();
+  private static final UUID STUDY_PLAN_SPACE_ID = UUID.randomUUID();
 
   @Mock private StudyPlanRepository studyPlanRepository;
   @Mock private StudyPlanSpaceRepository studyPlanSpaceRepository;
@@ -47,7 +48,13 @@ class ListCourseSpaceOptionsUseCaseTest {
     assertThat(result)
         .containsExactly(
             new CourseSpaceOptionResponse(
-                ACADEMIC_SPACE_ID, "Educación Física", "SUBJECT", "INDIVIDUAL"));
+                ACADEMIC_SPACE_ID,
+                "Educación Física",
+                "SUBJECT",
+                "INDIVIDUAL",
+                STUDY_PLAN_SPACE_ID,
+                null,
+                false));
   }
 
   @ParameterizedTest
@@ -61,7 +68,13 @@ class ListCourseSpaceOptionsUseCaseTest {
     assertThat(result)
         .containsExactly(
             new CourseSpaceOptionResponse(
-                ACADEMIC_SPACE_ID, "Educación Física", "SUBJECT", "INDIVIDUAL"));
+                ACADEMIC_SPACE_ID,
+                "Educación Física",
+                "SUBJECT",
+                "INDIVIDUAL",
+                STUDY_PLAN_SPACE_ID,
+                null,
+                false));
   }
 
   private ListCourseSpaceOptionsUseCase useCase() {
@@ -77,6 +90,7 @@ class ListCourseSpaceOptionsUseCaseTest {
     given(studyPlan.getStatus()).willReturn(StudyPlanStatus.ACTIVE);
     given(studyPlanSpaceRepository.findByStudyPlanIdWithDetails(STUDY_PLAN_ID))
         .willReturn(List.of(studyPlanSpace));
+    given(studyPlanSpace.getId()).willReturn(STUDY_PLAN_SPACE_ID);
     given(studyPlanSpace.getAcademicSpace()).willReturn(academicSpace);
     given(academicSpace.getId()).willReturn(ACADEMIC_SPACE_ID);
     given(academicSpace.getName()).willReturn(name);

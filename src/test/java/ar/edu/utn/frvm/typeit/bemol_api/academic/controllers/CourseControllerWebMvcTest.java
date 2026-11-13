@@ -78,8 +78,7 @@ class CourseControllerWebMvcTest {
     final String body =
         """
         {
-          "studyPlanId": "%s",
-          "academicSpaceId": "%s",
+          "studyPlanSpaceId": "%s",
           "academicYearId": "%s",
           "classes": [
             {
@@ -214,7 +213,7 @@ class CourseControllerWebMvcTest {
   void create_rejectsMissingClasses() throws Exception {
     final String body =
         """
-        {"studyPlanId": "%s", "academicSpaceId": "%s", "academicYearId": "%s"}
+        {"studyPlanSpaceId": "%s", "academicYearId": "%s"}
         """
             .formatted(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID());
 
@@ -232,7 +231,7 @@ class CourseControllerWebMvcTest {
   void create_rejectsNullClassElement() throws Exception {
     final String body =
         """
-        {"studyPlanId": "%s", "academicSpaceId": "%s", "academicYearId": "%s", "classes": [null]}
+        {"studyPlanSpaceId": "%s", "academicYearId": "%s", "classes": [null]}
         """
             .formatted(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID());
 
@@ -250,8 +249,7 @@ class CourseControllerWebMvcTest {
     final String body =
         """
         {
-          "studyPlanId": "%s",
-          "academicSpaceId": "%s",
+          "studyPlanSpaceId": "%s",
           "academicYearId": "%s",
           "classes": [{
             "teacherIds": [null],

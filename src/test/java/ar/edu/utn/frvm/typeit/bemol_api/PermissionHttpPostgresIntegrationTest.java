@@ -7,9 +7,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import ar.edu.utn.frvm.typeit.bemol_api.academic.entities.AcademicYear;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.entities.Course;
-import ar.edu.utn.frvm.typeit.bemol_api.academic.entities.Instrument;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.entities.StudyPlan;
-import ar.edu.utn.frvm.typeit.bemol_api.academic.entities.StudyPlanSpace;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.entities.User;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.entities.UserSession;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.services.InstitutionalAccessTokenInput;
@@ -17,7 +15,6 @@ import ar.edu.utn.frvm.typeit.bemol_api.auth.services.JwtService;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.enums.PermissionCode;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.entities.EnrollmentApplication;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.entities.EnrollmentApplicationCourse;
-import ar.edu.utn.frvm.typeit.bemol_api.enrollment.entities.EnrollmentApplicationSpace;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.entities.EnrollmentPeriod;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.entities.EnrollmentPeriodOffering;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.enums.EnrollmentApplicationStatus;
@@ -76,22 +73,6 @@ class PermissionHttpPostgresIntegrationTest extends DatabaseMigrationTestSupport
         plan);
     fixtures.insertAcademicSpace(space, institution);
     fixtures.insertCourse(course, institution, plan, space, year);
-    final UUID legacySpace = UUID.randomUUID(),
-        legacyPlacement = UUID.randomUUID(),
-        instrument = UUID.randomUUID();
-    fixtures.insertAcademicSpace(legacySpace, institution);
-    jdbcTemplate.update(
-        "UPDATE academic_spaces SET instrumental = true WHERE academic_space_id = ?", legacySpace);
-    jdbcTemplate.update(
-        "INSERT INTO study_plan_spaces (study_plan_space_id, institution_id, study_plan_id,"
-            + " academic_space_id, requirement_type, display_order, approval_mode, created_at,"
-            + " updated_at) VALUES (?, ?, ?, ?, 'REQUIRED', 2, 'PROMOTION', CURRENT_TIMESTAMP,"
-            + " CURRENT_TIMESTAMP)",
-        legacyPlacement,
-        institution,
-        plan,
-        legacySpace);
-    fixtures.insertInstrument(instrument, institution, "Instrumento histórico");
     grant(reviewer, institution, PermissionCode.ENROLLMENT_APPLICATION_READ);
     if (access.equals("APPROVER_ONLY")) {
       grant(reviewer, institution, PermissionCode.ENROLLMENT_APPLICATION_APPROVE);
@@ -149,7 +130,6 @@ class PermissionHttpPostgresIntegrationTest extends DatabaseMigrationTestSupport
                           .institution(tenant)
                           .applicantPerson(entityManager.find(Person.class, applicant))
                           .trainingPathId(path)
-                          .studyPlan(entityManager.find(StudyPlan.class, plan))
                           .academicYear(entityManager.find(AcademicYear.class, year))
                           .enrollmentPeriod(period)
                           .status(EnrollmentApplicationStatus.DRAFT)
@@ -160,14 +140,6 @@ class PermissionHttpPostgresIntegrationTest extends DatabaseMigrationTestSupport
                           tenant, request, entityManager.find(Course.class, course), null);
                   request.getCourseSelections().add(selection);
                   entityManager.persist(selection);
-                  final var legacy =
-                      EnrollmentApplicationSpace.builder()
-                          .enrollmentApplication(request)
-                          .studyPlanSpace(entityManager.find(StudyPlanSpace.class, legacyPlacement))
-                          .instrument(entityManager.find(Instrument.class, instrument))
-                          .build();
-                  request.getSelectedSpaces().add(legacy);
-                  entityManager.persist(legacy);
                   return request.getId();
                 });
     if (access.equals("OWNER")) {
@@ -199,14 +171,7 @@ class PermissionHttpPostgresIntegrationTest extends DatabaseMigrationTestSupport
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.canConfirm").value(access.equals("APPROVER_ONLY")))
         .andExpect(jsonPath("$.courses.length()").value(canReadCourses ? 1 : 0))
-        .andExpect(jsonPath("$.data.courses.length()").value(canReadCourses ? 1 : 0))
-        .andExpect(jsonPath("$.spaces.length()").value(canReadCourses ? 1 : 0))
-        .andExpect(
-            jsonPath("$.data.academicSpaceSelection.studyPlanSpaceIds.length()")
-                .value(canReadCourses ? 1 : 0))
-        .andExpect(
-            jsonPath("$.data.instrumentSelection.studyPlanSpaceInstrumentIds.length()")
-                .value(canReadCourses ? 1 : 0));
+        .andExpect(jsonPath("$.data.courses.length()").value(canReadCourses ? 1 : 0));
     if (!access.equals("OWNER")) {
       http.perform(
               get("/api/v1/enrollment-applications/{id}", application)
@@ -214,14 +179,7 @@ class PermissionHttpPostgresIntegrationTest extends DatabaseMigrationTestSupport
           .andExpect(status().isOk())
           .andExpect(jsonPath("$.canConfirm").value(access.equals("APPROVER_ONLY")))
           .andExpect(jsonPath("$.courses.length()").value(canReadCourses ? 1 : 0))
-          .andExpect(jsonPath("$.data.courses.length()").value(canReadCourses ? 1 : 0))
-          .andExpect(jsonPath("$.spaces.length()").value(canReadCourses ? 1 : 0))
-          .andExpect(
-              jsonPath("$.data.academicSpaceSelection.studyPlanSpaceIds.length()")
-                  .value(canReadCourses ? 1 : 0))
-          .andExpect(
-              jsonPath("$.data.instrumentSelection.studyPlanSpaceInstrumentIds.length()")
-                  .value(canReadCourses ? 1 : 0));
+          .andExpect(jsonPath("$.data.courses.length()").value(canReadCourses ? 1 : 0));
     }
     if (access.equals("APPROVER_ONLY")) {
       http.perform(

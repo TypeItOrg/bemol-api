@@ -12,7 +12,6 @@ import ar.edu.utn.frvm.typeit.bemol_api.common.exceptions.ErrorCategory;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.entities.EnrollmentFormDefinition;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.entities.EnrollmentFormDefinition.Section;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.enums.DocumentRequirementLevel;
-import ar.edu.utn.frvm.typeit.bemol_api.enrollment.enums.EducationLevel;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.enums.EnrollmentApplicationStatus;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.enums.EnrollmentFormQuestionType;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.exceptions.EnrollmentValidationException;
@@ -192,11 +191,6 @@ class EnrollmentDynamicAnswersPostgresIntegrationTest extends EnrollmentDynamicF
         .isInstanceOfSatisfying(
             ApplicationException.class,
             error -> assertThat(error.category()).isEqualTo(ErrorCategory.CONFLICT));
-    assertThatThrownBy(
-            () -> applications.submitApplication(fixture.person(), fixture.application()))
-        .isInstanceOfSatisfying(
-            ApplicationException.class,
-            error -> assertThat(error.category()).isEqualTo(ErrorCategory.INVALID_INPUT));
 
     final var after = read(fixture);
     assertThat(after.status()).isEqualTo(EnrollmentApplicationStatus.DRAFT);
@@ -315,50 +309,6 @@ class EnrollmentDynamicAnswersPostgresIntegrationTest extends EnrollmentDynamicF
     assertThat(read(fixture).status()).isEqualTo(EnrollmentApplicationStatus.DRAFT);
     assertThat(read(fixture).draftRevision()).isEqualTo(saved.draftRevision());
     assertThat(answers(read(fixture))).satisfies(this::assertCompleteAnswers);
-  }
-
-  @Test
-  void legacyClientsCanStillSaveAndSubmitWithoutARevision() {
-    final var context = academicContext();
-    final var draft =
-        applications.startOrGetApplication(
-            context.institution(),
-            context.person(),
-            new StartEnrollmentApplicationRequest(context.path(), null, context.year()));
-    final UUID id = requireNonNull(draft.applicationId());
-    assertThat(draft.formVersionId()).isNull();
-    assertThat(draft.formDefinition()).isEqualTo(forms.base(context.institution()));
-    final var saved =
-        applications.updateDraft(
-            context.person(),
-            id,
-            UpdateEnrollmentDraftRequest.builder()
-                .data(
-                    EnrollmentDraftData.builder()
-                        .academicBackground(
-                            AcademicBackgroundDto.builder()
-                                .currentlyStudying(false)
-                                .educationLevel(EducationLevel.NO_SCHOOLING)
-                                .build())
-                        .preference(PreferenceDto.builder().preferredShift("MORNING").build())
-                        .courses(List.of(new CourseSelectionDto(context.course(), null)))
-                        .build())
-                .build());
-    assertThat(saved.draftRevision()).isPositive();
-    assertThatThrownBy(
-            () ->
-                applications.updateDraft(
-                    context.person(),
-                    id,
-                    UpdateEnrollmentDraftRequest.builder()
-                        .expectedRevision(0L)
-                        .data(EnrollmentDraftData.builder().build())
-                        .build()))
-        .isInstanceOfSatisfying(
-            ApplicationException.class,
-            error -> assertThat(error.category()).isEqualTo(ErrorCategory.CONFLICT));
-    assertThat(applications.submitApplication(context.person(), id).status())
-        .isEqualTo(EnrollmentApplicationStatus.SUBMITTED);
   }
 
   @Test

@@ -44,11 +44,9 @@ class EnrollmentNativeFormBlocksTest {
   private static final UUID INSTITUTION_ID =
       UUID.fromString("8c68b48b-ea9c-4f64-941f-7dc4ed621266");
   private static final UUID PERSON_ID = UUID.fromString("0bcd7b5c-314a-424a-99e8-0928d53c164f");
-  private final EnrollmentLegacySpaceSelectionService spaces =
-      mock(EnrollmentLegacySpaceSelectionService.class);
   private final EnrollmentCourseSelectionService courses =
       mock(EnrollmentCourseSelectionService.class);
-  private final EnrollmentDraftUpdater updater = new EnrollmentDraftUpdater(spaces, courses);
+  private final EnrollmentDraftUpdater updater = new EnrollmentDraftUpdater(courses);
   private final EnrollmentSubmissionValidator validator =
       new EnrollmentSubmissionValidator(
           new BusinessDateProvider(
@@ -76,7 +74,7 @@ class EnrollmentNativeFormBlocksTest {
     assertThat(application.getEducationBackground()).isNull();
     assertThat(application.getHealthInclusion()).isNull();
     assertThat(application.getPreference()).isNull();
-    verifyNoInteractions(spaces, courses);
+    verifyNoInteractions(courses);
   }
 
   @Test
@@ -94,7 +92,7 @@ class EnrollmentNativeFormBlocksTest {
         .isInstanceOf(EnrollmentValidationException.class);
     assertThat(requireNonNull(application.getEducationBackground()).getSecondarySchool())
         .isEqualTo("Original");
-    verifyNoInteractions(spaces, courses);
+    verifyNoInteractions(courses);
   }
 
   @Test
@@ -140,7 +138,7 @@ class EnrollmentNativeFormBlocksTest {
         .isInstanceOf(EnrollmentValidationException.class);
 
     assertThat(application.getPreference()).isNull();
-    verifyNoInteractions(spaces, courses);
+    verifyNoInteractions(courses);
   }
 
   @Test
@@ -151,7 +149,7 @@ class EnrollmentNativeFormBlocksTest {
   }
 
   @Test
-  void legacyBaseStillRequiresSchoolingAndPreferredShift() {
+  void baseFormRequiresSchoolingAndPreferredShift() {
     final var application =
         validApplicant(
             EnrollmentApplication.builder().status(EnrollmentApplicationStatus.DRAFT).build());
@@ -242,7 +240,7 @@ class EnrollmentNativeFormBlocksTest {
   }
 
   @Test
-  void legacyBaseKeepsEmptyNativeResponseObjects() {
+  void baseFormKeepsEmptyNativeResponseObjects() {
     final var data =
         requireNonNull(
             EnrollmentApplicationResponse.from(
