@@ -10,7 +10,6 @@ import ar.edu.utn.frvm.typeit.bemol_api.institutional.entities.Person;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.payloads.CountrySummaryResponse;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Collectors;
 import org.jspecify.annotations.Nullable;
 
 final class EnrollmentDraftDataMapper {
@@ -48,10 +47,6 @@ final class EnrollmentDraftDataMapper {
                     : null)
         .careerSelection(
             path == null ? new CareerSelectionDto() : new CareerSelectionDto(path.getId()))
-        .academicSpaceSelection(
-            includeCourses ? spaces(application) : new AcademicSpaceSelectionDto())
-        .instrumentSelection(
-            includeCourses ? instruments(application) : new InstrumentSelectionDto())
         .courses(
             !includeCourses || application.getCourseSelections() == null
                 ? new ArrayList<>()
@@ -143,31 +138,6 @@ final class EnrollmentDraftDataMapper {
         .isReenrolling(preference.isReenrolling())
         .previousTeacher(preference.getPreviousTeacher())
         .build();
-  }
-
-  private static AcademicSpaceSelectionDto spaces(final EnrollmentApplication application) {
-    if (application.getSelectedSpaces() == null || application.getSelectedSpaces().isEmpty()) {
-      return new AcademicSpaceSelectionDto();
-    }
-
-    return new AcademicSpaceSelectionDto(
-        application.getSelectedSpaces().stream()
-            .map(selection -> selection.getStudyPlanSpace().getId())
-            .toList());
-  }
-
-  private static InstrumentSelectionDto instruments(final EnrollmentApplication application) {
-    if (application.getSelectedSpaces() == null || application.getSelectedSpaces().isEmpty()) {
-      return new InstrumentSelectionDto();
-    }
-
-    return new InstrumentSelectionDto(
-        application.getSelectedSpaces().stream()
-            .filter(selection -> selection.getInstrument() != null)
-            .collect(
-                Collectors.toMap(
-                    selection -> selection.getStudyPlanSpace().getId(),
-                    selection -> selection.getInstrument().getId())));
   }
 
   private static List<AttachmentDto> attachments(

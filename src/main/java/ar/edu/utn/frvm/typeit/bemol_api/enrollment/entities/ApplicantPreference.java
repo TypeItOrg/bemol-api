@@ -38,7 +38,7 @@ public class ApplicantPreference extends SoftDeletable implements AuditSubject {
   private EnrollmentApplication enrollmentApplication;
 
   // Un DRAFT es parcial por definición: submitApplication() exige este campo
-  // recién al enviar, así que la columna acepta NULL (migración 20260908150000).
+  // recién al enviar, así que la columna acepta NULL.
   @Column(name = "preferred_shift", length = 150)
   private String preferredShift;
 

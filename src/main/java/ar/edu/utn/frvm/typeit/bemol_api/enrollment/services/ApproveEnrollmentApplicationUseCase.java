@@ -3,7 +3,6 @@ package ar.edu.utn.frvm.typeit.bemol_api.enrollment.services;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.enums.PermissionCode;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.enums.ScopedResource;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.services.AcademicAccessGuard;
-import ar.edu.utn.frvm.typeit.bemol_api.common.time.BusinessDateProvider;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.enums.EnrollmentApplicationStatus;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.enums.EnrollmentDocumentAction;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.exceptions.EnrollmentApplicationNotFoundException;
@@ -11,9 +10,7 @@ import ar.edu.utn.frvm.typeit.bemol_api.enrollment.exceptions.EnrollmentMessages
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.exceptions.InvalidEnrollmentApplicationStateException;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.interfaces.EnrollmentApplicationRepository;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.payloads.EnrollmentApplicationResponse;
-import ar.edu.utn.frvm.typeit.bemol_api.institutional.entities.Student;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.interfaces.PersonRepository;
-import ar.edu.utn.frvm.typeit.bemol_api.institutional.interfaces.StudentRepository;
 import java.time.Clock;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -29,10 +26,8 @@ public class ApproveEnrollmentApplicationUseCase {
   private final AcademicAccessGuard accessGuard;
 
   private final EnrollmentApplicationRepository enrollmentApplicationRepository;
-  private final StudentRepository studentRepository;
   private final PersonRepository personRepository;
   private final Clock clock;
-  private final BusinessDateProvider businessDateProvider;
   private final EnrollmentApplicationCourseApprovalService applicationCourseApprovalService;
 
   private final EnrollmentInstitutionLock enrollmentInstitutionLock;
@@ -100,34 +95,10 @@ public class ApproveEnrollmentApplicationUseCase {
             : EnrollmentDocumentAction.FINAL_APPROVAL,
         "SUCCESS");
 
-    if (!alreadyAdmitted && application.getStudyPlan() == null) {
+    if (!alreadyAdmitted) {
       applicationCourseApprovalService.process(application);
     }
 
-    // New course-based applications create Student only with the first effective enrollment.
-    // The legacy plan-based flow retains its historical behavior until old clients migrate.
-    final boolean legacyApplication =
-        application.getStudyPlan() != null || application.hasLegacyStudyPlan();
-    if (!alreadyAdmitted
-        && legacyApplication
-        && !studentRepository.existsByInstitution_IdAndPerson_Id(
-            institutionId, application.getApplicantPerson().getId())) {
-      studentRepository.save(
-          Student.builder()
-              .institution(application.getInstitution())
-              .person(application.getApplicantPerson())
-              .fileNumber(generateFileNumber())
-              .enrollmentDate(businessDateProvider.today())
-              .build());
-    }
-
     return responseFactory.from(application);
-  }
-
-  private String generateFileNumber() {
-    final int year = businessDateProvider.today().getYear();
-    final long sequence = studentRepository.nextFileNumberSequenceValue();
-
-    return String.format("%d-%05d", year, sequence);
   }
 }

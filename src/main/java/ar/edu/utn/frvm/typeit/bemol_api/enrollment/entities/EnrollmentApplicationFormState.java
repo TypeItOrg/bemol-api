@@ -51,12 +51,9 @@ public class EnrollmentApplicationFormState {
 
   public void requireRevision(final @Nullable Long expectedRevision) {
     if (expectedRevision == null) {
-      if (formVersion != null) {
-        throw new EnrollmentValidationException(
-            EnrollmentFormMessages.DRAFT_REVISION_REQUIRED,
-            Map.of("expectedRevision", EnrollmentFormMessages.DRAFT_REVISION_REQUIRED));
-      }
-      return;
+      throw new EnrollmentValidationException(
+          EnrollmentFormMessages.DRAFT_REVISION_REQUIRED,
+          Map.of("expectedRevision", EnrollmentFormMessages.DRAFT_REVISION_REQUIRED));
     }
     if (expectedRevision != draftRevision) {
       throw new EnrollmentFormException(

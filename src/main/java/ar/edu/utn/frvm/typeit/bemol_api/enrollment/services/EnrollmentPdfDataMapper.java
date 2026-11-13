@@ -29,45 +29,29 @@ final class EnrollmentPdfDataMapper {
     final var form = application.getFormState();
     final var sections =
         form.getFormVersion() == null
-            ? EnrollmentPdfNativeSections.legacy(nativeSections)
+            ? EnrollmentPdfNativeSections.base(nativeSections)
             : EnrollmentPdfFormSections.from(
                 form.definition(), nativeSections, form.getCustomAnswers());
 
     final var selections = new ArrayList<Selection>();
     final boolean coursesSelected = canReadCourses && !application.getCourseSelections().isEmpty();
-    if (canReadCourses) {
-      if (coursesSelected) {
-        for (final var selection : application.getCourseSelections()) {
-          final var course = selection.getCourse();
-          final var metadata = CourseEnrollmentCourseMetadata.from(course);
-          selections.add(
-              new Selection(
-                  metadata.academicSpaceName(),
-                  levelName(course.getStudyPlanSpace().getAcademicLevel()),
-                  instrument(metadata.instrumentName()),
-                  metadata.studyPlanName(),
-                  switch (selection.getStatus()) {
-                    case PENDING -> "Pendiente";
-                    case WAITLISTED -> "En lista de espera";
-                    case ENROLLED -> "Inscripta";
-                    case REJECTED -> "Rechazada";
-                    case CANCELLED -> "Cancelada";
-                  }));
-        }
-      } else {
-        for (final var selection : application.getSelectedSpaces()) {
-          final var space = selection.getStudyPlanSpace();
-          selections.add(
-              new Selection(
-                  space.getAcademicSpace().getName(),
-                  levelName(space.getAcademicLevel()),
-                  instrument(
-                      selection.getInstrument() == null
-                          ? null
-                          : selection.getInstrument().getName()),
-                  space.getStudyPlan().getName(),
-                  "Solicitada"));
-        }
+    if (coursesSelected) {
+      for (final var selection : application.getCourseSelections()) {
+        final var course = selection.getCourse();
+        final var metadata = CourseEnrollmentCourseMetadata.from(course);
+        selections.add(
+            new Selection(
+                metadata.academicSpaceName(),
+                levelName(course.getStudyPlanSpace().getAcademicLevel()),
+                instrument(metadata.instrumentName()),
+                metadata.studyPlanName(),
+                switch (selection.getStatus()) {
+                  case PENDING -> "Pendiente";
+                  case WAITLISTED -> "En lista de espera";
+                  case ENROLLED -> "Inscripta";
+                  case REJECTED -> "Rechazada";
+                  case CANCELLED -> "Cancelada";
+                }));
       }
     }
     return EnrollmentPdfData.builder()

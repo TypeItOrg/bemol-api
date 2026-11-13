@@ -84,24 +84,6 @@ public interface EnrollmentApplicationRepository
   Optional<EnrollmentApplication> findForAttachmentUpdate(
       @Param("id") UUID id, @Param("institutionId") @Nullable UUID institutionId);
 
-  Optional<EnrollmentApplication>
-      findByApplicantPersonIdAndStudyPlanIdAndAcademicYearIdAndStatusAndDeletedAtIsNull(
-          UUID applicantPersonId,
-          UUID studyPlanId,
-          UUID academicYearId,
-          EnrollmentApplicationStatus status);
-
-  @Query(
-      "SELECT application FROM EnrollmentApplication application "
-          + "WHERE application.applicantPerson.id = :personId "
-          + "AND application.studyPlan.trainingPath.id = :trainingPathId "
-          + "AND application.deletedAt IS NULL "
-          + "AND application.status NOT IN ("
-          + "ar.edu.utn.frvm.typeit.bemol_api.enrollment.enums.EnrollmentApplicationStatus.CANCELLED, "
-          + "ar.edu.utn.frvm.typeit.bemol_api.enrollment.enums.EnrollmentApplicationStatus.REJECTED)")
-  List<EnrollmentApplication> findActiveByApplicantPersonIdAndTrainingPathId(
-      @Param("personId") UUID personId, @Param("trainingPathId") UUID trainingPathId);
-
   @Query(
       "SELECT application FROM EnrollmentApplication application "
           + "WHERE application.applicantPerson.id = :personId "
@@ -122,7 +104,6 @@ public interface EnrollmentApplicationRepository
       attributePaths = {
         "institution",
         "applicantPerson",
-        "studyPlan",
         "trainingPath",
         "academicYear",
       })
@@ -154,7 +135,6 @@ public interface EnrollmentApplicationRepository
       attributePaths = {
         "institution",
         "applicantPerson",
-        "studyPlan",
         "trainingPath",
         "academicYear",
       })
@@ -186,7 +166,6 @@ public interface EnrollmentApplicationRepository
       attributePaths = {
         "institution",
         "applicantPerson",
-        "studyPlan",
         "academicYear",
       })
   @Query(
@@ -219,7 +198,6 @@ public interface EnrollmentApplicationRepository
       attributePaths = {
         "institution",
         "applicantPerson",
-        "studyPlan",
         "academicYear",
       })
   @Query(
@@ -244,7 +222,6 @@ public interface EnrollmentApplicationRepository
       attributePaths = {
         "institution",
         "applicantPerson",
-        "studyPlan",
         "academicYear",
       })
   @Query(

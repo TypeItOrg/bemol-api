@@ -12,10 +12,6 @@ final class EnrollmentApplicationAuditSnapshot {
   static AuditSnapshot.Snapshot of(final EnrollmentApplication application) {
     return AuditSnapshot.fields()
         .compare("trainingPathId", "Trayecto formativo", application.getTrainingPathId())
-        .compare(
-            "studyPlanId",
-            "Plan de estudio",
-            application.getStudyPlan() == null ? null : application.getStudyPlan().getId())
         .compare("customAnswers", "Respuestas del formulario", answers(application))
         .compare(
             "academicBackground",
@@ -41,7 +37,6 @@ final class EnrollmentApplicationAuditSnapshot {
             application.getPreference() == null
                 ? null
                 : application.getPreference().auditSnapshot().values())
-        .compare("selectedSpaces", "Espacios seleccionados", selectedSpaces(application))
         .compare("courseSelections", "Cursos seleccionados", courseSelections(application))
         .build();
   }
@@ -75,17 +70,6 @@ final class EnrollmentApplicationAuditSnapshot {
                         ? new BigDecimal(number.toString()).stripTrailingZeros()
                         : value));
     return answers;
-  }
-
-  private static List<String> selectedSpaces(final EnrollmentApplication application) {
-    return application.getSelectedSpaces().stream()
-        .map(
-            selection ->
-                selection.getStudyPlanSpace().getId()
-                    + "/"
-                    + (selection.getInstrument() == null ? "" : selection.getInstrument().getId()))
-        .sorted()
-        .toList();
   }
 
   private static List<String> courseSelections(final EnrollmentApplication application) {

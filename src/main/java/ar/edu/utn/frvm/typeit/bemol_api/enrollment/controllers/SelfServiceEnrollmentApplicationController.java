@@ -1,7 +1,6 @@
 package ar.edu.utn.frvm.typeit.bemol_api.enrollment.controllers;
 
 import ar.edu.utn.frvm.typeit.bemol_api.academic.payloads.ShiftResponse;
-import ar.edu.utn.frvm.typeit.bemol_api.academic.payloads.StudyPlanSpaceResponse;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.payloads.TrainingPathResponse;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.filters.CurrentPrincipal;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.filters.JwtAuthenticatedUser;
@@ -14,7 +13,6 @@ import ar.edu.utn.frvm.typeit.bemol_api.enrollment.payloads.EnrollmentApplicatio
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.payloads.EnrollmentCourseOptionResponse;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.payloads.EnrollmentPdfData;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.payloads.EnrollmentPeriodResponse;
-import ar.edu.utn.frvm.typeit.bemol_api.enrollment.payloads.EnrollmentStudyPlanSpaceInstrumentOptionsResponse;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.payloads.StartEnrollmentApplicationRequest;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.payloads.SubmitEnrollmentApplicationRequest;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.payloads.UpdateEnrollmentDraftRequest;
@@ -24,8 +22,6 @@ import ar.edu.utn.frvm.typeit.bemol_api.enrollment.services.ListAvailableEnrollm
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.services.ListEnrollmentApplicationCoursesUseCase;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.services.ListEnrollmentApplicationPeriodsUseCase;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.services.ListEnrollmentApplicationShiftsUseCase;
-import ar.edu.utn.frvm.typeit.bemol_api.enrollment.services.ListEnrollmentApplicationStudyPlanSpaceInstrumentsUseCase;
-import ar.edu.utn.frvm.typeit.bemol_api.enrollment.services.ListEnrollmentApplicationStudyPlanSpacesUseCase;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.services.ListEnrollmentApplicationTrainingPathsUseCase;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.services.ListMyEnrollmentApplicationsUseCase;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.services.OperatingContextResolver;
@@ -33,7 +29,6 @@ import jakarta.validation.Valid;
 import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
-import org.jspecify.annotations.Nullable;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
@@ -64,11 +59,7 @@ public class SelfServiceEnrollmentApplicationController {
   private final InstitutionalCallerGuard institutionalCallerGuard;
   private final ListEnrollmentApplicationTrainingPathsUseCase
       listEnrollmentApplicationTrainingPathsUseCase;
-  private final ListEnrollmentApplicationStudyPlanSpacesUseCase
-      listEnrollmentApplicationStudyPlanSpacesUseCase;
   private final ListEnrollmentApplicationShiftsUseCase listEnrollmentApplicationShiftsUseCase;
-  private final ListEnrollmentApplicationStudyPlanSpaceInstrumentsUseCase
-      listEnrollmentApplicationStudyPlanSpaceInstrumentsUseCase;
   private final ListEnrollmentApplicationPeriodsUseCase listEnrollmentApplicationPeriodsUseCase;
   private final ListAvailableEnrollmentTrainingPathsUseCase
       listAvailableEnrollmentTrainingPathsUseCase;
@@ -158,14 +149,11 @@ public class SelfServiceEnrollmentApplicationController {
   public ResponseEntity<EnrollmentApplicationResponse> submitApplication(
       Authentication authentication,
       @PathVariable UUID applicationId,
-      @Valid @RequestBody(required = false)
-          final @Nullable SubmitEnrollmentApplicationRequest request) {
+      @Valid @RequestBody final SubmitEnrollmentApplicationRequest request) {
     JwtAuthenticatedUser principal = requireInstitutionalUser(authentication);
     return ResponseEntity.ok(
         applicationService.submitApplication(
-            principal.personId(),
-            applicationId,
-            request == null ? null : request.expectedRevision()));
+            principal.personId(), applicationId, request.expectedRevision()));
   }
 
   @GetMapping(value = "/{applicationId}/training-paths", version = Version.V1)
@@ -182,14 +170,6 @@ public class SelfServiceEnrollmentApplicationController {
     final var principal = requireInstitutionalUser(authentication);
 
     return listEnrollmentApplicationShiftsUseCase.execute(principal, applicationId);
-  }
-
-  @GetMapping(value = "/{applicationId}/study-plan-spaces", version = Version.V1)
-  public List<StudyPlanSpaceResponse> listStudyPlanSpaces(
-      final Authentication authentication, @PathVariable final UUID applicationId) {
-    final var principal = requireInstitutionalUser(authentication);
-
-    return listEnrollmentApplicationStudyPlanSpacesUseCase.execute(principal, applicationId);
   }
 
   @GetMapping(value = "/{applicationId}/courses", version = Version.V1)
@@ -211,19 +191,6 @@ public class SelfServiceEnrollmentApplicationController {
             studyPlanSpaceId,
             academicYear,
             pageable));
-  }
-
-  @GetMapping(
-      value = "/{applicationId}/study-plan-spaces/{studyPlanSpaceId}/instruments",
-      version = Version.V1)
-  public EnrollmentStudyPlanSpaceInstrumentOptionsResponse listStudyPlanSpaceInstruments(
-      final Authentication authentication,
-      @PathVariable final UUID applicationId,
-      @PathVariable final UUID studyPlanSpaceId) {
-    final var principal = requireInstitutionalUser(authentication);
-
-    return listEnrollmentApplicationStudyPlanSpaceInstrumentsUseCase.execute(
-        principal, applicationId, studyPlanSpaceId);
   }
 
   private JwtAuthenticatedUser requireInstitutionalUser(Authentication authentication) {

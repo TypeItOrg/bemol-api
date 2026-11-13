@@ -215,13 +215,7 @@ public class EnrollmentApplicationService {
 
   @Transactional
   public EnrollmentApplicationResponse submitApplication(
-      final UUID personId, final UUID applicationId) {
-    return submitApplication(personId, applicationId, null);
-  }
-
-  @Transactional
-  public EnrollmentApplicationResponse submitApplication(
-      final UUID personId, final UUID applicationId, final @Nullable Long expectedRevision) {
+      final UUID personId, final UUID applicationId, final long expectedRevision) {
     final var application = lockOwnedApplication(personId, applicationId);
     capabilities.requireOwnEnrollmentManage(
         application.getInstitution().getId(), application.getApplicantPerson().getId());

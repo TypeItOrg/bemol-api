@@ -18,8 +18,6 @@ import org.jspecify.annotations.Nullable;
       "responsible",
       "preference",
       "careerSelection",
-      "academicSpaceSelection",
-      "instrumentSelection",
       "courses",
       "attachments",
       "customAnswers"
@@ -36,8 +34,6 @@ public record EnrollmentDraftData(
     @Schema(nullable = true) @Nullable ResponsibleDto responsible,
     @Schema(nullable = true) @Nullable PreferenceDto preference,
     @Schema(nullable = true) @Nullable CareerSelectionDto careerSelection,
-    @Schema(nullable = true) @Nullable AcademicSpaceSelectionDto academicSpaceSelection,
-    @Schema(nullable = true) @Nullable InstrumentSelectionDto instrumentSelection,
     @Schema(nullable = true) @Nullable List<@NotNull @Valid CourseSelectionDto> courses,
     @Schema(nullable = true) @Nullable List<AttachmentDto> attachments,
     @Schema(
@@ -46,8 +42,7 @@ public record EnrollmentDraftData(
                 "Respuestas por ID de pregunta. Omitir o null conserva; un objeto reemplaza todas y {} las elimina.")
         @Nullable Map<String, Object> customAnswers) {
   public EnrollmentDraftData() {
-    this(
-        null, null, null, null, null, null, null, null, new ArrayList<>(), new ArrayList<>(), null);
+    this(null, null, null, null, null, null, new ArrayList<>(), new ArrayList<>(), null);
   }
 
   public EnrollmentDraftData(
@@ -57,8 +52,6 @@ public record EnrollmentDraftData(
       final ResponsibleDto responsible,
       final PreferenceDto preference,
       final CareerSelectionDto careerSelection,
-      final AcademicSpaceSelectionDto academicSpaceSelection,
-      final InstrumentSelectionDto instrumentSelection,
       final List<AttachmentDto> attachments) {
     this(
         personalData,
@@ -67,8 +60,6 @@ public record EnrollmentDraftData(
         responsible,
         preference,
         careerSelection,
-        academicSpaceSelection,
-        instrumentSelection,
         new ArrayList<>(),
         attachments,
         null);
@@ -100,14 +91,6 @@ public record EnrollmentDraftData(
 
   public @Nullable CareerSelectionDto getCareerSelection() {
     return careerSelection;
-  }
-
-  public @Nullable AcademicSpaceSelectionDto getAcademicSpaceSelection() {
-    return academicSpaceSelection;
-  }
-
-  public @Nullable InstrumentSelectionDto getInstrumentSelection() {
-    return instrumentSelection;
   }
 
   public @Nullable List<CourseSelectionDto> getCourses() {

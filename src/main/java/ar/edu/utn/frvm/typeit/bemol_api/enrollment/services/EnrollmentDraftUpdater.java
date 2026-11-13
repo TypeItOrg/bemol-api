@@ -24,7 +24,6 @@ import org.springframework.transaction.annotation.Transactional;
 @Component
 @RequiredArgsConstructor
 public class EnrollmentDraftUpdater {
-  private final EnrollmentLegacySpaceSelectionService spaces;
   private final EnrollmentCourseSelectionService courses;
 
   @Transactional(propagation = Propagation.MANDATORY)
@@ -36,9 +35,7 @@ public class EnrollmentDraftUpdater {
     updateHealth(application, data.getHealthInclusion());
     updateResponsible(application, data.getResponsible());
     updatePreference(application, data.getPreference());
-    spaces.update(application, data);
 
-    // A legacy plan does not prevent selecting concrete courses.
     if (data.getCourses() != null && courses.changed(application, data.getCourses())) {
       courses.update(application, data.getCourses());
     }

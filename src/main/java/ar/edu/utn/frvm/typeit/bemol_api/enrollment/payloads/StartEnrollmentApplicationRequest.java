@@ -12,28 +12,14 @@ public record StartEnrollmentApplicationRequest(
     @NotNull(message = EnrollmentMessages.COURSE_SELECTION_REQUIRED)
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED)
         @Nullable UUID trainingPathId,
-    @Schema(nullable = true) @Nullable UUID studyPlanId,
     @Schema(nullable = true) @Nullable UUID academicYearId,
     @Schema(nullable = true) @Nullable UUID enrollmentPeriodId) {
   public StartEnrollmentApplicationRequest() {
-    this(null, null, null, null);
-  }
-
-  public StartEnrollmentApplicationRequest(final UUID studyPlanId, final UUID academicYearId) {
-    this(null, studyPlanId, academicYearId, null);
-  }
-
-  public StartEnrollmentApplicationRequest(
-      @Nullable UUID trainingPathId, @Nullable UUID studyPlanId, @Nullable UUID academicYearId) {
-    this(trainingPathId, studyPlanId, academicYearId, null);
+    this(null, null, null);
   }
 
   public @Nullable UUID getTrainingPathId() {
     return trainingPathId;
-  }
-
-  public @Nullable UUID getStudyPlanId() {
-    return studyPlanId;
   }
 
   public @Nullable UUID getAcademicYearId() {

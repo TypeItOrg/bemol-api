@@ -94,7 +94,6 @@ public final class EnrollmentMessages {
   public static final String ACADEMIC_YEAR_ID_NOT_FOUND = "No se encontró el ciclo lectivo con ID ";
   public static final String ACADEMIC_YEAR_AMBIGUOUS =
       "La institución tiene más de un ciclo lectivo activo. Contactá a la administración.";
-  public static final String INSTRUMENT_ID_NOT_FOUND = "Instrumento no encontrado: ";
   public static final String SPACE_ID_NOT_FOUND = "Espacio de plan de estudio no encontrado: ";
   public static final String APPLICANT_REQUIRED = "Los datos del aspirante son obligatorios";
   public static final String NAME_REQUIRED = "El nombre es obligatorio";
@@ -161,8 +160,6 @@ public final class EnrollmentMessages {
 
   public static final String ENROLLMENT_STORAGE_UNAVAILABLE =
       "No se pudo inicializar el almacenamiento de adjuntos de inscripción: ";
-  public static final String ENROLLMENT_APPLICATION_INSTRUMENT_REQUIRED =
-      "Debe seleccionar un instrumento para cada espacio que lo requiere.";
 
   public static final String ENROLLMENT_APPLICATION_NOT_FOUND =
       "La solicitud de inscripción especificada no existe.";
@@ -174,14 +171,6 @@ public final class EnrollmentMessages {
       "Los datos del borrador deben ser un objeto JSON válido.";
   public static final String ENROLLMENT_APPLICATION_TRAINING_PATH_INVALID =
       "El trayecto formativo seleccionado no está habilitado para inscripción.";
-  public static final String ENROLLMENT_APPLICATION_STUDY_PLAN_SPACES_INVALID =
-      "Los espacios academicos seleccionados no son validos.";
-  public static final String ENROLLMENT_APPLICATION_STUDY_PLAN_SPACE_INVALID =
-      "Uno o mas espacios academicos seleccionados no estan habilitados para inscripcion.";
-  public static final String ENROLLMENT_APPLICATION_INSTRUMENT_SELECTION_INVALID =
-      "La seleccion de instrumentos no es valida.";
-  public static final String ENROLLMENT_APPLICATION_INSTRUMENT_INVALID =
-      "Uno o mas instrumentos seleccionados no estan habilitados para inscripcion.";
   public static final String ENROLLMENT_APPLICATION_APPLICANT_REQUIRED =
       "Solo un postulante puede operar sobre solicitudes de inscripción.";
   public static final String ENROLLMENT_APPLICATION_SPACES_REQUIRED =

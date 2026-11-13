@@ -23,9 +23,6 @@ import org.jspecify.annotations.Nullable;
       "applicantLastName",
       "applicantDocumentNumber",
       "trainingPathId",
-      "studyPlanId",
-      "studyPlanName",
-      "studyPlanVersion",
       "trainingPathName",
       "academicYearId",
       "academicYear",
@@ -39,7 +36,6 @@ import org.jspecify.annotations.Nullable;
       "resolvedByPersonId",
       "createdAt",
       "updatedAt",
-      "spaces",
       "courses",
       "enrollmentPeriod",
       "periodOpen",
@@ -64,9 +60,6 @@ public record EnrollmentApplicationResponse(
     @Schema(nullable = true) @Nullable String applicantLastName,
     @Schema(nullable = true) @Nullable String applicantDocumentNumber,
     @Schema(nullable = true) @Nullable UUID trainingPathId,
-    @Schema(nullable = true) @Nullable UUID studyPlanId,
-    @Schema(nullable = true) @Nullable String studyPlanName,
-    @Schema(nullable = true) @Nullable Integer studyPlanVersion,
     @Schema(nullable = true) @Nullable String trainingPathName,
     @Schema(nullable = true) @Nullable UUID academicYearId,
     @Schema(nullable = true) @Nullable Integer academicYear,
@@ -80,7 +73,6 @@ public record EnrollmentApplicationResponse(
     @Schema(nullable = true) @Nullable UUID resolvedByPersonId,
     @Schema(nullable = true) @Nullable Instant createdAt,
     @Schema(nullable = true) @Nullable Instant updatedAt,
-    @Schema(nullable = true) @Nullable List<EnrollmentApplicationSpaceResponse> spaces,
     @Schema(nullable = true) @Nullable List<EnrollmentApplicationCourseResponse> courses,
     @Schema(nullable = true) @Nullable EnrollmentPeriodResponse enrollmentPeriod,
     boolean periodOpen,
@@ -108,7 +100,6 @@ public record EnrollmentApplicationResponse(
     documents = documents == null ? List.of() : documents;
     documentRequests = documentRequests == null ? List.of() : documentRequests;
     admissionHistory = admissionHistory == null ? List.of() : admissionHistory;
-    spaces = spaces == null ? new ArrayList<>() : spaces;
     courses = courses == null ? new ArrayList<>() : courses;
   }
 
@@ -138,14 +129,6 @@ public record EnrollmentApplicationResponse(
 
   public @Nullable UUID getTrainingPathId() {
     return trainingPathId;
-  }
-
-  public @Nullable UUID getStudyPlanId() {
-    return studyPlanId;
-  }
-
-  public @Nullable String getStudyPlanName() {
-    return studyPlanName;
   }
 
   public @Nullable String getTrainingPathName() {
@@ -194,10 +177,6 @@ public record EnrollmentApplicationResponse(
 
   public @Nullable Instant getUpdatedAt() {
     return updatedAt;
-  }
-
-  public @Nullable List<EnrollmentApplicationSpaceResponse> getSpaces() {
-    return spaces;
   }
 
   public @Nullable List<EnrollmentApplicationCourseResponse> getCourses() {

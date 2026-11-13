@@ -138,7 +138,7 @@ final class EnrollmentPdfNativeSections {
         .anyMatch(value -> value != null && !value.toString().isBlank());
   }
 
-  static List<Section> legacy(final Map<EnrollmentFormNativeBlock, Section> sections) {
+  static List<Section> base(final Map<EnrollmentFormNativeBlock, Section> sections) {
     final var printed =
         new EnumMap<EnrollmentFormNativeBlock, Section>(EnrollmentFormNativeBlock.class);
     printed.putAll(sections);

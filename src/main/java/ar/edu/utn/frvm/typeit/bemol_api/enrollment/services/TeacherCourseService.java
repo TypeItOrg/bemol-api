@@ -151,6 +151,7 @@ public class TeacherCourseService {
                   course.getId(),
                   course.getAcademicSpace().getName(),
                   course.getInstrument() == null ? null : course.getInstrument().getName(),
+                  course.getInstrument() == null ? null : course.getInstrument().getIcon(),
                   courseClass.displayName(),
                   detail);
             })
@@ -186,6 +187,7 @@ public class TeacherCourseService {
         response.courseId(),
         response.academicSpaceName(),
         response.instrumentName(),
+        response.instrumentIcon(),
         response.classLabel(),
         detail);
   }

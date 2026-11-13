@@ -39,7 +39,7 @@ public class ApplicantResponsible extends SoftDeletable implements AuditSubject 
   private EnrollmentApplication enrollmentApplication;
 
   // Un DRAFT es parcial por definición: submitApplication() exige estos campos
-  // recién al enviar, así que la columna acepta NULL (migración 20260908150000).
+  // recién al enviar, así que la columna acepta NULL.
   @Column(name = "full_name", length = 200)
   private @Nullable String fullName;
 

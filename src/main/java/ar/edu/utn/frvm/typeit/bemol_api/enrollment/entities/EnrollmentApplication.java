@@ -1,7 +1,6 @@
 package ar.edu.utn.frvm.typeit.bemol_api.enrollment.entities;
 
 import ar.edu.utn.frvm.typeit.bemol_api.academic.entities.AcademicYear;
-import ar.edu.utn.frvm.typeit.bemol_api.academic.entities.StudyPlan;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.entities.TrainingPath;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.enums.AcademicYearStatus;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.definition.AuditResource;
@@ -32,11 +31,7 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.OneToOne;
-import jakarta.persistence.PostLoad;
-import jakarta.persistence.PrePersist;
-import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
-import jakarta.persistence.Transient;
 import jakarta.persistence.UniqueConstraint;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -85,24 +80,6 @@ public class EnrollmentApplication extends SoftDeletable implements AuditSubject
   @JoinColumn(name = "submitted_by_person_id")
   private @Nullable Person submittedByPerson;
 
-  @ManyToOne(fetch = FetchType.LAZY)
-  @JoinColumn(name = "study_plan_id")
-  private @Nullable StudyPlan studyPlan;
-
-  @Column(name = "study_plan_id", insertable = false, updatable = false)
-  private @Nullable UUID legacyStudyPlanId;
-
-  @Transient private boolean legacyPlanLoaded;
-
-  @PostLoad
-  private void detectLegacyPlan() {
-    legacyPlanLoaded = studyPlan != null;
-  }
-
-  public boolean hasLegacyStudyPlan() {
-    return legacyPlanLoaded || legacyStudyPlanId != null || studyPlan != null;
-  }
-
   @Setter(AccessLevel.NONE)
   @Column(name = "training_path_id", nullable = false)
   private UUID trainingPathId;
@@ -110,14 +87,6 @@ public class EnrollmentApplication extends SoftDeletable implements AuditSubject
   @ManyToOne(fetch = FetchType.LAZY)
   @JoinColumn(name = "training_path_id", insertable = false, updatable = false)
   private TrainingPath trainingPath;
-
-  @PrePersist
-  @PreUpdate
-  private void synchronizeTrainingPath() {
-    if (trainingPathId == null && studyPlan != null) {
-      trainingPathId = studyPlan.getTrainingPath().getId();
-    }
-  }
 
   @ManyToOne(fetch = FetchType.LAZY)
   @JoinColumn(name = "academic_year_id")
@@ -201,14 +170,6 @@ public class EnrollmentApplication extends SoftDeletable implements AuditSubject
       fetch = FetchType.LAZY,
       orphanRemoval = true)
   @Builder.Default
-  private List<EnrollmentApplicationSpace> selectedSpaces = new ArrayList<>();
-
-  @OneToMany(
-      mappedBy = "enrollmentApplication",
-      cascade = CascadeType.ALL,
-      fetch = FetchType.LAZY,
-      orphanRemoval = true)
-  @Builder.Default
   @BatchSize(size = 50)
   private List<EnrollmentApplicationCourse> courseSelections = new ArrayList<>();
 
@@ -249,34 +210,8 @@ public class EnrollmentApplication extends SoftDeletable implements AuditSubject
     attachment.setEnrollmentApplication(this);
   }
 
-  public void addSelectedSpace(EnrollmentApplicationSpace selectedSpace) {
-    selectedSpaces.add(selectedSpace);
-    selectedSpace.setEnrollmentApplication(this);
-  }
-
-  public void clearSelectedSpaces() {
-    selectedSpaces.clear();
-  }
-
   public void addCourseSelection(final EnrollmentApplicationCourse selection) {
     courseSelections.add(selection);
-  }
-
-  public void changeStudyPlan(final StudyPlan studyPlan) {
-    if (!isEditable()) {
-      throw new ApplicationNotEditableException(id);
-    }
-
-    if (formState.getFormVersion() != null
-        && !studyPlan.getTrainingPath().getId().equals(trainingPathId)) {
-      throw new EnrollmentFormException(
-          ErrorCategory.CONFLICT, EnrollmentFormMessages.APPLICATION_FORM_CONTEXT_IMMUTABLE);
-    }
-
-    this.studyPlan = studyPlan;
-    this.trainingPathId = studyPlan.getTrainingPath().getId();
-    this.trainingPath = studyPlan.getTrainingPath();
-    clearSelectedSpaces();
   }
 
   public void bindFormVersion(final EnrollmentFormVersion version) {
@@ -392,14 +327,6 @@ public class EnrollmentApplication extends SoftDeletable implements AuditSubject
     return status == EnrollmentApplicationStatus.APPROVED
         || status == EnrollmentApplicationStatus.REJECTED
         || status == EnrollmentApplicationStatus.CANCELLED;
-  }
-
-  public @Nullable TrainingPath getTrainingPath() {
-    if (trainingPath != null) {
-      return trainingPath;
-    }
-
-    return studyPlan == null ? null : studyPlan.getTrainingPath();
   }
 
   public void approve(final Instant resolvedAt, final @Nullable UUID resolvedByPersonId) {
