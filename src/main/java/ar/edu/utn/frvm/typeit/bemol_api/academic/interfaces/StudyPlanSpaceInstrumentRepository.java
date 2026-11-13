@@ -31,32 +31,6 @@ public interface StudyPlanSpaceInstrumentRepository
 
   @Query(
       """
-      SELECT relation FROM StudyPlanSpaceInstrument relation
-      JOIN FETCH relation.instrument instrument
-      WHERE relation.institution.id = :institutionId
-        AND relation.studyPlanSpace.id = :studyPlanSpaceId
-        AND instrument.active = true
-        AND instrument.deletedAt IS NULL
-      ORDER BY instrument.name
-      """)
-  List<StudyPlanSpaceInstrument> findActiveByStudyPlanSpaceId(
-      @Param("institutionId") UUID institutionId, @Param("studyPlanSpaceId") UUID studyPlanSpaceId);
-
-  @Query(
-      """
-      SELECT relation FROM StudyPlanSpaceInstrument relation
-      JOIN FETCH relation.instrument instrument
-      WHERE relation.institution.id = :institutionId
-        AND relation.studyPlanSpace.id IN :studyPlanSpaceIds
-        AND instrument.active = true
-        AND instrument.deletedAt IS NULL
-      """)
-  List<StudyPlanSpaceInstrument> findActiveByStudyPlanSpaceIds(
-      @Param("institutionId") UUID institutionId,
-      @Param("studyPlanSpaceIds") List<UUID> studyPlanSpaceIds);
-
-  @Query(
-      """
       SELECT COUNT(relation) > 0 FROM StudyPlanSpaceInstrument relation
       JOIN relation.instrument instrument
       WHERE relation.institution.id = :institutionId

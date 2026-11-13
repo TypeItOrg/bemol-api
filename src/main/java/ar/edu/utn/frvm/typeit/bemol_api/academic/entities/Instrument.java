@@ -1,5 +1,6 @@
 package ar.edu.utn.frvm.typeit.bemol_api.academic.entities;
 
+import ar.edu.utn.frvm.typeit.bemol_api.academic.enums.InstrumentIcon;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.exceptions.InvalidAcademicStateException;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.validation.AcademicNameNormalizer;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.definition.AuditResource;
@@ -10,6 +11,8 @@ import ar.edu.utn.frvm.typeit.bemol_api.common.persistence.SoftDeletable;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.entities.Institution;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
@@ -54,22 +57,32 @@ public class Instrument extends SoftDeletable implements AuditSubject {
   @Column(length = 1000)
   private @Nullable String description;
 
+  @Enumerated(EnumType.STRING)
+  @Column(nullable = false, length = 40)
+  private InstrumentIcon icon;
+
   @Column(nullable = false)
   private boolean active;
 
   public static Instrument create(
-      final Institution institution, final String name, final @Nullable String description) {
+      final Institution institution,
+      final String name,
+      final @Nullable String description,
+      final InstrumentIcon icon) {
     return Instrument.builder()
         .institution(institution)
         .name(AcademicNameNormalizer.display(name))
         .description(description)
+        .icon(icon)
         .active(true)
         .build();
   }
 
-  public void update(final String name, final @Nullable String description) {
+  public void update(
+      final String name, final @Nullable String description, final InstrumentIcon icon) {
     this.name = AcademicNameNormalizer.display(name);
     this.description = description;
+    this.icon = icon;
   }
 
   public void updateStatus(final boolean active) {
@@ -88,6 +101,7 @@ public class Instrument extends SoftDeletable implements AuditSubject {
     return AuditSnapshot.fields()
         .expose("name", "Nombre", name)
         .compare("description", "Descripción", description)
+        .compare("icon", "Ícono", icon.getLabel())
         .expose("active", "Estado", active)
         .build();
   }

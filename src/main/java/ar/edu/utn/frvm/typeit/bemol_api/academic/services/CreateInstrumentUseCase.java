@@ -39,7 +39,8 @@ public class CreateInstrumentUseCase {
     }
     try {
       final var saved =
-          instrumentRepository.save(Instrument.create(institution, name, request.description()));
+          instrumentRepository.save(
+              Instrument.create(institution, name, request.description(), request.icon()));
       instrumentRepository.flush();
       auditRecorder.recordSnapshotChange(
           saved.getInstitution(),

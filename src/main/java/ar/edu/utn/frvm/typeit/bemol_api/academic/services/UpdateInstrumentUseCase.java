@@ -36,7 +36,7 @@ public class UpdateInstrumentUseCase {
       throw AcademicConflictException.forField("name", AcademicMessages.DUPLICATE_NAME);
     }
     final var before = instrument.auditSnapshot();
-    instrument.update(name, request.description());
+    instrument.update(name, request.description(), request.icon());
     try {
       instrumentRepository.flush();
     } catch (DataIntegrityViolationException exception) {
