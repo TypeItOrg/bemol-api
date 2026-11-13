@@ -50,6 +50,8 @@ El loader copia los adjuntos sólo a almacenamiento local. Con S3 o R2 usar
 SEED_ASSETS=external: no copia nada, lista las claves esperadas y exige subir
 antes los cuatro PDFs de assets/ al bucket con esas claves, sin cambiar sus
 nombres. Con STORAGE_S3_PREFIX vacío, la clave es la indicada tal cual.
+Con SEED_ASSETS=none no se crea ningún adjunto: el seed elimina sus filas de
+documentos y los documentos se cargan después desde cada inscripción.
 
 ## Cuentas de demostración
 

@@ -12,10 +12,11 @@ SEED_YEAR=${SEED_YEAR:-$(date +%Y)}
 seed_dataset=bemol-2025
 SEED_TIMEZONE=${SEED_TIMEZONE:-America/Argentina/Cordoba}
 SEED_TRANSPORT=${SEED_TRANSPORT:-compose}
-# local copies the PDFs to local storage; external expects them already uploaded to S3/R2.
+# local copies the PDFs to local storage, external expects them already uploaded to S3/R2,
+# none loads the seed without any attachment.
 SEED_ASSETS=${SEED_ASSETS:-local}
-if [[ "$SEED_ASSETS" != local && "$SEED_ASSETS" != external ]]; then
-    echo 'SEED_ASSETS debe ser local o external.' >&2; exit 2
+if [[ "$SEED_ASSETS" != local && "$SEED_ASSETS" != external && "$SEED_ASSETS" != none ]]; then
+    echo 'SEED_ASSETS debe ser local, external o none.' >&2; exit 2
 fi
 if [[ ! "$SEED_YEAR" =~ ^[0-9]{1,4}$ ]]; then
     echo 'SEED_YEAR debe ser un año de 1 a 9998.' >&2; exit 2
@@ -36,8 +37,11 @@ cat src/main/resources/db/seed/enrollment-demo-context.sql \
     src/main/resources/db/seed/enrollment-demo-validate.sql \
     src/main/resources/db/seed/enrollment-demo.sql \
     src/main/resources/db/seed/enrollment-demo-dependents.sql \
-    src/main/resources/db/seed/enrollment-demo-representatives.sql \
-    src/main/resources/db/seed/enrollment-demo-summary.sql > "$sql"
+    src/main/resources/db/seed/enrollment-demo-representatives.sql > "$sql"
+if [[ "$SEED_ASSETS" == none ]]; then
+    cat src/main/resources/db/seed/enrollment-demo-no-attachments.sql >> "$sql"
+fi
+cat src/main/resources/db/seed/enrollment-demo-summary.sql >> "$sql"
 printf '\nCOMMIT;\n' >> "$sql"
 args=(-X -v ON_ERROR_STOP=1
     -v "seed_institution=$SEED_INSTITUTION" -v "seed_year=$SEED_YEAR"
@@ -68,6 +72,9 @@ copy_asset='set -eu
 for asset_name in dni-muestra.pdf dni-observado-muestra.pdf certificado-aptitud-fisica-muestra.pdf partida-nacimiento-muestra.pdf; do
     asset="$asset_dir/$asset_name"
     key="$asset_prefix/$asset_name"
+    if [[ "$SEED_ASSETS" == none ]]; then
+        continue
+    fi
     if [[ "$SEED_ASSETS" == external ]]; then
         echo "Adjunto externo, debe existir en el bucket: $key"
         continue
