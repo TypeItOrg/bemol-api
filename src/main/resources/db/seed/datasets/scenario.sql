@@ -9,9 +9,9 @@ CREATE TEMP TABLE seed_settings (
     group_capacity integer NOT NULL CHECK (group_capacity > 0),
     group_teachers integer[] NOT NULL CHECK (cardinality(group_teachers) > 0)
 ) ON COMMIT DROP;
--- Public password for new demo users: BemolDemo2026! Existing passwords are never reset on reruns.
+-- Public password for new demo users: demo. Existing passwords are never reset on reruns.
 INSERT INTO seed_settings VALUES (
-    '$2b$12$DZAvKR0GDDcAMSfi37vTzOUh.Z0dqsXkZm5MollLzfZnKN9yVZnSi', 'example.test',
+    '$2b$12$Bc1wMuxzb7hooU.s.f0lW.xWWzaiyI1jGuO8lye2cTg1NBGWS.iR6', 'gmail.com',
     '2025', DATE '2025-01-01', 1,
     ARRAY['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY'], TIME '14:00', 60, 7, 20, ARRAY[5, 6]
 );
@@ -74,13 +74,13 @@ INSERT INTO seed_custom_roles VALUES ('DEMO_ADMINISTRATIVE', 'Administración CA
 
 CREATE TEMP TABLE seed_instruments (
     name text PRIMARY KEY, offered boolean NOT NULL,
-    teacher_number integer REFERENCES seed_members,
+    teacher_number integer REFERENCES seed_members, icon text NOT NULL,
     CHECK (NOT offered OR teacher_number IS NOT NULL)
 ) ON COMMIT DROP;
 INSERT INTO seed_instruments VALUES
-    ('Guitarra', true, 6), ('Piano', true, 5), ('Violín', false, NULL),
-    ('Violoncello', false, NULL), ('Saxofón', false, NULL), ('Clarinete', false, NULL),
-    ('Flauta traversa', false, NULL), ('Trompeta', false, NULL), ('Percusión', false, NULL);
+    ('Guitarra', true, 6, 'GUITAR'), ('Piano', true, 5, 'PIANO'), ('Violín', false, NULL, 'VIOLIN'),
+    ('Violoncello', false, NULL, 'CELLO'), ('Saxofón', false, NULL, 'SAXOPHONE'), ('Clarinete', false, NULL, 'CLARINET'),
+    ('Flauta traversa', false, NULL, 'FLUTE'), ('Trompeta', false, NULL, 'TRUMPET'), ('Percusión', false, NULL, 'PERCUSSION');
 
 CREATE TEMP TABLE seed_instrument_groups (
     group_code text, instrument text REFERENCES seed_instruments,

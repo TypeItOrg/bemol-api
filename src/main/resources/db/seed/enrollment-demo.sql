@@ -130,12 +130,12 @@ BEGIN
     SELECT academic_year_id INTO STRICT cycle FROM academic_years
     WHERE institution_id = tenant AND year = cycle_year AND deleted_at IS NULL;
 
-    FOR catalog_name IN SELECT name FROM seed_instruments ORDER BY name LOOP
-        INSERT INTO instruments (instrument_id, institution_id, name, active, created_at, updated_at)
-        SELECT pg_temp.academic_id('instrument:' || catalog_name), tenant, catalog_name, true, now(), now()
-        WHERE NOT EXISTS (SELECT 1 FROM instruments WHERE institution_id = tenant AND deleted_at IS NULL
-                          AND lower(name) = lower(catalog_name));
-    END LOOP;
+    INSERT INTO instruments (instrument_id, institution_id, name, icon, active, created_at, updated_at)
+    SELECT pg_temp.academic_id('instrument:' || d.name), tenant, d.name, d.icon, true, now(), now()
+    FROM seed_instruments d
+    WHERE NOT EXISTS (SELECT 1 FROM instruments WHERE institution_id = tenant AND deleted_at IS NULL
+                      AND lower(name) = lower(d.name))
+    ORDER BY d.name;
     IF EXISTS (SELECT 1 FROM seed_instruments d JOIN instruments i ON lower(i.name) = lower(d.name)
                WHERE i.institution_id = tenant AND i.deleted_at IS NULL AND NOT i.active) THEN
         RAISE EXCEPTION 'Un instrumento del dataset está inactivo; no se modifica ni se omite silenciosamente.';

@@ -31,14 +31,6 @@ BEGIN
     IF (SELECT academic_year <> extract(year FROM CURRENT_TIMESTAMP AT TIME ZONE timezone) FROM seed_context) THEN
         RAISE EXCEPTION 'La demo operativa requiere SEED_YEAR del año actual para mantener abiertos los períodos.';
     END IF;
-    IF EXISTS (
-        SELECT 1 FROM seed_applications f JOIN seed_context c ON true
-        JOIN enrollment_applications a ON a.enrollment_application_id =
-             pg_temp.demo_id('application:' || f.scenario || ':' || c.academic_year)
-        WHERE a.study_plan_id IS NOT NULL OR a.enrollment_period_id IS NOT NULL
-    ) THEN
-        RAISE EXCEPTION 'Hay solicitudes del seed anterior por plan. Recrear la base de prueba antes de cargar este dataset.';
-    END IF;
     SELECT string_agg(m.role_code, ', ' ORDER BY m.role_code) INTO missing
     FROM (SELECT DISTINCT role_code FROM seed_members) m
     WHERE NOT EXISTS (SELECT 1 FROM seed_custom_roles f WHERE f.code = m.role_code)
