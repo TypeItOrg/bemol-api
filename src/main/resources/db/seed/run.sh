@@ -13,7 +13,7 @@ seed_dataset=bemol-2025
 SEED_TIMEZONE=${SEED_TIMEZONE:-America/Argentina/Cordoba}
 SEED_TRANSPORT=${SEED_TRANSPORT:-compose}
 # local copies the PDFs to local storage, external expects them already uploaded to S3/R2,
-# none loads the seed without any attachment.
+# none creates no document requirements nor attachments for the demo applications.
 SEED_ASSETS=${SEED_ASSETS:-local}
 if [[ "$SEED_ASSETS" != local && "$SEED_ASSETS" != external && "$SEED_ASSETS" != none ]]; then
     echo 'SEED_ASSETS debe ser local, external o none.' >&2; exit 2
@@ -37,16 +37,14 @@ cat src/main/resources/db/seed/enrollment-demo-context.sql \
     src/main/resources/db/seed/enrollment-demo-validate.sql \
     src/main/resources/db/seed/enrollment-demo.sql \
     src/main/resources/db/seed/enrollment-demo-dependents.sql \
-    src/main/resources/db/seed/enrollment-demo-representatives.sql > "$sql"
-if [[ "$SEED_ASSETS" == none ]]; then
-    cat src/main/resources/db/seed/enrollment-demo-no-attachments.sql >> "$sql"
-fi
-cat src/main/resources/db/seed/enrollment-demo-summary.sql >> "$sql"
+    src/main/resources/db/seed/enrollment-demo-representatives.sql \
+    src/main/resources/db/seed/enrollment-demo-summary.sql > "$sql"
 printf '\nCOMMIT;\n' >> "$sql"
 args=(-X -v ON_ERROR_STOP=1
     -v "seed_institution=$SEED_INSTITUTION" -v "seed_year=$SEED_YEAR"
     -v "seed_dataset=$seed_dataset" -v "seed_reference_date=${SEED_REFERENCE_DATE:-}"
     -v "seed_timezone=$SEED_TIMEZONE"
+    -v "seed_with_documents=$([[ "$SEED_ASSETS" == none ]] && echo false || echo true)"
     -v "seed_asset_prefix=$asset_prefix"
     -v "seed_dni_size=$(wc -c < "$asset_dir/dni-muestra.pdf")"
     -v "seed_old_dni_size=$(wc -c < "$asset_dir/dni-observado-muestra.pdf")"

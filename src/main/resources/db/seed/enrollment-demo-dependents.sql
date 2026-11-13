@@ -5,8 +5,8 @@ INSERT INTO seed_assets VALUES
     ('dni-observado-muestra.pdf', :'seed_old_dni_size'::bigint),
     ('certificado-aptitud-fisica-muestra.pdf', :'seed_health_size'::bigint),
     ('partida-nacimiento-muestra.pdf', :'seed_guardian_size'::bigint);
-CREATE TEMP TABLE seed_asset_context (prefix text NOT NULL) ON COMMIT DROP;
-INSERT INTO seed_asset_context VALUES (:'seed_asset_prefix');
+CREATE TEMP TABLE seed_asset_context (prefix text NOT NULL, with_documents boolean NOT NULL) ON COMMIT DROP;
+INSERT INTO seed_asset_context VALUES (:'seed_asset_prefix', :seed_with_documents);
 
 CREATE TEMP TABLE seed_scenario_courses ON COMMIT DROP AS
 SELECT fixture.member_number, sp.display_order AS selection_order, c.*, cc.course_class_id, cd.day_of_week, cd.capacity,
@@ -80,7 +80,7 @@ BEGIN
                 CASE WHEN fixture.status = 'ACTIVE' THEN pg_temp.demo_id('person:' || fixture.reviewer_number) END,
                 CASE WHEN fixture.status = 'ACTIVE' THEN occurred END, occurred, occurred)
         ON CONFLICT (person_guardian_id) DO NOTHING;
-        IF fixture.status = 'PENDING' THEN
+        IF fixture.status = 'PENDING' AND (SELECT with_documents FROM seed_asset_context) THEN
             INSERT INTO person_guardian_attachments (person_guardian_attachment_id, institution_id, person_guardian_id,
                     original_file_name, storage_path, content_type, file_size, created_at, updated_at)
             SELECT pg_temp.demo_id('guardian-attachment:' || fixture.member_number), tenant,
@@ -138,7 +138,8 @@ BEGIN
                 preferred_shift, allows_image_use, is_reenrolling, created_at, updated_at)
         VALUES (pg_temp.demo_id('preference:' || application), application, 'Tarde', false, false, occurred, occurred);
 
-        FOR doc IN SELECT * FROM seed_documents ORDER BY position LOOP
+        -- Without documents, applications carry no requirements, so the delivery gate has nothing to demand.
+        FOR doc IN SELECT * FROM seed_documents WHERE (SELECT with_documents FROM seed_asset_context) ORDER BY position LOOP
             requirement := pg_temp.demo_id('requirement:' || application || ':' || doc.code);
             INSERT INTO enrollment_document_requirements (id, institution_id, application_id, source_requirement_id,
                     document_id, name, instructions, level, allowed_formats, display_order, definition_revision, assignment_revision)
