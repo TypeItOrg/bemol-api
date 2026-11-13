@@ -143,10 +143,8 @@ los objetos del mismo punto temporal; los PENDING volverán a ejecutarse.
 
 ## Despliegue y aceptación pendiente
 
-La migración `20260922135824__secure_enrollment_documents.sql` crea auditoría y
-journal. Desplegar la API antes de la UI:
-la UI usa `canReadAttachments` y, si falta, oculta documentos. Ejecutar la migración
-solo mediante el procedimiento habitual de Flyway del entorno aprobado.
+El esquema inicial crea la auditoría y el journal documental. Desplegar la API antes de la UI:
+la UI usa `canReadAttachments` y, si falta, oculta documentos.
 
 Además de la aceptación documentada en ENROLLMENT-DOCUMENTS.md, verificar:
 

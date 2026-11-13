@@ -90,10 +90,7 @@ La respuesta de solicitud incorpora `documents`, `canApproveProvisionally`,
 
 ## Migraciones y aceptación
 
-Migraciones generadas con `make migration`:
-
-- `20260922152727__configurable_enrollment_documents.sql`.
-- `20260922154916__enforce_document_delivery_integrity.sql`.
+El esquema documental forma parte de la migración inicial consolidada `20261112013021__initial_schema.sql`.
 
 ### Verificación estática
 

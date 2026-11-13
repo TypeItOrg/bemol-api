@@ -100,11 +100,11 @@ src/main/resources/db/migration/yyyyMMddHHmmss__add_enrollment_cancellation_reas
 - **Compatibilidad**: Comprobar instalación desde cero y actualización desde el historial previo. Una migración tardía debe funcionar sobre el esquema existente; la opción no resuelve dependencias SQL ni preserva automáticamente datos eliminados. En ambientes persistentes, respaldar y verificar la recuperación antes de cambios destructivos. El rollback de imagen no revierte migraciones.
 - **Edición segura en desarrollo**: Al crear una migración, editar el archivo generado antes de que el watcher aplique el archivo vacío. Si se necesita corregir un archivo en desarrollo descartable, usar el procedimiento de recreación limpia; nunca usar `Flyway repair` ni saltear validaciones.
 
-### Formularios de inscripción: historial vacío preservado
+### Esquema inicial consolidado
 
-La migración `20261106201322__create_enrollment_form_versions.sql` fue registrada vacía por el watcher local y se conserva vacía, con checksum `0`. El esquema está en `20261107005229__create_enrollment_form_versions_schema.sql`. No ejecutar `repair` ni borrar el historial: la migración posterior crea las tablas y agrega las columnas sin eliminar datos existentes.
+El historial previo de migraciones se consolidó antes del primer despliegue productivo. `db/migration` empieza con `20261112013021__initial_schema.sql`, que crea el esquema completo y el catálogo de permisos; `db/dev` contiene `20261112013022__seed_development_data.sql`, con la geografía y la institución de desarrollo. Cualquier base creada con el historial anterior (local o staging) debe recrearse: Flyway no puede validarla contra este esquema.
 
-Antes de generar nuevas migraciones, detener la API que consume Flyway y mantenerla detenida hasta completar el archivo. Luego sincronizar el contenido completo y levantarla nuevamente. La regresión PostgreSQL cubre instalación nueva, actualización desde el historial previo y actualización con la migración vacía ya aplicada.
+Antes de generar nuevas migraciones, detener la API que consume Flyway y mantenerla detenida hasta completar el archivo. Luego sincronizar el contenido completo y levantarla nuevamente.
 
 ## 6. Comandos Habituales y Verificación
 
@@ -148,19 +148,10 @@ El archivo [`Makefile`](../Makefile) centraliza los atajos más frecuentes de Do
 | `make test` | Ejecuta la suite de pruebas mediante Gradle. |
 | `make seed-demo` | Carga el dataset demo de inscripciones en la base de datos. |
 
-### Migraciones con watch y retiro del slug institucional
+### Migraciones con watch
 
 Antes de generar una migración, detener la API y el watcher de Compose: `make migration`
 crea primero un archivo vacío que el entorno en watch podría aplicar antes de editarlo.
-
-El retiro de `Institution.slug` se implementa en
-`20261024032009__drop_retired_institution_slug.sql`. El archivo
-`20261024031419__remove_institution_slug.sql` debe permanecer vacío: ya se registró
-así en un entorno local con checksum 0. No usar `repair` ni reescribir ese registro.
-La migración elimina los slugs actuales y reconstruye la búsqueda por nombre;
-conserva la columna histórica en `institutions_aud`. Respaldar la base antes de
-aplicarla; revertir el código anterior requiere restaurar los slugs y su esquema
-desde ese respaldo, no alcanza con volver al binario anterior.
 
 ### Períodos de inscripción del dataset
 

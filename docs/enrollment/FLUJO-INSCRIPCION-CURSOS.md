@@ -2,8 +2,6 @@
 
 Las solicitudes nuevas se inician por trayecto y se vinculan automáticamente al único ciclo lectivo activo de la institución, siempre que exista oferta abierta del trayecto para ese ciclo. El ciclo permanece fijo al retomar o cancelar la solicitud; los cursos seleccionados deben pertenecer a él. Cada hija conserva su propio período de inscripción: no se exige un único período para toda la solicitud. Los borradores se recuperan por institución, persona, trayecto y ciclo, sin impedir nuevas solicitudes de otros cursos después del envío.
 
-La migración `20261011033241__bind_enrollment_application_academic_year.sql` recupera ciclos históricos solo cuando los cursos y períodos registrados identifican uno inequívocamente. Los registros antiguos sin contexto suficiente siguen siendo consultables; las solicitudes nuevas no pueden crearse sin ciclo.
-
 Los listados institucional, de plataforma y del solicitante aceptan `pendingCourses=true` (cursos pendientes) o `pendingCourses=false` (cursos resueltos), combinable con el estado de admisión y aplicado antes de paginar. La respuesta incluye `pendingCourses`: solo se calcula para solicitudes admitidas provisoria o definitivamente con al menos una hija. `PENDING` y `WAITLISTED` cuentan como pendientes; `ENROLLED`, `REJECTED` y `CANCELLED` están resueltas. En solicitudes no admitidas o sin hijas, el campo es `null` y no coincide con ninguno de esos filtros. Resolver todos los cursos no implica que todos hayan sido aceptados ni reemplaza la aprobación documental.
 
  El postulante o estudiante selecciona cursos concretos, incluidos cursos sin instrumento y sin nivel. Puede elegir varios cursos del mismo espacio académico. El instrumento pertenece al curso ofrecido: un curso instrumental requiere instrumento; uno no instrumental no lo admite.
@@ -48,7 +46,7 @@ Los controladores y payloads Java son la referencia del contrato HTTP; no se man
 
 Las mutaciones de inscripción toman primero un bloqueo de la institución, dentro de la misma transacción. Aceptar, cancelar, rechazar, crear cursos, cerrar y reemplazar clases usan ese orden. Esto serializa incorporaciones concurrentes de una institución; favorece consistencia frente a paralelismo dentro del mismo establecimiento.
 
-`20260920021420__harden_course_enrollment_integrity.sql` incorpora la relación directa entre cursada e hija, unicidad, claves foráneas compuestas y validaciones de contexto/capacidad en PostgreSQL. Completa los períodos precalculados de horarios existentes, cancela hijas pendientes de principales canceladas y regulariza cursadas que quedaron activas en cursos cerrados. Conserva el historial y detiene la migración ante datos incompatibles con las restricciones; no borra esos registros silenciosamente.
+El esquema define la relación directa entre cursada e hija, unicidad, claves foráneas compuestas y validaciones de contexto/capacidad en PostgreSQL.
 
 No se reemplazan clases que ya tienen cursadas, incluidas históricas. En cursos todavía sin cursadas, se eliminan primero los períodos y luego se reconstruyen clases y horarios.
 
@@ -79,4 +77,3 @@ La generación de períodos individuales usa la duración exacta del horario, si
 
 Las acciones de rechazo, baja y resultado académico validan el tipo del motivo. El formulario de espacios envía siempre un valor explícito para la condición instrumental. El alta manual conserva la URL de origen, incluidos filtros y paginación, y valida el destino tanto al abrir el formulario como al completar la acción en el servidor.
 
-La migración `20260920032504__validate_individual_slot_boundaries.sql` permanece vacía porque el observador de desarrollo la aplicó antes de que se completara su contenido. La validación está en `20260920033712__enforce_individual_slot_boundaries.sql`; se conserva el historial original sin ejecutar Flyway repair.

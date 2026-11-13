@@ -50,7 +50,7 @@ El loader requiere almacenamiento local; no carga los archivos en S3.
 
 ## Cuentas de demostración
 
-La contraseña pública para cuentas nuevas es **BemolDemo2026!**. Las cuentas
+La contraseña pública para cuentas nuevas es **demo**. Las cuentas
 existentes conservan su contraseña y documento; la tabla corresponde a personas nuevas.
 El administrador de plataforma se crea por
 el bootstrap configurado de la API, no por este dataset.
