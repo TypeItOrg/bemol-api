@@ -1,0 +1,17 @@
+name: Promote production
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+  workflow_dispatch:
+
+jobs:
+  deploy-production:
+    permissions:
+      contents: read
+      packages: write
+    uses: TypeItOrg/bemol-infra/.github/workflows/deploy.yaml@main
+    with:
+      environment: production
+    secrets: inherit
