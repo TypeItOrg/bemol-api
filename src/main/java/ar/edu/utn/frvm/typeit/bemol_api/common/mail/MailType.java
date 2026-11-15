@@ -10,7 +10,8 @@ public enum MailType {
   EMAIL_VERIFICATION("Verificación de correo"),
   PASSWORD_CHANGE("Cambio de contraseña"),
   PASSWORD_RECOVERY("Recuperación de contraseña"),
-  PERSON_ACCESS_INVITATION("Invitación de acceso propio");
+  PERSON_ACCESS_INVITATION("Invitación de acceso propio"),
+  PASSKEY_REGISTERED("Registro de llave de acceso");
 
   private final String label;
 }

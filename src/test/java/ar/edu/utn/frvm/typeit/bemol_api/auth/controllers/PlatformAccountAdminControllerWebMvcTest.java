@@ -2,9 +2,11 @@ package ar.edu.utn.frvm.typeit.bemol_api.auth.controllers;
 
 import static ar.edu.utn.frvm.typeit.bemol_api.support.AuthTestData.platformPrincipal;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -13,12 +15,14 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import ar.edu.utn.frvm.typeit.bemol_api.auth.payloads.responses.PlatformAccountAdminResponse;
+import ar.edu.utn.frvm.typeit.bemol_api.auth.payloads.responses.PlatformAccountSetupCodeResponse;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.services.CreatePlatformAccountUseCase;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.services.GetPlatformAccountAdminUseCase;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.services.IsPlatformSessionActiveUseCase;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.services.IsSessionActiveUseCase;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.services.JwtService;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.services.ListPlatformAccountsUseCase;
+import ar.edu.utn.frvm.typeit.bemol_api.auth.services.PlatformAccountSetupCodeUseCase;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.services.TokenBlacklistService;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.services.UpdatePlatformAccountStatusUseCase;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.services.UpdatePlatformAccountUseCase;
@@ -28,6 +32,7 @@ import ar.edu.utn.frvm.typeit.bemol_api.authorization.services.AuthorizationServ
 import ar.edu.utn.frvm.typeit.bemol_api.common.exceptions.GlobalExceptionHandler;
 import ar.edu.utn.frvm.typeit.bemol_api.common.web.PaginatedResponse;
 import ar.edu.utn.frvm.typeit.bemol_api.config.WebConfig;
+import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
@@ -69,6 +74,7 @@ class PlatformAccountAdminControllerWebMvcTest {
   @MockitoBean private CreatePlatformAccountUseCase createPlatformAccountUseCase;
   @MockitoBean private UpdatePlatformAccountUseCase updatePlatformAccountUseCase;
   @MockitoBean private UpdatePlatformAccountStatusUseCase updatePlatformAccountStatusUseCase;
+  @MockitoBean private PlatformAccountSetupCodeUseCase platformAccountSetupCodeUseCase;
 
   @Test
   @DisplayName("Should forbid unauthenticated platform account listing")
@@ -169,6 +175,40 @@ class PlatformAccountAdminControllerWebMvcTest {
 
     verify(updatePlatformAccountStatusUseCase)
         .execute(TARGET_ACCOUNT_ID, CURRENT_ACCOUNT_ID, false);
+  }
+
+  @Test
+  @DisplayName("Should issue and cancel passkey setup code for platform administrator")
+  void issueAndCancelPasskeySetupCode_delegateToUseCase() throws Exception {
+    final var authentication = platformAuthentication();
+    final var principal = platformPrincipal(CURRENT_ACCOUNT_ID);
+    final var expiresAt = Instant.parse("2026-11-15T12:15:00Z");
+    allowPlatformAdmin();
+    when(platformAccountSetupCodeUseCase.issue(eq(TARGET_ACCOUNT_ID), any()))
+        .thenReturn(new PlatformAccountSetupCodeResponse("ABCD-EF23", expiresAt, false));
+
+    mockMvc
+        .perform(
+            post("/api/v1/admin/accounts/{id}/passkey-setup-code", TARGET_ACCOUNT_ID)
+                .principal(authentication))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.code").value("ABCD-EF23"))
+        .andExpect(jsonPath("$.recovery").value(false));
+
+    mockMvc
+        .perform(
+            delete("/api/v1/admin/accounts/{id}/passkey-setup-code", TARGET_ACCOUNT_ID)
+                .principal(authentication))
+        .andExpect(status().isNoContent());
+
+    verify(platformAccountSetupCodeUseCase)
+        .issue(
+            eq(TARGET_ACCOUNT_ID),
+            argThat(p -> p.platformAccountId().equals(principal.platformAccountId())));
+    verify(platformAccountSetupCodeUseCase)
+        .cancel(
+            eq(TARGET_ACCOUNT_ID),
+            argThat(p -> p.platformAccountId().equals(principal.platformAccountId())));
   }
 
   private TestingAuthenticationToken platformAuthentication() {

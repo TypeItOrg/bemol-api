@@ -5,9 +5,11 @@ import ar.edu.utn.frvm.typeit.bemol_api.auth.payloads.requests.CreatePlatformAcc
 import ar.edu.utn.frvm.typeit.bemol_api.auth.payloads.requests.UpdatePlatformAccountRequest;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.payloads.requests.UpdatePlatformAccountStatusRequest;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.payloads.responses.PlatformAccountAdminResponse;
+import ar.edu.utn.frvm.typeit.bemol_api.auth.payloads.responses.PlatformAccountSetupCodeResponse;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.services.CreatePlatformAccountUseCase;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.services.GetPlatformAccountAdminUseCase;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.services.ListPlatformAccountsUseCase;
+import ar.edu.utn.frvm.typeit.bemol_api.auth.services.PlatformAccountSetupCodeUseCase;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.services.UpdatePlatformAccountStatusUseCase;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.services.UpdatePlatformAccountUseCase;
 import ar.edu.utn.frvm.typeit.bemol_api.authorization.RequiresPlatformRole;
@@ -24,6 +26,7 @@ import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
 import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -46,6 +49,7 @@ public class PlatformAccountAdminController {
   private final CreatePlatformAccountUseCase createPlatformAccountUseCase;
   private final UpdatePlatformAccountUseCase updatePlatformAccountUseCase;
   private final UpdatePlatformAccountStatusUseCase updatePlatformAccountStatusUseCase;
+  private final PlatformAccountSetupCodeUseCase platformAccountSetupCodeUseCase;
 
   @GetMapping(version = Version.V1)
   @RequiresPlatformRole(PlatformRoleCode.PLATFORM_ADMIN)
@@ -87,5 +91,22 @@ public class PlatformAccountAdminController {
     final var principal = CurrentPrincipal.requirePlatformAccount(authentication);
     updatePlatformAccountStatusUseCase.execute(
         id, principal.platformAccountId(), request.enabled());
+  }
+
+  @PostMapping(value = "/{id}/passkey-setup-code", version = Version.V1)
+  @RequiresPlatformRole(PlatformRoleCode.PLATFORM_ADMIN)
+  public PlatformAccountSetupCodeResponse issuePasskeySetupCode(
+      @PathVariable final UUID id, final Authentication authentication) {
+    final var principal = CurrentPrincipal.requirePlatformAccount(authentication);
+    return platformAccountSetupCodeUseCase.issue(id, principal);
+  }
+
+  @DeleteMapping(value = "/{id}/passkey-setup-code", version = Version.V1)
+  @ResponseStatus(HttpStatus.NO_CONTENT)
+  @RequiresPlatformRole(PlatformRoleCode.PLATFORM_ADMIN)
+  public void cancelPasskeySetupCode(
+      @PathVariable final UUID id, final Authentication authentication) {
+    final var principal = CurrentPrincipal.requirePlatformAccount(authentication);
+    platformAccountSetupCodeUseCase.cancel(id, principal);
   }
 }

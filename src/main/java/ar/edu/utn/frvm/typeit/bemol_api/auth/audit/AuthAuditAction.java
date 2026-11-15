@@ -25,10 +25,19 @@ public enum AuthAuditAction implements AuditOperation {
   INSTITUTIONAL_EMAIL_CHANGED(Modules.USERS, "Correo institucional modificado"),
   PASSKEY_CREATED(Modules.SECURITY, "Llave de acceso registrada"),
   PASSKEY_UPDATED(Modules.SECURITY, "Llave de acceso renombrada"),
-  PASSKEY_DELETED(Modules.SECURITY, "Llave de acceso revocada");
+  PASSKEY_DELETED(Modules.SECURITY, "Llave de acceso revocada"),
+  PLATFORM_PASSKEY_SETUP_CODE_ISSUED(
+      Modules.SECURITY, "Código de configuración de llave de acceso emitido"),
+  PLATFORM_PASSKEY_ENROLLMENT_CODE_ISSUED(
+      Modules.SECURITY, "Código de vinculación de dispositivo emitido");
 
   private static final Set<AuthAuditAction> PLATFORM_ONLY =
-      EnumSet.of(PLATFORM_ACCOUNT_CREATED, PLATFORM_ACCOUNT_UPDATED, PLATFORM_ACCESS_CHANGED);
+      EnumSet.of(
+          PLATFORM_ACCOUNT_CREATED,
+          PLATFORM_ACCOUNT_UPDATED,
+          PLATFORM_ACCESS_CHANGED,
+          PLATFORM_PASSKEY_SETUP_CODE_ISSUED,
+          PLATFORM_PASSKEY_ENROLLMENT_CODE_ISSUED);
 
   private final AuditModuleDefinition module;
   private final String label;

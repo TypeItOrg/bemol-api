@@ -12,6 +12,7 @@ public final class MailMessages {
   public static final String ACCOUNT_EMAIL_CHANGE_REQUESTED_SUBJECT =
       "Se solicitó cambiar tu correo";
   public static final String PASSWORD_CHANGED_SUBJECT = "Se modificó tu contraseña";
+  public static final String PASSKEY_REGISTERED_SUBJECT = "Se registró una nueva llave de acceso";
 
   private MailMessages() {}
 }

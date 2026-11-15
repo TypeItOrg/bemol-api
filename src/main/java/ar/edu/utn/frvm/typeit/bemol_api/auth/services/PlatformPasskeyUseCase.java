@@ -12,6 +12,7 @@ import ar.edu.utn.frvm.typeit.bemol_api.auth.payloads.responses.PasskeyRegistrat
 import ar.edu.utn.frvm.typeit.bemol_api.auth.payloads.responses.PlatformAuthResponse;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.services.PlatformPasskeyStateStore.Attempt;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.services.PlatformPasskeyStateStore.Ceremony;
+import ar.edu.utn.frvm.typeit.bemol_api.auth.services.PlatformPasskeyStateStore.CodeKind;
 import jakarta.servlet.http.HttpServletRequest;
 import java.time.Clock;
 import java.util.UUID;
@@ -58,7 +59,7 @@ public class PlatformPasskeyUseCase {
       final String attemptId, final String code, final String label) {
     final var account = accountForAttempt(state.attempt(attemptId), false);
     state.limit(account.getId());
-    final String grant = state.requireSetupGrant(account.getId(), code);
+    final String grant = state.requireGrant(CodeKind.SETUP, account.getId(), code);
     return operations.creationOptions(account, null, attemptId, "setup", grant, label);
   }
 
@@ -72,7 +73,7 @@ public class PlatformPasskeyUseCase {
     requireAccount(ceremony, account);
     final CredentialRecord record = operations.verifyRegistration(ceremony, account, credential);
     state.claimAttempt(attemptId);
-    state.consumeSetupGrant(account.getId(), ceremony.grant());
+    state.consumeGrant(CodeKind.SETUP, account.getId(), ceremony.grant());
 
     final var previous = credentials.findActiveByPlatformAccountId(account.getId());
     for (final var old : previous) {
@@ -87,6 +88,42 @@ public class PlatformPasskeyUseCase {
         "[Auth] Platform passkey setup completed, platformAccountId: {}, recovery: {}",
         account.getId(),
         !previous.isEmpty());
+
+    return sessionIssuer.issue(account, attempt.rememberMe(), request);
+  }
+
+  @Transactional(readOnly = true)
+  public PasskeyRegistrationOptionsResponse enrollmentOptions(
+      final String attemptId, final String code, final String label) {
+    final var account = accountForAttempt(state.attempt(attemptId), false);
+    state.limit(account.getId());
+    operations.requireCapacity(account);
+
+    final String grant = state.requireGrant(CodeKind.ENROLLMENT, account.getId(), code);
+
+    return operations.creationOptions(account, null, attemptId, "enroll", grant, label);
+  }
+
+  @Transactional
+  public PlatformAuthResponse enroll(
+      final String ceremonyId, final JsonNode credential, final HttpServletRequest request) {
+    final var ceremony = state.consumeCeremony(ceremonyId, "enroll");
+    final String attemptId = requireNonNull(ceremony.attemptId());
+    final var attempt = state.attempt(attemptId);
+    final var account = accountForAttempt(attempt, true);
+    requireAccount(ceremony, account);
+    operations.requireCapacity(account);
+
+    final CredentialRecord record = operations.verifyRegistration(ceremony, account, credential);
+    state.claimAttempt(attemptId);
+    state.consumeGrant(CodeKind.ENROLLMENT, account.getId(), ceremony.grant());
+
+    final var saved = operations.saveCredential(account, record, ceremony.label());
+    log.info(
+        "[Auth] Platform passkey enrolled for additional device, platformAccountId: {}, passkeyId: {}",
+        account.getId(),
+        saved.getId());
+
     return sessionIssuer.issue(account, attempt.rememberMe(), request);
   }
 

@@ -54,7 +54,9 @@ class PlatformPasskeyProtocolTest {
                 mock(PlatformPasskeyCredentialMapper.class),
                 codec,
                 mock(PlatformPasskeyStateStore.class),
-                mock(ar.edu.utn.frvm.typeit.bemol_api.audit.services.AuditEventRecorder.class))
+                mock(ar.edu.utn.frvm.typeit.bemol_api.audit.services.AuditEventRecorder.class),
+                mock(ar.edu.utn.frvm.typeit.bemol_api.auth.config.WebAuthnProperties.class),
+                mock(org.springframework.context.ApplicationEventPublisher.class))
             .get();
     final var principal =
         UsernamePasswordAuthenticationToken.authenticated("account", null, List.of());

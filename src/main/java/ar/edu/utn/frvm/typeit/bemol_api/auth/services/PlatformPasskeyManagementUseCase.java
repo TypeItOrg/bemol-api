@@ -5,7 +5,6 @@ import ar.edu.utn.frvm.typeit.bemol_api.auth.config.WebAuthnProperties;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.entities.PlatformAccount;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.entities.PlatformPasskeyCredential;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.exceptions.InvalidLoginAttemptException;
-import ar.edu.utn.frvm.typeit.bemol_api.auth.exceptions.PasskeyLimitExceededException;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.exceptions.PasskeyNotFoundException;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.exceptions.PlatformPasskeyRequiredException;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.filters.JwtAuthenticatedPlatformAccount;
@@ -126,12 +125,13 @@ public class PlatformPasskeyManagementUseCase {
     final var ceremony = state.consumeCeremony(ceremonyId, "registration");
     requireSession(ceremony, principal);
     final var account = account(principal.platformAccountId(), true);
-    if (credentials.countActiveByPlatformAccountId(account.getId()) >= properties.maxPasskeys()) {
-      throw new PasskeyLimitExceededException();
-    }
+    operations.requireCapacity(account);
+
     final var record = operations.verifyRegistration(ceremony, account, credential);
     state.requireRecent(account.getId(), principal.sessionId(), "register", true);
+
     final var saved = operations.saveCredential(account, record, ceremony.label());
+
     return new PasskeyResponse(
         saved.getId(), saved.getLabel(), saved.getCreatedAt(), saved.getLastUsedAt());
   }

@@ -227,6 +227,7 @@ public class PlatformAccountManagementUseCase {
             account.getName() + " " + account.getLastName(),
             kind,
             token,
-            MailAuditContext.forPlatformAccount(account.getId())));
+            MailAuditContext.forPlatformAccount(account.getId()),
+            null));
   }
 }

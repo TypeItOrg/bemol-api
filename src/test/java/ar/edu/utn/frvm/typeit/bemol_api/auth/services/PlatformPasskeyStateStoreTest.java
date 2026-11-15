@@ -50,17 +50,27 @@ class PlatformPasskeyStateStoreTest {
     final String code = "a".repeat(64);
     final String hash = JwtService.hashToken(code);
     when(values.get("bemol:platform:setup:" + accountId)).thenReturn(hash);
-    assertThat(store.requireSetupGrant(accountId, code)).isEqualTo(hash).isNotEqualTo(code);
-    assertThatThrownBy(() -> store.requireSetupGrant(UUID.randomUUID(), code))
+    assertThat(store.requireGrant(PlatformPasskeyStateStore.CodeKind.SETUP, accountId, code))
+        .isEqualTo(hash)
+        .isNotEqualTo(code);
+    assertThatThrownBy(
+            () ->
+                store.requireGrant(
+                    PlatformPasskeyStateStore.CodeKind.SETUP, UUID.randomUUID(), code))
         .isInstanceOf(WebAuthnVerificationFailedException.class);
-    assertThatThrownBy(() -> store.requireSetupGrant(accountId, "b".repeat(64)))
+    assertThatThrownBy(
+            () ->
+                store.requireGrant(
+                    PlatformPasskeyStateStore.CodeKind.SETUP, accountId, "b".repeat(64)))
         .isInstanceOf(WebAuthnVerificationFailedException.class);
   }
 
   @Test
   void expiredOrReplacedSetupGrantCannotBeConsumed() {
     when(redis.execute(ArgumentMatchers.<RedisScript<Long>>any(), anyList(), any())).thenReturn(0L);
-    assertThatThrownBy(() -> store.consumeSetupGrant(accountId, "old-hash"))
+    assertThatThrownBy(
+            () ->
+                store.consumeGrant(PlatformPasskeyStateStore.CodeKind.SETUP, accountId, "old-hash"))
         .isInstanceOf(WebAuthnVerificationFailedException.class);
   }
 
@@ -93,5 +103,54 @@ class PlatformPasskeyStateStoreTest {
             () -> store.requireRecent(accountId, session, "revoke:" + UUID.randomUUID(), true))
         .isInstanceOf(
             ar.edu.utn.frvm.typeit.bemol_api.auth.exceptions.RecentAuthRequiredException.class);
+  }
+
+  @Test
+  void issueSetupAndEnrollmentCodesStoreHashesAndClearFailureCounters() {
+    final var issuedSetup = store.issueCode(PlatformPasskeyStateStore.CodeKind.SETUP, accountId);
+    final var issuedEnroll =
+        store.issueCode(PlatformPasskeyStateStore.CodeKind.ENROLLMENT, accountId);
+
+    verify(values)
+        .set(
+            "bemol:platform:setup:" + accountId,
+            PlatformTemporaryCodes.hashSetupCode(issuedSetup.code()),
+            Duration.ofMinutes(15));
+    verify(values)
+        .set(
+            "bemol:platform:enroll-code:" + accountId,
+            PlatformTemporaryCodes.hashShortCode(issuedEnroll.code()),
+            Duration.ofMinutes(10));
+    verify(redis).delete("bemol:platform:setup:failures:" + accountId);
+    verify(redis).delete("bemol:platform:enroll-code:failures:" + accountId);
+
+    when(values.get("bemol:platform:enroll-code:" + accountId))
+        .thenReturn(PlatformTemporaryCodes.hashShortCode(issuedEnroll.code()));
+    assertThat(
+            store.requireGrant(
+                PlatformPasskeyStateStore.CodeKind.ENROLLMENT,
+                accountId,
+                issuedEnroll.code().replace("-", "").toLowerCase()))
+        .isEqualTo(PlatformTemporaryCodes.hashShortCode(issuedEnroll.code()));
+
+    assertThatThrownBy(
+            () ->
+                store.requireGrant(
+                    PlatformPasskeyStateStore.CodeKind.ENROLLMENT, accountId, "ZZZZ-9999"))
+        .isInstanceOf(WebAuthnVerificationFailedException.class);
+    verify(redis)
+        .execute(
+            ArgumentMatchers.<RedisScript<Long>>any(),
+            eq(
+                List.of(
+                    "bemol:platform:enroll-code:" + accountId,
+                    "bemol:platform:enroll-code:failures:" + accountId)),
+            eq("5"));
+
+    store.clearCode(PlatformPasskeyStateStore.CodeKind.SETUP, accountId);
+    verify(redis)
+        .delete(
+            List.of(
+                "bemol:platform:setup:" + accountId, "bemol:platform:setup:failures:" + accountId));
   }
 }

@@ -23,6 +23,8 @@ public final class PublicRoutes {
     "/api/v1/admin/auth/passkeys/authentication/verify",
     "/api/v1/admin/auth/passkeys/setup/options",
     "/api/v1/admin/auth/passkeys/setup/verify",
+    "/api/v1/admin/auth/passkeys/enrollment/options",
+    "/api/v1/admin/auth/passkeys/enrollment/verify",
     "/api/v1/admin/auth/login",
     "/api/v1/admin/auth/refresh"
   };

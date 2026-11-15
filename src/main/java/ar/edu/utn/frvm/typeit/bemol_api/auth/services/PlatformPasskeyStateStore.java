@@ -6,8 +6,10 @@ import ar.edu.utn.frvm.typeit.bemol_api.auth.exceptions.InvalidLoginAttemptExcep
 import ar.edu.utn.frvm.typeit.bemol_api.auth.exceptions.WebAuthnVerificationFailedException;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
+import java.time.Duration;
 import java.util.List;
 import java.util.UUID;
+import java.util.function.UnaryOperator;
 import lombok.RequiredArgsConstructor;
 import org.jspecify.annotations.Nullable;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -20,14 +22,43 @@ import tools.jackson.databind.ObjectMapper;
 @RequiredArgsConstructor
 public class PlatformPasskeyStateStore {
   private static final String PREFIX = "bemol:platform:";
+  private static final String MAX_CODE_FAILURES = "5";
   private static final DefaultRedisScript<Long> CONSUME =
       new DefaultRedisScript<>(
-          "if redis.call('GET', KEYS[1]) == ARGV[1] then return redis.call('DEL', KEYS[1]) end; return 0",
+          "if redis.call('GET', KEYS[1]) == ARGV[1] then redis.call('DEL', KEYS[1], KEYS[2]); return 1 end; return 0",
           Long.class);
   private static final DefaultRedisScript<Long> LIMIT =
       new DefaultRedisScript<>(
           "local n = redis.call('INCR', KEYS[1]); if n == 1 then redis.call('EXPIRE', KEYS[1], 60) end; return n",
           Long.class);
+  private static final DefaultRedisScript<Long> RECORD_CODE_FAILURE =
+      new DefaultRedisScript<>(
+          "local n = redis.call('INCR', KEYS[2]); local ttl = redis.call('PTTL', KEYS[1]); if ttl > 0 then redis.call('PEXPIRE', KEYS[2], ttl) end; if n >= tonumber(ARGV[1]) then redis.call('DEL', KEYS[1], KEYS[2]) end; return n",
+          Long.class);
+
+  public record IssuedCode(String code, Duration ttl) {}
+
+  @RequiredArgsConstructor
+  public enum CodeKind {
+    SETUP("setup", Duration.ofMinutes(15), PlatformTemporaryCodes::hashSetupCode),
+    ENROLLMENT("enroll-code", Duration.ofMinutes(10), PlatformTemporaryCodes::hashShortCode);
+
+    private final String keyPrefix;
+    private final Duration ttl;
+    private final UnaryOperator<String> hash;
+
+    private String grantKey(final UUID accountId) {
+      return PREFIX + keyPrefix + ":" + accountId;
+    }
+
+    private String failuresKey(final UUID accountId) {
+      return PREFIX + keyPrefix + ":failures:" + accountId;
+    }
+
+    private List<String> keys(final UUID accountId) {
+      return List.of(grantKey(accountId), failuresKey(accountId));
+    }
+  }
 
   private final StringRedisTemplate redis;
   private final ObjectMapper mapper;
@@ -73,20 +104,39 @@ public class PlatformPasskeyStateStore {
     return ceremony;
   }
 
-  public String requireSetupGrant(final UUID accountId, final String code) {
-    final String hash = JwtService.hashToken(code);
-    final String stored = redis.opsForValue().get(PREFIX + "setup:" + accountId);
-    if (stored == null
-        || !MessageDigest.isEqual(
-            stored.getBytes(StandardCharsets.UTF_8), hash.getBytes(StandardCharsets.UTF_8))) {
+  public IssuedCode issueCode(final CodeKind kind, final UUID accountId) {
+    final String code = PlatformTemporaryCodes.generate();
+
+    redis
+        .opsForValue()
+        .set(kind.grantKey(accountId), PlatformTemporaryCodes.hashShortCode(code), kind.ttl);
+    redis.delete(kind.failuresKey(accountId));
+
+    return new IssuedCode(code, kind.ttl);
+  }
+
+  public void clearCode(final CodeKind kind, final UUID accountId) {
+    redis.delete(kind.keys(accountId));
+  }
+
+  public String requireGrant(final CodeKind kind, final UUID accountId, final String code) {
+    final String hash = kind.hash.apply(code);
+    final String stored = redis.opsForValue().get(kind.grantKey(accountId));
+    if (stored == null) {
       throw new WebAuthnVerificationFailedException();
     }
+
+    if (!MessageDigest.isEqual(
+        stored.getBytes(StandardCharsets.UTF_8), hash.getBytes(StandardCharsets.UTF_8))) {
+      redis.execute(RECORD_CODE_FAILURE, kind.keys(accountId), MAX_CODE_FAILURES);
+      throw new WebAuthnVerificationFailedException();
+    }
+
     return hash;
   }
 
-  public void consumeSetupGrant(final UUID accountId, final String expected) {
-    if (!Long.valueOf(1)
-        .equals(redis.execute(CONSUME, List.of(PREFIX + "setup:" + accountId), expected))) {
+  public void consumeGrant(final CodeKind kind, final UUID accountId, final String expected) {
+    if (!Long.valueOf(1).equals(redis.execute(CONSUME, kind.keys(accountId), expected))) {
       throw new WebAuthnVerificationFailedException();
     }
   }

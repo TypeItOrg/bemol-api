@@ -79,6 +79,11 @@ public final class AuthMessages {
       "El nombre de la llave de acceso es requerido.";
   public static final String PASSKEY_LABEL_LENGTH =
       "El nombre debe tener entre 1 y 100 caracteres.";
+  public static final String PASSKEY_CODE_REQUIRED = "El código de acceso es requerido.";
+  public static final String PLATFORM_ACCOUNT_DISABLED_SETUP_CODE =
+      "No podés generar un código de acceso para una cuenta deshabilitada.";
+  public static final String PLATFORM_ACCOUNT_SELF_SETUP_CODE =
+      "No podés generar un código de rescate para tu propia cuenta desde acá. Para vincular otro dispositivo, usá tu configuración de seguridad.";
   public static final String RECENT_AUTH_REQUIRED =
       "Necesitás una autenticación reciente para realizar esta acción.";
   public static final String WEBAUTHN_CEREMONY_INVALID =

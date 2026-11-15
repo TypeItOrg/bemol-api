@@ -7,10 +7,13 @@ import ar.edu.utn.frvm.typeit.bemol_api.audit.services.AuditEventRecorder;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.snapshot.AuditSnapshot;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.audit.AuthAuditAction;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.config.FrontendPublicProperties;
+import ar.edu.utn.frvm.typeit.bemol_api.auth.config.WebAuthnProperties;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.entities.PasskeyCredential;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.entities.PlatformAccount;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.entities.PlatformPasskeyCredential;
+import ar.edu.utn.frvm.typeit.bemol_api.auth.events.PlatformAccountSecurityMessageRequested;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.exceptions.DuplicatePasskeyCredentialException;
+import ar.edu.utn.frvm.typeit.bemol_api.auth.exceptions.PasskeyLimitExceededException;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.exceptions.WebAuthnVerificationFailedException;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.interfaces.PlatformPasskeyCredentialRepository;
 import ar.edu.utn.frvm.typeit.bemol_api.auth.payloads.responses.PasskeyAuthenticationOptionsResponse;
@@ -24,6 +27,7 @@ import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import org.hibernate.exception.ConstraintViolationException;
 import org.jspecify.annotations.Nullable;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.web.webauthn.api.AttestationConveyancePreference;
@@ -51,6 +55,8 @@ public class PlatformWebAuthnOperations {
   private final WebAuthnOptionsCodec codec;
   private final PlatformPasskeyStateStore state;
   private final AuditEventRecorder audit;
+  private final WebAuthnProperties properties;
+  private final ApplicationEventPublisher events;
 
   public Webauthn4JRelyingPartyOperations get() {
     final var rp =
@@ -173,6 +179,12 @@ public class PlatformWebAuthnOperations {
     }
   }
 
+  public void requireCapacity(final PlatformAccount account) {
+    if (credentials.countActiveByPlatformAccountId(account.getId()) >= properties.maxPasskeys()) {
+      throw new PasskeyLimitExceededException();
+    }
+  }
+
   public PlatformPasskeyCredential saveCredential(
       final PlatformAccount account, final CredentialRecord record, final String label) {
     final var credential = mapper.toEntity(account, record, label);
@@ -194,6 +206,9 @@ public class PlatformWebAuthnOperations {
         AuthAuditAction.PASSKEY_CREATED,
         AuditSnapshot.empty(),
         credential.auditSnapshot());
+    events.publishEvent(
+        PlatformAccountSecurityMessageRequested.passkeyRegistered(account, credential.getLabel()));
+
     return credential;
   }
 

@@ -24,6 +24,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.mock.web.MockHttpServletRequest;
+import org.springframework.security.web.webauthn.api.CredentialRecord;
 import tools.jackson.databind.JsonNode;
 
 @ExtendWith(MockitoExtension.class)
@@ -140,5 +141,75 @@ class PlatformPasskeyUseCaseTest {
     assertThatThrownBy(() -> management.register(principal, "ceremony", mock(JsonNode.class)))
         .isInstanceOf(InvalidLoginAttemptException.class);
     verifyNoInteractions(accounts, sessionIssuer, operations);
+  }
+
+  @Test
+  void enrollRegistersAdditionalDeviceWithoutRevokingKeysOrSessions() {
+    final var activeAccount =
+        PlatformAccount.builder()
+            .id(id)
+            .name("Ana")
+            .lastName("López")
+            .email("ana@example.test")
+            .password("new-password-hash")
+            .enabled(true)
+            .build();
+    final var ceremony =
+        new PlatformPasskeyStateStore.Ceremony(
+            id, null, "attempt", "enroll", "", "grant-hash", "Teléfono", "{}");
+    final var request = new MockHttpServletRequest();
+    final var credential = mock(JsonNode.class);
+    final var record = mock(CredentialRecord.class);
+    final var saved =
+        PlatformPasskeyCredential.builder()
+            .id(UUID.randomUUID())
+            .platformAccount(activeAccount)
+            .label("Teléfono")
+            .build();
+    final var response = PlatformAuthResponse.of(activeAccount, "access", "refresh");
+    when(state.consumeCeremony("ceremony", "enroll")).thenReturn(ceremony);
+    when(state.attempt("attempt"))
+        .thenReturn(
+            new PlatformPasskeyStateStore.Attempt(
+                id, JwtService.hashToken(activeAccount.getPassword()), false));
+    when(accounts.findWithLockById(id)).thenReturn(Optional.of(activeAccount));
+    when(operations.verifyRegistration(ceremony, activeAccount, credential)).thenReturn(record);
+    when(operations.saveCredential(activeAccount, record, "Teléfono")).thenReturn(saved);
+    when(sessionIssuer.issue(activeAccount, false, request)).thenReturn(response);
+
+    assertThat(service.enroll("ceremony", credential, request)).isEqualTo(response);
+
+    final var order = inOrder(operations, state, sessionIssuer);
+    order.verify(operations).requireCapacity(activeAccount);
+    order.verify(operations).verifyRegistration(ceremony, activeAccount, credential);
+    order.verify(state).claimAttempt("attempt");
+    order
+        .verify(state)
+        .consumeGrant(PlatformPasskeyStateStore.CodeKind.ENROLLMENT, id, "grant-hash");
+    order.verify(operations).saveCredential(activeAccount, record, "Teléfono");
+    order.verify(sessionIssuer).issue(activeAccount, false, request);
+    verifyNoInteractions(revocation);
+  }
+
+  @Test
+  void enrollmentRejectsWhenMaxPasskeysReached() {
+    final var ceremony =
+        new PlatformPasskeyStateStore.Ceremony(
+            id, null, "attempt", "enroll", "", "grant-hash", "Teléfono", "{}");
+    when(state.consumeCeremony("ceremony", "enroll")).thenReturn(ceremony);
+    when(state.attempt("attempt"))
+        .thenReturn(
+            new PlatformPasskeyStateStore.Attempt(
+                id, JwtService.hashToken(account.getPassword()), false));
+    when(accounts.findWithLockById(id)).thenReturn(Optional.of(account));
+    doThrow(new PasskeyLimitExceededException()).when(operations).requireCapacity(account);
+
+    assertThatThrownBy(
+            () -> service.enroll("ceremony", mock(JsonNode.class), new MockHttpServletRequest()))
+        .isInstanceOf(PasskeyLimitExceededException.class);
+    verify(state, never()).claimAttempt(any());
+    verify(state, never()).consumeGrant(any(), any(), any());
+    verify(operations, never()).verifyRegistration(any(), any(), any());
+    verifyNoInteractions(sessionIssuer);
   }
 }

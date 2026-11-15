@@ -170,6 +170,111 @@ class PlatformPasskeyFlowIntegrationTest extends DatabaseMigrationTestSupport {
     assertThat(activeKeys()).isEqualTo(1);
   }
 
+  @Test
+  void validationMessagesUseFriendlyPasskeyTerminology() throws Exception {
+    final var attempt = password();
+    final String body =
+        mvc.perform(
+                post(BASE + "/passkeys/enrollment/options")
+                    .header("X-Institutional-Host", HOST)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(
+                        json.writeValueAsString(
+                            Map.of(
+                                "loginAttemptId",
+                                attempt.path("loginAttemptId").asString(),
+                                "code",
+                                "",
+                                "label",
+                                "   "))))
+            .andExpect(status().isBadRequest())
+            .andReturn()
+            .getResponse()
+            .getContentAsString();
+    assertThat(body)
+        .contains("El nombre de la llave de acceso es requerido.")
+        .contains("El código de acceso es requerido.")
+        .doesNotContainIgnoringCase("passkey");
+  }
+
+  @Test
+  void additiveEnrollmentKeepsOriginalPasskeyActiveForSubsequentLogins() throws Exception {
+    final var firstKey = new PasskeyAuthenticator();
+    final var firstSession = enroll(firstKey, "f".repeat(64));
+    final var reauthOptions =
+        json.readTree(
+            mvc.perform(
+                    post(BASE + "/passkeys/reauth/options")
+                        .header("X-Institutional-Host", HOST)
+                        .header(
+                            "Authorization",
+                            "Bearer " + firstSession.at("/tokens/accessToken").asString())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(json.writeValueAsString(Map.of("target", "enroll"))))
+                .andExpect(status().isOk())
+                .andReturn()
+                .getResponse()
+                .getContentAsString());
+    mvc.perform(
+            post(BASE + "/passkeys/reauth/verify")
+                .header("X-Institutional-Host", HOST)
+                .header(
+                    "Authorization", "Bearer " + firstSession.at("/tokens/accessToken").asString())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    json.writeValueAsString(
+                        Map.of(
+                            "ceremonyId",
+                            reauthOptions.path("ceremonyId").asString(),
+                            "credential",
+                            firstKey.authenticate(
+                                reauthOptions.path("options"),
+                                ORIGIN,
+                                account.getWebauthnUserHandle(),
+                                true)))))
+        .andExpect(status().isNoContent());
+    final String enrollCode =
+        json.readTree(
+                mvc.perform(
+                        post(BASE + "/passkeys/enrollment-code")
+                            .header("X-Institutional-Host", HOST)
+                            .header(
+                                "Authorization",
+                                "Bearer " + firstSession.at("/tokens/accessToken").asString()))
+                    .andExpect(status().isOk())
+                    .andReturn()
+                    .getResponse()
+                    .getContentAsString())
+            .path("code")
+            .asString();
+    final var attempt = password();
+    final var enrollOptions =
+        request(
+            "/passkeys/enrollment/options",
+            Map.of(
+                "loginAttemptId",
+                attempt.path("loginAttemptId").asString(),
+                "code",
+                enrollCode,
+                "label",
+                "Otro dispositivo"),
+            200);
+    final var secondKey = new PasskeyAuthenticator();
+    final var secondSession =
+        request(
+            "/passkeys/enrollment/verify",
+            Map.of(
+                "ceremonyId",
+                enrollOptions.path("ceremonyId").asString(),
+                "credential",
+                secondKey.register(enrollOptions.path("options"), ORIGIN)),
+            200);
+    assertMe(firstSession, 200);
+    assertMe(secondSession, 200);
+    assertThat(activeKeys()).isEqualTo(2);
+    assertMe(login(firstKey, 200), 200);
+  }
+
   private JsonNode enroll(final PasskeyAuthenticator authenticator, final String code)
       throws Exception {
     final var attempt = password();

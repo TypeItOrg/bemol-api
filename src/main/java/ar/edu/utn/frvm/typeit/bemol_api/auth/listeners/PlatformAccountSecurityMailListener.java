@@ -12,6 +12,7 @@ import ar.edu.utn.frvm.typeit.bemol_api.config.AsyncConfig;
 import java.util.Locale;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.jspecify.annotations.Nullable;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.event.TransactionPhase;
@@ -38,6 +39,7 @@ public class PlatformAccountSecurityMailListener {
             case EMAIL_CHANGE_REQUESTED -> MailMessages.ACCOUNT_EMAIL_CHANGE_REQUESTED_SUBJECT;
             case EMAIL_CHANGED -> MailMessages.ACCOUNT_EMAIL_CHANGED_SUBJECT;
             case PASSWORD_CHANGED -> MailMessages.PASSWORD_CHANGED_SUBJECT;
+            case PASSKEY_REGISTERED -> MailMessages.PASSKEY_REGISTERED_SUBJECT;
           };
       final String description =
           switch (event.kind()) {
@@ -49,6 +51,7 @@ public class PlatformAccountSecurityMailListener {
                 "Se actualizó el correo de tu cuenta de administración de Bemol. Se cerraron las sesiones en todos tus dispositivos.";
             case PASSWORD_CHANGED ->
                 "Se cambió la contraseña de tu cuenta de administración de Bemol. Se cerraron las sesiones en todos tus dispositivos.";
+            case PASSKEY_REGISTERED -> passkeyRegisteredDescription(event.detail());
           };
       final var context = new Context(Locale.forLanguageTag("es"));
       context.setVariable("logoUrl", urls.brandLogoUrl());
@@ -57,25 +60,21 @@ public class PlatformAccountSecurityMailListener {
       context.setVariable("institutionName", "Bemol");
       context.setVariable("messageTitle", subject);
       context.setVariable("messageDescription", description);
-      context.setVariable(
-          "messageFooter",
-          event.kind() == Kind.EMAIL_CONFIRMATION
-              ? "Si no pediste este cambio, no confirmes el enlace."
-              : "Si no reconocés este cambio, contactá al operador de la plataforma.");
+      context.setVariable("messageFooter", messageFooter(event.kind()));
+
       final String token = event.token();
       context.setVariable("confirmation", token != null);
       context.setVariable(
           "verificationUrl",
           token == null ? "" : urls.platformTokenUrl("/account/profile/email/confirm", token));
+
       mail.send(
           new MailMessage(
               properties.from(),
               event.email(),
               subject,
               templates.process("mail/account-email-change", context),
-              event.kind() == Kind.PASSWORD_CHANGED
-                  ? MailType.PASSWORD_CHANGE
-                  : MailType.ACCOUNT_EMAIL_CHANGE,
+              mailType(event.kind()),
               event.auditContext()));
     } catch (final RuntimeException exception) {
       log.warn(
@@ -83,5 +82,33 @@ public class PlatformAccountSecurityMailListener {
           event.platformAccountId(),
           exception.getClass().getSimpleName());
     }
+  }
+
+  private static String passkeyRegisteredDescription(final @Nullable String label) {
+    if (label == null || label.isBlank()) {
+      return "Se registró una nueva llave de acceso en tu cuenta de administración de Bemol.";
+    }
+    return "Se registró la llave de acceso \""
+        + label
+        + "\" en tu cuenta de administración de Bemol.";
+  }
+
+  private static String messageFooter(final Kind kind) {
+    return switch (kind) {
+      case EMAIL_CONFIRMATION -> "Si no pediste este cambio, no confirmes el enlace.";
+      case PASSKEY_REGISTERED ->
+          "Si no reconocés este registro, revocá esa llave de acceso y contactá al operador de la plataforma.";
+      case EMAIL_CHANGE_REQUESTED, EMAIL_CHANGED, PASSWORD_CHANGED ->
+          "Si no reconocés este cambio, contactá al operador de la plataforma.";
+    };
+  }
+
+  private static MailType mailType(final Kind kind) {
+    return switch (kind) {
+      case PASSWORD_CHANGED -> MailType.PASSWORD_CHANGE;
+      case PASSKEY_REGISTERED -> MailType.PASSKEY_REGISTERED;
+      case EMAIL_CONFIRMATION, EMAIL_CHANGE_REQUESTED, EMAIL_CHANGED ->
+          MailType.ACCOUNT_EMAIL_CHANGE;
+    };
   }
 }

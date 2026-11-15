@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
@@ -433,6 +434,310 @@ class PlatformAccountFlowIntegrationTest extends DatabaseMigrationTestSupport {
     assertMe(owner.session(), 200);
   }
 
+  @Test
+  void enrollmentCodeAddsDevicePasskeyWithoutRevokingExistingKeysOrSessionsAndNotifiesByMail()
+      throws Exception {
+    final var owner = actor();
+
+    final var codeResponse = issueEnrollmentCode(owner);
+    final String code = codeResponse.path("code").asString();
+    assertThat(code).matches("[A-Z2-9]{4}-[A-Z2-9]{4}");
+    assertThat(
+            database.queryForObject(
+                "SELECT count(*) FROM audit_events WHERE entity_id = ? AND action = 'PLATFORM_PASSKEY_ENROLLMENT_CODE_ISSUED'",
+                Long.class,
+                owner.account().getId()))
+        .isEqualTo(1L);
+
+    final var attempt =
+        perform(
+            post(BASE + "/login"),
+            Map.of("email", owner.account().getEmail(), "password", PASSWORD),
+            null,
+            200);
+    assertThat(attempt.path("setupRequired").asBoolean()).isFalse();
+
+    final var options =
+        perform(
+            post(BASE + "/passkeys/enrollment/options"),
+            Map.of(
+                "loginAttemptId",
+                attempt.path("loginAttemptId").asString(),
+                "code",
+                code.replace("-", "").toLowerCase(),
+                "label",
+                "Teléfono personal"),
+            null,
+            200);
+    final var phoneKey = new PasskeyAuthenticator();
+    final var secondDeviceSession =
+        perform(
+            post(BASE + "/passkeys/enrollment/verify"),
+            Map.of(
+                "ceremonyId",
+                options.path("ceremonyId").asString(),
+                "credential",
+                phoneKey.register(options.path("options"), ORIGIN)),
+            null,
+            200);
+
+    assertMe(owner.session(), 200);
+    assertMe(secondDeviceSession, 200);
+    assertThat(activeKeys(owner)).isEqualTo(2);
+
+    final var phoneActor = new Actor(owner.account(), phoneKey, secondDeviceSession);
+    assertMe(login(phoneActor, owner.account().getEmail(), PASSWORD), 200);
+
+    final var enrollmentMail = notification(owner.account().getEmail());
+    assertThat(enrollmentMail.getSubject()).isEqualTo("Se registró una nueva llave de acceso");
+    assertThat(enrollmentMail.getContent().toString())
+        .contains("Teléfono personal")
+        .contains("llave de acceso")
+        .doesNotContainIgnoringCase("passkey");
+  }
+
+  @Test
+  void enrollmentCodeSupportsCancellationAndBurnsAfterFiveFailedAttempts() throws Exception {
+    final var cancellingOwner = actor();
+    final var cancelled = issueEnrollmentCode(cancellingOwner);
+    mvc.perform(
+            delete(BASE + "/passkeys/enrollment-code")
+                .header("X-Institutional-Host", HOST)
+                .header("Authorization", "Bearer " + access(cancellingOwner.session())))
+        .andExpect(status().isNoContent());
+
+    final var afterCancelAttempt =
+        perform(
+            post(BASE + "/login"),
+            Map.of("email", cancellingOwner.account().getEmail(), "password", PASSWORD),
+            null,
+            200);
+    perform(
+        post(BASE + "/passkeys/enrollment/options"),
+        Map.of(
+            "loginAttemptId",
+            afterCancelAttempt.path("loginAttemptId").asString(),
+            "code",
+            cancelled.path("code").asString(),
+            "label",
+            "Tablet"),
+        null,
+        401);
+
+    final var burnOwner = actor();
+    issueEnrollmentCode(burnOwner);
+    final var burnAttempt =
+        perform(
+            post(BASE + "/login"),
+            Map.of("email", burnOwner.account().getEmail(), "password", PASSWORD),
+            null,
+            200);
+
+    for (int i = 0; i < 5; i++) {
+      perform(
+          post(BASE + "/passkeys/enrollment/options"),
+          Map.of(
+              "loginAttemptId",
+              burnAttempt.path("loginAttemptId").asString(),
+              "code",
+              "ZZZZ-9999",
+              "label",
+              "Tablet"),
+          null,
+          401);
+    }
+
+    assertThat(redis.hasKey("bemol:platform:enroll-code:" + burnOwner.account().getId())).isFalse();
+  }
+
+  @Test
+  void adminIssuedSetupCodeSupportsOnboardingAndRecovery() throws Exception {
+    final var admin = actor();
+    final String peerEmail = UUID.randomUUID() + "@example.test";
+    final var created =
+        createAccount.execute(
+            new CreatePlatformAccountRequest("Peer", "Admin", peerEmail, PASSWORD, true));
+    final var peerAccount = accounts.findById(created.platformAccountId()).orElseThrow();
+    accountIds.add(peerAccount.getId());
+
+    final var issued = issueSetupCode(admin, peerAccount.getId());
+    final String validCode = issued.path("code").asString();
+    assertThat(validCode).matches("[A-Z2-9]{4}-[A-Z2-9]{4}");
+    assertThat(issued.path("recovery").asBoolean()).isFalse();
+    assertThat(
+            database.queryForObject(
+                "SELECT count(*) FROM audit_events WHERE entity_id = ? AND action = 'PLATFORM_PASSKEY_SETUP_CODE_ISSUED'",
+                Long.class,
+                peerAccount.getId()))
+        .isEqualTo(1L);
+
+    final var peerAttempt =
+        perform(post(BASE + "/login"), Map.of("email", peerEmail, "password", PASSWORD), null, 200);
+    assertThat(peerAttempt.path("setupRequired").asBoolean()).isTrue();
+
+    final var firstKey = new PasskeyAuthenticator();
+    final var setupOptions =
+        perform(
+            post(BASE + "/passkeys/setup/options"),
+            Map.of(
+                "loginAttemptId",
+                peerAttempt.path("loginAttemptId").asString(),
+                "code",
+                validCode.replace("-", "").toLowerCase(),
+                "label",
+                "Notebook Peer"),
+            null,
+            200);
+    final var firstSession =
+        perform(
+            post(BASE + "/passkeys/setup/verify"),
+            Map.of(
+                "ceremonyId",
+                setupOptions.path("ceremonyId").asString(),
+                "credential",
+                firstKey.register(setupOptions.path("options"), ORIGIN)),
+            null,
+            200);
+    assertMe(firstSession, 200);
+
+    final var firstPeerMail = notification(peerEmail);
+    assertThat(firstPeerMail.getSubject()).isEqualTo("Se registró una nueva llave de acceso");
+
+    final var rescueIssued = issueSetupCode(admin, peerAccount.getId());
+    assertThat(rescueIssued.path("recovery").asBoolean()).isTrue();
+
+    final var rescueAttempt =
+        perform(post(BASE + "/login"), Map.of("email", peerEmail, "password", PASSWORD), null, 200);
+    final var replacementKey = new PasskeyAuthenticator();
+    final var rescueOptions =
+        perform(
+            post(BASE + "/passkeys/setup/options"),
+            Map.of(
+                "loginAttemptId",
+                rescueAttempt.path("loginAttemptId").asString(),
+                "code",
+                rescueIssued.path("code").asString(),
+                "label",
+                "Notebook Nueva"),
+            null,
+            200);
+    final var recoveredSession =
+        perform(
+            post(BASE + "/passkeys/setup/verify"),
+            Map.of(
+                "ceremonyId",
+                rescueOptions.path("ceremonyId").asString(),
+                "credential",
+                replacementKey.register(rescueOptions.path("options"), ORIGIN)),
+            null,
+            200);
+
+    assertMe(recoveredSession, 200);
+    assertRevoked(firstSession);
+    assertThat(activeKeys(new Actor(peerAccount, replacementKey, recoveredSession))).isEqualTo(1);
+    notification(peerEmail);
+  }
+
+  @Test
+  void adminIssuedSetupCodeRejectsSelfAndDisabledAndSupportsCancellationAndBurn() throws Exception {
+    final var admin = actor();
+    final String peerEmail = UUID.randomUUID() + "@example.test";
+    final var created =
+        createAccount.execute(
+            new CreatePlatformAccountRequest("Peer", "Admin", peerEmail, PASSWORD, true));
+    final var peerAccount = accounts.findById(created.platformAccountId()).orElseThrow();
+    accountIds.add(peerAccount.getId());
+
+    final String disabledEmail = UUID.randomUUID() + "@example.test";
+    final var disabledCreated =
+        createAccount.execute(
+            new CreatePlatformAccountRequest("Disabled", "Admin", disabledEmail, PASSWORD, false));
+    accountIds.add(disabledCreated.platformAccountId());
+
+    final String selfConflict =
+        mvc.perform(
+                post("/api/v1/admin/accounts/{id}/passkey-setup-code", admin.account().getId())
+                    .header("X-Institutional-Host", HOST)
+                    .header("Authorization", "Bearer " + access(admin.session())))
+            .andExpect(status().isConflict())
+            .andReturn()
+            .getResponse()
+            .getContentAsString();
+    assertThat(selfConflict)
+        .contains("configuración de seguridad")
+        .doesNotContainIgnoringCase("passkey");
+
+    perform(
+        post("/api/v1/admin/accounts/{id}/passkey-setup-code", disabledCreated.platformAccountId()),
+        Map.of(),
+        admin.session(),
+        409);
+
+    final String setupCode = issueSetupCode(admin, peerAccount.getId()).path("code").asString();
+    mvc.perform(
+            delete("/api/v1/admin/accounts/{id}/passkey-setup-code", peerAccount.getId())
+                .header("X-Institutional-Host", HOST)
+                .header("Authorization", "Bearer " + access(admin.session())))
+        .andExpect(status().isNoContent());
+
+    final var peerAttempt =
+        perform(post(BASE + "/login"), Map.of("email", peerEmail, "password", PASSWORD), null, 200);
+    perform(
+        post(BASE + "/passkeys/setup/options"),
+        Map.of(
+            "loginAttemptId",
+            peerAttempt.path("loginAttemptId").asString(),
+            "code",
+            setupCode,
+            "label",
+            "Notebook Peer"),
+        null,
+        401);
+
+    final String burnCode = issueSetupCode(admin, peerAccount.getId()).path("code").asString();
+
+    for (int i = 0; i < 5; i++) {
+      perform(
+          post(BASE + "/passkeys/setup/options"),
+          Map.of(
+              "loginAttemptId",
+              peerAttempt.path("loginAttemptId").asString(),
+              "code",
+              "ZZZZ-9999",
+              "label",
+              "Notebook Peer"),
+          null,
+          401);
+    }
+
+    assertThat(redis.hasKey("bemol:platform:setup:" + peerAccount.getId())).isFalse();
+    perform(
+        post(BASE + "/passkeys/setup/options"),
+        Map.of(
+            "loginAttemptId",
+            peerAttempt.path("loginAttemptId").asString(),
+            "code",
+            burnCode,
+            "label",
+            "Notebook Peer"),
+        null,
+        401);
+  }
+
+  private JsonNode issueEnrollmentCode(final Actor owner) throws Exception {
+    reauthenticate(owner, owner.session(), "enroll");
+    return perform(post(BASE + "/passkeys/enrollment-code"), Map.of(), owner.session(), 200);
+  }
+
+  private JsonNode issueSetupCode(final Actor admin, final UUID targetId) throws Exception {
+    reauthenticate(admin, admin.session(), "setup-code:" + targetId);
+    return perform(
+        post("/api/v1/admin/accounts/{id}/passkey-setup-code", targetId),
+        Map.of(),
+        admin.session(),
+        200);
+  }
+
   private Actor actor() throws Exception {
     final String email = UUID.randomUUID() + "@example.test";
     final var created =
@@ -472,6 +777,12 @@ class PlatformAccountFlowIntegrationTest extends DatabaseMigrationTestSupport {
                 key.register(options.path("options"), ORIGIN)),
             null,
             200);
+    final var mailMessage = notification(email);
+    assertThat(mailMessage.getSubject()).isEqualTo("Se registró una nueva llave de acceso");
+    assertThat(mailMessage.getContent().toString())
+        .contains("Equipo de prueba")
+        .contains("llave de acceso")
+        .doesNotContainIgnoringCase("passkey");
     return new Actor(account, key, session);
   }
 
