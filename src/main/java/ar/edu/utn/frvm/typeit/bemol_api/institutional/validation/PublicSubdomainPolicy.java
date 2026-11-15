@@ -9,7 +9,8 @@ import org.jspecify.annotations.Nullable;
 public final class PublicSubdomainPolicy {
   private static final Pattern DNS_LABEL = Pattern.compile("[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?");
   private static final Set<String> RESERVED =
-      Set.of("www", "api", "admin", "auth", "test", "testing", "qa", "staging", "localhost");
+      Set.of(
+          "www", "api", "admin", "assets", "auth", "test", "testing", "qa", "staging", "localhost");
 
   private PublicSubdomainPolicy() {}
 
