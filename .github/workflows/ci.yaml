@@ -6,11 +6,9 @@ on:
     branches:
       - develop
       - staging
-      - main
   push:
     branches:
       - develop
-      - main
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -110,10 +108,8 @@ jobs:
         if: >-
           matrix.suite == 'integrationTest' && (
             steps.persistence-changes.outputs.required == 'true' ||
-            (github.event_name == 'push' &&
-              (github.ref_name == 'develop' || github.ref_name == 'staging' || github.ref_name == 'main')) ||
-            (github.event_name == 'pull_request' &&
-              (github.base_ref == 'staging' || github.base_ref == 'main')))
+            (github.event_name == 'push' && github.ref_name == 'develop') ||
+            (github.event_name == 'pull_request' && github.base_ref == 'staging'))
         run: ./gradlew --no-daemon --build-cache integrationTest --profile
 
       - name: Upload test and timing reports

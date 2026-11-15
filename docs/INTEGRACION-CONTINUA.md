@@ -6,8 +6,10 @@ Este documento detalla el flujo de integración continua, las puertas de calidad
 
 Las validaciones están en [`.github/workflows/ci.yaml`](../.github/workflows/ci.yaml), visible como **CI**. Se ejecutan ante:
 
-- **Pull Requests** hacia las ramas `develop`, `staging` y `main`.
-- **Pushes** directos a `develop` y `main`.
+- **Pull Requests** hacia las ramas `develop` y `staging`.
+- **Pushes** directos a `develop`.
+
+`main` no ejecuta CI: recibe el mismo SHA ya validado y desplegado en staging, y la imagen de producción se reutiliza sin reconstruirse.
 
 CI no publica imágenes ni recibe credenciales de despliegue. **Deploy staging** sólo se activa por push a `staging`: publica la imagen y solicita el despliegue, sin repetir CI ni consultar ejecuciones anteriores.
 
@@ -24,7 +26,7 @@ git push origin staging
 
 Si staging no tiene commits propios, el rebase conserva el SHA validado de develop. Si genera otro commit, o faltan checks aprobados, GitHub rechaza el push; staging no ejecuta CI como respaldo. No crear cambios exclusivos en staging.
 
-`develop` se ejecuta localmente: CI valida su código, pero no publica imágenes ni despliega un ambiente remoto. `main` también queda sólo con CI. No hay workflow de despliegue productivo.
+`develop` se ejecuta localmente: CI valida su código, pero no publica imágenes ni despliega un ambiente remoto. La promoción a producción avanza `main` hasta el SHA de staging y publica un tag `vX.Y.Z` sobre ese commit; **Promote production** reetiqueta la imagen `sha-<commit>` de staging y despliega, sin repetir CI.
 
 Ambos workflows tienen grupos de concurrencia diferentes y cancelan ejecuciones anteriores de la misma referencia. La imagen usa el SHA recibido por el push a staging, sin hacer checkout del HEAD de otra rama.
 
@@ -34,7 +36,7 @@ Los dos archivos separan validación y despliegue sin duplicar sus validaciones:
 
 ```mermaid
 flowchart TD
-    PR[PR / push develop o main] --> CI[CI: static-analysis y suites paralelas]
+    PR[PR / push develop] --> CI[CI: static-analysis y suites paralelas]
     CI --> G[Checks aprobados para el commit]
     G --> ST[Push del mismo commit a staging]
     ST --> PI[publish-image]
@@ -76,7 +78,7 @@ Garantiza que el comportamiento del sistema y los contratos HTTP e institucional
        ./gradlew --no-daemon --build-cache integrationTest --profile
        ```
      - Si los cambios no afectan persistencia (por ejemplo, documentación o tests unitarios aislados), se omite la ejecución pesada de Testcontainers para acelerar el feedback del PR.
-- **Pushes a `develop` y `main`, y pull requests hacia `staging` o `main` (suite completa)**:
+- **Pushes a `develop` y pull requests hacia `staging` (suite completa)**:
   - Ejecuta ambos grupos obligatoriamente, en runners distintos, sin omisiones ni una segunda ejecución de `test`:
     ```bash
     ./gradlew --no-daemon --build-cache spotlessCheck fastTest --profile
