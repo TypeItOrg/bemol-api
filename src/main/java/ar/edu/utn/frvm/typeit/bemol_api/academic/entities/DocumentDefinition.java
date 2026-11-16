@@ -11,6 +11,7 @@ import ar.edu.utn.frvm.typeit.bemol_api.institutional.entities.Institution;
 import jakarta.persistence.*;
 import java.time.Instant;
 import java.util.*;
+import java.util.stream.Stream;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import org.hibernate.annotations.JdbcTypeCode;
@@ -70,8 +71,18 @@ public class DocumentDefinition implements AuditSubject {
       final boolean active) {
     this.name = name.trim();
     this.instructions = instructions.trim();
-    this.allowedFormats = formats.stream().distinct().sorted().toList();
+    this.allowedFormats = withCompleteImageGroup(formats);
     this.active = active;
+  }
+
+  /** "Imágenes" is one choice: any image format admits every supported image format. */
+  private static List<String> withCompleteImageGroup(final List<String> formats) {
+    final var images = List.of("image/jpeg", "image/png", "image/webp");
+    final boolean anyImage = formats.stream().anyMatch(images::contains);
+    return Stream.concat(formats.stream(), anyImage ? images.stream() : Stream.empty())
+        .distinct()
+        .sorted()
+        .toList();
   }
 
   private AuditSnapshot.Builder auditFields() {

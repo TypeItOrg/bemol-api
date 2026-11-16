@@ -11,6 +11,20 @@ import org.junit.jupiter.api.Test;
 
 class DocumentAuditSnapshotTest {
   @Test
+  void anyImageFormatAdmitsTheWholeImageGroup() {
+    final var document =
+        DocumentDefinition.create(
+            Institution.builder().id(UUID.randomUUID()).name("Conservatorio").build());
+
+    document.update("DNI", "", List.of("image/png", "application/pdf"), true);
+    assertThat(document.getAllowedFormats())
+        .containsExactly("application/pdf", "image/jpeg", "image/png", "image/webp");
+
+    document.update("Analítico", "", List.of("application/pdf"), true);
+    assertThat(document.getAllowedFormats()).containsExactly("application/pdf");
+  }
+
+  @Test
   void comparesPrivateInstructionsWithoutPublishingThemAtEitherLevel() {
     final var institution =
         Institution.builder().id(UUID.randomUUID()).name("Conservatorio").build();

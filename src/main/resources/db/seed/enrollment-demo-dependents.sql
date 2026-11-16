@@ -57,7 +57,7 @@ BEGIN
     FOR doc IN SELECT * FROM seed_documents ORDER BY position LOOP
         INSERT INTO document_definitions (id, institution_id, name, instructions, allowed_formats, active)
         VALUES (pg_temp.demo_id('document:' || doc.code), tenant, doc.name, doc.instructions,
-                '["application/pdf","image/jpeg","image/png"]', true)
+                '["application/pdf","image/jpeg","image/png","image/webp"]', true)
         ON CONFLICT (id) DO NOTHING;
         INSERT INTO training_path_document_requirements (id, institution_id, training_path_id, document_id,
                                                         level, display_order, active)
