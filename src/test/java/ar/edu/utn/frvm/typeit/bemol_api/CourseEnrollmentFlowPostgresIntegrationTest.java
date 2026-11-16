@@ -81,6 +81,9 @@ class CourseEnrollmentFlowPostgresIntegrationTest extends DatabaseMigrationTestS
   @org.springframework.test.context.bean.override.mockito.MockitoSpyBean
   ar.edu.utn.frvm.typeit.bemol_api.common.storage.StorageService storage;
 
+  @org.springframework.test.context.bean.override.mockito.MockitoSpyBean
+  ar.edu.utn.frvm.typeit.bemol_api.auth.services.SessionRevocationService sessionRevocation;
+
   @BeforeEach
   void authenticateManagementOperations() {
     authenticatePlatformAdministrator();
@@ -244,6 +247,17 @@ class CourseEnrollmentFlowPostgresIntegrationTest extends DatabaseMigrationTestS
         .isEqualTo(2);
     authenticatePlatformAdministrator();
     final var enrollment = enroll(f, request);
+    assertThat(
+            jdbcTemplate.queryForObject(
+                "SELECT count(*) FROM person_role_assignments a JOIN roles r ON r.role_id = a.role_id WHERE a.person_id = ? AND r.code = 'STUDENT'",
+                Long.class,
+                request.personId()))
+        .isEqualTo(1);
+    // Becoming a student is a legitimate promotion: the applicant keeps their session.
+    org.mockito.Mockito.verify(sessionRevocation, org.mockito.Mockito.never())
+        .revokeInstitutionalSessionsForPerson(
+            org.mockito.ArgumentMatchers.eq(request.personId()),
+            org.mockito.ArgumentMatchers.any());
     closeYear.execute(
         f.institutionId(), f.yearId(), new AcademicYearStatusRequest(AcademicYearStatus.CLOSED));
     assertThat(auditActions(enrollment.id()))

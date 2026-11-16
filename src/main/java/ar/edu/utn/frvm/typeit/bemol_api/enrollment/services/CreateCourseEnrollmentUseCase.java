@@ -165,7 +165,7 @@ public class CreateCourseEnrollmentUseCase {
     approvals.reevaluateApprovedPendingForCourse(institutionId, course.getId());
 
     if (student.getPerson() != null) {
-      roles.execute(student.getPerson(), SystemRoleCode.STUDENT, true);
+      roles.execute(student.getPerson(), SystemRoleCode.STUDENT, false);
     }
 
     return responses.from(enrollment);
