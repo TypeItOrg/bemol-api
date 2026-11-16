@@ -76,12 +76,12 @@ hacer un backup y ejecutar en el VPS, desde el checkout de la API:
       sh -c 'psql -U "$POSTGRES_USER" -d "$DB_NAME" -v ON_ERROR_STOP=1 --single-transaction') \
       < src/main/resources/db/seed/reset-keep-platform.sql
 
-El SQL vacía todas las tablas salvo el historial de migraciones, los
-permisos, las cuentas de plataforma y sus passkeys. Después iniciar la API para
-que recree roles y el rol del administrador, cargar
-db/dev/20261112013022__seed_development_data.sql, reiniciar la API para
-provisionar los roles de la institución y repetir el seed. Las sesiones abiertas
-se pierden y los adjuntos de R2/S3 quedan sin referencias.
+El SQL vacía todas las tablas salvo el historial de migraciones, los permisos,
+la geografía (países, provincias y ciudades), las instituciones con su logo, las
+cuentas de plataforma y sus passkeys. Después iniciar la API: al arrancar recrea
+los roles, el rol del administrador y los roles de cada institución. Con la API
+lista, repetir el seed. Las sesiones abiertas se pierden y los adjuntos de R2/S3
+quedan sin referencias.
 
 ## Cuentas de demostración
 
