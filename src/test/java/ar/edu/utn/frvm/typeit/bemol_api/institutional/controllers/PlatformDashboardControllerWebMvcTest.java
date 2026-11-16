@@ -96,7 +96,10 @@ class PlatformDashboardControllerWebMvcTest {
         .andExpect(jsonPath("$.summary.usersWithAccess").value(31))
         .andExpect(jsonPath("$.institutionRegistrations[0].year").value(2026))
         .andExpect(jsonPath("$.institutionRegistrations[0].month").value(7))
-        .andExpect(jsonPath("$.recentInstitutions[0].id").value(INSTITUTION_ID.toString()));
+        .andExpect(jsonPath("$.recentInstitutions[0].id").value(INSTITUTION_ID.toString()))
+        .andExpect(
+            jsonPath("$.recentInstitutions[0].logoUrl")
+                .value("/api/v1/institutions/" + INSTITUTION_ID + "/logo?v=1"));
   }
 
   private static PlatformDashboardResponse dashboardResponse() {
@@ -127,6 +130,7 @@ class PlatformDashboardControllerWebMvcTest {
                     .createdAt(
                         java.time.LocalDateTime.of(2026, 7, 10, 12, 0)
                             .toInstant(java.time.ZoneOffset.UTC))
+                    .logoUrl("/api/v1/institutions/" + INSTITUTION_ID + "/logo?v=1")
                     .build()))
         .build();
   }
