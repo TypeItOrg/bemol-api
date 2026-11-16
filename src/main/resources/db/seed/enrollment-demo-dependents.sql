@@ -92,7 +92,9 @@ BEGIN
     END LOOP;
 
     -- Occupy both Piano slots before creating the waiting-list scenario.
-    FOR fixture IN SELECT * FROM seed_applications ORDER BY (courses = 'WAITLISTED'), member_number LOOP
+    -- Without applications the paths keep their requirements, but nobody has a request or courses yet.
+    FOR fixture IN SELECT * FROM seed_applications WHERE (SELECT with_applications FROM seed_context)
+                   ORDER BY (courses = 'WAITLISTED'), member_number LOOP
         tutor := pg_temp.demo_id('person:' || fixture.actor_number);
         applicant := pg_temp.demo_id('person:' || fixture.member_number);
         application := pg_temp.demo_id('application:' || fixture.scenario || ':' || cycle_year);

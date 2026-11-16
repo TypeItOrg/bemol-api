@@ -6,13 +6,13 @@ SELECT pg_advisory_xact_lock(hashtext('bemol:enrollment-demo:v1'));
 CREATE TEMP TABLE seed_context (
     institution_id uuid NOT NULL, dataset text NOT NULL,
     academic_year integer NOT NULL CHECK (academic_year BETWEEN 1 AND 9998),
-    reference_date date NOT NULL, timezone text NOT NULL,
+    reference_date date NOT NULL, timezone text NOT NULL, with_applications boolean NOT NULL,
     CHECK (extract(year FROM reference_date) = academic_year)
 ) ON COMMIT DROP;
 INSERT INTO seed_context
 SELECT institution_id, :'seed_dataset', :'seed_year'::integer,
        coalesce(nullif(:'seed_reference_date', '')::date, make_date(:'seed_year'::integer, 9, 1)),
-       :'seed_timezone'
+       :'seed_timezone', :'seed_with_applications'::boolean
 FROM institutions WHERE institution_id = :'seed_institution'::uuid AND active;
 DO $$
 BEGIN
@@ -25,4 +25,4 @@ BEGIN
 END $$;
 -- Serialize with domain workflows that lock the institution.
 SELECT i.institution_id FROM institutions i JOIN seed_context c USING (institution_id) FOR UPDATE OF i;
-SELECT institution_id, dataset, academic_year, reference_date, timezone FROM seed_context;
+SELECT institution_id, dataset, academic_year, reference_date, timezone, with_applications FROM seed_context;

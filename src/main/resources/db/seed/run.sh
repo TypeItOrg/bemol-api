@@ -18,6 +18,11 @@ SEED_ASSETS=${SEED_ASSETS:-local}
 if [[ "$SEED_ASSETS" != local && "$SEED_ASSETS" != external && "$SEED_ASSETS" != none ]]; then
     echo 'SEED_ASSETS debe ser local, external o none.' >&2; exit 2
 fi
+# all loads every enrollment scenario; none leaves applications, courses and waitlists empty.
+SEED_APPLICATIONS=${SEED_APPLICATIONS:-all}
+if [[ "$SEED_APPLICATIONS" != all && "$SEED_APPLICATIONS" != none ]]; then
+    echo 'SEED_APPLICATIONS debe ser all o none.' >&2; exit 2
+fi
 if [[ ! "$SEED_YEAR" =~ ^[0-9]{1,4}$ ]]; then
     echo 'SEED_YEAR debe ser un año de 1 a 9998.' >&2; exit 2
 fi
@@ -44,6 +49,7 @@ args=(-X -v ON_ERROR_STOP=1
     -v "seed_institution=$SEED_INSTITUTION" -v "seed_year=$SEED_YEAR"
     -v "seed_dataset=$seed_dataset" -v "seed_reference_date=${SEED_REFERENCE_DATE:-}"
     -v "seed_timezone=$SEED_TIMEZONE"
+    -v "seed_with_applications=$([[ "$SEED_APPLICATIONS" == none ]] && echo false || echo true)"
     -v "seed_with_documents=$([[ "$SEED_ASSETS" == none ]] && echo false || echo true)"
     -v "seed_asset_prefix=$asset_prefix"
     -v "seed_dni_size=$(wc -c < "$asset_dir/dni-muestra.pdf")"

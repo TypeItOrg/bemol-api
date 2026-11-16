@@ -56,6 +56,33 @@ conservan todos los casos y la documentación se carga después desde la
 inscripción. Los casos que demuestran revisar, observar o reemplazar un
 documento pierden esa parte.
 
+Con SEED_APPLICATIONS=none se cargan personas, cuentas, oferta, horarios y
+requisitos de documentación, pero ninguna solicitud, cursada ni lista de espera.
+Sirve para una demo que empieza con la bandeja de inscripciones vacía: por
+ejemplo, Mateo envía su solicitud adjuntando el DNI y Nicolás la resuelve. Los
+recorridos y casos de respaldo de este documento requieren el valor por defecto,
+SEED_APPLICATIONS=all. El Certificado de Aptitud Física sigue siendo obligatorio
+para confirmar: sin él, la aprobación queda como admisión provisoria.
+
+## Reinicio conservando la administración de plataforma
+
+Para volver a la carga inicial sin perder la cuenta de plataforma ni sus passkeys,
+hacer un backup y ejecutar en el VPS, desde el checkout de la API:
+
+    (cd /opt/bemol-infra && BEMOL_ENV=production docker compose --env-file .env.production \
+      -f compose.yaml -f compose.production.yaml stop api)
+    (cd /opt/bemol-infra && BEMOL_ENV=production docker compose --env-file .env.production \
+      -f compose.yaml -f compose.production.yaml exec -T postgres \
+      sh -c 'psql -U "$POSTGRES_USER" -d "$DB_NAME" -v ON_ERROR_STOP=1 --single-transaction') \
+      < src/main/resources/db/seed/reset-keep-platform.sql
+
+El SQL vacía todas las tablas salvo el historial de migraciones, los
+permisos, las cuentas de plataforma y sus passkeys. Después iniciar la API para
+que recree roles y el rol del administrador, cargar
+db/dev/20261112013022__seed_development_data.sql, reiniciar la API para
+provisionar los roles de la institución y repetir el seed. Las sesiones abiertas
+se pierden y los adjuntos de R2/S3 quedan sin referencias.
+
 ## Cuentas de demostración
 
 La contraseña pública para cuentas nuevas es **demo**. Las cuentas
