@@ -1,11 +1,11 @@
 CREATE TEMP TABLE seed_programs (code text PRIMARY KEY, name text NOT NULL, levels integer NOT NULL, source_url text NOT NULL, individual_minutes integer NOT NULL DEFAULT 30 CHECK (individual_minutes > 0)) ON COMMIT DROP;
 INSERT INTO seed_programs (code, name, levels, source_url) VALUES
-    ('cavi', 'Ciclo Artístico Vocacional Infantil (CAVI)', 4, 'https://drive.google.com/file/d/1fpi_Iw6xdhQiLUTlX3ve3vFpHj7ck2SV/view'),
-    ('cavb-instrumento', 'Ciclo Artístico Vocacional Básico en Instrumento (CAVB)', 3, 'https://drive.google.com/file/d/1HiTXgLejYh1w2qKY6mQiO0ydnVm9hU3a/view'),
-    ('cavb-canto', 'Ciclo Artístico Vocacional Básico en Canto (CAVB)', 3, 'https://drive.google.com/file/d/1T9RU6Jx6SzgpPSzdIUdr9SMJID8tAAOw/view'),
-    ('cava-instrumento', 'Ciclo Artístico Vocacional Avanzado en Instrumento (CAVA)', 3, 'https://drive.google.com/file/d/13mg8x7tln37Drm-XHDivA42BdhYtt0BE/view'),
-    ('cava-canto', 'Ciclo Artístico Vocacional Avanzado en Canto (CAVA)', 3, 'https://drive.google.com/file/d/1zXgO0ad3gZvCfv9sOHCWAMZstVEyX_3-/view'),
-    ('isfd', 'Profesorado de Música (ISFD)', 4, 'https://drive.google.com/file/d/1v1A8r6oZVr91GTyI8oT9OYd78ctylulB/view');
+    ('cavi', 'Ciclo Artístico Vocacional Infantil', 4, 'https://drive.google.com/file/d/1fpi_Iw6xdhQiLUTlX3ve3vFpHj7ck2SV/view'),
+    ('cavb-instrumento', 'Ciclo Artístico Vocacional Básico en Instrumento', 3, 'https://drive.google.com/file/d/1HiTXgLejYh1w2qKY6mQiO0ydnVm9hU3a/view'),
+    ('cavb-canto', 'Ciclo Artístico Vocacional Básico en Canto', 3, 'https://drive.google.com/file/d/1T9RU6Jx6SzgpPSzdIUdr9SMJID8tAAOw/view'),
+    ('cava-instrumento', 'Ciclo Artístico Vocacional Avanzado en Instrumento', 3, 'https://drive.google.com/file/d/13mg8x7tln37Drm-XHDivA42BdhYtt0BE/view'),
+    ('cava-canto', 'Ciclo Artístico Vocacional Avanzado en Canto', 3, 'https://drive.google.com/file/d/1zXgO0ad3gZvCfv9sOHCWAMZstVEyX_3-/view'),
+    ('isfd', 'Profesorado de Música', 4, 'https://drive.google.com/file/d/1v1A8r6oZVr91GTyI8oT9OYd78ctylulB/view');
 
 -- CAV names repeat by level, as in the forms; the curriculum placement carries the level.
 -- ISFD harmonic guitar/piano rows are one curricular unit with two instrument options.
