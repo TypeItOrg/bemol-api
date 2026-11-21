@@ -10,16 +10,18 @@ import io.swagger.v3.oas.annotations.media.Schema;
       "canManageOwnEnrollmentApplications",
       "canViewOwnFormation",
       "canViewTeaching",
-      "canUpdateTeachingAcademicStatus"
+      "canUpdateTeachingAcademicStatus",
+      "canManageTeachingGrades"
     })
 public record InstitutionalCapabilities(
     boolean canViewOwnEnrollmentApplications,
     boolean canManageOwnEnrollmentApplications,
     boolean canViewOwnFormation,
     boolean canViewTeaching,
-    boolean canUpdateTeachingAcademicStatus) {
+    boolean canUpdateTeachingAcademicStatus,
+    boolean canManageTeachingGrades) {
   public static final InstitutionalCapabilities NONE =
-      new InstitutionalCapabilities(false, false, false, false, false);
+      new InstitutionalCapabilities(false, false, false, false, false, false);
 
   public static InstitutionalCapabilities from(final InstitutionalAuthoritySnapshot authorities) {
     final var roles = authorities.systemRoleCodes();
@@ -37,7 +39,8 @@ public record InstitutionalCapabilities(
         roles.contains(SystemRoleCode.STUDENT)
             && granted(authorities, PermissionCode.OWN_FORMATION_READ),
         canReadTeaching,
-        canReadTeaching && granted(authorities, PermissionCode.TEACHING_ACADEMIC_STATUS_UPDATE));
+        canReadTeaching && granted(authorities, PermissionCode.TEACHING_ACADEMIC_STATUS_UPDATE),
+        canReadTeaching && granted(authorities, PermissionCode.TEACHING_GRADE_MANAGE));
   }
 
   private static boolean granted(

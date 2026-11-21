@@ -48,4 +48,10 @@ public class InstitutionalCapabilitiesService {
       throw new AccessDeniedException(DEFAULT_FORBIDDEN_MESSAGE);
     }
   }
+
+  public void requireTeachingGradeManage(final UUID institutionId, final UUID personId) {
+    if (!resolve(institutionId, personId).canManageTeachingGrades()) {
+      throw new AccessDeniedException(DEFAULT_FORBIDDEN_MESSAGE);
+    }
+  }
 }

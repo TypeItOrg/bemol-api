@@ -5,6 +5,7 @@ import ar.edu.utn.frvm.typeit.bemol_api.audit.definition.AuditOperation;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.definition.AuditOperationsProvider;
 import ar.edu.utn.frvm.typeit.bemol_api.audit.definition.AuditResource;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.entities.CourseEnrollment;
+import ar.edu.utn.frvm.typeit.bemol_api.enrollment.entities.CourseEnrollmentGrade;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.entities.EnrollmentApplication;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.entities.EnrollmentAttachment;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.entities.EnrollmentForm;
@@ -43,6 +44,16 @@ public enum EnrollmentAuditAction implements AuditOperation {
   COURSE_ENROLLMENT_STATUS_CHANGED(Modules.COURSE_ENROLLMENTS, "Estado de cursada modificado"),
   COURSE_ENROLLMENT_ACADEMIC_STATUS_CHANGED(
       Modules.COURSE_ENROLLMENTS, "Situación académica de cursada modificada"),
+  COURSE_ENROLLMENT_GRADE_CREATED(Modules.COURSE_ENROLLMENTS, "Nota creada"),
+  COURSE_ENROLLMENT_GRADE_UPDATED(Modules.COURSE_ENROLLMENTS, "Nota actualizada"),
+  COURSE_ENROLLMENT_GRADE_MARKED_FOR_DELETION(
+      Modules.COURSE_ENROLLMENTS, "Nota marcada para eliminación"),
+  COURSE_ENROLLMENT_GRADE_DELETION_CANCELLED(
+      Modules.COURSE_ENROLLMENTS, "Eliminación de nota cancelada"),
+  COURSE_ENROLLMENT_GRADE_DELETED(Modules.COURSE_ENROLLMENTS, "Nota eliminada"),
+  COURSE_ENROLLMENT_GRADE_PUBLISHED(Modules.COURSE_ENROLLMENTS, "Nota publicada"),
+  COURSE_ENROLLMENT_GRADE_RECONCILED_ON_EXIT(
+      Modules.COURSE_ENROLLMENTS, "Nota conciliada al cerrar cursada"),
   ENROLLMENT_ATTACHMENT_UPLOADED(Modules.DOCUMENTATION, "Adjunto de inscripción cargado"),
   ENROLLMENT_ATTACHMENT_REPLACED(Modules.DOCUMENTATION, "Adjunto de inscripción reemplazado"),
   ENROLLMENT_ATTACHMENT_DELETED(Modules.DOCUMENTATION, "Adjunto de inscripción eliminado"),
@@ -89,6 +100,7 @@ public enum EnrollmentAuditAction implements AuditOperation {
       return List.of(
           EnrollmentPeriod.AUDIT_TYPE,
           CourseEnrollment.AUDIT_TYPE,
+          CourseEnrollmentGrade.AUDIT_TYPE,
           EnrollmentAttachment.AUDIT_TYPE,
           EnrollmentApplication.AUDIT_TYPE,
           EnrollmentForm.AUDIT_TYPE,
