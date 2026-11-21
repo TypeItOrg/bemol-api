@@ -8,8 +8,10 @@ import ar.edu.utn.frvm.typeit.bemol_api.common.web.PaginatedResponse;
 import ar.edu.utn.frvm.typeit.bemol_api.common.web.Version;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.enums.AcademicEnrollmentStatus;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.enums.CourseEnrollmentStatus;
+import ar.edu.utn.frvm.typeit.bemol_api.enrollment.payloads.CourseEnrollmentGradeStudentResponse;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.payloads.CourseEnrollmentResponse;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.payloads.OwnWeeklySchedulesResponse;
+import ar.edu.utn.frvm.typeit.bemol_api.enrollment.services.CourseEnrollmentGradeService;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.services.CourseEnrollmentService;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.services.ListOwnWeeklySchedulesUseCase;
 import ar.edu.utn.frvm.typeit.bemol_api.institutional.payloads.OperatingProfileResponse;
@@ -43,6 +45,7 @@ public class OperatingProfileController {
   private final OperatingContextResolver contexts;
   private final InstitutionalCallerGuard callers;
   private final CourseEnrollmentService courses;
+  private final CourseEnrollmentGradeService grades;
   private final ListOwnWeeklySchedulesUseCase schedules;
   private final SearchService searchService;
 
@@ -81,6 +84,18 @@ public class OperatingProfileController {
       Pageable pageable) {
     contexts.requireStudent(institutionId, selectedPersonId, actor(authentication));
     return courses.listOwn(institutionId, selectedPersonId, status, academicStatus, pageable);
+  }
+
+  @GetMapping(
+      value = "/self-service/{selectedPersonId}/courses/{enrollmentId}/grades",
+      version = Version.V1)
+  public List<CourseEnrollmentGradeStudentResponse> courseGrades(
+      @PathVariable UUID institutionId,
+      @PathVariable UUID selectedPersonId,
+      @PathVariable UUID enrollmentId,
+      Authentication authentication) {
+    contexts.requireStudent(institutionId, selectedPersonId, actor(authentication));
+    return grades.listOwnPublished(institutionId, enrollmentId, selectedPersonId);
   }
 
   @GetMapping(value = "/self-service/{selectedPersonId}/schedules", version = Version.V1)

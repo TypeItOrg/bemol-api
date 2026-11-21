@@ -94,7 +94,7 @@ class EnrollmentAttachmentServiceTest {
         .when(
             capabilities.resolve(
                 org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any()))
-        .thenReturn(new InstitutionalCapabilities(true, true, false, false, false));
+        .thenReturn(new InstitutionalCapabilities(true, true, false, false, false, false));
     final var authorization =
         new EnrollmentDocumentAuthorization(
             authorityResolver,

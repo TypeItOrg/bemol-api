@@ -60,16 +60,31 @@ public enum PermissionCode {
       PermissionScope.INSTITUTION,
       PermissionGroup.ROLES,
       "Eliminar roles"),
-  INSTITUTION_GRADES_ENTER(
-      "institution:grades:enter",
+  COURSE_ENROLLMENT_GRADE_READ(
+      "institution:course-enrollment-grade:read",
       PermissionScope.INSTITUTION,
       PermissionGroup.GRADES,
-      "Cargar calificaciones"),
-  INSTITUTION_GRADES_ENTER_FINAL(
-      "institution:grades:enter-final",
+      "Consultar notas de estudiantes"),
+  COURSE_ENROLLMENT_GRADE_CREATE(
+      "institution:course-enrollment-grade:create",
       PermissionScope.INSTITUTION,
       PermissionGroup.GRADES,
-      "Cargar calificaciones finales"),
+      "Añadir notas de estudiantes"),
+  COURSE_ENROLLMENT_GRADE_UPDATE(
+      "institution:course-enrollment-grade:update",
+      PermissionScope.INSTITUTION,
+      PermissionGroup.GRADES,
+      "Modificar notas de estudiantes"),
+  COURSE_ENROLLMENT_GRADE_DELETE(
+      "institution:course-enrollment-grade:delete",
+      PermissionScope.INSTITUTION,
+      PermissionGroup.GRADES,
+      "Eliminar notas de estudiantes"),
+  COURSE_ENROLLMENT_GRADE_PUBLISH(
+      "institution:course-enrollment-grade:publish",
+      PermissionScope.INSTITUTION,
+      PermissionGroup.GRADES,
+      "Publicar notas de estudiantes"),
   INSTITUTION_READ(
       "institution:read",
       PermissionScope.INSTITUTION,
@@ -400,6 +415,11 @@ public enum PermissionCode {
       PermissionScope.INSTITUTION,
       PermissionGroup.TEACHING,
       "Modificar resultados académicos de mis clases"),
+  TEACHING_GRADE_MANAGE(
+      "institution:teaching:grade-manage",
+      PermissionScope.INSTITUTION,
+      PermissionGroup.TEACHING,
+      "Gestionar y publicar notas de mis clases"),
   GUARDIAN_LINK_REQUEST(
       "institution:guardian-link:request",
       PermissionScope.INSTITUTION,
@@ -504,6 +524,11 @@ public enum PermissionCode {
           COURSE_ENROLLMENT_CREATE,
           COURSE_ENROLLMENT_WITHDRAW,
           COURSE_ENROLLMENT_ACADEMIC_STATUS_UPDATE,
+          COURSE_ENROLLMENT_GRADE_READ,
+          COURSE_ENROLLMENT_GRADE_CREATE,
+          COURSE_ENROLLMENT_GRADE_UPDATE,
+          COURSE_ENROLLMENT_GRADE_DELETE,
+          COURSE_ENROLLMENT_GRADE_PUBLISH,
           ENROLLMENT_APPLICATION_COURSE_READ,
           ENROLLMENT_APPLICATION_COURSE_ENROLL,
           ENROLLMENT_APPLICATION_COURSE_REJECT,
@@ -514,7 +539,7 @@ public enum PermissionCode {
   }
 
   public boolean isConfigurable() {
-    return group != PermissionGroup.GRADES;
+    return true;
   }
 
   public Set<PermissionCode> requiredPermissions() {

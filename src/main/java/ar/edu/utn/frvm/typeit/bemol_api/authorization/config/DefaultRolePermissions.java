@@ -24,7 +24,10 @@ public final class DefaultRolePermissions {
               PermissionCode.OWN_ENROLLMENT_APPLICATION_MANAGE,
               PermissionCode.OWN_FORMATION_READ),
           SystemRoleCode.TEACHER,
-          Set.of(PermissionCode.TEACHING_READ, PermissionCode.TEACHING_ACADEMIC_STATUS_UPDATE),
+          Set.of(
+              PermissionCode.TEACHING_READ,
+              PermissionCode.TEACHING_ACADEMIC_STATUS_UPDATE,
+              PermissionCode.TEACHING_GRADE_MANAGE),
           SystemRoleCode.ADMINISTRATIVE,
           Set.of(
               PermissionCode.DOCUMENT_CATALOG_READ,
@@ -44,6 +47,11 @@ public final class DefaultRolePermissions {
               PermissionCode.COURSE_ENROLLMENT_CREATE,
               PermissionCode.COURSE_ENROLLMENT_WITHDRAW,
               PermissionCode.COURSE_ENROLLMENT_ACADEMIC_STATUS_UPDATE,
+              PermissionCode.COURSE_ENROLLMENT_GRADE_READ,
+              PermissionCode.COURSE_ENROLLMENT_GRADE_CREATE,
+              PermissionCode.COURSE_ENROLLMENT_GRADE_UPDATE,
+              PermissionCode.COURSE_ENROLLMENT_GRADE_DELETE,
+              PermissionCode.COURSE_ENROLLMENT_GRADE_PUBLISH,
               PermissionCode.COURSE_WAITLIST_READ),
           SystemRoleCode.INSTITUTIONAL_AUTHORITY,
           Set.of(
@@ -52,6 +60,7 @@ public final class DefaultRolePermissions {
               PermissionCode.OWN_FORMATION_READ,
               PermissionCode.TEACHING_READ,
               PermissionCode.TEACHING_ACADEMIC_STATUS_UPDATE,
+              PermissionCode.TEACHING_GRADE_MANAGE,
               PermissionCode.GUARDIAN_LINK_REQUEST,
               PermissionCode.DOCUMENT_CATALOG_MANAGE,
               PermissionCode.INSTITUTION_ROLE_ASSIGN,
@@ -122,6 +131,11 @@ public final class DefaultRolePermissions {
               PermissionCode.COURSE_ENROLLMENT_CREATE,
               PermissionCode.COURSE_ENROLLMENT_WITHDRAW,
               PermissionCode.COURSE_ENROLLMENT_ACADEMIC_STATUS_UPDATE,
+              PermissionCode.COURSE_ENROLLMENT_GRADE_READ,
+              PermissionCode.COURSE_ENROLLMENT_GRADE_CREATE,
+              PermissionCode.COURSE_ENROLLMENT_GRADE_UPDATE,
+              PermissionCode.COURSE_ENROLLMENT_GRADE_DELETE,
+              PermissionCode.COURSE_ENROLLMENT_GRADE_PUBLISH,
               PermissionCode.COURSE_WAITLIST_READ));
 
   public static Set<PermissionCode> institutional(final SystemRoleCode role) {

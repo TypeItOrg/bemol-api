@@ -2,6 +2,7 @@ package ar.edu.utn.frvm.typeit.bemol_api.enrollment.services;
 
 import ar.edu.utn.frvm.typeit.bemol_api.academic.exceptions.CourseNotFoundException;
 import ar.edu.utn.frvm.typeit.bemol_api.academic.interfaces.CourseRepository;
+import ar.edu.utn.frvm.typeit.bemol_api.audit.services.AuditActorContext;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.entities.CourseEnrollment;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.entities.CourseEnrollmentHistory;
 import ar.edu.utn.frvm.typeit.bemol_api.enrollment.entities.CourseEnrollmentSchedule;
@@ -32,6 +33,7 @@ public class CourseClosureService {
   private final CourseEnrollmentRepository enrollmentRepository;
   private final CourseEnrollmentScheduleRepository scheduleRepository;
   private final CourseEnrollmentHistoryRepository historyRepository;
+  private final CourseEnrollmentGradeFinalization gradeFinalization;
   private final Clock clock;
   private final CourseEnrollmentAudit audit;
 
@@ -72,6 +74,8 @@ public class CourseClosureService {
                         .toList())
                 .stream()
                 .collect(Collectors.groupingBy(schedule -> schedule.getCourseEnrollment().getId()));
+    final @Nullable UUID resolvedActorPersonId =
+        authorityPersonId != null ? authorityPersonId : AuditActorContext.current().personId();
     final List<CourseEnrollmentHistory> histories = new ArrayList<>();
     for (final CourseEnrollment enrollment : enrollments) {
       final var previousAcademicStatus = enrollment.getAcademicStatus();
@@ -93,9 +97,11 @@ public class CourseClosureService {
               enrollment.getAcademicStatus(),
               "COURSE_FINISHED",
               "El curso fue finalizado.",
-              authorityPersonId,
+              resolvedActorPersonId,
               clock.instant()));
     }
+    gradeFinalization.reconcileOnEnrollmentsExit(
+        course.getInstitution(), enrollments, resolvedActorPersonId);
     historyRepository.saveAll(histories);
     enrollmentRepository.flush();
   }

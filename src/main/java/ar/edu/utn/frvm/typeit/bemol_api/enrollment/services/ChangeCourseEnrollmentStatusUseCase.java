@@ -34,6 +34,7 @@ public class ChangeCourseEnrollmentStatusUseCase {
   private final CourseEnrollmentJournal journal;
   private final CourseEnrollmentAudit audit;
   private final CourseEnrollmentResponseFactory responses;
+  private final CourseEnrollmentGradeFinalization gradeFinalization;
   private final Clock clock;
   private final CourseClassTeacherRepository teachers;
   private final InstitutionalCapabilitiesService capabilities;
@@ -66,6 +67,7 @@ public class ChangeCourseEnrollmentStatusUseCase {
     final var previousAcademicStatus = enrollment.getAcademicStatus();
     enrollment.withdraw(target, clock.instant(), authorityPersonId, request.reason());
     schedules.release(enrollment);
+    gradeFinalization.reconcileOnEnrollmentExit(institution, enrollment, authorityPersonId);
     journal.record(
         institution,
         enrollment,
@@ -130,6 +132,7 @@ public class ChangeCourseEnrollmentStatusUseCase {
     enrollment.recordAcademicResult(request.status(), clock.instant(), request.reason());
     if (previousStatus == CourseEnrollmentStatus.ENROLLED) {
       schedules.release(enrollment);
+      gradeFinalization.reconcileOnEnrollmentExit(institution, enrollment, authorityPersonId);
     }
     journal.record(
         institution,
